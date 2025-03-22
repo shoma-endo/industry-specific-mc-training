@@ -7,11 +7,15 @@ import { TodoInput } from "./components/TodoInput";
 import { TodoItemComponent } from "./components/TodoItem";
 import { addTodo, deleteTodo, deleteAllTodos, getTodos, toggleTodo } from "@/app/actions";
 import { TodoItem } from "@/types/todo";
+import { useLiffContext } from "@/components/LiffProvider";
+import Image from "next/image";
+import { LogOut } from "lucide-react";
 
 export function TodoList() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(true);
+  const { profile, logout } = useLiffContext();
 
   // 初期ロード時にTodoを取得
   useEffect(() => {
@@ -89,7 +93,27 @@ export function TodoList() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="text-center">ToDoリスト</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-center flex-grow">ToDoリスト</CardTitle>
+          <Button variant="ghost" size="icon" onClick={logout} title="ログアウト">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+        {profile && (
+          <div className="flex items-center justify-center gap-2 mt-2">
+            {profile.pictureUrl && (
+              <div className="w-10 h-10 rounded-full overflow-hidden relative">
+                <Image 
+                  src={profile.pictureUrl} 
+                  alt={profile.displayName}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            )}
+            <span className="text-sm font-medium">{profile.displayName}さんのTodo</span>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <TodoInput onAdd={handleAddTodo} disabled={isPending} />

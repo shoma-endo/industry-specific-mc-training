@@ -10,9 +10,13 @@ let todos: TodoItem[] = [];
 export class TodoRepository {
   /**
    * すべてのTodoアイテムを取得
+   * @param userId 特定ユーザーのTodoのみ取得する場合のユーザーID
    */
-  async findAll(): Promise<TodoItem[]> {
-    console.log('findAll', todos);
+  async findAll(userId?: string): Promise<TodoItem[]> {
+    // ユーザーIDが指定されている場合、そのユーザーのTodoのみ返す
+    if (userId) {
+      return todos.filter(todo => todo.userId === userId || !todo.userId);
+    }
     // 実際の実装ではデータベースからのクエリになる
     return todos;
   }
@@ -20,11 +24,13 @@ export class TodoRepository {
   /**
    * 新しいTodoアイテムを作成
    */
-  async create(text: string): Promise<TodoItem> {
+  async create(text: string, userId?: string): Promise<TodoItem> {
     const newTodo: TodoItem = {
       id: Date.now(),
       text,
-      completed: false
+      completed: false,
+      userId,
+      createdAt: Date.now()
     };
     
     todos = [...todos, newTodo];
@@ -33,24 +39,42 @@ export class TodoRepository {
 
   /**
    * Todoアイテムの完了状態を切り替える
+   * @param id TodoのID
+   * @param userId 操作を行うユーザーのID（認可チェック用）
    */
-  async toggleComplete(id: number): Promise<void> {
-    todos = todos.map(todo => 
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    );
+  async toggleComplete(id: number, userId?: string): Promise<void> {
+    todos = todos.map(todo => {
+      // 所有者チェック: ユーザーIDが設定されている場合は、そのユーザーのTodoのみ操作可能
+      if (todo.id === id && (!todo.userId || !userId || todo.userId === userId)) {
+        return { ...todo, completed: !todo.completed };
+      }
+      return todo;
+    });
   }
 
   /**
    * 特定のTodoアイテムを削除
+   * @param id TodoのID
+   * @param userId 操作を行うユーザーのID（認可チェック用）
    */
-  async delete(id: number): Promise<void> {
-    todos = todos.filter(todo => todo.id !== id);
+  async delete(id: number, userId?: string): Promise<void> {
+    // 所有者チェック: ユーザーIDが設定されている場合は、そのユーザーのTodoのみ削除可能
+    todos = todos.filter(todo => 
+      todo.id !== id || (todo.userId && userId && todo.userId !== userId)
+    );
   }
 
   /**
    * すべてのTodoアイテムを削除
+   * @param userId 特定ユーザーのTodoのみ削除する場合のユーザーID
    */
-  async deleteAll(): Promise<void> {
-    todos = [];
+  async deleteAll(userId?: string): Promise<void> {
+    if (userId) {
+      // 特定ユーザーのTodoのみ削除
+      todos = todos.filter(todo => todo.userId !== userId);
+    } else {
+      // すべてのTodoを削除
+      todos = [];
+    }
   }
 } 

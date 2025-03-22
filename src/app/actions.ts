@@ -1,17 +1,25 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { TodoService } from '@/services/todoService';
 import { TodoItem } from '@/types/todo';
 
 // サービスのインスタンスを作成
 const todoService = new TodoService();
 
+// ユーザーIDの取得（本来はLIFFからのIDトークン検証が必要ですが、簡略化しています）
+const getUserId = async () => {
+  const cookieStore = await cookies();
+  return cookieStore.get('userId')?.value;
+};
+
 /**
  * すべてのTodoを取得するサーバーアクション
  */
 export async function getTodos(): Promise<TodoItem[]> {
-  return todoService.getAllTodos();
+  const userId = await getUserId();
+  return todoService.getAllTodos(userId);
 }
 
 /**
@@ -19,7 +27,8 @@ export async function getTodos(): Promise<TodoItem[]> {
  */
 export async function addTodo(text: string): Promise<TodoItem> {
   try {
-    const newTodo = await todoService.createTodo(text);
+    const userId = await getUserId();
+    const newTodo = await todoService.createTodo(text, userId);
     revalidatePath('/');
     return newTodo;
   } catch (error) {
@@ -32,7 +41,8 @@ export async function addTodo(text: string): Promise<TodoItem> {
  * Todoの完了状態を切り替えるサーバーアクション
  */
 export async function toggleTodo(id: number): Promise<void> {
-  await todoService.toggleTodoStatus(id);
+  const userId = await getUserId();
+  await todoService.toggleTodoStatus(id, userId);
   revalidatePath('/');
 }
 
@@ -40,7 +50,8 @@ export async function toggleTodo(id: number): Promise<void> {
  * Todoを削除するサーバーアクション
  */
 export async function deleteTodo(id: number): Promise<void> {
-  await todoService.removeTodo(id);
+  const userId = await getUserId();
+  await todoService.removeTodo(id, userId);
   revalidatePath('/');
 }
 
@@ -48,6 +59,21 @@ export async function deleteTodo(id: number): Promise<void> {
  * すべてのTodoを削除するサーバーアクション
  */
 export async function deleteAllTodos(): Promise<void> {
-  await todoService.clearAllTodos();
+  const userId = await getUserId();
+  await todoService.clearAllTodos(userId);
+  revalidatePath('/');
+}
+
+/**
+ * ユーザーIDをクッキーに保存するサーバーアクション
+ */
+export async function setUserId(userId: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set('userId', userId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * 7, // 1週間
+    path: '/',
+  });
   revalidatePath('/');
 } 

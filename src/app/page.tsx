@@ -1,5 +1,6 @@
 import { TodoList } from "@/components/features/TodoList";
 import { getTodos } from "./actions";
+import { LiffProvider } from "@/components/LiffProvider";
 
 export default async function Home() {
   // サーバーコンポーネントでの初期データ取得
@@ -9,10 +10,12 @@ export default async function Home() {
   
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-8">シンプルなToDoアプリ</h1>
-      <TodoList />
+      <h1 className="text-3xl font-bold mb-8">LINEToDoアプリ</h1>
+      <LiffProvider>
+        <TodoList />
+      </LiffProvider>
       <footer className="mt-8 text-center text-sm text-gray-500">
-        <p>サーバーアクション機能を使用したToDoアプリ</p>
+        <p>LIFF SDKを使用したToDoアプリ</p>
       </footer>
     </div>
   );
