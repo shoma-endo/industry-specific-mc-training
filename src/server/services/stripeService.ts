@@ -9,6 +9,24 @@ export class StripeService {
   }
 
   /**
+   * LineユーザーIDに基づいてStripeカスタマーを新規作成
+   */
+  async createCustomer(userId: string, name: string) {
+    try {
+      // 新規カスタマーを作成
+      const customer = await this.stripe.customers.create({
+        metadata: { userId },
+        name,
+      });
+
+      return customer.id;
+    } catch (error) {
+      console.error('Stripe customer creation failed:', error);
+      throw new Error('顧客情報の作成に失敗しました');
+    }
+  }
+
+  /**
    * サブスクリプション用のチェックアウトセッションを作成
    */
   async createSubscriptionCheckout({

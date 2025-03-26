@@ -54,8 +54,7 @@ export default async function SubscriptionSuccessPage({
           <div className="mb-6 text-left p-4 bg-gray-50 rounded">
             <h3 className="font-semibold mb-2">決済情報</h3>
             <p>
-              合計金額:{' '}
-              {sessionDetails.amount_total ? `${sessionDetails.amount_total / 100}円` : '不明'}
+              合計金額: {sessionDetails.amount_total ? `${sessionDetails.amount_total}円` : '不明'}
             </p>
             <p>ステータス: {sessionDetails.payment_status || '不明'}</p>
           </div>

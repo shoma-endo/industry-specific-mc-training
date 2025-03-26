@@ -20,10 +20,13 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
     const successUrl = `${host}/subscription/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${host}/subscription/cancel`;
 
+    // カスタマーIDを新規作成
+    const customerId = await stripeService.createCustomer(userId, lineProfile.displayName);
+
     // Stripeチェックアウトセッション作成
     const { url, sessionId } = await stripeService.createSubscriptionCheckout({
       priceId: env.STRIPE_PRICE_ID,
-      customerId: '', // TODO 実際のアプリでは登録済みのカスタマーIDを使用
+      customerId, // 新規作成したカスタマーIDを使用
       successUrl,
       cancelUrl,
       metadata: {
