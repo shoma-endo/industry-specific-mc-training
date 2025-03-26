@@ -72,6 +72,22 @@ export class StripeService {
   }
 
   /**
+   * 解約予定のサブスクリプションを継続する（解約をキャンセル）
+   * @param subscriptionId サブスクリプションID
+   */
+  async resumeSubscription(subscriptionId: string) {
+    try {
+      // cancel_at_period_end を false に設定して解約をキャンセル
+      return await this.stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: false,
+      });
+    } catch (error) {
+      console.error('Stripe subscription resume failed:', error);
+      throw new Error('サブスクリプションの継続手続きに失敗しました');
+    }
+  }
+
+  /**
    * カスタマーポータルセッションを作成（支払い方法変更など）
    */
   async createCustomerPortalSession(customerId: string, returnUrl: string) {

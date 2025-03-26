@@ -7,6 +7,7 @@ import {
   getUserSubscription,
   cancelUserSubscription,
   createCustomerPortalSession,
+  resumeUserSubscription,
 } from '@/server/handler/actions/subscription.actions';
 
 // サブスクリプション情報の型定義
@@ -26,6 +27,7 @@ export default function MyPage() {
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(false);
 
   // サブスクリプション情報を取得
   useEffect(() => {
@@ -93,6 +95,8 @@ export default function MyPage() {
     setError(null);
 
     try {
+      // 注意：第2引数は開発環境で制御するためのもので、
+      // 通常は false（期間終了時解約）を指定します
       const result = await cancelUserSubscription(subscription.id);
 
       if (result.success) {
@@ -113,6 +117,44 @@ export default function MyPage() {
       setError('サブスクリプションの解約処理中にエラーが発生しました');
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  // 解約キャンセル（サブスクリプション継続）
+  const handleResumeSubscription = async () => {
+    if (!subscription) return;
+
+    // 継続の確認
+    if (
+      !confirm(
+        'サブスクリプションの解約をキャンセルし、継続しますか？\n次回の更新日以降も自動更新されるようになります。'
+      )
+    ) {
+      return;
+    }
+
+    setResumeLoading(true);
+    setError(null);
+
+    try {
+      const result = await resumeUserSubscription(subscription.id);
+
+      if (result.success) {
+        // 最新のサブスクリプション情報を再取得
+        const updatedResult = await getUserSubscription();
+        if (updatedResult.success) {
+          setHasActiveSubscription(updatedResult.hasActiveSubscription || false);
+          setSubscription(updatedResult.subscription || null);
+          alert('サブスクリプションを継続します。引き続きサービスをご利用いただけます。');
+        }
+      } else {
+        setError(result.error || 'サブスクリプションの継続手続きに失敗しました');
+      }
+    } catch (error) {
+      console.error('サブスクリプション継続エラー:', error);
+      setError('サブスクリプションの継続処理中にエラーが発生しました');
+    } finally {
+      setResumeLoading(false);
     }
   };
 
@@ -199,7 +241,18 @@ export default function MyPage() {
                 {paymentLoading ? '処理中...' : '支払い方法を変更する'}
               </Button>
 
-              {!subscription?.cancelAtPeriodEnd && (
+              {subscription?.cancelAtPeriodEnd ? (
+                // 解約予定の場合は「解約をキャンセル」ボタンを表示
+                <Button
+                  variant="outline"
+                  className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
+                  onClick={handleResumeSubscription}
+                  disabled={resumeLoading}
+                >
+                  {resumeLoading ? '処理中...' : 'サブスクリプションを継続する'}
+                </Button>
+              ) : (
+                // アクティブな場合は「解約」ボタンを表示
                 <Button
                   variant="outline"
                   className="w-full border-red-300 text-red-600 hover:bg-red-50"

@@ -72,6 +72,26 @@ export async function cancelUserSubscription(subscriptionId: string, immediate: 
 }
 
 /**
+ * 解約予定のサブスクリプションを継続する（解約をキャンセル）サーバーアクション
+ * @param subscriptionId サブスクリプションID
+ */
+export async function resumeUserSubscription(subscriptionId: string) {
+  try {
+    await stripeService.resumeSubscription(subscriptionId);
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('サブスクリプション継続エラー:', error);
+    return {
+      success: false,
+      error: 'サブスクリプションの継続手続きに失敗しました',
+    };
+  }
+}
+
+/**
  * カスタマーポータルセッションを作成するサーバーアクション（支払い方法変更など）
  */
 export async function createCustomerPortalSession(
