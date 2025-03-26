@@ -13,8 +13,7 @@ export const verifyLineTokenServer = async (
 export interface getLineProfileServerResponse {
   userId: string
   displayName: string
-  pictureUrl: string
-  language: string
+  pictureUrl?: string
   statusMessage?: string
 }
 

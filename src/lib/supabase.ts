@@ -41,7 +41,7 @@ export function toTodoItem(data: Record<string, unknown>): TodoItem {
     id: data.id as number,
     text: data.text as string,
     completed: data.completed as boolean,
-    userId: data.user_id as string | undefined,
+    userId: data.user_id as string,
     createdAt: data.created_at as number
   };
 }

@@ -81,8 +81,8 @@ export const useLiff = (): UseLiffResult => {
             setProfile({
               userId: profileData.userId,
               displayName: profileData.displayName,
-              pictureUrl: profileData.pictureUrl,
-              statusMessage: profileData.statusMessage
+              pictureUrl: profileData.pictureUrl || "",
+              statusMessage: profileData.statusMessage || "",
             });
 
             

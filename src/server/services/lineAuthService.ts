@@ -4,7 +4,6 @@ interface LineProfile {
   userId: string
   displayName: string
   pictureUrl: string
-  language: string
   statusMessage?: string
 }
 

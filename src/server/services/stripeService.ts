@@ -19,7 +19,7 @@ export class StripeService {
     metadata = {},
   }: {
     priceId: string;
-    customerId?: string;
+    customerId: string;
     successUrl: string;
     cancelUrl: string;
     metadata?: Record<string, string>;

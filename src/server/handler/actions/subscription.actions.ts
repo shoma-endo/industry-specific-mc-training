@@ -27,10 +27,12 @@ export async function createSubscriptionSession(liffAccessToken: string) {
     // Stripeチェックアウトセッション作成
     const { url, sessionId } = await stripeService.createSubscriptionCheckout({
       priceId: env.STRIPE_PRICE_ID,
-      customerId: undefined, // 実際のアプリでは登録済みのカスタマーIDを使用
+      customerId: "", // TODO 実際のアプリでは登録済みのカスタマーIDを使用
       successUrl,
       cancelUrl,
-      metadata: userId ? { userId } : undefined,
+      metadata: {
+        userId,
+      }
     })
 
     if (!url) {

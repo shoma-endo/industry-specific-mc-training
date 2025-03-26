@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   images: {
     domains: ['profile.line-scdn.net'],
   },
+  typescript: { 
+    ignoreBuildErrors: false 
+  }
 };
 
 export default nextConfig;

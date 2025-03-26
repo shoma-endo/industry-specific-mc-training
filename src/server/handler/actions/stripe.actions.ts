@@ -11,10 +11,8 @@ const stripeService = new StripeService()
  */
 export const createSubscriptionCheckoutServer = async ({
   // priceId,
-  customerId,
   successUrl,
   cancelUrl,
-  metadata,
 }: {
   // priceId: string
   customerId?: string
@@ -23,6 +21,9 @@ export const createSubscriptionCheckoutServer = async ({
   metadata?: Record<string, string>
 }): Promise<{ checkoutUrl: string; sessionId: string }> => {
   try {
+    const customerId = "" // TODO: ユーザーIDを取得する
+    const metadata = {
+    }
     const priceId = env.STRIPE_PRICE_ID
     const { url, sessionId } = await stripeService.createSubscriptionCheckout({
       priceId,

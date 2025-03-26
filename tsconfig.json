@@ -4,7 +4,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,
+    "strict": true, /* すべての厳格な型チェックオプションを有効化 */
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -20,7 +20,22 @@
     ],
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    /* 型の厳格化設定オプション */
+    "noImplicitAny": true,            /* 暗黙的なany型を許可しない */
+    "noImplicitThis": true,           /* thisの型が暗黙的にanyになるとエラー */
+    "strictNullChecks": true,         /* null/undefinedの厳格なチェック */
+    "strictFunctionTypes": true,      /* 関数の型チェックを厳格に */
+    "strictBindCallApply": true,      /* bind/call/applyメソッドの厳格な型チェック */
+    "strictPropertyInitialization": true, /* クラスプロパティの初期化チェックを厳格に */
+    "noFallthroughCasesInSwitch": true,   /* switch文でのフォールスルーをエラーに */
+    "noUncheckedIndexedAccess": true,     /* インデックスアクセスでundefinedの可能性を考慮 */
+    "exactOptionalPropertyTypes": true,   /* オプショナルプロパティの型を厳密にチェック */
+    "noImplicitReturns": true,            /* 関数内のすべてのコードパスで値が返されていない場合にエラー */
+    "allowUnreachableCode": false,        /* 到達できないコードを許可しない */
+    "allowUnusedLabels": false,           /* 未使用のラベルを許可しない */
+    "forceConsistentCasingInFileNames": true, /* ファイル名の大文字小文字の一貫性を強制 */
+    "useUnknownInCatchVariables": true    /* catch節の変数をanyではなくunknownとして扱う */
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

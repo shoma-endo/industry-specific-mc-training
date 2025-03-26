@@ -36,8 +36,9 @@ export class TodoRepository {
     const newTodo = {
       text,
       completed: false,
-      userId,
+      userId: userId || "",
       createdAt: Date.now()
+      
     };
     
     // アプリケーションの型からデータベースの型に変換
