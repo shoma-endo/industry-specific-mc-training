@@ -27,6 +27,31 @@ export class StripeService {
   }
 
   /**
+   * プライスIDから商品価格情報を取得
+   */
+  async getPriceDetails(priceId: string) {
+    try {
+      const price = await this.stripe.prices.retrieve(priceId, {
+        expand: ['product'],
+      });
+
+      // 価格情報を整形して返す
+      return {
+        id: price.id,
+        unitAmount: price.unit_amount,
+        currency: price.currency,
+        interval: price.recurring?.interval,
+        intervalCount: price.recurring?.interval_count,
+        productName: (price.product as Stripe.Product).name,
+        productDescription: (price.product as Stripe.Product).description,
+      };
+    } catch (error) {
+      console.error('Stripe price retrieval failed:', error);
+      throw new Error('価格情報の取得に失敗しました');
+    }
+  }
+
+  /**
    * サブスクリプション用のチェックアウトセッションを作成
    */
   async createSubscriptionCheckout({

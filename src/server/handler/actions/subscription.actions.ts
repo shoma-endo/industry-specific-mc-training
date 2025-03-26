@@ -8,6 +8,27 @@ const stripeService = new StripeService();
 const lineAuthService = new LineAuthService();
 
 /**
+ * サブスクリプションの価格情報を取得するサーバーアクション
+ */
+export async function getSubscriptionPriceDetails() {
+  try {
+    const priceId = env.STRIPE_PRICE_ID;
+    const priceDetails = await stripeService.getPriceDetails(priceId);
+
+    return {
+      success: true,
+      priceDetails,
+    };
+  } catch (error) {
+    console.error('サブスクリプション価格情報取得エラー:', error);
+    return {
+      success: false,
+      error: '価格情報の取得に失敗しました',
+    };
+  }
+}
+
+/**
  * サブスクリプション用のチェックアウトセッションを作成するサーバーアクション
  */
 export async function createSubscriptionSession(liffAccessToken: string, host: string) {
