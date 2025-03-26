@@ -10,15 +10,13 @@ const lineAuthService = new LineAuthService();
 /**
  * サブスクリプション用のチェックアウトセッションを作成するサーバーアクション
  */
-export async function createSubscriptionSession(liffAccessToken: string) {
+export async function createSubscriptionSession(liffAccessToken: string, host: string) {
   try {
     // トークンからユーザーIDを取得
     const lineProfile = await lineAuthService.getLineProfile(liffAccessToken);
     const userId = lineProfile.userId;
 
     // リダイレクトURL
-    const host = window.location.origin;
-
     const successUrl = `${host}/subscription/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${host}/subscription/cancel`;
 

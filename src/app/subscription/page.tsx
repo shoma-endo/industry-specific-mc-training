@@ -21,7 +21,7 @@ export default function SubscriptionPage() {
         setError('LINEアクセストークンが取得できませんでした');
         return;
       }
-      const result = await createSubscriptionSession(liffAccessToken);
+      const result = await createSubscriptionSession(liffAccessToken, window.location.origin);
 
       if (!result.success || !result.url) {
         setError(result.error || 'サブスクリプション作成に失敗しました');
