@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useLiff } from '@/hooks/useLiff';
@@ -32,7 +32,7 @@ interface LiffProviderProps {
 }
 
 export function LiffProvider({ children }: LiffProviderProps) {
-  const { isLoggedIn, isLoading, error, profile, login, logout, liffObject, getLineProfile } = useLiff();
+  const { isLoggedIn, isLoading, error, profile, login, logout, liffObject } = useLiff();
   const [syncedWithServer, setSyncedWithServer] = useState(false);
 
   // LINEログイン後、ユーザーIDをサーバーと同期
@@ -88,9 +88,7 @@ export function LiffProvider({ children }: LiffProviderProps) {
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
           <p>LINEログイン画面へ移動しています...</p>
-          <Button onClick={login}>
-            ログインできない場合はこちら
-          </Button>
+          <Button onClick={login}>ログインできない場合はこちら</Button>
         </CardContent>
       </Card>
     );
@@ -99,8 +97,7 @@ export function LiffProvider({ children }: LiffProviderProps) {
   // コンテキストに値を設定して子コンポーネントにLIFF状態を提供
   return (
     <LiffContext.Provider value={{ isLoggedIn, isLoading, profile, login, logout }}>
-      <button onClick={() => getLineProfile()}>getLineProfile</button>
       {children}
     </LiffContext.Provider>
   );
-} 
+}
