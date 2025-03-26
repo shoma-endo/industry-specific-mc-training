@@ -1,50 +1,29 @@
 "use server"
 
-import { LoginService } from "@/server/services/lineAuthService"
+// import { LoginService } from "@/server/services/lineAuthService"
 import { StripeService } from "@/server/services/stripeService"
-
-const loginService = new LoginService()
+import { env } from "@/env"
+// const loginService = new LoginService()
 const stripeService = new StripeService()
-
-export const verifyLineTokenServer = async (
-  accessToken: string
-): Promise<void> => {
-  loginService.verifyLineToken(accessToken)
-}
-
-export interface getLineProfileServerResponse {
-  userId: string
-  displayName: string
-  pictureUrl: string
-  language: string
-  statusMessage?: string
-}
-
-export const getLineProfileServer = async (
-  accessToken: string
-): Promise<getLineProfileServerResponse> => {
-  const profile = await loginService.getLineProfile(accessToken)
-  console.log("profile.back", profile)
-  return profile
-}
 
 /**
  * サブスクリプション決済用のチェックアウトセッションを作成
  */
 export const createSubscriptionCheckoutServer = async ({
-  priceId,
+  // priceId,
   customerId,
   successUrl,
   cancelUrl,
   metadata,
 }: {
-  priceId: string
+  // priceId: string
   customerId?: string
   successUrl: string
   cancelUrl: string
   metadata?: Record<string, string>
 }): Promise<{ checkoutUrl: string; sessionId: string }> => {
   try {
+    const priceId = env.STRIPE_PRICE_ID
     const { url, sessionId } = await stripeService.createSubscriptionCheckout({
       priceId,
       customerId,

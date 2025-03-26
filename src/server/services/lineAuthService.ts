@@ -8,7 +8,7 @@ interface LineProfile {
   statusMessage?: string
 }
 
-export class LoginService {
+export class LineAuthService {
   verifyLineToken = async (accessToken: string): Promise<void> => {
     try {
       const channelId = env.NEXT_PUBLIC_LIFF_CHANNEL_ID

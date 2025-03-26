@@ -1,13 +1,13 @@
 "use server"
 
-import { LoginService } from "@/server/services/lineAuthService"
+import {  LineAuthService} from "@/server/services/lineAuthService";
 
-const loginService = new LoginService()
+const lineAuthService = new LineAuthService()
 
 export const verifyLineTokenServer = async (
   accessToken: string
 ): Promise<void> => {
-  loginService.verifyLineToken(accessToken)
+  lineAuthService.verifyLineToken(accessToken)
 }
 
 export interface getLineProfileServerResponse {
@@ -21,7 +21,7 @@ export interface getLineProfileServerResponse {
 export const getLineProfileServer = async (
   accessToken: string
 ): Promise<getLineProfileServerResponse> => {
-  const profile = await loginService.getLineProfile(accessToken)
+  const profile = await lineAuthService.getLineProfile(accessToken)
   console.log("profile.back", profile)
   return profile
 }

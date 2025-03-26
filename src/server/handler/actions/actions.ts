@@ -9,10 +9,6 @@ import { TodoItem } from '@/types/todo';
 const todoService = new TodoService();
 
 // ユーザーIDの取得（本来はLIFFからのIDトークン検証が必要ですが、簡略化しています）
-const getUserId = async () => {
-  const cookieStore = await cookies();
-  return cookieStore.get('userId')?.value;
-};
 
 /**
  * すべてのTodoを取得するサーバーアクション
@@ -63,17 +59,3 @@ export async function deleteAllTodos(): Promise<void> {
   await todoService.clearAllTodos(userId);
   revalidatePath('/');
 }
-
-/**
- * ユーザーIDをクッキーに保存するサーバーアクション
- */
-export async function setUserId(userId: string): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.set('userId', userId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 7, // 1週間
-    path: '/',
-  });
-  revalidatePath('/');
-} 

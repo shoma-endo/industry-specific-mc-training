@@ -2,7 +2,6 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useLiff } from '@/hooks/useLiff';
-import { setUserId } from '@/server/handler/actions/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -41,7 +40,6 @@ export function LiffProvider({ children }: LiffProviderProps) {
     const syncUserIdWithServer = async () => {
       if (isLoggedIn && profile && !syncedWithServer) {
         try {
-          await setUserId(profile.userId);
           setSyncedWithServer(true);
         } catch (error) {
           console.error('Failed to sync user ID with server:', error);

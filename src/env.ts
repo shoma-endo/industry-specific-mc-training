@@ -11,6 +11,9 @@ export const env = createEnv({
     DBPASS: z.string().min(1),
     SUPABASE_SERVICE_ROLE: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
+    STRIPE_PUBLISHABLE_KEY: z.string().min(1),
+    STRIPE_PRODUCT_ID: z.string().min(1),
+    STRIPE_PRICE_ID: z.string().min(1),
   },
   /*
    * Environment variables available on the client (and server).
@@ -22,7 +25,6 @@ export const env = createEnv({
     NEXT_PUBLIC_LIFF_CHANNEL_ID: z.string().min(1),
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
   },
   /*
    * Due to how Next.js bundles environment variables on Edge and Client,
@@ -38,6 +40,8 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_ROLE: process.env.SUPABASE_SERVICE_ROLE,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
+    STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
+    STRIPE_PRODUCT_ID: process.env.STRIPE_PRODUCT_ID,
+    STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID,
   },
 });
