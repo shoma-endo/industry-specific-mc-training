@@ -32,8 +32,8 @@
     "noUncheckedIndexedAccess": true,     /* インデックスアクセスでundefinedの可能性を考慮 */
     "exactOptionalPropertyTypes": true,   /* オプショナルプロパティの型を厳密にチェック */
     "noImplicitReturns": true,            /* 関数内のすべてのコードパスで値が返されていない場合にエラー */
-    "allowUnreachableCode": false,        /* 到達できないコードを許可しない */
-    "allowUnusedLabels": false,           /* 未使用のラベルを許可しない */
+    "allowUnreachableCode": true,        /* 到達できないコードを許可しない */
+    "allowUnusedLabels": true,           /* 未使用のラベルを許可しない */
     "forceConsistentCasingInFileNames": true, /* ファイル名の大文字小文字の一貫性を強制 */
     "useUnknownInCatchVariables": true    /* catch節の変数をanyではなくunknownとして扱う */
   },

@@ -28,11 +28,11 @@ export class TodoService {
   async createTodo(text: string, userId?: string): Promise<TodoItem> {
     // テキストの検証やフォーマットなどのビジネスロジックをここに実装
     const trimmedText = text.trim();
-    
+
     if (!trimmedText) {
       throw new Error('Todo text cannot be empty');
     }
-    
+
     return this.repository.create(trimmedText, userId);
   }
 
@@ -62,4 +62,4 @@ export class TodoService {
   async clearAllTodos(userId?: string): Promise<void> {
     return this.repository.deleteAll(userId);
   }
-} 
+}
