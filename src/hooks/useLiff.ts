@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import liff from '@line/liff';
-import { getLineProfileServer } from "@/server/handler/login.actions";
-import { getLineProfileServerResponse } from "@/server/handler/login.actions";
+import { getLineProfileServer } from "@/server/handler/actions/login.actions";
+import { getLineProfileServerResponse } from "@/server/handler/actions/login.actions";
+import { env } from '@/env';
 
 interface LiffProfile {
   userId: string;
@@ -61,7 +62,7 @@ export const useLiff = (): UseLiffResult => {
   useEffect(() => {
     const initLiff = async () => {
       try {
-        const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+        const liffId = env.NEXT_PUBLIC_LIFF_ID;
         if (!liffId) {
           throw new Error('LIFF ID is not defined');
         }

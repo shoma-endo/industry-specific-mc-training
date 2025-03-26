@@ -1,3 +1,5 @@
+import { env } from '@/env';
+
 interface LineProfile {
   userId: string
   displayName: string
@@ -9,7 +11,7 @@ interface LineProfile {
 export class LoginService {
   verifyLineToken = async (accessToken: string): Promise<void> => {
     try {
-      const channelId = process.env.NEXT_PUBLIC_LIFF_CHANNEL_ID
+      const channelId = env.NEXT_PUBLIC_LIFF_CHANNEL_ID
       const response = await fetch(
         `https://api.line.me/oauth2/v2.1/verify?access_token=${accessToken}`,
         {

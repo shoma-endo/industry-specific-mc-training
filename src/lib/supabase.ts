@@ -1,14 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { TodoItem } from '@/types/todo';
+import { env } from '@/env';
 
 // 環境変数からSupabase URLとAnon Keyを取得
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-// 環境変数が存在しない場合はエラーをスロー
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabaseの環境変数が設定されていません。');
-}
+const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Supabaseクライアントの初期化
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

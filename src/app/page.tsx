@@ -1,5 +1,5 @@
 import { TodoList } from "@/components/features/TodoList";
-import { getTodos } from "../server/handler/actions";
+import { getTodos } from "../server/handler/actions/actions";
 import { LiffProvider } from "@/components/LiffProvider";
 
 export default async function Home() {
