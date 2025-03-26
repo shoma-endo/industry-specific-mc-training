@@ -33,7 +33,7 @@ interface LiffProviderProps {
 }
 
 export function LiffProvider({ children }: LiffProviderProps) {
-  const { isLoggedIn, isLoading, error, profile, login, logout, liffObject } = useLiff();
+  const { isLoggedIn, isLoading, error, profile, login, logout, liffObject, getLineProfile } = useLiff();
   const [syncedWithServer, setSyncedWithServer] = useState(false);
 
   // LINEログイン後、ユーザーIDをサーバーと同期
@@ -101,6 +101,7 @@ export function LiffProvider({ children }: LiffProviderProps) {
   // コンテキストに値を設定して子コンポーネントにLIFF状態を提供
   return (
     <LiffContext.Provider value={{ isLoggedIn, isLoading, profile, login, logout }}>
+      <button onClick={() => getLineProfile()}>getLineProfile</button>
       {children}
     </LiffContext.Provider>
   );

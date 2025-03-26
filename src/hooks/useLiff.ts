@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import liff from '@line/liff';
+import { getLineProfileServer } from "@/server/handler/login.actions";
+import { getLineProfileServerResponse } from "@/server/handler/login.actions";
 
 interface LiffProfile {
   userId: string;
@@ -18,6 +20,7 @@ interface UseLiffResult {
   profile: LiffProfile | null;
   login: () => void;
   logout: () => void;
+  getLineProfile: () => Promise<getLineProfileServerResponse>;
 }
 
 export const useLiff = (): UseLiffResult => {
@@ -41,6 +44,18 @@ export const useLiff = (): UseLiffResult => {
     setProfile(null);
     window.location.reload();
   };
+
+
+  const getLineProfile = async () : Promise<getLineProfileServerResponse> => {
+    await liff.ready
+    const lineAccessToken = liff.getAccessToken();
+    if (!lineAccessToken) {
+      throw new Error("LINE access token not available");
+    }
+    const profile = await getLineProfileServer(lineAccessToken);
+    console.log("profile.front", profile)
+    return profile;
+  }
 
   // LIFF初期化
   useEffect(() => {
@@ -68,6 +83,8 @@ export const useLiff = (): UseLiffResult => {
               pictureUrl: profileData.pictureUrl,
               statusMessage: profileData.statusMessage
             });
+
+            
           } catch (profileError) {
             console.error('Failed to get profile:', profileError);
           }
@@ -97,6 +114,7 @@ export const useLiff = (): UseLiffResult => {
     liffObject,
     profile,
     login,
-    logout
+    logout,
+    getLineProfile,
   };
 }; 
