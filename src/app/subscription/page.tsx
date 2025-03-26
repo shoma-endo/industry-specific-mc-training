@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { useLiff } from '@/hooks/useLiff';
 
 export default function SubscriptionPage() {
+  const { getAccessToken } = useLiff();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getAccessToken } = useLiff();
 
   const startSubscription = async () => {
     setLoading(true);

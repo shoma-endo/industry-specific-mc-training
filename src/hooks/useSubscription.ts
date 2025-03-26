@@ -5,9 +5,9 @@ import { createSubscriptionSession } from '@/server/handler/actions/subscription
 import { useLiff } from '@/hooks/useLiff';
 
 export function useSubscription() {
+  const { getAccessToken } = useLiff();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getAccessToken } = useLiff();
 
   const startSubscription = async () => {
     setLoading(true);
