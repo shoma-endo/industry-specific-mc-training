@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import liff from '@line/liff';
-import { getLineProfileServer } from "@/server/handler/actions/login.actions";
-import { getLineProfileServerResponse } from "@/server/handler/actions/login.actions";
+import { getLineProfileServer } from '@/server/handler/actions/login.actions';
+import { getLineProfileServerResponse } from '@/server/handler/actions/login.actions';
 import { env } from '@/env';
 
 interface LiffProfile {
@@ -22,6 +22,7 @@ interface UseLiffResult {
   login: () => void;
   logout: () => void;
   getLineProfile: () => Promise<getLineProfileServerResponse>;
+  getAccessToken: () => Promise<string>;
 }
 
 export const useLiff = (): UseLiffResult => {
@@ -46,17 +47,25 @@ export const useLiff = (): UseLiffResult => {
     window.location.reload();
   };
 
-
-  const getLineProfile = async () : Promise<getLineProfileServerResponse> => {
-    await liff.ready
+  const getLineProfile = async (): Promise<getLineProfileServerResponse> => {
+    await liff.ready;
     const lineAccessToken = liff.getAccessToken();
     if (!lineAccessToken) {
-      throw new Error("LINE access token not available");
+      throw new Error('LINE access token not available');
     }
     const profile = await getLineProfileServer(lineAccessToken);
-    console.log("profile.front", profile)
+    console.log('profile.front', profile);
     return profile;
-  }
+  };
+
+  const getAccessToken = async () => {
+    await liff.ready;
+    const lineAccessToken = liff.getAccessToken();
+    if (!lineAccessToken) {
+      throw new Error('LINE access token not available');
+    }
+    return lineAccessToken;
+  };
 
   // LIFF初期化
   useEffect(() => {
@@ -74,18 +83,16 @@ export const useLiff = (): UseLiffResult => {
         // ログイン状態を確認
         if (liff.isLoggedIn()) {
           setIsLoggedIn(true);
-          
+
           // プロフィール情報を取得
           try {
             const profileData = await liff.getProfile();
             setProfile({
               userId: profileData.userId,
               displayName: profileData.displayName,
-              pictureUrl: profileData.pictureUrl || "",
-              statusMessage: profileData.statusMessage || "",
+              pictureUrl: profileData.pictureUrl || '',
+              statusMessage: profileData.statusMessage || '',
             });
-
-            
           } catch (profileError) {
             console.error('Failed to get profile:', profileError);
           }
@@ -117,5 +124,6 @@ export const useLiff = (): UseLiffResult => {
     login,
     logout,
     getLineProfile,
+    getAccessToken,
   };
-}; 
+};

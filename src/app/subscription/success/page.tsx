@@ -12,7 +12,9 @@ export default async function SubscriptionSuccessPage({
 }: {
   searchParams: { session_id?: string };
 }) {
-  const sessionId = searchParams.session_id;
+  const params = await searchParams;
+  const sessionId = params.session_id;
+
   let sessionDetails: SessionDetails | null = null;
   let error: string | null = null;
 

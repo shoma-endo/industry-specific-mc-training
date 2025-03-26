@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { createSubscriptionSession } from '@/server/handler/actions/subscription.actions';
 import { Button } from '@/components/ui/button';
-import { liff } from '@line/liff';
+import { useLiff } from '@/hooks/useLiff';
 
 export default function SubscriptionPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { getAccessToken } = useLiff();
 
   const startSubscription = async () => {
     setLoading(true);
@@ -15,12 +16,7 @@ export default function SubscriptionPage() {
 
     try {
       // サブスクリプションセッションの作成
-      await liff.ready;
-      const liffAccessToken = await liff.getAccessToken();
-      if (!liffAccessToken) {
-        setError('LINEアクセストークンが取得できませんでした');
-        return;
-      }
+      const liffAccessToken = await getAccessToken();
       const result = await createSubscriptionSession(liffAccessToken, window.location.origin);
 
       if (!result.success || !result.url) {

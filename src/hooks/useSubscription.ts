@@ -2,21 +2,19 @@
 
 import { useState } from 'react';
 import { createSubscriptionSession } from '@/server/handler/actions/subscription.actions';
-import { liff } from '@line/liff';
+import { useLiff } from '@/hooks/useLiff';
+
 export function useSubscription() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { getAccessToken } = useLiff();
 
   const startSubscription = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      await liff.ready;
-      const liffAccessToken = await liff.getAccessToken();
-      if (!liffAccessToken) {
-        throw new Error('LIFFアクセストークンが取得できませんでした');
-      }
+      const liffAccessToken = await getAccessToken();
       // サブスクリプションセッションの作成
       const result = await createSubscriptionSession(liffAccessToken, window.location.origin);
 
