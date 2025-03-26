@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { TodoInput } from "./components/TodoInput";
 import { TodoItemComponent } from "./components/TodoItem";
-import { addTodo, deleteTodo, deleteAllTodos, getTodos, toggleTodo } from "@/app/actions";
+import { addTodo, deleteTodo, deleteAllTodos, getTodos, toggleTodo } from "@/server/handler/actions";
 import { TodoItem } from "@/types/todo";
 import { useLiffContext } from "@/components/LiffProvider";
 import Image from "next/image";
@@ -21,8 +21,9 @@ export function TodoList() {
   useEffect(() => {
     const fetchTodos = async () => {
       try {
-        const fetchedTodos = await getTodos();
-        setTodos(fetchedTodos);
+        // const fetchedTodos = await getTodos();
+        // setTodos(fetchedTodos);
+        setTodos([]);
       } catch (error) {
         console.error("Failed to fetch todos:", error);
       } finally {

@@ -1,12 +1,12 @@
 import { TodoList } from "@/components/features/TodoList";
-import { getTodos } from "./actions";
+import { getTodos } from "../server/handler/actions";
 import { LiffProvider } from "@/components/LiffProvider";
 
 export default async function Home() {
   // サーバーコンポーネントでの初期データ取得
   // 結果はクライアントコンポーネントには直接渡しませんが、
   // サーバーサイドレンダリング時にデータを事前に準備しておきます
-  await getTodos();
+  // await getTodos();
   
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8">

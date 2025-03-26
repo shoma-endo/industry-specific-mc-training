@@ -1,4 +1,4 @@
-import { TodoRepository } from '@/repositories/todoRepository';
+import { TodoRepository } from '@/server/repositories/todoRepository';
 import { TodoItem } from '@/types/todo';
 
 /**

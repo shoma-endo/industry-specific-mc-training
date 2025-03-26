@@ -2,7 +2,7 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useLiff } from '@/hooks/useLiff';
-import { setUserId } from '@/app/actions';
+import { setUserId } from '@/server/handler/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
