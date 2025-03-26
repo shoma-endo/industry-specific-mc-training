@@ -3,8 +3,11 @@
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import Link from 'next/link';
-import Image from 'next/image';
 import { LiffProvider, useLiffContext } from '@/components/LiffProvider';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -19,13 +22,15 @@ const geistMono = Geist_Mono({
 // metadataはクライアントコンポーネントでは使用できないため削除
 
 function AppContent({ children }: { children: React.ReactNode }) {
-  const { profile, isLoggedIn } = useLiffContext();
+  const { profile, isLoggedIn, login, logout, isLoading } = useLiffContext();
 
   return (
     <>
       <header className="bg-blue-500 text-white p-4">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold">LINE Demo App</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold">LINE Demo App</h1>
+          </div>
           <div className="flex items-center">
             <nav className="mr-4">
               <ul className="flex space-x-4">
@@ -41,20 +46,44 @@ function AppContent({ children }: { children: React.ReactNode }) {
                 </li>
               </ul>
             </nav>
-            {isLoggedIn && profile && (
+            {isLoggedIn && profile ? (
               <div className="flex items-center gap-2">
-                {profile.pictureUrl && (
-                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
-                    <Image
-                      src={profile.pictureUrl}
-                      alt={profile.displayName}
-                      width={32}
-                      height={32}
-                      className="object-cover w-full h-full"
-                    />
-                  </div>
-                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Avatar className="border-2 border-white h-9 w-9 cursor-pointer">
+                        <AvatarImage src={profile.pictureUrl} alt={profile.displayName} />
+                        <AvatarFallback>{profile.displayName.slice(0, 2)}</AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{profile.displayName}</p>
+                      <p className="text-[10px] opacity-80">
+                        LINE ID: {profile.userId.substring(0, 8)}...
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs bg-white/10 hover:bg-white/20 text-white border-white/30"
+                  onClick={logout}
+                >
+                  ログアウト
+                </Button> */}
               </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white text-blue-600 hover:bg-white/90"
+                onClick={login}
+                disabled={isLoading}
+              >
+                ログイン
+              </Button>
             )}
           </div>
         </div>
