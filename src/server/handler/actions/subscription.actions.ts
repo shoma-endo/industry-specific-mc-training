@@ -7,6 +7,93 @@ import { LineAuthService } from '@/server/services/lineAuthService';
 const stripeService = new StripeService();
 const lineAuthService = new LineAuthService();
 
+// 一時的にハードコードしたカスタマーID
+const TEMP_CUSTOMER_ID = 'cus_S13J6K9aLURBfj';
+
+/**
+ * ユーザーのサブスクリプション情報を取得するサーバーアクション
+ */
+export async function getUserSubscription() {
+  try {
+    const customerId: string = TEMP_CUSTOMER_ID;
+    // カスタマー情報を取得
+    const subscription = await stripeService.getActiveSubscription(customerId);
+
+    if (!subscription) {
+      return {
+        success: true,
+        hasActiveSubscription: false,
+      };
+    }
+
+    // 次回の請求日を取得
+    const nextBillingDate = new Date(subscription.current_period_end * 1000);
+
+    return {
+      success: true,
+      hasActiveSubscription: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        currentPeriodEnd: subscription.current_period_end,
+        nextBillingDate: nextBillingDate.toISOString(),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      },
+    };
+  } catch (error) {
+    console.error('サブスクリプション情報取得エラー:', error);
+    return {
+      success: false,
+      error: 'サブスクリプション情報の取得に失敗しました',
+    };
+  }
+}
+
+/**
+ * サブスクリプションを解約するサーバーアクション
+ * @param subscriptionId サブスクリプションID
+ * @param immediate 即時解約するかどうか（trueなら即時解約、falseなら期間終了時解約）
+ */
+export async function cancelUserSubscription(subscriptionId: string, immediate: boolean = false) {
+  try {
+    await stripeService.cancelSubscription(subscriptionId, immediate);
+
+    return {
+      success: true,
+      immediate,
+    };
+  } catch (error) {
+    console.error('サブスクリプション解約エラー:', error);
+    return {
+      success: false,
+      error: 'サブスクリプションの解約に失敗しました',
+    };
+  }
+}
+
+/**
+ * カスタマーポータルセッションを作成するサーバーアクション（支払い方法変更など）
+ */
+export async function createCustomerPortalSession(
+  returnUrl: string,
+  customerId: string = TEMP_CUSTOMER_ID
+) {
+  try {
+    const { url } = await stripeService.createCustomerPortalSession(customerId, returnUrl);
+
+    return {
+      success: true,
+      url,
+    };
+  } catch (error) {
+    console.error('カスタマーポータルセッション作成エラー:', error);
+    return {
+      success: false,
+      error: 'カスタマーポータルの作成に失敗しました',
+    };
+  }
+}
+
 /**
  * サブスクリプションの価格情報を取得するサーバーアクション
  */

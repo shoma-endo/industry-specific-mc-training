@@ -27,6 +27,68 @@ export class StripeService {
   }
 
   /**
+   * ユーザーのアクティブなサブスクリプションを取得
+   */
+  async getActiveSubscription(customerId: string) {
+    try {
+      const subscriptions = await this.stripe.subscriptions.list({
+        customer: customerId,
+        status: 'active',
+        limit: 1,
+        expand: ['data.default_payment_method', 'data.latest_invoice'],
+      });
+
+      if (subscriptions.data.length === 0) {
+        return null;
+      }
+
+      return subscriptions.data[0];
+    } catch (error) {
+      console.error('Stripe subscription retrieval failed:', error);
+      throw new Error('サブスクリプション情報の取得に失敗しました');
+    }
+  }
+
+  /**
+   * サブスクリプションをキャンセル
+   * @param subscriptionId サブスクリプションID
+   * @param immediate 即時解約するかどうか（trueなら即時解約、falseなら期間終了時解約）
+   */
+  async cancelSubscription(subscriptionId: string, immediate: boolean = false) {
+    try {
+      if (immediate) {
+        // 即時解約
+        return await this.stripe.subscriptions.cancel(subscriptionId);
+      } else {
+        // 期間終了時解約
+        return await this.stripe.subscriptions.update(subscriptionId, {
+          cancel_at_period_end: true,
+        });
+      }
+    } catch (error) {
+      console.error('Stripe subscription cancellation failed:', error);
+      throw new Error('サブスクリプションのキャンセルに失敗しました');
+    }
+  }
+
+  /**
+   * カスタマーポータルセッションを作成（支払い方法変更など）
+   */
+  async createCustomerPortalSession(customerId: string, returnUrl: string) {
+    try {
+      const session = await this.stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: returnUrl,
+      });
+
+      return { url: session.url };
+    } catch (error) {
+      console.error('Stripe customer portal session creation failed:', error);
+      throw new Error('顧客ポータルの作成に失敗しました');
+    }
+  }
+
+  /**
    * プライスIDから商品価格情報を取得
    */
   async getPriceDetails(priceId: string) {

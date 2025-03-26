@@ -7,7 +7,6 @@ import { LiffProvider, useLiffContext } from '@/components/LiffProvider';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -22,7 +21,7 @@ const geistMono = Geist_Mono({
 // metadataはクライアントコンポーネントでは使用できないため削除
 
 function AppContent({ children }: { children: React.ReactNode }) {
-  const { profile, isLoggedIn, login, logout, isLoading } = useLiffContext();
+  const { profile, isLoggedIn, login, isLoading } = useLiffContext();
 
   return (
     <>
@@ -42,6 +41,11 @@ function AppContent({ children }: { children: React.ReactNode }) {
                 <li>
                   <Link href="/subscription" className="hover:underline">
                     サブスクリプション
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/mypage" className="hover:underline">
+                    マイページ
                   </Link>
                 </li>
               </ul>
