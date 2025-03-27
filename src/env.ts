@@ -1,6 +1,6 @@
 // src/env.mjs
-import { createEnv } from "@t3-oss/env-nextjs";
-import { z } from "zod";
+import { createEnv } from '@t3-oss/env-nextjs';
+import { z } from 'zod';
 
 export const env = createEnv({
   /*
@@ -14,6 +14,7 @@ export const env = createEnv({
     STRIPE_PUBLISHABLE_KEY: z.string().min(1),
     STRIPE_PRODUCT_ID: z.string().min(1),
     STRIPE_PRICE_ID: z.string().min(1),
+    OPENAI_API_KEY: z.string().min(1),
   },
   /*
    * Environment variables available on the client (and server).
@@ -43,5 +44,6 @@ export const env = createEnv({
     STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
     STRIPE_PRODUCT_ID: process.env.STRIPE_PRODUCT_ID,
     STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   },
 });

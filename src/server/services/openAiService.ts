@@ -1,0 +1,88 @@
+import OpenAI from 'openai';
+import { env } from '@/env';
+
+const openai = new OpenAI({
+  apiKey: env.OPENAI_API_KEY,
+});
+
+export type ChatMessage = {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+};
+
+export type ChatResponse = {
+  message: string;
+  error?: string;
+};
+
+export const openAiService = {
+  /**
+   * チャットメッセージを送信し、AIからの応答を取得します
+   * @param messages チャット履歴
+   * @returns AIからの応答
+   */
+  async sendMessage(messages: ChatMessage[]): Promise<ChatResponse> {
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error('AIからの応答が空でした');
+      }
+
+      return {
+        message: response,
+      };
+    } catch (error) {
+      console.error('OpenAI API Error:', error);
+      return {
+        message: '',
+        error: 'AIとの通信中にエラーが発生しました',
+      };
+    }
+  },
+
+  /**
+   * システムプロンプトを設定してチャットを開始します
+   * @param systemPrompt システムプロンプト
+   * @param userMessage ユーザーの最初のメッセージ
+   * @returns AIからの応答
+   */
+  async startChat(systemPrompt: string, userMessage: string): Promise<ChatResponse> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ];
+
+    return this.sendMessage(messages);
+  },
+
+  /**
+   * 既存のチャットに新しいメッセージを追加します
+   * @param messages 既存のチャット履歴
+   * @param userMessage ユーザーの新しいメッセージ
+   * @returns AIからの応答
+   */
+  async continueChat(messages: ChatMessage[], userMessage: string): Promise<ChatResponse> {
+    const updatedMessages: ChatMessage[] = [
+      ...messages,
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ];
+
+    return this.sendMessage(updatedMessages);
+  },
+};
