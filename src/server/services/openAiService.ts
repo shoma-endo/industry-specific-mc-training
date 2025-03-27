@@ -19,12 +19,13 @@ export const openAiService = {
   /**
    * チャットメッセージを送信し、AIからの応答を取得します
    * @param messages チャット履歴
+   * @param model 使用するモデル
    * @returns AIからの応答
    */
-  async sendMessage(messages: ChatMessage[]): Promise<ChatResponse> {
+  async sendMessage(messages: ChatMessage[], model: string = 'gpt-4o'): Promise<ChatResponse> {
     try {
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: model,
         messages: messages,
         temperature: 0.7,
         max_tokens: 1000,
@@ -51,9 +52,14 @@ export const openAiService = {
    * システムプロンプトを設定してチャットを開始します
    * @param systemPrompt システムプロンプト
    * @param userMessage ユーザーの最初のメッセージ
+   * @param model 使用するモデル
    * @returns AIからの応答
    */
-  async startChat(systemPrompt: string, userMessage: string): Promise<ChatResponse> {
+  async startChat(
+    systemPrompt: string,
+    userMessage: string,
+    model: string = 'gpt-4o'
+  ): Promise<ChatResponse> {
     const messages: ChatMessage[] = [
       {
         role: 'system',
@@ -65,16 +71,21 @@ export const openAiService = {
       },
     ];
 
-    return this.sendMessage(messages);
+    return this.sendMessage(messages, model);
   },
 
   /**
    * 既存のチャットに新しいメッセージを追加します
    * @param messages 既存のチャット履歴
    * @param userMessage ユーザーの新しいメッセージ
+   * @param model 使用するモデル
    * @returns AIからの応答
    */
-  async continueChat(messages: ChatMessage[], userMessage: string): Promise<ChatResponse> {
+  async continueChat(
+    messages: ChatMessage[],
+    userMessage: string,
+    model: string = 'gpt-4o'
+  ): Promise<ChatResponse> {
     const updatedMessages: ChatMessage[] = [
       ...messages,
       {
@@ -83,6 +94,6 @@ export const openAiService = {
       },
     ];
 
-    return this.sendMessage(updatedMessages);
+    return this.sendMessage(updatedMessages, model);
   },
 };

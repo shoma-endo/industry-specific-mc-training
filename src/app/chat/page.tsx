@@ -8,6 +8,20 @@ import { startChat, continueChat } from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
 import { Bot, User, Send, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// 使用可能なモデル一覧
+export const AVAILABLE_MODELS = {
+  'gpt-4o': 'GPT-4o',
+  'ft:gpt-4o-2024-08-06:personal::BC8R5f5J': 'カスタムGPT-4o',
+  // 'ft:gpt-3.5-turbo-0125:personal::BFpA7sp8': 'カスタムGPT-3.5-turbo',
+};
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const SYSTEM_PROMPT = 'あなたは親切なアシスタントです。ユーザーの質問に丁寧に答えてください。';
 const MAX_MESSAGES = 10;
@@ -23,6 +37,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>('gpt-4o');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,8 +64,16 @@ export default function ChatPage() {
       const recentMessages = messages.slice(-MAX_MESSAGES);
       const response =
         messages.length === 0
-          ? await startChat({ systemPrompt: SYSTEM_PROMPT, userMessage: input })
-          : await continueChat({ messages: [...recentMessages, userMessage], userMessage: input });
+          ? await startChat({
+              systemPrompt: SYSTEM_PROMPT,
+              userMessage: input,
+              model: selectedModel,
+            })
+          : await continueChat({
+              messages: [...recentMessages, userMessage],
+              userMessage: input,
+              model: selectedModel,
+            });
 
       if (response.error) {
         console.error(response.error);
@@ -236,24 +259,41 @@ export default function ChatPage() {
       {/* 入力エリア */}
       <div className="border-t p-2 bg-background">
         <form onSubmit={handleSubmit} className="relative">
-          <div className="flex items-center gap-2 bg-gray-50 rounded-full pr-1 pl-4 border shadow-sm focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary/60">
-            <Input
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="メッセージを入力..."
-              disabled={isLoading}
-              className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-5 h-auto"
-            />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="モデルを選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(AVAILABLE_MODELS).map(([modelId, modelName]) => (
+                    <SelectItem key={modelId} value={modelId}>
+                      {modelName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              size="sm"
-              className="rounded-full w-8 h-8 p-0 flex items-center justify-center"
-            >
-              <Send size={16} />
-            </Button>
+            <div className="flex items-center gap-2 bg-gray-50 rounded-full pr-1 pl-4 border shadow-sm focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary/60">
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="メッセージを入力..."
+                disabled={isLoading}
+                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-5 h-auto"
+              />
+
+              <Button
+                type="submit"
+                size="icon"
+                disabled={isLoading || !input.trim()}
+                className="rounded-full size-9"
+              >
+                <Send size={18} className="text-white" />
+              </Button>
+            </div>
           </div>
         </form>
       </div>
