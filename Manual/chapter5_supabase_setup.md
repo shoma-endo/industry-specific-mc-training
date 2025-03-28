@@ -81,45 +81,81 @@ LIFF-Templateプロジェクトでは、マイグレーションファイルを�
 
 `supabase/migrations`ディレクトリには、以下のマイグレーションファイルが含まれています：
 
-1. `20240322_create_todos.sql`: Todosテーブルの作成とRLSポリシーの設定
-2. `20250322190944_fix_todos_table.sql`: Todosテーブルの修正
+1. `20250327000000_create_users_table.sql`: ユーザーテーブルの作成とRLSポリシーの設定
+2. `20240327000001_create_chat_tables.sql`: チャットセッションとメッセージテーブルの作成
 
-### 4.4.2 Todosテーブルの作成
+### 4.4.2 ユーザーテーブルの作成
 
-`20240322_create_todos.sql`ファイルには、Todosテーブルの作成とRLSポリシーの設定が含まれています：
+`20250327000000_create_users_table.sql`ファイルには、ユーザーテーブルの作成とRLSポリシーの設定が含まれています：
 
 ```sql
--- todos テーブルの作成
-CREATE TABLE IF NOT EXISTS todos (
-  id SERIAL PRIMARY KEY,
-  text TEXT NOT NULL,
-  completed BOOLEAN NOT NULL DEFAULT FALSE,
-  user_id TEXT, -- LINEのユーザーID
-  created_at BIGINT NOT NULL
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  line_user_id TEXT NOT NULL UNIQUE,
+  line_display_name TEXT NOT NULL,
+  line_picture_url TEXT,
+  line_status_message TEXT,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT
 );
 
--- RLSポリシーの設定
-ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
-
--- 認証済みユーザーが自分のデータにアクセスできるポリシー
-CREATE POLICY "認証済みユーザーのtodos読み取り" ON todos
-  FOR SELECT TO authenticated USING (user_id = auth.uid()::TEXT);
-
--- 匿名アクセス用の許可ポリシー（開発環境用）
-CREATE POLICY "匿名アクセス許可" ON todos
+CREATE POLICY "開発環境用全許可ポリシー_users" ON users
   FOR ALL USING (true);
 
--- インデックスの作成
-CREATE INDEX IF NOT EXISTS todos_user_id_idx ON todos (user_id);
-CREATE INDEX IF NOT EXISTS todos_created_at_idx ON todos (created_at);
+CREATE INDEX IF NOT EXISTS users_line_user_id_idx ON users (line_user_id);
+CREATE INDEX IF NOT EXISTS users_stripe_customer_id_idx ON users (stripe_customer_id);
+CREATE INDEX IF NOT EXISTS users_stripe_subscription_id_idx ON users (stripe_subscription_id);
 ```
 
 このマイグレーションファイルは、以下の操作を行います：
-- Todosテーブルの作成（id、text、completed、user_id、created_atカラム）
-- Row Level Security（RLS）の有効化
-- 認証済みユーザーが自分のデータにアクセスできるポリシーの作成
-- 開発環境用の匿名アクセス許可ポリシーの作成
-- インデックスの作成（user_idとcreated_atカラム）
+- ユーザーテーブルの作成（id、created_at、updated_at、line_user_id、line_display_name、line_picture_url、line_status_message、stripe_customer_id、stripe_subscription_idカラム）
+- 開発環境用の全許可ポリシーの作成
+- インデックスの作成（line_user_id、stripe_customer_id、stripe_subscription_idカラム）
+
+### 4.4.3 チャットテーブルの作成
+
+`20240327000001_create_chat_tables.sql`ファイルには、チャットセッションとメッセージテーブルの作成とRLSポリシーの設定が含まれています：
+
+```sql
+CREATE TABLE IF NOT EXISTS chat_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  system_prompt TEXT,
+  last_message_at BIGINT NOT NULL,
+  created_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  model TEXT,
+  created_at BIGINT NOT NULL
+);
+
+CREATE POLICY "開発環境用全許可ポリシー_chat_sessions" ON chat_sessions
+  FOR ALL USING (true);
+
+CREATE POLICY "開発環境用全許可ポリシー_chat_messages" ON chat_messages
+  FOR ALL USING (true);
+
+CREATE INDEX IF NOT EXISTS chat_sessions_user_id_idx ON chat_sessions (user_id);
+CREATE INDEX IF NOT EXISTS chat_sessions_created_at_idx ON chat_sessions (created_at);
+CREATE INDEX IF NOT EXISTS chat_messages_session_id_idx ON chat_messages (session_id);
+CREATE INDEX IF NOT EXISTS chat_messages_user_id_idx ON chat_messages (user_id);
+CREATE INDEX IF NOT EXISTS chat_messages_created_at_idx ON chat_messages (created_at);
+```
+
+このマイグレーションファイルは、以下の操作を行います：
+- チャットセッションテーブルの作成（id、user_id、title、system_prompt、last_message_at、created_atカラム）
+- チャットメッセージテーブルの作成（id、user_id、session_id、role、content、model、created_atカラム）
+- 開発環境用の全許可ポリシーの作成
+- インデックスの作成（user_id、created_at、session_idカラム）
 
 ### 4.4.3 マイグレーションの実行
 
@@ -139,23 +175,37 @@ Supabaseプロジェクトでマイグレーションを実行するには、以
 
 Supabaseでは、Row Level Security（RLS）を使用して、ユーザーごとにデータアクセスを制限できます。LIFF-Templateプロジェクトでは、以下のRLSポリシーを設定しています：
 
-### 4.5.1 認証済みユーザーのデータアクセスポリシー
+### 4.5.1 本番環境用のユーザーデータアクセスポリシー
+
+マイグレーションファイルには、本番環境で使用するRLSポリシーがコメントアウトされています：
 
 ```sql
-CREATE POLICY "認証済みユーザーのtodos読み取り" ON todos
-  FOR SELECT TO authenticated USING (user_id = auth.uid()::TEXT);
+-- CREATE POLICY "ユーザー所有データのみ許可_users" ON users
+--   FOR ALL USING (line_user_id = current_setting('app.user_id', true)::text);
+
+-- CREATE POLICY "ユーザー所有データのみ許可_chat_sessions" ON chat_sessions
+--   FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
+
+-- CREATE POLICY "ユーザー所有データのみ許可_chat_messages" ON chat_messages
+--   FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
 ```
 
-このポリシーは、認証済みユーザーが自分のデータ（user_idが自分のIDと一致するデータ）のみを読み取れるようにします。
+これらのポリシーは、ユーザーが自分のデータ（line_user_idまたはuser_idが自分のIDと一致するデータ）のみにアクセスできるようにします。本番環境では、これらのポリシーのコメントを解除して有効化することをお勧めします。
 
-### 4.5.2 開発環境用の匿名アクセスポリシー
+### 4.5.2 開発環境用の全許可ポリシー
 
 ```sql
-CREATE POLICY "匿名アクセス許可" ON todos
+CREATE POLICY "開発環境用全許可ポリシー_users" ON users
+  FOR ALL USING (true);
+
+CREATE POLICY "開発環境用全許可ポリシー_chat_sessions" ON chat_sessions
+  FOR ALL USING (true);
+
+CREATE POLICY "開発環境用全許可ポリシー_chat_messages" ON chat_messages
   FOR ALL USING (true);
 ```
 
-このポリシーは、開発環境で匿名ユーザーを含むすべてのユーザーがすべてのデータにアクセスできるようにします。本番環境では、このポリシーを削除または無効化することをお勧めします。
+これらのポリシーは、開発環境ですべてのユーザーがすべてのデータにアクセスできるようにします。本番環境では、これらのポリシーを削除または無効化することをお勧めします。
 
 ### 4.5.3 RLSポリシーの管理
 
@@ -172,21 +222,27 @@ LIFF-Templateプロジェクトでは、`supabaseService.ts`ファイルでSupab
 ```typescript
 import { createClient } from '@supabase/supabase-js';
 import { env } from '@/env';
+import { DbChatMessage, DbChatSession } from '@/types/chat';
 
 export class SupabaseService {
-  private supabase;
+  supabase;
 
   constructor() {
-    this.supabase = createClient(
-      env.NEXT_PUBLIC_SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY
-    );
+    // 環境変数からSupabase URLとサービスロールキーを取得
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceRole = env.SUPABASE_SERVICE_ROLE;
+
+    // 管理者権限を持つSupabaseクライアントの初期化
+    this.supabase = createClient(supabaseUrl, supabaseServiceRole, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
   }
 
-  // Supabaseクライアントを取得
-  getClient() {
-    return this.supabase;
-  }
+  // 以下、データアクセスメソッド
+  // ...
 }
 ```
 
@@ -194,37 +250,94 @@ export class SupabaseService {
 
 ## 4.7 データ変換ユーティリティ
 
-LIFF-Templateプロジェクトでは、データベースのスネークケース（snake_case）とアプリケーションのキャメルケース（camelCase）の間でデータを変換するユーティリティ関数を提供しています：
+LIFF-Templateプロジェクトでは、データベースのスネークケース（snake_case）とアプリケーションのキャメルケース（camelCase）の間でデータを変換するユーティリティ関数を提供しています。`src/types/chat.ts`ファイルには、チャット関連のデータ型と変換関数が定義されています：
 
 ```typescript
-// スネークケースからキャメルケースへの変換
-export function snakeToCamel<T>(obj: Record<string, any>): T {
-  const newObj: Record<string, any> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const newKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    newObj[newKey] = value;
-  }
-  return newObj as T;
+// データベース型定義（スネークケース）
+export interface DbChatSession {
+  id: string;
+  user_id: string;
+  title: string;
+  system_prompt?: string;
+  last_message_at: number;
+  created_at: number;
 }
 
-// キャメルケースからスネークケースへの変換
-export function camelToSnake<T>(obj: Record<string, any>): T {
-  const newObj: Record<string, any> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const newKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-    newObj[newKey] = value;
-  }
-  return newObj as T;
+export interface DbChatMessage {
+  id: string;
+  user_id: string;
+  session_id: string;
+  role: string;
+  content: string;
+  model?: string;
+  created_at: number;
 }
 
-// データベースレコードからTodoItemへの変換
-export function toTodoItem(record: Record<string, any>): TodoItem {
-  return snakeToCamel<TodoItem>(record);
+// アプリケーション型定義（キャメルケース）
+export interface ChatSession {
+  id: string;
+  userId: string;
+  title: string;
+  systemPrompt?: string;
+  lastMessageAt: number;
+  createdAt: number;
 }
 
-// TodoItemからデータベース形式への変換
-export function toDbTodo(todo: TodoItem): Record<string, any> {
-  return camelToSnake<Record<string, any>>(todo);
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  sessionId: string;
+  role: string;
+  content: string;
+  model?: string;
+  createdAt: number;
+}
+
+// 変換関数
+export function toChatSession(dbSession: DbChatSession): ChatSession {
+  return {
+    id: dbSession.id,
+    userId: dbSession.user_id,
+    title: dbSession.title,
+    systemPrompt: dbSession.system_prompt,
+    lastMessageAt: dbSession.last_message_at,
+    createdAt: dbSession.created_at,
+  };
+}
+
+export function toDbChatSession(session: ChatSession): DbChatSession {
+  return {
+    id: session.id,
+    user_id: session.userId,
+    title: session.title,
+    system_prompt: session.systemPrompt,
+    last_message_at: session.lastMessageAt,
+    created_at: session.createdAt,
+  };
+}
+
+export function toChatMessage(dbMessage: DbChatMessage): ChatMessage {
+  return {
+    id: dbMessage.id,
+    userId: dbMessage.user_id,
+    sessionId: dbMessage.session_id,
+    role: dbMessage.role,
+    content: dbMessage.content,
+    model: dbMessage.model,
+    createdAt: dbMessage.created_at,
+  };
+}
+
+export function toDbChatMessage(message: ChatMessage): DbChatMessage {
+  return {
+    id: message.id,
+    user_id: message.userId,
+    session_id: message.sessionId,
+    role: message.role,
+    content: message.content,
+    model: message.model,
+    created_at: message.createdAt,
+  };
 }
 ```
 
@@ -232,172 +345,433 @@ export function toDbTodo(todo: TodoItem): Record<string, any> {
 
 ## 4.8 リポジトリパターンの実装
 
-LIFF-Templateプロジェクトでは、リポジトリパターンを使用してデータアクセスロジックをカプセル化しています。`todoRepository.ts`ファイルには、Todosテーブルへのアクセスを提供するリポジトリが定義されています：
+LIFF-Templateプロジェクトでは、リポジトリパターンを使用してデータアクセスロジックをカプセル化しています。
+
+### 4.8.1 チャットリポジトリ
+
+`chatRepository.ts`ファイルには、チャットセッションとメッセージへのアクセスを提供するリポジトリが定義されています：
 
 ```typescript
-import { SupabaseService } from '@/server/services/supabaseService';
-import { TodoItem } from '@/types/todo';
-import { toDbTodo, toTodoItem } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
+import { SupabaseService } from './supabaseService';
+import {
+  ChatMessage,
+  ChatSession,
+  DbChatSession,
+  toChatMessage,
+  toChatSession,
+  toDbChatMessage,
+  toDbChatSession,
+} from '@/types/chat';
 
-export class TodoRepository {
+export class ChatRepository {
   private supabaseService: SupabaseService;
 
   constructor() {
     this.supabaseService = new SupabaseService();
   }
 
-  // すべてのTodoを取得
-  async findAll(userId?: string): Promise<TodoItem[]> {
-    const supabase = this.supabaseService.getClient();
-    let query = supabase.from('todos').select('*');
-    
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
-    
-    const { data, error } = await query.order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching todos:', error);
-      throw error;
-    }
-    
-    return data.map(toTodoItem);
+  async createSession(
+    userId: string,
+    title: string,
+    systemPrompt?: string
+  ): Promise<ChatSession> {
+    const now = Date.now();
+    const sessionId = uuidv4();
+
+    const session: ChatSession = {
+      id: sessionId,
+      userId,
+      title,
+      systemPrompt,
+      lastMessageAt: now,
+      createdAt: now,
+    };
+
+    await this.supabaseService.createChatSession(toDbChatSession(session));
+    return session;
   }
 
-  // 新しいTodoを作成
-  async create(todo: Omit<TodoItem, 'id'>): Promise<TodoItem> {
-    const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
-      .from('todos')
-      .insert(toDbTodo(todo as TodoItem))
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Error creating todo:', error);
-      throw error;
-    }
-    
-    return toTodoItem(data);
+  async getSessionById(sessionId: string): Promise<ChatSession | null> {
+    const dbSession = await this.supabaseService.getChatSessionById(sessionId);
+    return dbSession ? toChatSession(dbSession) : null;
   }
 
-  // Todoの完了状態を切り替え
-  async toggleComplete(id: number, completed: boolean): Promise<void> {
-    const supabase = this.supabaseService.getClient();
-    const { error } = await supabase
-      .from('todos')
-      .update({ completed })
-      .eq('id', id);
-    
-    if (error) {
-      console.error('Error toggling todo completion:', error);
-      throw error;
-    }
+  async getUserSessions(userId: string): Promise<ChatSession[]> {
+    const dbSessions = await this.supabaseService.getUserChatSessions(userId);
+    return dbSessions.map(toChatSession);
   }
 
-  // Todoを削除
-  async delete(id: number): Promise<void> {
-    const supabase = this.supabaseService.getClient();
-    const { error } = await supabase
-      .from('todos')
-      .delete()
-      .eq('id', id);
-    
-    if (error) {
-      console.error('Error deleting todo:', error);
-      throw error;
-    }
+  async updateSession(
+    sessionId: string,
+    updates: Partial<Omit<ChatSession, 'id' | 'userId' | 'createdAt'>>
+  ): Promise<void> {
+    const dbUpdates: Partial<DbChatSession> = {};
+
+    if (updates.title) dbUpdates.title = updates.title;
+    if (updates.systemPrompt !== undefined) dbUpdates.system_prompt = updates.systemPrompt;
+    if (updates.lastMessageAt) dbUpdates.last_message_at = updates.lastMessageAt;
+
+    await this.supabaseService.updateChatSession(sessionId, dbUpdates);
   }
 
-  // ユーザーのすべてのTodoを削除
-  async deleteAll(userId: string): Promise<void> {
-    const supabase = this.supabaseService.getClient();
-    const { error } = await supabase
-      .from('todos')
-      .delete()
-      .eq('user_id', userId);
-    
-    if (error) {
-      console.error('Error deleting all todos:', error);
-      throw error;
-    }
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.supabaseService.deleteChatSession(sessionId);
+  }
+
+  async createMessage(message: Omit<ChatMessage, 'id'>): Promise<ChatMessage> {
+    const messageId = uuidv4();
+    const fullMessage: ChatMessage = {
+      ...message,
+      id: messageId,
+    };
+
+    await this.supabaseService.createChatMessage(toDbChatMessage(fullMessage));
+
+    await this.updateSession(message.sessionId, {
+      lastMessageAt: message.createdAt,
+    });
+
+    return fullMessage;
+  }
+
+  async getSessionMessages(sessionId: string): Promise<ChatMessage[]> {
+    const dbMessages = await this.supabaseService.getChatMessagesBySessionId(sessionId);
+    return dbMessages.map(toChatMessage);
   }
 }
+
+export const chatRepository = new ChatRepository();
 ```
 
 このリポジトリは、以下の機能を提供します：
-- すべてのTodoの取得（オプションでユーザーIDによるフィルタリング）
-- 新しいTodoの作成
-- Todoの完了状態の切り替え
-- Todoの削除
-- ユーザーのすべてのTodoの削除
+- チャットセッションの作成、取得、更新、削除
+- チャットメッセージの作成と取得
+- ユーザーごとのチャットセッション一覧の取得
+
+### 4.8.2 ユーザーリポジトリ
+
+`userRepository.ts`ファイルには、ユーザー情報へのアクセスを提供するリポジトリが定義されています：
+
+```typescript
+import { v4 as uuidv4 } from 'uuid';
+import { SupabaseService } from './supabaseService';
+import { User, UserCreateInput, UserUpdateInput } from '@/types/user';
+
+export class UserRepository {
+  private supabaseService: SupabaseService;
+
+  constructor() {
+    this.supabaseService = new SupabaseService();
+  }
+
+  async findByLineUserId(lineUserId: string): Promise<User | null> {
+    const user = await this.supabaseService.getUserByLineId(lineUserId);
+    return user;
+  }
+
+  async create(input: UserCreateInput): Promise<User | null> {
+    const now = Date.now();
+    const user: User = {
+      id: uuidv4(),
+      createdAt: now,
+      updatedAt: now,
+      lineUserId: input.lineUserId,
+      lineDisplayName: input.lineDisplayName,
+      linePictureUrl: input.linePictureUrl,
+      lineStatusMessage: input.lineStatusMessage,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+    };
+
+    try {
+      await this.supabaseService.saveUserProfile(
+        user.lineUserId,
+        {
+          displayName: user.lineDisplayName,
+          pictureUrl: user.linePictureUrl,
+          statusMessage: user.lineStatusMessage,
+        }
+      );
+      return user;
+    } catch (error) {
+      console.error('Failed to create user:', error);
+      return null;
+    }
+  }
+
+  async update(id: string, input: UserUpdateInput): Promise<boolean> {
+    try {
+      await this.supabaseService.saveUserProfile(
+        input.lineUserId || id,
+        {
+          displayName: input.lineDisplayName,
+          pictureUrl: input.linePictureUrl,
+          statusMessage: input.lineStatusMessage,
+        }
+      );
+      return true;
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      return false;
+    }
+  }
+
+  async updateStripeCustomerId(lineUserId: string, stripeCustomerId: string): Promise<boolean> {
+    try {
+      // Implement this method
+      return true;
+    } catch (error) {
+      console.error('Failed to update Stripe customer ID:', error);
+      return false;
+    }
+  }
+
+  async updateStripeSubscriptionId(
+    lineUserId: string,
+    stripeSubscriptionId: string
+  ): Promise<boolean> {
+    try {
+      // Implement this method
+      return true;
+    } catch (error) {
+      console.error('Failed to update Stripe subscription ID:', error);
+      return false;
+    }
+  }
+}
+
+export const userRepository = new UserRepository();
+```
+
+このリポジトリは、以下の機能を提供します：
+- LINE ユーザーIDによるユーザー情報の取得
+- 新規ユーザーの作成
+- ユーザー情報の更新
+- Stripe顧客IDとサブスクリプションIDの更新
 
 ## 4.9 LINE認証とSupabaseの統合
 
-LIFF-Templateプロジェクトでは、LINE認証とSupabaseを統合しています。ユーザーがLINEでログインすると、LINEユーザーIDがTodoアイテムの`user_id`フィールドに保存されます。
+LIFF-Templateプロジェクトでは、LINE認証とSupabaseを統合しています。ユーザーがLINEでログインすると、LINEユーザー情報がusersテーブルに保存され、そのユーザーIDがチャットセッションとメッセージに関連付けられます。
 
-### 4.9.1 ユーザーIDの保存
+### 4.9.1 ユーザープロフィールの保存
 
-`login.actions.ts`ファイルでは、LINEユーザーIDをクッキーに保存します：
-
-```typescript
-export const setUserId = async (userId: string): Promise<void> => {
-  cookies().set('userId', userId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 1 week
-  });
-};
-```
-
-### 4.9.2 ユーザーIDの取得と使用
-
-サーバーアクションでは、クッキーからユーザーIDを取得し、Todoリポジトリに渡します：
+`userService.ts`ファイルでは、LINEプロフィール情報をSupabaseのusersテーブルに保存します：
 
 ```typescript
-import { cookies } from 'next/headers';
-import { TodoRepository } from '@/repositories/todoRepository';
+import { LineAuthService } from './lineAuthService';
+import { userRepository } from './userRepository';
+import { User } from '@/types/user';
 
-export async function getTodos() {
-  const userId = cookies().get('userId')?.value;
-  if (!userId) {
-    return [];
+export class UserService {
+  private lineAuthService: LineAuthService;
+
+  constructor() {
+    this.lineAuthService = new LineAuthService();
   }
-  
-  const todoRepository = new TodoRepository();
-  return todoRepository.findAll(userId);
+
+  async getUserFromLiffToken(liffAccessToken: string): Promise<User | null> {
+    try {
+      // LINEプロフィール情報を取得
+      const lineProfile = await this.lineAuthService.getLineProfile(liffAccessToken);
+      
+      // ユーザーをLINE IDで検索
+      let user = await userRepository.findByLineUserId(lineProfile.userId);
+      
+      // ユーザーが存在しない場合は新規作成
+      if (!user) {
+        user = await userRepository.create({
+          lineUserId: lineProfile.userId,
+          lineDisplayName: lineProfile.displayName,
+          linePictureUrl: lineProfile.pictureUrl,
+          lineStatusMessage: lineProfile.statusMessage,
+        });
+      }
+      
+      return user;
+    } catch (error) {
+      console.error('Failed to get user from LIFF token:', error);
+      return null;
+    }
+  }
+
+  // サブスクリプション状態の確認
+  async hasActiveSubscription(liffAccessToken: string): Promise<boolean> {
+    const user = await this.getUserFromLiffToken(liffAccessToken);
+    if (!user || !user.stripeCustomerId) return false;
+
+    // Stripeサービスを使用してサブスクリプション状態を確認
+    // ...
+    
+    return false; // 実装例
+  }
 }
 
-export async function addTodo(text: string) {
-  const userId = cookies().get('userId')?.value;
-  if (!userId) {
-    throw new Error('User not authenticated');
-  }
-  
-  const todoRepository = new TodoRepository();
-  return todoRepository.create({
-    text,
-    completed: false,
+export const userService = new UserService();
+```
+
+### 4.9.2 ユーザー認証フロー
+
+1. ユーザーがLINEでログインすると、LIFFアクセストークンが取得されます。
+2. `userService.getUserFromLiffToken`メソッドがLIFFアクセストークンを使用してLINEプロフィール情報を取得します。
+3. LINEユーザーIDを使用してSupabaseのusersテーブルからユーザー情報を検索します。
+4. ユーザーが存在しない場合は、新しいユーザーレコードが作成されます。
+5. ユーザー情報がアプリケーションに返され、チャットセッションやメッセージの作成時にユーザーIDが関連付けられます。
+
+### 4.9.3 サブスクリプション管理の統合
+
+ユーザーテーブルには、Stripeの顧客IDとサブスクリプションIDを保存するフィールドがあります：
+
+```sql
+stripe_customer_id TEXT,
+stripe_subscription_id TEXT
+```
+
+これらのフィールドは、ユーザーがサブスクリプションを購入した際に更新され、アプリケーション内でユーザーのサブスクリプション状態を確認するために使用されます。
+
+## 4.10 チャットデータの管理
+
+LIFF-Templateプロジェクトでは、チャットデータの管理にリポジトリパターンを使用しています。
+
+### 4.10.1 チャットセッションの管理
+
+チャットセッションは、ユーザーとAIの会話の単位です。各セッションには複数のメッセージが含まれます。
+
+```typescript
+// チャットセッションの作成
+async createSession(userId: string, title: string, systemPrompt?: string): Promise<ChatSession> {
+  const now = Date.now();
+  const sessionId = uuidv4();
+
+  const session: ChatSession = {
+    id: sessionId,
     userId,
+    title,
+    systemPrompt,
+    lastMessageAt: now,
+    createdAt: now,
+  };
+
+  await this.supabaseService.createChatSession(toDbChatSession(session));
+  return session;
+}
+
+// ユーザーのチャットセッション一覧の取得
+async getUserSessions(userId: string): Promise<ChatSession[]> {
+  const dbSessions = await this.supabaseService.getUserChatSessions(userId);
+  return dbSessions.map(toChatSession);
+}
+```
+
+### 4.10.2 チャットメッセージの管理
+
+チャットメッセージは、ユーザーまたはAIの発言を表します。各メッセージはセッションに関連付けられています。
+
+```typescript
+// チャットメッセージの作成
+async createMessage(message: Omit<ChatMessage, 'id'>): Promise<ChatMessage> {
+  const messageId = uuidv4();
+  const fullMessage: ChatMessage = {
+    ...message,
+    id: messageId,
+  };
+
+  await this.supabaseService.createChatMessage(toDbChatMessage(fullMessage));
+
+  // メッセージ作成時にセッションの最終メッセージ時間を更新
+  await this.updateSession(message.sessionId, {
+    lastMessageAt: message.createdAt,
+  });
+
+  return fullMessage;
+}
+
+// セッションのメッセージ一覧の取得
+async getSessionMessages(sessionId: string): Promise<ChatMessage[]> {
+  const dbMessages = await this.supabaseService.getChatMessagesBySessionId(sessionId);
+  return dbMessages.map(toChatMessage);
+}
+```
+
+### 4.10.3 サーバーアクションとの統合
+
+チャット機能は、Next.jsのサーバーアクションを通じてクライアントから利用されます：
+
+```typescript
+import { chatRepository } from '@/server/services/chatRepository';
+import { userService } from '@/server/services/userService';
+import { openAiService } from '@/server/services/openAiService';
+
+// 新しいチャットセッションの作成
+export async function createChatSession(liffAccessToken: string, title: string) {
+  const user = await userService.getUserFromLiffToken(liffAccessToken);
+  if (!user) throw new Error('ユーザーが見つかりません');
+
+  return chatRepository.createSession(user.lineUserId, title);
+}
+
+// チャットメッセージの送信と応答の取得
+export async function sendChatMessage(
+  liffAccessToken: string,
+  sessionId: string,
+  content: string
+) {
+  const user = await userService.getUserFromLiffToken(liffAccessToken);
+  if (!user) throw new Error('ユーザーが見つかりません');
+
+  // サブスクリプション状態の確認
+  const hasSubscription = await userService.hasActiveSubscription(liffAccessToken);
+  if (!hasSubscription) {
+    throw new Error('この機能を利用するにはサブスクリプションが必要です');
+  }
+
+  // ユーザーメッセージの保存
+  const userMessage = await chatRepository.createMessage({
+    userId: user.lineUserId,
+    sessionId,
+    role: 'user',
+    content,
     createdAt: Date.now(),
   });
+
+  // セッションの取得とメッセージ履歴の取得
+  const session = await chatRepository.getSessionById(sessionId);
+  const messages = await chatRepository.getSessionMessages(sessionId);
+
+  // OpenAI APIを使用して応答を生成
+  const aiResponse = await openAiService.generateChatResponse(
+    messages,
+    session?.systemPrompt
+  );
+
+  // AI応答の保存
+  await chatRepository.createMessage({
+    userId: user.lineUserId,
+    sessionId,
+    role: 'assistant',
+    content: aiResponse.content,
+    model: aiResponse.model,
+    createdAt: Date.now(),
+  });
+
+  return {
+    userMessage,
+    aiResponse,
+  };
 }
 ```
 
-## 4.10 Supabaseのローカル開発環境
+## 4.11 Supabaseのローカル開発環境
 
 Supabaseのローカル開発環境を設定するには、Supabase CLIを使用します：
 
-### 4.10.1 Supabase CLIのインストール
+### 4.11.1 Supabase CLIのインストール
 
 ```bash
 npm install -g supabase
 ```
 
-### 4.10.2 ローカル開発環境の起動
+### 4.11.2 ローカル開発環境の起動
 
 ```bash
 supabase start
@@ -405,46 +779,61 @@ supabase start
 
 これにより、Dockerコンテナを使用してローカルにSupabaseスタックが起動します。
 
-### 4.10.3 環境変数の更新
+### 4.11.3 環境変数の更新
 
 ローカル開発環境のURLとキーを使用するように、`.env.local`ファイルを更新します：
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_local_service_role_key
+SUPABASE_SERVICE_ROLE=your_local_service_role_key
 ```
 
-## 4.11 本番環境への移行
+## 4.12 本番環境への移行
 
 開発が完了したら、本番環境に移行する際に以下の点に注意してください：
 
-### 4.11.1 RLSポリシーの見直し
+### 4.12.1 RLSポリシーの見直し
 
-開発環境用の匿名アクセス許可ポリシーを削除または無効化します：
+開発環境用の全許可ポリシーを削除または無効化し、本番環境用のポリシーを有効化します：
 
 ```sql
-DROP POLICY IF EXISTS "匿名アクセス許可" ON todos;
+-- 開発環境用ポリシーの削除
+DROP POLICY IF EXISTS "開発環境用全許可ポリシー_users" ON users;
+DROP POLICY IF EXISTS "開発環境用全許可ポリシー_chat_sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "開発環境用全許可ポリシー_chat_messages" ON chat_messages;
+
+-- 本番環境用ポリシーの有効化
+CREATE POLICY "ユーザー所有データのみ許可_users" ON users
+  FOR ALL USING (line_user_id = current_setting('app.user_id', true)::text);
+
+CREATE POLICY "ユーザー所有データのみ許可_chat_sessions" ON chat_sessions
+  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
+
+CREATE POLICY "ユーザー所有データのみ許可_chat_messages" ON chat_messages
+  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
 ```
 
-### 4.11.2 本番環境の環境変数の設定
+### 4.12.2 本番環境の環境変数の設定
 
 Vercelなどのデプロイメントプラットフォームで、本番環境の環境変数を設定します：
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=your_production_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_production_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_production_service_role_key
+SUPABASE_SERVICE_ROLE=your_production_service_role_key
 ```
 
-### 4.11.3 データベースのバックアップ
+### 4.12.3 データベースのバックアップ
 
 定期的にデータベースのバックアップを作成することをお勧めします。Supabaseダッシュボードの「Database」→「Backups」から、バックアップを作成できます。
 
-## 4.12 まとめ
+## 4.13 まとめ
 
 Supabaseは、LIFF-Templateプロジェクトのバックエンドとして重要な役割を果たしています。PostgreSQLデータベース、Row Level Security、認証機能を提供し、LINE認証と統合することで、安全で効率的なデータ管理を実現しています。
 
-マイグレーションファイルを使用してデータベーススキーマを定義し、リポジトリパターンを使用してデータアクセスロジックをカプセル化することで、保守性と拡張性の高いアプリケーションを構築できます。
+新しいAIチャットアプリケーションでは、ユーザー情報、チャットセッション、チャットメッセージを管理するためのテーブルが設計され、リポジトリパターンを使用してデータアクセスロジックをカプセル化しています。これにより、保守性と拡張性の高いアプリケーションを構築できます。
+
+Stripeとの統合により、サブスクリプションベースのアクセス制御も実現され、ユーザーテーブルにStripe関連の情報を保存することで、有料機能へのアクセスを管理しています。
 
 開発環境から本番環境への移行時には、RLSポリシーの見直しや環境変数の設定など、セキュリティに関する考慮事項に注意することが重要です。

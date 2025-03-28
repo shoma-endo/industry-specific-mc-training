@@ -1,16 +1,17 @@
-# 第２章 openAIについて
+# 第2章 OpenAIについて
 
 ## 2.1 OpenAI APIの概要
 
-OpenAI APIは、GPT-4などの大規模言語モデル（LLM）を活用したAI機能をアプリケーションに統合するためのインターフェースです。LIFF-Templateプロジェクトでは、OpenAI APIを使用してチャット機能を実装しています。
+OpenAI APIは、GPT-4oなどの大規模言語モデル（LLM）を活用したAI機能をアプリケーションに統合するためのインターフェースです。LIFF-Templateプロジェクトでは、OpenAI APIを使用してAIチャット機能を実装しています。
 
 OpenAI APIの主な特徴：
 - テキスト生成、要約、翻訳、質問応答などの自然言語処理タスクの実行
 - プログラムコードの生成と修正
 - 特定のユースケースに合わせたモデルのファインチューニング
 - 様々なプログラミング言語からのアクセス（JavaScript/TypeScript、Python、Rubyなど）
+- 最新モデル（GPT-4o）によるマルチモーダル機能
 
-## 2.2 openaiのAPIキーの取得の仕方について
+## 2.2 OpenAIのAPIキーの取得方法
 
 OpenAI APIを使用するには、APIキーが必要です。以下の手順でAPIキーを取得できます。
 
@@ -24,7 +25,7 @@ OpenAI APIを使用するには、APIキーが必要です。以下の手順でA
 ### 2.2.2 APIキーの作成
 
 1. OpenAIアカウントにログインします。
-2. 右上のプロフィールアイコンをクリックし、「View API keys」を選択します。
+2. 右上のプロフィールアイコンをクリックし、「API keys」を選択します。
 3. 「Create new secret key」ボタンをクリックします。
 4. キーの説明（オプション）を入力し、「Create secret key」をクリックします。
 5. 生成されたAPIキーが表示されます。このキーは一度しか表示されないため、安全な場所に保存してください。
@@ -58,6 +59,7 @@ LIFF-Templateプロジェクトでは、OpenAI APIキーを環境変数として
 - **一貫した出力スタイル**: 特定のトーンや形式で一貫した応答を生成
 - **効率的なプロンプト使用**: 長いプロンプトを使わずに望ましい出力を得られる
 - **コスト削減**: 短いプロンプトでより良い結果を得られるため、APIコストを削減
+- **ブランドボイスの統一**: 企業や製品の一貫したコミュニケーションスタイルを維持
 
 ### 2.3.2 ファインチューニングの手順
 
@@ -103,7 +105,7 @@ async function uploadFile() {
 async function createFineTuningJob(fileId) {
   const response = await openai.fineTuning.jobs.create({
     training_file: fileId,
-    model: 'gpt-3.5-turbo', // または 'gpt-4' など
+    model: 'gpt-4o', // 最新のGPT-4oモデルを使用
   });
   
   console.log('Job ID:', response.id);
@@ -155,62 +157,163 @@ LIFF-Templateプロジェクトでは、`openAiService.ts`ファイルにOpenAI 
 
 ### 2.4.1 OpenAIサービスの構造
 
-`src/server/services/openAiService.ts`ファイルには、`OpenAiService`クラスが定義されています：
+`src/server/services/openAiService.ts`ファイルには、OpenAI APIとの通信を担当するサービスが定義されています：
 
 ```typescript
-export class OpenAiService {
-  private openai: OpenAI;
-
-  constructor() {
-    this.openai = new OpenAI({
-      apiKey: env.OPENAI_API_KEY,
-    });
-  }
-
-  chat = async (messages: ChatCompletionMessageParam[]): Promise<string> => {
+export const openAiService = {
+  /**
+   * チャットメッセージを送信し、AIからの応答を取得します
+   * @param messages チャット履歴
+   * @param model 使用するモデル
+   * @returns AIからの応答
+   */
+  async sendMessage(messages: ChatMessage[], model: string = 'gpt-4o'): Promise<ChatResponse> {
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages,
+      const completion = await openai.chat.completions.create({
+        model: model,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1000,
       });
 
-      return response.choices[0].message.content || '';
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error('AIからの応答が空でした');
+      }
+
+      return {
+        message: response,
+      };
     } catch (error) {
-      console.error('[OpenAI Service] Error:', error);
-      throw new Error('Failed to get response from OpenAI');
+      console.error('OpenAI API Error:', error);
+      return {
+        message: '',
+        error: 'AIとの通信中にエラーが発生しました',
+      };
     }
-  };
-}
+  },
+
+  // 他のメソッド省略
+};
 ```
 
-このサービスは、OpenAI APIクライアントを初期化し、チャットメッセージを送信するためのメソッドを提供します。
+このサービスは、OpenAI APIクライアントを初期化し、チャットメッセージを送信するためのメソッドを提供します。デフォルトでは最新の`gpt-4o`モデルを使用しています。
 
-### 2.4.2 OpenAIサービスの使用方法
+### 2.4.2 利用可能なモデル
 
-サーバーアクションやサービスから`OpenAiService`を使用する例：
+LIFF-Templateプロジェクトでは、以下のモデルが利用可能です：
 
 ```typescript
-import { OpenAiService } from '@/server/services/openAiService';
+export const AVAILABLE_MODELS = {
+  'gpt-4o': 'GPT-4o',
+  'ft:gpt-4o-2024-08-06:personal::BC8R5f5J': 'カスタムGPT-4o',
+  'ft:gpt-4o-2024-08-06:personal::BG2IVbFe': 'カスタムGPT-4o:20250328',
+};
+```
 
-export async function generateResponse(userMessage: string) {
-  const openAiService = new OpenAiService();
-  
-  const messages = [
-    { role: 'system', content: 'あなたは役立つアシスタントです。' },
-    { role: 'user', content: userMessage }
-  ];
-  
+これらには、標準のGPT-4oモデルと、特定のユースケース向けにファインチューニングされたカスタムモデルが含まれています。
+
+### 2.4.3 サブスクリプションによるアクセス制御
+
+LIFF-Templateプロジェクトでは、高度なAI機能へのアクセスは有料サブスクリプションによって制限されています。これは`chat.actions.ts`ファイルで実装されています：
+
+```typescript
+export async function sendMessage(
+  sessionId: string,
+  message: string
+): Promise<ChatResponse> {
   try {
-    const response = await openAiService.chat(messages);
-    return response;
+    // ユーザーIDを取得
+    const userId = cookies().get('userId')?.value;
+    if (!userId) {
+      return {
+        message: '',
+        error: 'ユーザーが認証されていません',
+      };
+    }
+
+    // ユーザーのサブスクリプション状態を確認
+    const userService = new UserService();
+    const user = await userService.getUserById(userId);
+    
+    // サブスクリプションがない場合はエラーを返す
+    if (!user?.stripeSubscriptionId) {
+      return {
+        message: '',
+        error: 'この機能を利用するにはサブスクリプションが必要です',
+      };
+    }
+
+    // チャットサービスを使用してメッセージを送信
+    const chatService = new ChatService();
+    return await chatService.sendMessage(userId, sessionId, message);
   } catch (error) {
-    console.error('Error generating response:', error);
-    return 'すみません、エラーが発生しました。';
+    console.error('Error in sendMessage action:', error);
+    return {
+      message: '',
+      error: 'メッセージの送信中にエラーが発生しました',
+    };
   }
 }
 ```
 
-### 2.4.3 セキュリティ考慮事項
+このコードは、ユーザーがStripeサブスクリプションを持っているかどうかを確認し、サブスクリプションがない場合はエラーメッセージを返します。
+
+### 2.4.4 チャットサービスとの統合
+
+OpenAIサービスは、`ChatService`クラスによって使用され、チャットセッションとメッセージの管理を担当します：
+
+```typescript
+export class ChatService {
+  private chatRepository: ChatRepository;
+
+  constructor() {
+    this.chatRepository = new ChatRepository();
+  }
+
+  async sendMessage(
+    userId: string,
+    sessionId: string,
+    message: string
+  ): Promise<ChatResponse> {
+    try {
+      // セッションの取得または作成
+      let session = await this.chatRepository.getSessionById(sessionId);
+      if (!session) {
+        session = await this.chatRepository.createSession(userId);
+      }
+
+      // ユーザーメッセージの保存
+      await this.chatRepository.saveMessage(session.id, 'user', message);
+
+      // 過去のメッセージを取得
+      const messages = await this.chatRepository.getMessagesBySessionId(session.id);
+      const chatMessages: ChatMessage[] = messages.map(msg => ({
+        role: msg.role as 'user' | 'assistant' | 'system',
+        content: msg.content,
+      }));
+
+      // OpenAIサービスを使用して応答を生成
+      const response = await openAiService.continueChat(chatMessages, message);
+
+      // AIの応答を保存
+      if (response.message) {
+        await this.chatRepository.saveMessage(session.id, 'assistant', response.message);
+      }
+
+      return response;
+    } catch (error) {
+      console.error('ChatService Error:', error);
+      return {
+        message: '',
+        error: 'チャットサービスでエラーが発生しました',
+      };
+    }
+  }
+}
+```
+
+## 2.5 セキュリティ考慮事項
 
 OpenAI APIを使用する際の主なセキュリティ考慮事項：
 
@@ -219,11 +322,12 @@ OpenAI APIを使用する際の主なセキュリティ考慮事項：
 3. **レート制限**: APIの過剰な使用を防ぐために、レート制限を実装してください。
 4. **コンテンツフィルタリング**: 不適切なコンテンツの生成を防ぐために、OpenAIのコンテンツフィルタリング機能を活用してください。
 5. **エラーハンドリング**: APIエラーを適切に処理し、センシティブな情報が漏洩しないようにしてください。
+6. **アクセス制御**: 有料機能へのアクセスを適切に制限し、不正アクセスを防止してください。
 
-## 2.5 まとめ
+## 2.6 まとめ
 
-OpenAI APIは、LIFF-Templateプロジェクトに強力なAI機能を追加するための重要なコンポーネントです。APIキーの取得、ファインチューニング、適切な実装を通じて、ユーザーエクスペリエンスを向上させることができます。
+OpenAI APIは、LIFF-Templateプロジェクトに強力なAIチャット機能を追加するための重要なコンポーネントです。APIキーの取得、ファインチューニング、適切な実装を通じて、ユーザーエクスペリエンスを向上させることができます。
+
+プロジェクトでは、GPT-4oモデルをデフォルトとして使用し、サブスクリプションベースのアクセス制御を実装することで、高度なAI機能を収益化しています。また、チャット履歴の保存と取得機能により、ユーザーは過去の会話を継続することができます。
 
 セキュリティのベストプラクティスに従い、APIキーを保護し、ユーザー入力を適切に検証することが重要です。また、ファインチューニングを活用することで、特定のユースケースに最適化されたAI応答を提供することができます。
-
-LIFF-Templateプロジェクトでは、`OpenAiService`クラスを通じてOpenAI APIとの統合が実装されており、チャット機能などのAI機能を簡単に追加できます。

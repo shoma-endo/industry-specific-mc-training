@@ -120,10 +120,13 @@ export const useLiff = () => {
   const { liff, isLoggedIn, isLoading, error } = useContext(LiffContext);
   const [profile, setProfile] = useState<LiffProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   const login = () => {
     if (!liff) return;
-    liff.login();
+    liff.login({
+      redirectUri: window.location.href,
+    });
   };
 
   const logout = () => {
@@ -154,9 +157,22 @@ export const useLiff = () => {
     }
   };
 
+  const getAccessToken = (): string | null => {
+    if (!liff || !liff.isLoggedIn()) return null;
+    try {
+      const token = liff.getAccessToken();
+      setAccessToken(token);
+      return token;
+    } catch (error) {
+      console.error('Failed to get access token', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (isLoggedIn && liff && !profile && !profileLoading) {
       getProfile();
+      getAccessToken();
     }
   }, [isLoggedIn, liff, profile, profileLoading]);
 
@@ -167,9 +183,11 @@ export const useLiff = () => {
     error,
     profile,
     profileLoading,
+    accessToken,
     login,
     logout,
     getProfile,
+    getAccessToken,
   };
 };
 ```
@@ -298,9 +316,9 @@ export class LineAuthService {
 - LINEアクセストークンの検証（有効期限、クライアントIDの確認）
 - LINEユーザープロフィールの取得（ユーザーID、表示名、プロフィール画像、ステータスメッセージ）
 
-## 3.5 認証フロー
+## 3.5 認証フローとユーザー管理
 
-LIFF-Templateプロジェクトの認証フローは、以下のステップで構成されています：
+LIFF-Templateプロジェクトの認証フローとユーザー管理は、以下のステップで構成されています：
 
 1. **LIFF初期化**：
    - アプリケーション起動時に`LiffProvider`コンポーネントがLIFF SDKを初期化
@@ -322,17 +340,74 @@ LIFF-Templateプロジェクトの認証フローは、以下のステップで�
    - `LineAuthService`の`verifyLineToken()`メソッドがトークンの有効性を確認
    - クライアントIDと有効期限を検証
 
-5. **プロフィール取得**：
+5. **プロフィール取得とユーザー作成/更新**：
    - 検証成功後、LINEユーザープロフィールを取得
-   - `LineAuthService`の`getLineProfile()`メソッドがユーザー情報を取得
-   - 取得したプロフィール情報をアプリケーションで利用
+   - `UserService`の`getUserFromLiffToken()`メソッドがユーザー情報を取得または作成
+   - 既存ユーザーの場合はプロフィール情報を更新
+   - 新規ユーザーの場合はデータベースに新しいユーザーレコードを作成
+
+```typescript
+async getUserFromLiffToken(liffAccessToken: string): Promise<User | null> {
+  try {
+    const lineProfile = await this.lineAuthService.getLineProfile(liffAccessToken);
+
+    let user = await userRepository.findByLineUserId(lineProfile.userId);
+
+    if (!user) {
+      user = await userRepository.create({
+        lineUserId: lineProfile.userId,
+        lineDisplayName: lineProfile.displayName,
+        linePictureUrl: lineProfile.pictureUrl,
+        lineStatusMessage: lineProfile.statusMessage,
+      });
+
+      if (!user) {
+        throw new Error('ユーザーの作成に失敗しました');
+      }
+    } else {
+      await userRepository.update(user.id, {
+        lineDisplayName: lineProfile.displayName,
+        linePictureUrl: lineProfile.pictureUrl,
+        lineStatusMessage: lineProfile.statusMessage,
+      });
+    }
+
+    return user;
+  } catch (error) {
+    console.error('Failed to get or create user:', error);
+    return null;
+  }
+}
+```
 
 6. **セッション管理**：
    - ユーザーIDをHTTP Onlyクッキーに保存
    - セキュリティ設定（Secure、SameSite）を適用
    - クッキーの有効期限を設定（1週間）
 
-7. **ログアウト処理**：
+7. **サブスクリプション状態の確認**：
+   - `UserService`の`hasActiveSubscription()`メソッドがユーザーのサブスクリプション状態を確認
+   - Stripeサービスと連携して有効なサブスクリプションの有無を確認
+   - サブスクリプション状態に基づいて、アプリケーション機能へのアクセスを制御
+
+```typescript
+async hasActiveSubscription(liffAccessToken: string): Promise<boolean> {
+  try {
+    const user = await this.getUserFromLiffToken(liffAccessToken);
+    if (!user || !user.stripeCustomerId) {
+      return false;
+    }
+
+    const subscription = await this.stripeService.getActiveSubscription(user.stripeCustomerId);
+    return !!subscription;
+  } catch (error) {
+    console.error('Failed to check subscription status:', error);
+    return false;
+  }
+}
+```
+
+8. **ログアウト処理**：
    - ユーザーがログアウトボタンをクリックすると、`useLiff`フックの`logout()`メソッドが呼び出される
    - LIFF SDKの`logout()`メソッドが実行され、ログイン状態がクリアされる
    - ページがリロードされ、初期状態に戻る
@@ -345,6 +420,8 @@ LIFF-Templateプロジェクトの認証フローは、以下のステップで�
 - **HTTPSの使用**: 本番環境では必ずHTTPSを使用する
 - **クッキーのセキュリティ設定**: HTTP Only、Secure、SameSiteなどの設定を適用する
 - **最小権限の原則**: 必要最小限のスコープのみを要求する
+- **ユーザーデータの保護**: データベースにユーザー情報を保存する際は、Row Level Security (RLS)を適用する
+- **アクセス制御**: サブスクリプションベースの機能へのアクセスを適切に制限する
 
 ### 3.6.2 ユーザー体験
 
@@ -352,12 +429,16 @@ LIFF-Templateプロジェクトの認証フローは、以下のステップで�
 - **エラーハンドリング**: エラー発生時にユーザーフレンドリーなメッセージを表示する
 - **オフライン対応**: オフライン時の動作を考慮する
 - **レスポンシブデザイン**: 様々なデバイスサイズに対応するデザインを実装する
+- **プロフィール表示**: ユーザーのLINEプロフィール情報（名前、画像）を適切に表示する
+- **サブスクリプション状態の表示**: ユーザーのサブスクリプション状態を明確に表示する
 
 ### 3.6.3 パフォーマンス
 
 - **遅延読み込み**: LIFF SDKを必要なときに読み込む
 - **キャッシング**: プロフィール情報などをキャッシュする
 - **状態管理の最適化**: 不要な再レンダリングを避ける
+- **アクセストークンの管理**: アクセストークンを効率的に取得・管理する
+- **データベースクエリの最適化**: ユーザー情報の取得・更新を効率的に行う
 
 ## 3.7 LIFFアプリケーションの作成手順
 
@@ -367,9 +448,9 @@ LIFF-Templateプロジェクトの認証フローは、以下のステップで�
 2. プロバイダーを選択または作成します。
 3. 「新規チャネル作成」をクリックし、「LIFFアプリ」を選択します。
 4. チャネルの基本情報を入力します：
-   - チャネル名
-   - チャネル説明
-   - アプリタイプ
+   - チャネル名（例: "AI Chat App"）
+   - チャネル説明（例: "AIを活用したチャットアプリケーション"）
+   - アプリタイプ（ウェブアプリ）
    - プライバシーポリシーURL（任意）
    - 利用規約URL（任意）
 5. 「作成」ボタンをクリックします。
@@ -377,6 +458,42 @@ LIFF-Templateプロジェクトの認証フローは、以下のステップで�
 ### 3.7.2 LIFFアプリの設定
 
 1. 作成したLIFFアプリの詳細ページで、「LIFF」タブをクリックします。
+2. 「追加」ボタンをクリックして、新しいLIFFアプリを追加します。
+3. 以下の情報を入力します：
+   - LIFFアプリ名（例: "AI Chat App"）
+   - サイズ（Full）
+   - エンドポイントURL（例: "https://your-app-domain.com"）
+   - Scope（profile、chat_message.write）
+   - ボットリンク機能（On/Off）
+4. 「追加」ボタンをクリックします。
+5. 作成されたLIFF IDをコピーし、アプリケーションの環境変数に設定します。
+
+### 3.7.3 チャネルIDの取得
+
+1. LIFFアプリの詳細ページで、「基本設定」タブをクリックします。
+2. 「チャネルID」をコピーし、アプリケーションの環境変数に設定します。
+
+### 3.7.4 環境変数の設定
+
+アプリケーションの`.env.local`ファイルに以下の環境変数を設定します：
+
+```
+NEXT_PUBLIC_LIFF_ID=your_liff_id_here
+NEXT_PUBLIC_LIFF_CHANNEL_ID=your_channel_id_here
+```
+
+これらの環境変数は、`src/env.ts`ファイルで型安全に定義されています：
+
+```typescript
+export const env = createEnv({
+  client: {
+    NEXT_PUBLIC_LIFF_ID: z.string().min(1),
+    NEXT_PUBLIC_LIFF_CHANNEL_ID: z.string().min(1),
+    // その他の環境変数
+  },
+  // ...
+});
+```
 2. 「追加」ボタンをクリックし、以下の情報を入力します：
    - LIFFアプリ名
    - サイズ（Full、Tall、Compact）
