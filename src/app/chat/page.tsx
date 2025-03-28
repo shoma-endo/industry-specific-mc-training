@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { startChat, continueChat } from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
-import { Bot, User, Send, Trash2 } from 'lucide-react';
+import { Bot, User, Send, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // 使用可能なモデル一覧
 export const AVAILABLE_MODELS = {
@@ -33,11 +34,15 @@ type Message = {
 };
 
 export default function ChatPage() {
-  const { isLoggedIn, login } = useLiffContext();
+  const router = useRouter();
+  const { isLoggedIn, login, getAccessToken } = useLiffContext();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('gpt-4o');
+  const [error, setError] = useState<string | null>(null);
+  const [requiresSubscription, setRequiresSubscription] = useState(false);
+  const [sessionId, setSessionId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +55,9 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    setError(null);
+    setRequiresSubscription(false);
+
     // ユーザーメッセージを即時追加
     const userMessage = {
       role: 'user' as const,
@@ -61,22 +69,38 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
+      const liffAccessToken = await getAccessToken();
       const recentMessages = messages.slice(-MAX_MESSAGES);
-      const response =
-        messages.length === 0
-          ? await startChat({
-              systemPrompt: SYSTEM_PROMPT,
-              userMessage: input,
-              model: selectedModel,
-            })
-          : await continueChat({
-              messages: [...recentMessages, userMessage],
-              userMessage: input,
-              model: selectedModel,
-            });
+      
+      const response = messages.length === 0 || !sessionId
+        ? await startChat({
+            systemPrompt: SYSTEM_PROMPT,
+            userMessage: input,
+            model: selectedModel,
+            liffAccessToken,
+          })
+        : await continueChat({
+            sessionId,
+            messages: [...recentMessages, userMessage].map(msg => ({
+              role: msg.role,
+              content: msg.content,
+            })),
+            userMessage: input,
+            model: selectedModel,
+            liffAccessToken,
+          });
+
+      if (response.sessionId && !sessionId) {
+        setSessionId(response.sessionId);
+      }
 
       if (response.error) {
         console.error(response.error);
+        setError(response.error);
+        
+        if (response.requiresSubscription) {
+          setRequiresSubscription(true);
+        }
         return;
       }
 
@@ -92,14 +116,7 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Chat error:', error);
       // エラーメッセージを表示
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'すみません、エラーが発生しました。もう一度お試しください。',
-          timestamp: new Date(),
-        },
-      ]);
+      setError('すみません、エラーが発生しました。もう一度お試しください。');
     } finally {
       setIsLoading(false);
       // 入力欄にフォーカス
@@ -110,6 +127,9 @@ export default function ChatPage() {
   const clearChat = () => {
     if (confirm('会話履歴をクリアしますか？')) {
       setMessages([]);
+      setSessionId('');
+      setError(null);
+      setRequiresSubscription(false);
     }
   };
 
@@ -137,6 +157,10 @@ export default function ChatPage() {
     );
   };
 
+  const goToSubscription = () => {
+    router.push('/subscription');
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3rem)]">
@@ -158,6 +182,44 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3rem)]">
+      {/* サブスクリプション必要アラート */}
+      {requiresSubscription && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-3">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3 flex-1">
+              <p className="text-sm text-yellow-700">{error}</p>
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToSubscription}
+                  className="text-xs"
+                >
+                  サブスクリプションに登録する
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 一般エラーアラート */}
+      {error && !requiresSubscription && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 m-3">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* メッセージエリア */}
       <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
         {messages.length === 0 ? (
@@ -167,6 +229,18 @@ export default function ChatPage() {
             <p className="text-sm text-gray-500 max-w-xs">
               何か質問や相談があれば、お気軽にメッセージを送ってください。
             </p>
+            {requiresSubscription && (
+              <div className="mt-4">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={goToSubscription}
+                  className="text-xs"
+                >
+                  サブスクリプションに登録する
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <>

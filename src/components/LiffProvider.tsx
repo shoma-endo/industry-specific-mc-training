@@ -15,6 +15,8 @@ interface LiffContextType {
   } | null;
   login: () => void;
   logout: () => void;
+  liffObject: any;
+  getAccessToken: () => Promise<string>;
 }
 
 const LiffContext = createContext<LiffContextType | null>(null);
@@ -95,8 +97,24 @@ export function LiffProvider({ children }: LiffProviderProps) {
   }
 
   // コンテキストに値を設定して子コンポーネントにLIFF状態を提供
+  const getAccessToken = async (): Promise<string> => {
+    if (liffObject && isLoggedIn) {
+      const token = await liffObject.getAccessToken();
+      if (token) return token;
+    }
+    throw new Error('LIFF is not initialized or user is not logged in');
+  };
+
   return (
-    <LiffContext.Provider value={{ isLoggedIn, isLoading, profile, login, logout }}>
+    <LiffContext.Provider value={{ 
+      isLoggedIn, 
+      isLoading, 
+      profile, 
+      login, 
+      logout, 
+      liffObject, 
+      getAccessToken 
+    }}>
       {children}
     </LiffContext.Provider>
   );

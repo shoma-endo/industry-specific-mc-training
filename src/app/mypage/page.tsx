@@ -35,7 +35,8 @@ export default function MyPage() {
       if (!profile) return;
 
       try {
-        const result = await getUserSubscription();
+        const liffAccessToken = await useLiff().getAccessToken();
+        const result = await getUserSubscription(liffAccessToken);
 
         if (result.success) {
           setHasActiveSubscription(result.hasActiveSubscription || false);
@@ -62,7 +63,11 @@ export default function MyPage() {
     setError(null);
 
     try {
-      const result = await createCustomerPortalSession(window.location.origin + '/mypage');
+      const liffAccessToken = await useLiff().getAccessToken();
+      const result = await createCustomerPortalSession(
+        window.location.origin + '/mypage',
+        liffAccessToken
+      );
 
       if (result.success && result.url) {
         // Stripeカスタマーポータルにリダイレクト
@@ -101,7 +106,8 @@ export default function MyPage() {
 
       if (result.success) {
         // 最新のサブスクリプション情報を再取得
-        const updatedResult = await getUserSubscription();
+        const liffAccessToken = await useLiff().getAccessToken();
+        const updatedResult = await getUserSubscription(liffAccessToken);
         if (updatedResult.success) {
           setHasActiveSubscription(updatedResult.hasActiveSubscription || false);
           setSubscription(updatedResult.subscription || null);
@@ -141,7 +147,8 @@ export default function MyPage() {
 
       if (result.success) {
         // 最新のサブスクリプション情報を再取得
-        const updatedResult = await getUserSubscription();
+        const liffAccessToken = await useLiff().getAccessToken();
+        const updatedResult = await getUserSubscription(liffAccessToken);
         if (updatedResult.success) {
           setHasActiveSubscription(updatedResult.hasActiveSubscription || false);
           setSubscription(updatedResult.subscription || null);
