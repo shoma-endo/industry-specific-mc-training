@@ -18,8 +18,6 @@ export class LineAuthService {
         }
       );
 
-      console.log('response', response);
-
       if (!response.ok) {
         const data: { error_description: string; error: string } = await response.json();
         throw new Error(`[LINE Token Verification] ${data.error}: ${data.error_description}`);
