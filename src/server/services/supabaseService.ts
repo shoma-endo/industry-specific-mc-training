@@ -26,7 +26,10 @@ export class SupabaseService {
   /**
    * ユーザープロフィールを保存または更新
    */
-  async saveUserProfile(userId: string, lineProfile: { displayName: string; pictureUrl?: string; statusMessage?: string }) {
+  async saveUserProfile(
+    userId: string,
+    lineProfile: { displayName: string; pictureUrl?: string; statusMessage?: string }
+  ) {
     const { data, error } = await this.supabase
       .from('users')
       .upsert(
@@ -113,10 +116,7 @@ export class SupabaseService {
   }
 
   async updateChatSession(sessionId: string, updates: Partial<DbChatSession>): Promise<void> {
-    const { error } = await this.supabase
-      .from('chat_sessions')
-      .update(updates)
-      .eq('id', sessionId);
+    const { error } = await this.supabase.from('chat_sessions').update(updates).eq('id', sessionId);
 
     if (error) {
       console.error('Failed to update chat session:', error);
@@ -125,10 +125,7 @@ export class SupabaseService {
   }
 
   async deleteChatSession(sessionId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('chat_sessions')
-      .delete()
-      .eq('id', sessionId);
+    const { error } = await this.supabase.from('chat_sessions').delete().eq('id', sessionId);
 
     if (error) {
       console.error('Failed to delete chat session:', error);
@@ -156,6 +153,7 @@ export class SupabaseService {
       .from('chat_messages')
       .select('*')
       .eq('session_id', sessionId)
+      // .eq('session_id', '37933267-b149-4735-b459-530f7411d930')
       .order('created_at', { ascending: true });
 
     if (error) {

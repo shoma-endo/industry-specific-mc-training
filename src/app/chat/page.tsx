@@ -6,6 +6,7 @@ import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
   startChat,
   continueChat,
@@ -13,7 +14,7 @@ import {
   getSessionMessages,
 } from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
-import { Bot, Send, Trash2, AlertCircle } from 'lucide-react';
+import { Bot, Send, Trash2, AlertCircle, PlusCircle, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // 使用可能なモデル一覧
 export const AVAILABLE_MODELS = {
@@ -39,6 +40,12 @@ type Message = {
   timestamp?: Date;
 };
 
+type Session = {
+  id: string;
+  title: string;
+  updatedAt: Date;
+};
+
 export default function ChatPage() {
   const router = useRouter();
   const { isLoggedIn, login, getAccessToken } = useLiffContext();
@@ -50,8 +57,111 @@ export default function ChatPage() {
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // モバイル画面の検出
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  // セッション一覧を取得
+  const fetchSessions = async () => {
+    if (!isLoggedIn) return;
+
+    try {
+      const accessToken = await liff.getAccessToken();
+      if (!accessToken) {
+        console.error('LINEアクセストークンが取得できません');
+        return;
+      }
+
+      const result = await getChatSessions(accessToken);
+      if (result.error) {
+        console.error(result.error);
+        return;
+      }
+
+      if (result.sessions) {
+        // セッションにタイトルがなければ、「新しい会話」またはタイムスタンプをタイトルとして設定
+        const formattedSessions: Session[] = result.sessions.map(session => ({
+          id: session.id,
+          title:
+            session.title ||
+            `新しい会話 ${new Date(session.lastMessageAt || session.createdAt).toLocaleDateString()}`,
+          updatedAt: new Date(session.lastMessageAt || session.createdAt),
+        }));
+        setSessions(formattedSessions);
+      }
+    } catch (error) {
+      console.error('Failed to fetch chat sessions:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchSessions();
+    }
+  }, [isLoggedIn]);
+
+  // 特定のセッションのメッセージを読み込む
+  const loadSession = async (sessionId: string) => {
+    if (!isLoggedIn || !sessionId) return;
+
+    try {
+      setIsLoading(true);
+      const accessToken = await liff.getAccessToken();
+      if (!accessToken) {
+        console.error('LINEアクセストークンが取得できません');
+        setIsLoading(false);
+        return;
+      }
+
+      setSessionId(sessionId);
+      const messagesResult = await getSessionMessages(sessionId, accessToken);
+
+      if (!messagesResult.error && messagesResult.messages) {
+        const uiMessages: Message[] = messagesResult.messages.map(msg => ({
+          role: msg.role === 'system' ? 'assistant' : (msg.role as 'user' | 'assistant'),
+          content: msg.content,
+          timestamp: new Date(msg.createdAt),
+        }));
+
+        setMessages(uiMessages);
+      }
+
+      // モバイル表示の場合はセッション選択後にシートを閉じる
+      if (isMobile) {
+        setSheetOpen(false);
+      }
+    } catch (error) {
+      console.error('Failed to load chat session:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 新しいチャットを開始
+  const startNewChat = () => {
+    setSessionId('');
+    setMessages([]);
+    setError(null);
+    setRequiresSubscription(false);
+
+    // モバイル表示の場合は新規チャット開始後にシートを閉じる
+    if (isMobile) {
+      setSheetOpen(false);
+    }
+  };
 
   useEffect(() => {
     const loadLatestSession = async () => {
@@ -168,6 +278,8 @@ export default function ChatPage() {
 
       if (response.sessionId && !sessionId) {
         setSessionId(response.sessionId);
+        // 新しいセッションが作成されたら、セッション一覧を更新
+        fetchSessions();
       }
 
       if (response.error) {
@@ -196,14 +308,13 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false);
       // 入力欄にフォーカス
-      inputRef.current?.focus();
+      textareaRef.current?.focus();
     }
   };
 
   const clearChat = () => {
     if (confirm('会話履歴をクリアしますか？')) {
       setMessages([]);
-      setSessionId('');
       setError(null);
       setRequiresSubscription(false);
     }
@@ -212,6 +323,20 @@ export default function ChatPage() {
   const formatTime = (date?: Date) => {
     if (!date) return '';
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDate = (date: Date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return '今日';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return '昨日';
+    } else {
+      return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
+    }
   };
 
   // 複数のメッセージをまとめて表示するのに使う補助関数
@@ -256,212 +381,297 @@ export default function ChatPage() {
     );
   }
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-3rem)]">
-      {/* サブスクリプション必要アラート */}
-      {requiresSubscription && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-3">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-yellow-400" />
-            </div>
-            <div className="ml-3 flex-1">
-              <p className="text-sm text-yellow-700">{error}</p>
-              <div className="mt-2">
-                <Button variant="outline" size="sm" onClick={goToSubscription} className="text-xs">
-                  サブスクリプションに登録する
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 一般エラーアラート */}
-      {error && !requiresSubscription && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 m-3">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* メッセージエリア */}
-      <div className="flex-1 overflow-y-auto p-3 bg-slate-100">
-        {isLoading && messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="bg-white p-6 rounded-xl shadow-sm flex flex-col items-center">
-              <div className="w-10 h-10 rounded-full bg-[#06c755] flex items-center justify-center mb-4">
-                <Bot size={24} className="text-white" />
-              </div>
-              <h3 className="text-lg font-medium mb-3">メッセージを取得中です</h3>
-              <div className="flex gap-2 items-center">
-                <div
-                  className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-                  style={{ animationDelay: '0ms' }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-                  style={{ animationDelay: '200ms' }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-                  style={{ animationDelay: '400ms' }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <Bot size={48} className="text-gray-300 mb-3" />
-            <h3 className="text-lg font-medium mb-1">AIアシスタントへようこそ</h3>
-            <p className="text-sm text-gray-500 max-w-xs">
-              何か質問や相談があれば、お気軽にメッセージを送ってください。
-            </p>
-            {requiresSubscription && (
-              <div className="mt-4">
-                <Button variant="default" size="sm" onClick={goToSubscription} className="text-xs">
-                  サブスクリプションに登録する
-                </Button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearChat}
-              className="mb-3 text-xs ml-auto flex items-center gap-1"
-            >
-              <Trash2 size={14} />
-              履歴を削除
-            </Button>
-
-            {messages.map((message, index) => (
-              <div key={index} className="mb-4 last:mb-2">
-                <div
-                  className={cn(
-                    'flex items-start gap-2',
-                    message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                  )}
-                >
-                  {message.role !== 'user' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
-                      <Bot size={18} className="text-[#06c755]" />
-                    </div>
-                  )}
-                  <div
-                    className={cn(
-                      'max-w-[85%] p-3 rounded-2xl',
-                      message.role === 'user'
-                        ? 'bg-[#06c755] text-white'
-                        : 'bg-white text-gray-800 border border-gray-100'
-                    )}
-                  >
-                    <div className="whitespace-pre-wrap text-sm">{message.content}</div>
-                  </div>
-                  {message.role === 'user' && (
-                    <div className="opacity-0 w-8 h-8">
-                      {/* スペーサー要素 - ユーザーメッセージの右側に表示されるLINEと同様の余白を確保 */}
-                    </div>
-                  )}
-                </div>
-
-                {/* タイムスタンプ (条件付きで表示) */}
-                {shouldShowTimestamp(index) && (
-                  <div
-                    className={cn(
-                      'text-[10px] text-gray-400 mt-1 px-2',
-                      message.role === 'user' ? 'text-right' : 'text-left'
-                    )}
-                  >
-                    {formatTime(message.timestamp)}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* AIの入力中表示 */}
-            {isLoading && (
-              <div className="flex items-start gap-2 mb-3 animate-in fade-in">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
-                  <Bot size={18} className="text-[#06c755]" />
-                </div>
-                <div className="bg-white text-foreground p-3 rounded-2xl border border-gray-100">
-                  <div className="flex gap-2 items-center">
-                    <div className="flex gap-1 items-center">
-                      <div
-                        className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
-                        style={{ animationDelay: '0ms' }}
-                      ></div>
-                      <div
-                        className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
-                        style={{ animationDelay: '200ms' }}
-                      ></div>
-                      <div
-                        className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
-                        style={{ animationDelay: '400ms' }}
-                      ></div>
-                    </div>
-                    <span className="text-sm text-gray-500">メッセージを取得中です...</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        <div ref={messagesEndRef} />
+  // サイドバーの内容
+  const SessionListContent = () => (
+    <div className="h-full flex flex-col">
+      <div className="p-4 border-b">
+        <h2 className="font-medium text-lg flex items-center gap-2">
+          <Bot size={20} className="text-[#06c755]" />
+          チャット履歴
+        </h2>
       </div>
 
-      {/* 入力エリア */}
-      <div className="border-t p-3 bg-white">
-        <form onSubmit={e => e.preventDefault()} className="relative">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="モデルを選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(AVAILABLE_MODELS).map(([modelId, modelName]) => (
-                    <SelectItem key={modelId} value={modelId}>
-                      {modelName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-3">
+          <Button
+            variant="outline"
+            onClick={startNewChat}
+            className="w-full mb-4 flex items-center gap-2 bg-white border-gray-200 hover:bg-gray-50"
+          >
+            <PlusCircle size={16} className="text-[#06c755]" />
+          </Button>
+
+          {sessions.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-sm">履歴がありません</div>
+          ) : (
+            <div className="space-y-2">
+              {sessions.map(session => (
+                <button
+                  key={session.id}
+                  onClick={() => loadSession(session.id)}
+                  className={cn(
+                    'w-full text-left px-3 py-3 rounded-lg hover:bg-gray-100 transition',
+                    sessionId === session.id
+                      ? 'bg-[#e6f9ef] text-[#06c755] font-medium'
+                      : 'bg-white'
+                  )}
+                >
+                  <div className="flex flex-col">
+                    <span className="truncate text-sm">{session.title}</span>
+                    <span className="text-xs text-gray-500 mt-1">
+                      {formatDate(session.updatedAt)}
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
-            <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={handleInputChange}
-                placeholder="メッセージを入力..."
-                disabled={isLoading}
-                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto min-h-10 max-h-[150px] resize-none overflow-y-auto"
-                rows={1}
-                style={{ overflow: 'auto' }}
-              />
+  return (
+    <div className="flex h-[calc(100vh-3rem)]">
+      {/* デスクトップ用サイドバー */}
+      {!isMobile && (
+        <div className="bg-slate-50 border-r flex-shrink-0 flex flex-col w-80 relative h-full">
+          <SessionListContent />
+        </div>
+      )}
 
-              <Button
-                onClick={handleSubmit}
-                size="icon"
-                disabled={isLoading || !input.trim()}
-                className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
-              >
-                <Send size={18} className="text-white" />
-              </Button>
+      {/* モバイル用シート */}
+      {isMobile && (
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="absolute top-2 left-2 z-10">
+              <Menu size={20} />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 max-w-[280px] sm:max-w-[280px]">
+            <SessionListContent />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* チャットメイン部分 */}
+      <div className="flex-1 flex flex-col">
+        {/* ヘッダー */}
+        <div className="border-b py-2 px-4 flex items-center justify-between">
+          <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="モデルを選択" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(AVAILABLE_MODELS).map(([modelId, modelName]) => (
+                <SelectItem key={modelId} value={modelId}>
+                  {modelName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* サブスクリプション必要アラート */}
+        {requiresSubscription && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-3">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-yellow-400" />
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm text-yellow-700">{error}</p>
+                <div className="mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToSubscription}
+                    className="text-xs"
+                  >
+                    サブスクリプションに登録する
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
-        </form>
+        )}
+
+        {/* 一般エラーアラート */}
+        {error && !requiresSubscription && (
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 m-3">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* メッセージエリア */}
+        <div className="flex-1 overflow-y-auto p-3 bg-slate-100">
+          {isLoading && messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full">
+              <div className="bg-white p-6 rounded-xl shadow-sm flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-[#06c755] flex items-center justify-center mb-4">
+                  <Bot size={24} className="text-white" />
+                </div>
+                <h3 className="text-lg font-medium mb-3">メッセージを取得中です</h3>
+                <div className="flex gap-2 items-center">
+                  <div
+                    className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+                    style={{ animationDelay: '0ms' }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+                    style={{ animationDelay: '200ms' }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+                    style={{ animationDelay: '400ms' }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-4">
+              <Bot size={48} className="text-gray-300 mb-3" />
+              <h3 className="text-lg font-medium mb-1">AIアシスタントへようこそ</h3>
+              <p className="text-sm text-gray-500 max-w-xs">
+                何か質問や相談があれば、お気軽にメッセージを送ってください。
+              </p>
+              {requiresSubscription && (
+                <div className="mt-4">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={goToSubscription}
+                    className="text-xs"
+                  >
+                    サブスクリプションに登録する
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearChat}
+                className="mb-3 text-xs ml-auto flex items-center gap-1"
+              >
+                <Trash2 size={14} />
+                履歴を削除
+              </Button>
+
+              {messages.map((message, index) => (
+                <div key={index} className="mb-4 last:mb-2">
+                  <div
+                    className={cn(
+                      'flex items-start gap-2',
+                      message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                    )}
+                  >
+                    {message.role !== 'user' && (
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
+                        <Bot size={18} className="text-[#06c755]" />
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        'max-w-[85%] p-3 rounded-2xl',
+                        message.role === 'user'
+                          ? 'bg-[#06c755] text-white'
+                          : 'bg-white text-gray-800 border border-gray-100'
+                      )}
+                    >
+                      <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                    </div>
+                    {message.role === 'user' && (
+                      <div className="opacity-0 w-8 h-8">
+                        {/* スペーサー要素 - ユーザーメッセージの右側に表示されるLINEと同様の余白を確保 */}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* タイムスタンプ (条件付きで表示) */}
+                  {shouldShowTimestamp(index) && (
+                    <div
+                      className={cn(
+                        'text-[10px] text-gray-400 mt-1 px-2',
+                        message.role === 'user' ? 'text-right' : 'text-left'
+                      )}
+                    >
+                      {formatTime(message.timestamp)}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* AIの入力中表示 */}
+              {isLoading && (
+                <div className="flex items-start gap-2 mb-3 animate-in fade-in">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
+                    <Bot size={18} className="text-[#06c755]" />
+                  </div>
+                  <div className="bg-white text-foreground p-3 rounded-2xl border border-gray-100">
+                    <div className="flex gap-2 items-center">
+                      <div className="flex gap-1 items-center">
+                        <div
+                          className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
+                          style={{ animationDelay: '0ms' }}
+                        ></div>
+                        <div
+                          className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
+                          style={{ animationDelay: '200ms' }}
+                        ></div>
+                        <div
+                          className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
+                          style={{ animationDelay: '400ms' }}
+                        ></div>
+                      </div>
+                      <span className="text-sm text-gray-500">メッセージを取得中です...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* 入力エリア */}
+        <div className="border-t p-3 bg-white">
+          <form onSubmit={e => e.preventDefault()} className="relative">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30">
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  placeholder="メッセージを入力..."
+                  disabled={isLoading}
+                  className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto min-h-10 max-h-[150px] resize-none overflow-y-auto"
+                  rows={1}
+                  style={{ overflow: 'auto' }}
+                />
+
+                <Button
+                  onClick={handleSubmit}
+                  size="icon"
+                  disabled={isLoading || !input.trim()}
+                  className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
+                >
+                  <Send size={18} className="text-white" />
+                </Button>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
