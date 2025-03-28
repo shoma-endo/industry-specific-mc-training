@@ -8,7 +8,8 @@ import {
   ChatRole, 
   toChatMessage, 
   toChatSession,
-  OpenAIMessage
+  OpenAIMessage,
+  OpenAIResponse
 } from '@/types/chat';
 import { SupabaseService } from './supabaseService';
 

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { startChat, continueChat } from '@/server/handler/actions/chat.actions';
+import { startChat, continueChat, getChatSessions, getSessionMessages } from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
 import { Bot, User, Send, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,48 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const loadLatestSession = async () => {
+      if (!isLoggedIn) return;
+      
+      try {
+        const accessToken = await liff.getAccessToken();
+        if (!accessToken) {
+          console.error('LINEアクセストークンが取得できません');
+          return;
+        }
+        
+        const result = await getChatSessions(accessToken);
+        if (result.error) {
+          console.error(result.error);
+          return;
+        }
+        
+        if (result.sessions && result.sessions.length > 0) {
+          const latestSession = result.sessions[0];
+          if (latestSession && latestSession.id) {
+            setSessionId(latestSession.id);
+            
+            const messagesResult = await getSessionMessages(latestSession.id, accessToken);
+            if (!messagesResult.error && messagesResult.messages) {
+              const uiMessages: Message[] = messagesResult.messages.map(msg => ({
+                role: msg.role === 'system' ? 'assistant' : msg.role as 'user' | 'assistant',
+                content: msg.content,
+                timestamp: new Date(msg.createdAt),
+              }));
+              
+              setMessages(uiMessages);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load chat session:', error);
+      }
+    };
+    
+    loadLatestSession();
+  }, [isLoggedIn]);
 
   // メッセージが追加されたら自動スクロール
   useEffect(() => {
