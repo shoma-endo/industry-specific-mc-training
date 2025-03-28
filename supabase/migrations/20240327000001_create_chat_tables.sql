@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at BIGINT NOT NULL
 );
 
-ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "開発環境用全許可ポリシー_chat_sessions" ON chat_sessions
   FOR ALL USING (true);
@@ -26,11 +26,11 @@ CREATE POLICY "開発環境用全許可ポリシー_chat_sessions" ON chat_sessi
 CREATE POLICY "開発環境用全許可ポリシー_chat_messages" ON chat_messages
   FOR ALL USING (true);
 
-CREATE POLICY "ユーザー所有データのみ許可_chat_sessions" ON chat_sessions
-  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
+-- CREATE POLICY "ユーザー所有データのみ許可_chat_sessions" ON chat_sessions
+--   FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
 
-CREATE POLICY "ユーザー所有データのみ許可_chat_messages" ON chat_messages
-  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
+-- CREATE POLICY "ユーザー所有データのみ許可_chat_messages" ON chat_messages
+--   FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
 
 CREATE INDEX IF NOT EXISTS chat_sessions_user_id_idx ON chat_sessions (user_id);
 CREATE INDEX IF NOT EXISTS chat_sessions_created_at_idx ON chat_sessions (created_at);
