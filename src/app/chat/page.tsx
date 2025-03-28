@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +14,7 @@ import {
   getSessionMessages,
 } from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
-import { Bot, Send, Trash2, AlertCircle, PlusCircle, Menu } from 'lucide-react';
+import { Bot, Send, AlertCircle, PlusCircle, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // 使用可能なモデル一覧
 export const AVAILABLE_MODELS = {
@@ -220,8 +220,17 @@ export default function ChatPage() {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      const newHeight = Math.min(textarea.scrollHeight, 150); // 最大高さを150pxに制限
-      textarea.style.height = `${newHeight}px`;
+
+      // 入力がない場合は初期高さを固定（スマホでは小さく、PCでは標準サイズ）
+      if (!input) {
+        textarea.style.height = isMobile ? '32px' : '40px';
+        return;
+      }
+
+      // 入力がある場合は、内容に応じて高さを調整（最大値は制限）
+      const maxHeight = isMobile ? 120 : 150;
+      const textareaHeight = Math.min(textarea.scrollHeight, maxHeight);
+      textarea.style.height = `${textareaHeight}px`;
     }
   };
 
@@ -309,14 +318,6 @@ export default function ChatPage() {
       setIsLoading(false);
       // 入力欄にフォーカス
       textareaRef.current?.focus();
-    }
-  };
-
-  const clearChat = () => {
-    if (confirm('会話履歴をクリアしますか？')) {
-      setMessages([]);
-      setError(null);
-      setRequiresSubscription(false);
     }
   };
 
@@ -457,36 +458,48 @@ export default function ChatPage() {
       {/* チャットメイン部分 */}
       <div className="flex-1 flex flex-col">
         {/* ヘッダー */}
-        <div className="border-b py-2 px-4 bg-white flex items-center justify-between">
-          <div className="flex items-center">
-            {isMobile && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="mr-2"
-                onClick={() => setSheetOpen(!sheetOpen)}
-              >
-                <Menu size={20} />
-              </Button>
-            )}
-            <h1 className="font-medium text-sm truncate max-w-[200px] md:max-w-[400px]">
-              {(sessionId && sessions.find(s => s.id === sessionId)?.title) || '新しいチャット'}
-            </h1>
-          </div>
+        <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm h-16">
+          <div className="container mx-auto px-4 h-full flex items-center justify-between">
+            {/* ロゴとタイトル */}
+            <div className="flex items-center space-x-3">
+              {isMobile && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSheetOpen(!sheetOpen)}
+                  aria-label="メニュー"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              )}
+              <div className="flex items-center space-x-2">
+                <Bot className="h-6 w-6 text-[#06c755]" />
+                <span className="font-medium text-sm md:text-base truncate max-w-[150px] md:max-w-[300px]">
+                  {(sessionId && sessions.find(s => s.id === sessionId)?.title) || '新しいチャット'}
+                </span>
+              </div>
+            </div>
 
-          <Select value={selectedModel} onValueChange={setSelectedModel}>
-            <SelectTrigger className="w-[120px] md:w-[180px]">
-              <SelectValue placeholder="モデルを選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(AVAILABLE_MODELS).map(([modelId, modelName]) => (
-                <SelectItem key={modelId} value={modelId}>
-                  {modelName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            {/* アクションメニュー */}
+            <div className="flex items-center space-x-2">
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="w-[120px] md:w-[180px] h-9 text-xs md:text-sm border-gray-200">
+                  <SelectValue placeholder="モデルを選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(AVAILABLE_MODELS).map(([modelId, modelName]) => (
+                    <SelectItem key={modelId} value={modelId}>
+                      {modelName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </header>
+
+        {/* 固定ヘッダーの高さ分のスペース */}
+        <div className="h-16"></div>
 
         {/* サブスクリプション必要アラート */}
         {requiresSubscription && (
@@ -573,16 +586,6 @@ export default function ChatPage() {
             </div>
           ) : (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearChat}
-                className="mb-3 text-xs ml-auto flex items-center gap-1"
-              >
-                <Trash2 size={14} />
-                履歴を削除
-              </Button>
-
               {messages.map((message, index) => (
                 <div key={index} className="mb-4 last:mb-2">
                   <div
@@ -671,9 +674,12 @@ export default function ChatPage() {
                   onChange={handleInputChange}
                   placeholder="メッセージを入力..."
                   disabled={isLoading}
-                  className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto min-h-10 max-h-[150px] resize-none overflow-y-auto"
+                  className={cn(
+                    'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto',
+                    isMobile ? 'min-h-8' : 'min-h-10',
+                    input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
+                  )}
                   rows={1}
-                  style={{ overflow: 'auto' }}
                 />
 
                 <Button
