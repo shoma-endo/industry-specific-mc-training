@@ -18,7 +18,7 @@ CREATE POLICY "開発環境用全許可ポリシー_users" ON users
   FOR ALL USING (true);
 
 CREATE POLICY "ユーザー所有データのみ許可_users" ON users
-  FOR ALL USING (line_user_id = current_setting('app.user_id', true)::text);
+  FOR ALL USING (line_user_id = auth.uid()::TEXT);
 
 CREATE INDEX IF NOT EXISTS users_line_user_id_idx ON users (line_user_id);
 CREATE INDEX IF NOT EXISTS users_stripe_customer_id_idx ON users (stripe_customer_id);
