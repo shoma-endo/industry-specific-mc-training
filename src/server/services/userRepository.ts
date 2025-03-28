@@ -69,12 +69,9 @@ export class UserRepository {
         createdAt: now,
         updatedAt: now,
         ...userData,
-        isActive: true,
       };
 
-      const { error } = await this.supabaseService.supabase
-        .from('users')
-        .insert(toDbUser(user));
+      const { error } = await this.supabaseService.supabase.from('users').insert(toDbUser(user));
 
       if (error) {
         console.error('Error creating user:', error);
@@ -97,13 +94,15 @@ export class UserRepository {
         updated_at: Date.now(),
       };
 
-      if (updates.lineDisplayName !== undefined) dbUpdates.line_display_name = updates.lineDisplayName;
+      if (updates.lineDisplayName !== undefined)
+        dbUpdates.line_display_name = updates.lineDisplayName;
       if (updates.linePictureUrl !== undefined) dbUpdates.line_picture_url = updates.linePictureUrl;
-      if (updates.lineStatusMessage !== undefined) dbUpdates.line_status_message = updates.lineStatusMessage;
-      if (updates.stripeCustomerId !== undefined) dbUpdates.stripe_customer_id = updates.stripeCustomerId;
-      if (updates.stripeSubscriptionId !== undefined) dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
-      if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
-      if (updates.lastLoginAt !== undefined) dbUpdates.last_login_at = updates.lastLoginAt;
+      if (updates.lineStatusMessage !== undefined)
+        dbUpdates.line_status_message = updates.lineStatusMessage;
+      if (updates.stripeCustomerId !== undefined)
+        dbUpdates.stripe_customer_id = updates.stripeCustomerId;
+      if (updates.stripeSubscriptionId !== undefined)
+        dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
 
       const { error } = await this.supabaseService.supabase
         .from('users')
@@ -150,7 +149,10 @@ export class UserRepository {
   /**
    * LINEユーザーIDに基づいてStripeサブスクリプションIDを更新
    */
-  async updateStripeSubscriptionId(lineUserId: string, stripeSubscriptionId: string): Promise<boolean> {
+  async updateStripeSubscriptionId(
+    lineUserId: string,
+    stripeSubscriptionId: string
+  ): Promise<boolean> {
     try {
       const { error } = await this.supabaseService.supabase
         .from('users')

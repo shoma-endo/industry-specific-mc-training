@@ -21,18 +21,17 @@ export class UserService {
   async getUserFromLiffToken(liffAccessToken: string): Promise<User | null> {
     try {
       const lineProfile = await this.lineAuthService.getLineProfile(liffAccessToken);
-      
+
       let user = await userRepository.findByLineUserId(lineProfile.userId);
-      
+
       if (!user) {
         user = await userRepository.create({
           lineUserId: lineProfile.userId,
           lineDisplayName: lineProfile.displayName,
           linePictureUrl: lineProfile.pictureUrl,
           lineStatusMessage: lineProfile.statusMessage,
-          isActive: true,
         });
-        
+
         if (!user) {
           throw new Error('ユーザーの作成に失敗しました');
         }
@@ -41,10 +40,9 @@ export class UserService {
           lineDisplayName: lineProfile.displayName,
           linePictureUrl: lineProfile.pictureUrl,
           lineStatusMessage: lineProfile.statusMessage,
-          lastLoginAt: Date.now(),
         });
       }
-      
+
       return user;
     } catch (error) {
       console.error('Failed to get or create user:', error);
@@ -80,7 +78,10 @@ export class UserService {
   /**
    * Stripeサブスクリプション作成時にユーザー情報を更新
    */
-  async updateStripeSubscriptionId(lineUserId: string, stripeSubscriptionId: string): Promise<boolean> {
+  async updateStripeSubscriptionId(
+    lineUserId: string,
+    stripeSubscriptionId: string
+  ): Promise<boolean> {
     return userRepository.updateStripeSubscriptionId(lineUserId, stripeSubscriptionId);
   }
 }

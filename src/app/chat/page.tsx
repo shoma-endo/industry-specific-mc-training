@@ -6,7 +6,12 @@ import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { startChat, continueChat, getChatSessions, getSessionMessages } from '@/server/handler/actions/chat.actions';
+import {
+  startChat,
+  continueChat,
+  getChatSessions,
+  getSessionMessages,
+} from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
 import { Bot, User, Send, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,7 +19,7 @@ import { cn } from '@/lib/utils';
 export const AVAILABLE_MODELS = {
   'gpt-4o': 'GPT-4o',
   'ft:gpt-4o-2024-08-06:personal::BC8R5f5J': 'カスタムGPT-4o',
-  // 'ft:gpt-3.5-turbo-0125:personal::BFpA7sp8': 'カスタムGPT-3.5-turbo',
+  'ft:gpt-4o-2024-08-06:personal::BG2IVbFe': 'カスタムGPT-4o:20250328',
 };
 
 import {
@@ -50,33 +55,33 @@ export default function ChatPage() {
   useEffect(() => {
     const loadLatestSession = async () => {
       if (!isLoggedIn) return;
-      
+
       try {
         const accessToken = await liff.getAccessToken();
         if (!accessToken) {
           console.error('LINEアクセストークンが取得できません');
           return;
         }
-        
+
         const result = await getChatSessions(accessToken);
         if (result.error) {
           console.error(result.error);
           return;
         }
-        
+
         if (result.sessions && result.sessions.length > 0) {
           const latestSession = result.sessions[0];
           if (latestSession && latestSession.id) {
             setSessionId(latestSession.id);
-            
+
             const messagesResult = await getSessionMessages(latestSession.id, accessToken);
             if (!messagesResult.error && messagesResult.messages) {
               const uiMessages: Message[] = messagesResult.messages.map(msg => ({
-                role: msg.role === 'system' ? 'assistant' : msg.role as 'user' | 'assistant',
+                role: msg.role === 'system' ? 'assistant' : (msg.role as 'user' | 'assistant'),
                 content: msg.content,
                 timestamp: new Date(msg.createdAt),
               }));
-              
+
               setMessages(uiMessages);
             }
           }
@@ -85,7 +90,7 @@ export default function ChatPage() {
         console.error('Failed to load chat session:', error);
       }
     };
-    
+
     loadLatestSession();
   }, [isLoggedIn]);
 
@@ -114,24 +119,25 @@ export default function ChatPage() {
     try {
       const liffAccessToken = await getAccessToken();
       const recentMessages = messages.slice(-MAX_MESSAGES);
-      
-      const response = messages.length === 0 || !sessionId
-        ? await startChat({
-            systemPrompt: SYSTEM_PROMPT,
-            userMessage: input,
-            model: selectedModel,
-            liffAccessToken,
-          })
-        : await continueChat({
-            sessionId,
-            messages: [...recentMessages, userMessage].map(msg => ({
-              role: msg.role,
-              content: msg.content,
-            })),
-            userMessage: input,
-            model: selectedModel,
-            liffAccessToken,
-          });
+
+      const response =
+        messages.length === 0 || !sessionId
+          ? await startChat({
+              systemPrompt: SYSTEM_PROMPT,
+              userMessage: input,
+              model: selectedModel,
+              liffAccessToken,
+            })
+          : await continueChat({
+              sessionId,
+              messages: [...recentMessages, userMessage].map(msg => ({
+                role: msg.role,
+                content: msg.content,
+              })),
+              userMessage: input,
+              model: selectedModel,
+              liffAccessToken,
+            });
 
       if (response.sessionId && !sessionId) {
         setSessionId(response.sessionId);
@@ -140,7 +146,7 @@ export default function ChatPage() {
       if (response.error) {
         console.error(response.error);
         setError(response.error);
-        
+
         if (response.requiresSubscription) {
           setRequiresSubscription(true);
         }
@@ -235,12 +241,7 @@ export default function ChatPage() {
             <div className="ml-3 flex-1">
               <p className="text-sm text-yellow-700">{error}</p>
               <div className="mt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToSubscription}
-                  className="text-xs"
-                >
+                <Button variant="outline" size="sm" onClick={goToSubscription} className="text-xs">
                   サブスクリプションに登録する
                 </Button>
               </div>
@@ -248,7 +249,7 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-      
+
       {/* 一般エラーアラート */}
       {error && !requiresSubscription && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 m-3">
@@ -262,7 +263,7 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-      
+
       {/* メッセージエリア */}
       <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
         {messages.length === 0 ? (
@@ -274,12 +275,7 @@ export default function ChatPage() {
             </p>
             {requiresSubscription && (
               <div className="mt-4">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={goToSubscription}
-                  className="text-xs"
-                >
+                <Button variant="default" size="sm" onClick={goToSubscription} className="text-xs">
                   サブスクリプションに登録する
                 </Button>
               </div>
