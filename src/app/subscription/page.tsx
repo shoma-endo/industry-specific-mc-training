@@ -45,7 +45,7 @@ export default function SubscriptionPage() {
     };
 
     fetchPriceDetails();
-  }, []);
+  }, [getAccessToken]);
 
   // 金額を表示用にフォーマット
   const formatPrice = (amount: number | null, currency: string) => {

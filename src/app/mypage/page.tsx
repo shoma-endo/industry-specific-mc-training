@@ -55,7 +55,7 @@ export default function MyPage() {
     };
 
     fetchSubscription();
-  }, [profile]);
+  }, [profile, getAccessToken]);
 
   // 支払い方法変更（Stripeポータルを開く）
   const handleUpdatePaymentMethod = async () => {

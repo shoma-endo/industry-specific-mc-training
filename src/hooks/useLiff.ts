@@ -5,7 +5,7 @@ import liff from '@line/liff';
 import { getLineProfileServer } from '@/server/handler/actions/login.actions';
 import { getLineProfileServerResponse } from '@/server/handler/actions/login.actions';
 import { env } from '@/env';
-
+import { useCallback } from 'react';
 interface LiffProfile {
   userId: string;
   displayName: string;
@@ -60,14 +60,16 @@ export const useLiff = (): UseLiffResult => {
     return profile;
   };
 
-  const getAccessToken = async (): Promise<string> => {
+  // 無限ループ対策でuseCallbackを使用
+  const getAccessToken = useCallback(async () => {
+    // アクセストークン取得の処理
     await liff.ready;
     const lineAccessToken = liff.getAccessToken();
     if (!lineAccessToken) {
       throw new Error('LINE access token not available');
     }
     return lineAccessToken;
-  };
+  }, []);
 
   // LIFF初期化
   useEffect(() => {

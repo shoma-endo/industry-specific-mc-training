@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { getCheckoutSessionDetails } from '@/server/handler/actions/subscription.actions';
 import { useLiff } from '@/hooks/useLiff';
 
@@ -11,11 +12,9 @@ interface SessionDetails {
   payment_status?: string;
 }
 
-export default function SubscriptionSuccessPage({
-  searchParams,
-}: {
-  searchParams: { session_id?: string };
-}) {
+export default function SubscriptionSuccessPage() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('session_id');
   const { getAccessToken } = useLiff();
   const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +22,6 @@ export default function SubscriptionSuccessPage({
 
   useEffect(() => {
     const fetchSessionDetails = async () => {
-      const sessionId = searchParams.session_id;
-
       if (!sessionId) {
         setError('セッションIDが見つかりません');
         setLoading(false);
@@ -53,7 +50,7 @@ export default function SubscriptionSuccessPage({
     };
 
     fetchSessionDetails();
-  }, [searchParams.session_id]);
+  }, [sessionId, getAccessToken]);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -68,9 +65,7 @@ export default function SubscriptionSuccessPage({
 
         {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">{error}</div>}
 
-        {searchParams.session_id && (
-          <p className="text-sm text-gray-500 mb-6">注文番号: {searchParams.session_id}</p>
-        )}
+        {sessionId && <p className="text-sm text-gray-500 mb-6">注文番号: {sessionId}</p>}
 
         {sessionDetails && (
           <div className="mb-6 text-left p-4 bg-gray-50 rounded">

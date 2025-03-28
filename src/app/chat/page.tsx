@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import { Bot, Send, AlertCircle, PlusCircle, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
 // 使用可能なモデル一覧
-export const AVAILABLE_MODELS = {
+const AVAILABLE_MODELS = {
   'gpt-4o': 'GPT-4o',
   'ft:gpt-4o-2024-08-06:personal::BC8R5f5J': 'カスタムGPT-4o',
   'ft:gpt-4o-2024-08-06:personal::BG2IVbFe': 'カスタムGPT-4o:20250328',
@@ -81,10 +81,8 @@ export default function ChatPage() {
       if (!isLoggedIn) return;
 
       try {
-        const accessToken = await liff.getAccessToken();
-        if (!accessToken) return;
-
-        const subscriptionResult = await getUserSubscription(accessToken);
+        const liffAccessToken = await getAccessToken();
+        const subscriptionResult = await getUserSubscription(liffAccessToken);
 
         if (!subscriptionResult.success) {
           setError(subscriptionResult.error || 'サブスクリプション情報の取得に失敗しました');
@@ -120,20 +118,20 @@ export default function ChatPage() {
     };
 
     checkSubscription();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, getAccessToken]);
 
   // セッション一覧を取得
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     if (!isLoggedIn) return;
 
     try {
-      const accessToken = await liff.getAccessToken();
-      if (!accessToken) {
+      const liffAccessToken = await getAccessToken();
+      if (!liffAccessToken) {
         console.error('LINEアクセストークンが取得できません');
         return;
       }
 
-      const result = await getChatSessions(accessToken);
+      const result = await getChatSessions(liffAccessToken);
       if (result.error) {
         console.error(result.error);
         return;
@@ -153,13 +151,13 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Failed to fetch chat sessions:', error);
     }
-  };
+  }, [isLoggedIn, getAccessToken]);
 
   useEffect(() => {
     if (isLoggedIn) {
       fetchSessions();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, getAccessToken, fetchSessions]);
 
   // 特定のセッションのメッセージを読み込む
   const loadSession = async (sessionId: string) => {
@@ -264,7 +262,7 @@ export default function ChatPage() {
   }, [messages]);
 
   // テキストエリアの高さを自動調整する関数
-  const adjustTextareaHeight = () => {
+  const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
@@ -280,7 +278,7 @@ export default function ChatPage() {
       const textareaHeight = Math.min(textarea.scrollHeight, maxHeight);
       textarea.style.height = `${textareaHeight}px`;
     }
-  };
+  }, [input, isMobile]);
 
   // 入力が変更されたときにテキストエリアの高さを調整
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -291,7 +289,7 @@ export default function ChatPage() {
   // コンポーネントのマウント後にも高さを調整
   useEffect(() => {
     adjustTextareaHeight();
-  }, [input]);
+  }, [input, adjustTextareaHeight]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
