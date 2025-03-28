@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import {
   startChat,
@@ -13,7 +13,7 @@ import {
   getSessionMessages,
 } from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
-import { Bot, User, Send, Trash2, AlertCircle } from 'lucide-react';
+import { Bot, Send, Trash2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // 使用可能なモデル一覧
 export const AVAILABLE_MODELS = {
@@ -50,7 +50,8 @@ export default function ChatPage() {
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const loadLatestSession = async () => {
@@ -103,6 +104,27 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // テキストエリアの高さを自動調整する関数
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 150); // 最大高さを150pxに制限
+      textarea.style.height = `${newHeight}px`;
+    }
+  };
+
+  // 入力が変更されたときにテキストエリアの高さを調整
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    adjustTextareaHeight();
+  };
+
+  // コンポーネントのマウント後にも高さを調整
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [input]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,25 +292,25 @@ export default function ChatPage() {
       )}
 
       {/* メッセージエリア */}
-      <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-3 bg-slate-100">
         {isLoading && messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="bg-white p-6 rounded-xl shadow-sm flex flex-col items-center">
-              <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center mb-4">
+              <div className="w-10 h-10 rounded-full bg-[#06c755] flex items-center justify-center mb-4">
                 <Bot size={24} className="text-white" />
               </div>
               <h3 className="text-lg font-medium mb-3">メッセージを取得中です</h3>
               <div className="flex gap-2 items-center">
                 <div
-                  className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
+                  className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
                   style={{ animationDelay: '0ms' }}
                 ></div>
                 <div
-                  className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
+                  className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
                   style={{ animationDelay: '200ms' }}
                 ></div>
                 <div
-                  className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
+                  className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
                   style={{ animationDelay: '400ms' }}
                 ></div>
               </div>
@@ -329,28 +351,26 @@ export default function ChatPage() {
                     message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                   )}
                 >
+                  {message.role !== 'user' && (
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
+                      <Bot size={18} className="text-[#06c755]" />
+                    </div>
+                  )}
                   <div
                     className={cn(
-                      'flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center',
-                      message.role === 'user' ? 'bg-primary' : 'bg-green-500'
-                    )}
-                  >
-                    {message.role === 'user' ? (
-                      <User size={16} className="text-white" />
-                    ) : (
-                      <Bot size={16} className="text-white" />
-                    )}
-                  </div>
-                  <div
-                    className={cn(
-                      'max-w-[85%] p-3 rounded-lg shadow-sm',
+                      'max-w-[85%] p-3 rounded-2xl',
                       message.role === 'user'
-                        ? 'bg-primary text-primary-foreground rounded-tr-none'
-                        : 'bg-white text-foreground rounded-tl-none border border-gray-100'
+                        ? 'bg-[#06c755] text-white'
+                        : 'bg-white text-gray-800 border border-gray-100'
                     )}
                   >
                     <div className="whitespace-pre-wrap text-sm">{message.content}</div>
                   </div>
+                  {message.role === 'user' && (
+                    <div className="opacity-0 w-8 h-8">
+                      {/* スペーサー要素 - ユーザーメッセージの右側に表示されるLINEと同様の余白を確保 */}
+                    </div>
+                  )}
                 </div>
 
                 {/* タイムスタンプ (条件付きで表示) */}
@@ -370,22 +390,22 @@ export default function ChatPage() {
             {/* AIの入力中表示 */}
             {isLoading && (
               <div className="flex items-start gap-2 mb-3 animate-in fade-in">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-500 flex items-center justify-center">
-                  <Bot size={16} className="text-white" />
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
+                  <Bot size={18} className="text-[#06c755]" />
                 </div>
-                <div className="bg-white text-foreground p-3 rounded-lg rounded-tl-none border border-gray-100 shadow-sm">
+                <div className="bg-white text-foreground p-3 rounded-2xl border border-gray-100">
                   <div className="flex gap-2 items-center">
                     <div className="flex gap-1 items-center">
                       <div
-                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                        className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
                         style={{ animationDelay: '0ms' }}
                       ></div>
                       <div
-                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                        className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
                         style={{ animationDelay: '200ms' }}
                       ></div>
                       <div
-                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                        className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
                         style={{ animationDelay: '400ms' }}
                       ></div>
                     </div>
@@ -401,8 +421,8 @@ export default function ChatPage() {
       </div>
 
       {/* 入力エリア */}
-      <div className="border-t p-2 bg-background">
-        <form onSubmit={handleSubmit} className="relative">
+      <div className="border-t p-3 bg-white">
+        <form onSubmit={e => e.preventDefault()} className="relative">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <Select value={selectedModel} onValueChange={setSelectedModel}>
@@ -419,21 +439,23 @@ export default function ChatPage() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-2 bg-gray-50 rounded-full pr-1 pl-4 border shadow-sm focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary/60">
-              <Input
-                ref={inputRef}
+            <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30">
+              <Textarea
+                ref={textareaRef}
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                onChange={handleInputChange}
                 placeholder="メッセージを入力..."
                 disabled={isLoading}
-                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-5 h-auto"
+                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto min-h-10 max-h-[150px] resize-none overflow-y-auto"
+                rows={1}
+                style={{ overflow: 'auto' }}
               />
 
               <Button
-                type="submit"
+                onClick={handleSubmit}
                 size="icon"
                 disabled={isLoading || !input.trim()}
-                className="rounded-full size-9"
+                className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
               >
                 <Send size={18} className="text-white" />
               </Button>
