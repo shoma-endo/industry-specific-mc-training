@@ -102,11 +102,11 @@ export default function MyPage() {
     try {
       // 注意：第2引数は開発環境で制御するためのもので、
       // 通常は false（期間終了時解約）を指定します
-      const result = await cancelUserSubscription(subscription.id);
+      const liffAccessToken = await getAccessToken();
+      const result = await cancelUserSubscription(subscription.id, false, liffAccessToken);
 
       if (result.success) {
         // 最新のサブスクリプション情報を再取得
-        const liffAccessToken = await getAccessToken();
         const updatedResult = await getUserSubscription(liffAccessToken);
         if (updatedResult.success) {
           setHasActiveSubscription(updatedResult.hasActiveSubscription || false);
@@ -144,7 +144,7 @@ export default function MyPage() {
 
     try {
       const liffAccessToken = await getAccessToken();
-      const result = await resumeUserSubscription(subscription.id);
+      const result = await resumeUserSubscription(subscription.id, liffAccessToken);
 
       if (result.success) {
         // 最新のサブスクリプション情報を再取得

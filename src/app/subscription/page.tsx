@@ -30,7 +30,8 @@ export default function SubscriptionPage() {
   useEffect(() => {
     const fetchPriceDetails = async () => {
       try {
-        const result = await getSubscriptionPriceDetails();
+        const liffAccessToken = await getAccessToken();
+        const result = await getSubscriptionPriceDetails(liffAccessToken);
         if (result.success && result.priceDetails) {
           setPriceDetails(result.priceDetails);
         } else {
@@ -44,7 +45,7 @@ export default function SubscriptionPage() {
     };
 
     fetchPriceDetails();
-  }, []);
+  }, [getAccessToken]);
 
   // 金額を表示用にフォーマット
   const formatPrice = (amount: number | null, currency: string) => {

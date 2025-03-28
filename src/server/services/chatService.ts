@@ -1,15 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import { openAiService } from './openAiService';
-import { 
-  ChatMessage, 
-  ChatSession, 
-  DbChatMessage, 
-  DbChatSession, 
-  ChatRole, 
-  toChatMessage, 
+import {
+  ChatMessage,
+  ChatSession,
+  DbChatMessage,
+  DbChatSession,
+  ChatRole,
+  toChatMessage,
   toChatSession,
   OpenAIMessage,
-  OpenAIResponse
 } from '@/types/chat';
 import { SupabaseService } from './supabaseService';
 
@@ -28,13 +27,14 @@ class ChatService {
     systemPrompt: string,
     userMessage: string,
     model?: string
-  ): Promise<{ message: string; error?: string; sessionId?: string; requiresSubscription?: boolean }> {
+  ): Promise<{
+    message: string;
+    error?: string;
+    sessionId?: string;
+    requiresSubscription?: boolean;
+  }> {
     try {
-      const aiResponse = await openAiService.startChat(
-        systemPrompt,
-        userMessage,
-        model
-      );
+      const aiResponse = await openAiService.startChat(systemPrompt, userMessage, model);
 
       if (aiResponse.error) {
         return aiResponse;
@@ -42,29 +42,29 @@ class ChatService {
 
       const sessionId = uuidv4();
       const now = Date.now();
-      
+
       const session: DbChatSession = {
         id: sessionId,
         user_id: userId,
         title: userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''),
         created_at: now,
         last_message_at: now,
-        system_prompt: systemPrompt
+        system_prompt: systemPrompt,
       };
-      
+
       await this.supabaseService.createChatSession(session);
-      
+
       const userDbMessage: DbChatMessage = {
         id: uuidv4(),
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.USER,
         content: userMessage,
-        created_at: now
+        created_at: now,
       };
-      
+
       await this.supabaseService.createChatMessage(userDbMessage);
-      
+
       const assistantDbMessage: DbChatMessage = {
         id: uuidv4(),
         user_id: userId,
@@ -72,9 +72,9 @@ class ChatService {
         role: ChatRole.ASSISTANT,
         content: aiResponse.message,
         model: model,
-        created_at: now + 1 // 順序を保証するため
+        created_at: now + 1, // 順序を保証するため
       };
-      
+
       await this.supabaseService.createChatMessage(assistantDbMessage);
 
       return {
@@ -96,35 +96,36 @@ class ChatService {
     userMessage: string,
     messages: OpenAIMessage[],
     model?: string
-  ): Promise<{ message: string; error?: string; sessionId?: string; requiresSubscription?: boolean }> {
+  ): Promise<{
+    message: string;
+    error?: string;
+    sessionId?: string;
+    requiresSubscription?: boolean;
+  }> {
     try {
-      const aiResponse = await openAiService.continueChat(
-        messages,
-        userMessage,
-        model
-      );
+      const aiResponse = await openAiService.continueChat(messages, userMessage, model);
 
       if (aiResponse.error) {
         return aiResponse;
       }
 
       const now = Date.now();
-      
-      await this.supabaseService.updateChatSession(sessionId, {
+
+      await this.supabaseService.updateChatSession(sessionId, userId, {
         last_message_at: now,
       });
-      
+
       const userDbMessage: DbChatMessage = {
         id: uuidv4(),
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.USER,
         content: userMessage,
-        created_at: now
+        created_at: now,
       };
-      
+
       await this.supabaseService.createChatMessage(userDbMessage);
-      
+
       const assistantDbMessage: DbChatMessage = {
         id: uuidv4(),
         user_id: userId,
@@ -132,9 +133,9 @@ class ChatService {
         role: ChatRole.ASSISTANT,
         content: aiResponse.message,
         model: model,
-        created_at: now + 1 // 順序を保証するため
+        created_at: now + 1, // 順序を保証するため
       };
-      
+
       await this.supabaseService.createChatMessage(assistantDbMessage);
 
       return {
@@ -163,9 +164,9 @@ class ChatService {
   /**
    * セッションのメッセージ一覧を取得
    */
-  async getSessionMessages(sessionId: string): Promise<ChatMessage[]> {
+  async getSessionMessages(sessionId: string, userId: string): Promise<ChatMessage[]> {
     try {
-      const dbMessages = await this.supabaseService.getChatMessagesBySessionId(sessionId);
+      const dbMessages = await this.supabaseService.getChatMessagesBySessionId(sessionId, userId);
       return dbMessages.map(message => toChatMessage(message));
     } catch (error) {
       console.error('Failed to get session messages:', error);

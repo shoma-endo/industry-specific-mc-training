@@ -85,11 +85,12 @@ export class SupabaseService {
     return data.id;
   }
 
-  async getChatSessionById(sessionId: string): Promise<DbChatSession | null> {
+  async getChatSessionById(sessionId: string, userId: string): Promise<DbChatSession | null> {
     const { data, error } = await this.supabase
       .from('chat_sessions')
       .select('*')
       .eq('id', sessionId)
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -115,8 +116,16 @@ export class SupabaseService {
     return data || [];
   }
 
-  async updateChatSession(sessionId: string, updates: Partial<DbChatSession>): Promise<void> {
-    const { error } = await this.supabase.from('chat_sessions').update(updates).eq('id', sessionId);
+  async updateChatSession(
+    sessionId: string,
+    userId: string,
+    updates: Partial<DbChatSession>
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('chat_sessions')
+      .update(updates)
+      .eq('id', sessionId)
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Failed to update chat session:', error);
@@ -124,8 +133,12 @@ export class SupabaseService {
     }
   }
 
-  async deleteChatSession(sessionId: string): Promise<void> {
-    const { error } = await this.supabase.from('chat_sessions').delete().eq('id', sessionId);
+  async deleteChatSession(sessionId: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('chat_sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Failed to delete chat session:', error);
@@ -148,12 +161,12 @@ export class SupabaseService {
     return data.id;
   }
 
-  async getChatMessagesBySessionId(sessionId: string): Promise<DbChatMessage[]> {
+  async getChatMessagesBySessionId(sessionId: string, userId: string): Promise<DbChatMessage[]> {
     const { data, error } = await this.supabase
       .from('chat_messages')
       .select('*')
       .eq('session_id', sessionId)
-      // .eq('session_id', '37933267-b149-4735-b459-530f7411d930')
+      .eq('user_id', userId)
       .order('created_at', { ascending: true });
 
     if (error) {

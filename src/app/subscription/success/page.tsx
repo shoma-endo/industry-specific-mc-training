@@ -1,5 +1,9 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getCheckoutSessionDetails } from '@/server/handler/actions/subscription.actions';
+import { useLiff } from '@/hooks/useLiff';
 
 interface SessionDetails {
   id?: string;
@@ -7,37 +11,49 @@ interface SessionDetails {
   payment_status?: string;
 }
 
-export default async function SubscriptionSuccessPage({
+export default function SubscriptionSuccessPage({
   searchParams,
 }: {
   searchParams: { session_id?: string };
 }) {
-  const params = await searchParams;
-  const sessionId = params.session_id;
+  const { getAccessToken } = useLiff();
+  const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  let sessionDetails: SessionDetails | null = null;
-  let error: string | null = null;
+  useEffect(() => {
+    const fetchSessionDetails = async () => {
+      const sessionId = searchParams.session_id;
 
-  if (!sessionId) {
-    error = 'セッションIDが見つかりません';
-  } else {
-    try {
-      const result = await getCheckoutSessionDetails(sessionId);
-      if (result.success && result.session) {
-        // Stripeオブジェクトを安全にシリアライズ
-        sessionDetails = {
-          id: result.session.id,
-          amount_total: result.session.amount_total,
-          payment_status: result.session.payment_status,
-        };
-      } else {
-        error = result.error || '詳細情報の取得に失敗しました';
+      if (!sessionId) {
+        setError('セッションIDが見つかりません');
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      console.error('セッション詳細の取得中にエラーが発生しました:', err);
-      error = '決済情報の取得中にエラーが発生しました';
-    }
-  }
+
+      try {
+        const liffAccessToken = await getAccessToken();
+        const result = await getCheckoutSessionDetails(sessionId, liffAccessToken);
+
+        if (result.success && result.session) {
+          setSessionDetails({
+            id: result.session.id,
+            amount_total: result.session.amount_total,
+            payment_status: result.session.payment_status,
+          });
+        } else {
+          setError(result.error || '詳細情報の取得に失敗しました');
+        }
+      } catch (err) {
+        console.error('セッション詳細の取得中にエラーが発生しました:', err);
+        setError('決済情報の取得中にエラーが発生しました');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSessionDetails();
+  }, [searchParams.session_id, getAccessToken]);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -48,9 +64,13 @@ export default async function SubscriptionSuccessPage({
           サブスクリプションの登録が正常に完了しました。プレミアム機能をご利用いただけます。
         </p>
 
+        {loading && <p className="text-gray-500 mb-4">決済情報を読み込み中...</p>}
+
         {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">{error}</div>}
 
-        {sessionId && <p className="text-sm text-gray-500 mb-6">注文番号: {sessionId}</p>}
+        {searchParams.session_id && (
+          <p className="text-sm text-gray-500 mb-6">注文番号: {searchParams.session_id}</p>
+        )}
 
         {sessionDetails && (
           <div className="mb-6 text-left p-4 bg-gray-50 rounded">
