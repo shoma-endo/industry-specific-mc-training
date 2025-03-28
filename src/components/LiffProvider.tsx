@@ -40,17 +40,7 @@ export function LiffProvider({ children }: LiffProviderProps) {
     const syncUserIdWithServer = async () => {
       if (isLoggedIn && profile && !syncedWithServer) {
         try {
-          const response = await fetch('/api/auth/set-user-id', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ userId: profile.userId }),
-          });
-          
-          if (response.ok) {
-            setSyncedWithServer(true);
-          }
+          setSyncedWithServer(true);
         } catch (error) {
           console.error('Failed to sync user ID with server:', error);
         }

@@ -2,14 +2,15 @@
 
 import { z } from 'zod';
 import { chatService } from '@/server/services/chatService';
-import { cookies } from 'next/headers';
+import { LineAuthService } from '@/server/services/lineAuthService';
 
-const USER_ID_COOKIE = 'line_user_id';
+const lineAuthService = new LineAuthService();
 
 const startChatSchema = z.object({
   systemPrompt: z.string(),
   userMessage: z.string(),
   model: z.string().optional(),
+  liffAccessToken: z.string(),
 });
 
 const continueChatSchema = z.object({
@@ -22,49 +23,53 @@ const continueChatSchema = z.object({
   ),
   userMessage: z.string(),
   model: z.string().optional(),
+  liffAccessToken: z.string(),
 });
 
 export async function startChat(data: z.infer<typeof startChatSchema>) {
   const validatedData = startChatSchema.parse(data);
-  const userId = (await cookies()).get(USER_ID_COOKIE)?.value;
   
-  if (!userId) {
-    return { message: '', error: 'ユーザーIDが見つかりません。再ログインしてください。' };
+  try {
+    const lineProfile = await lineAuthService.getLineProfile(validatedData.liffAccessToken);
+    const userId = lineProfile.userId;
+    
+    return chatService.startChat(
+      userId,
+      validatedData.systemPrompt,
+      validatedData.userMessage,
+      validatedData.model
+    );
+  } catch (error) {
+    console.error('Failed to start chat:', error);
+    return { message: '', error: 'ユーザー認証に失敗しました。再ログインしてください。' };
   }
-  
-  return chatService.startChat(
-    userId,
-    validatedData.systemPrompt,
-    validatedData.userMessage,
-    validatedData.model
-  );
 }
 
 export async function continueChat(data: z.infer<typeof continueChatSchema>) {
   const validatedData = continueChatSchema.parse(data);
-  const userId = (await cookies()).get(USER_ID_COOKIE)?.value;
-  
-  if (!userId) {
-    return { message: '', error: 'ユーザーIDが見つかりません。再ログインしてください。' };
-  }
-  
-  return chatService.continueChat(
-    userId,
-    validatedData.sessionId,
-    validatedData.userMessage,
-    validatedData.messages,
-    validatedData.model
-  );
-}
-
-export async function getChatSessions() {
-  const userId = (await cookies()).get(USER_ID_COOKIE)?.value;
-  
-  if (!userId) {
-    return { sessions: [], error: 'ユーザーIDが見つかりません。再ログインしてください。' };
-  }
   
   try {
+    const lineProfile = await lineAuthService.getLineProfile(validatedData.liffAccessToken);
+    const userId = lineProfile.userId;
+    
+    return chatService.continueChat(
+      userId,
+      validatedData.sessionId,
+      validatedData.userMessage,
+      validatedData.messages,
+      validatedData.model
+    );
+  } catch (error) {
+    console.error('Failed to continue chat:', error);
+    return { message: '', error: 'ユーザー認証に失敗しました。再ログインしてください。' };
+  }
+}
+
+export async function getChatSessions(liffAccessToken: string) {
+  try {
+    const lineProfile = await lineAuthService.getLineProfile(liffAccessToken);
+    const userId = lineProfile.userId;
+    
     const sessions = await chatService.getUserSessions(userId);
     return { sessions, error: null };
   } catch (error) {
@@ -73,14 +78,11 @@ export async function getChatSessions() {
   }
 }
 
-export async function getSessionMessages(sessionId: string) {
-  const userId = (await cookies()).get(USER_ID_COOKIE)?.value;
-  
-  if (!userId) {
-    return { messages: [], error: 'ユーザーIDが見つかりません。再ログインしてください。' };
-  }
-  
+export async function getSessionMessages(sessionId: string, liffAccessToken: string) {
   try {
+    const lineProfile = await lineAuthService.getLineProfile(liffAccessToken);
+    const userId = lineProfile.userId;
+    
     const messages = await chatService.getSessionMessages(sessionId);
     return { messages, error: null };
   } catch (error) {

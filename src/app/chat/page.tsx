@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -47,7 +48,13 @@ export default function ChatPage() {
       if (!isLoggedIn) return;
       
       try {
-        const result = await getChatSessions();
+        const accessToken = await liff.getAccessToken();
+        if (!accessToken) {
+          console.error('LINEアクセストークンが取得できません');
+          return;
+        }
+        
+        const result = await getChatSessions(accessToken);
         if (result.error) {
           console.error(result.error);
           return;
@@ -58,19 +65,19 @@ export default function ChatPage() {
           if (latestSession && latestSession.id) {
             setSessionId(latestSession.id);
             
-            const messagesResult = await getSessionMessages(latestSession.id);
-          if (!messagesResult.error && messagesResult.messages) {
-            const uiMessages: Message[] = messagesResult.messages.map(msg => ({
-              role: msg.role === 'system' ? 'assistant' : msg.role as 'user' | 'assistant',
-              content: msg.content,
-              timestamp: new Date(msg.createdAt),
-            }));
-            
-            setMessages(uiMessages);
+            const messagesResult = await getSessionMessages(latestSession.id, accessToken);
+            if (!messagesResult.error && messagesResult.messages) {
+              const uiMessages: Message[] = messagesResult.messages.map(msg => ({
+                role: msg.role === 'system' ? 'assistant' : msg.role as 'user' | 'assistant',
+                content: msg.content,
+                timestamp: new Date(msg.createdAt),
+              }));
+              
+              setMessages(uiMessages);
+            }
           }
         }
-      }
-    } catch (error) {
+      } catch (error) {
         console.error('Failed to load chat session:', error);
       }
     };
@@ -102,10 +109,17 @@ export default function ChatPage() {
       let response;
       
       if (!sessionId) {
+        const accessToken = await liff.getAccessToken();
+        if (!accessToken) {
+          console.error('LINEアクセストークンが取得できません');
+          return;
+        }
+        
         response = await startChat({
           systemPrompt: SYSTEM_PROMPT,
           userMessage: input,
           model: selectedModel,
+          liffAccessToken: accessToken,
         });
         
         const chatResponse = response as (typeof response & { sessionId?: string });
@@ -113,6 +127,12 @@ export default function ChatPage() {
           setSessionId(chatResponse.sessionId);
         }
       } else {
+        const accessToken = await liff.getAccessToken();
+        if (!accessToken) {
+          console.error('LINEアクセストークンが取得できません');
+          return;
+        }
+        
         response = await continueChat({
           sessionId,
           messages: [...recentMessages, userMessage].map(msg => ({
@@ -121,6 +141,7 @@ export default function ChatPage() {
           })),
           userMessage: input,
           model: selectedModel,
+          liffAccessToken: accessToken,
         });
       }
 
