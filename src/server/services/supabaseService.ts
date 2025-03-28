@@ -125,7 +125,7 @@ export class SupabaseService {
       .from('chat_sessions')
       .update(updates)
       .eq('id', sessionId)
-      .eq('user_id', userId);
+      .eq('user_id', userId); // これがないと他人のチャット履歴も更新できてしまう
 
     if (error) {
       console.error('Failed to update chat session:', error);
@@ -138,7 +138,7 @@ export class SupabaseService {
       .from('chat_sessions')
       .delete()
       .eq('id', sessionId)
-      .eq('user_id', userId);
+      .eq('user_id', userId); // これがないと他人のチャット履歴も削除できてしまう
 
     if (error) {
       console.error('Failed to delete chat session:', error);
@@ -166,7 +166,7 @@ export class SupabaseService {
       .from('chat_messages')
       .select('*')
       .eq('session_id', sessionId)
-      .eq('user_id', userId)
+      .eq('user_id', userId) // これがないと他人のチャット履歴も取得できてしまう
       .order('created_at', { ascending: true });
 
     if (error) {
