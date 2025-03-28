@@ -51,24 +51,6 @@ export class UserService {
   }
 
   /**
-   * ユーザーのサブスクリプション状態を確認
-   */
-  async hasActiveSubscription(liffAccessToken: string): Promise<boolean> {
-    try {
-      const user = await this.getUserFromLiffToken(liffAccessToken);
-      if (!user || !user.stripeCustomerId) {
-        return false;
-      }
-
-      const subscription = await this.stripeService.getActiveSubscription(user.stripeCustomerId);
-      return !!subscription;
-    } catch (error) {
-      console.error('Failed to check subscription status:', error);
-      return false;
-    }
-  }
-
-  /**
    * Stripeカスタマー作成時にユーザー情報を更新
    */
   async updateStripeCustomerId(lineUserId: string, stripeCustomerId: string): Promise<boolean> {

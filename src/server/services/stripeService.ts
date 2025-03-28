@@ -27,29 +27,6 @@ export class StripeService {
   }
 
   /**
-   * ユーザーのアクティブなサブスクリプションを取得
-   */
-  async getActiveSubscription(customerId: string) {
-    try {
-      const subscriptions = await this.stripe.subscriptions.list({
-        customer: customerId,
-        status: 'active',
-        limit: 1,
-        expand: ['data.default_payment_method', 'data.latest_invoice'],
-      });
-
-      if (subscriptions.data.length === 0) {
-        return null;
-      }
-
-      return subscriptions.data[0];
-    } catch (error) {
-      console.error('Stripe subscription retrieval failed:', error);
-      throw new Error('サブスクリプション情報の取得に失敗しました');
-    }
-  }
-
-  /**
    * サブスクリプションをキャンセル
    * @param subscriptionId サブスクリプションID
    * @param immediate 即時解約するかどうか（trueなら即時解約、falseなら期間終了時解約）
@@ -68,6 +45,20 @@ export class StripeService {
     } catch (error) {
       console.error('Stripe subscription cancellation failed:', error);
       throw new Error('サブスクリプションのキャンセルに失敗しました');
+    }
+  }
+
+  /**
+   * サブスクリプションIDからサブスクリプション情報を取得
+   * @param subscriptionId サブスクリプションID
+   */
+  async getSubscription(subscriptionId: string) {
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+      return subscription;
+    } catch (error) {
+      console.error('Stripe subscription retrieval failed:', error);
+      throw new Error('サブスクリプション情報の取得に失敗しました');
     }
   }
 

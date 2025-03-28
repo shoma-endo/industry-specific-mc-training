@@ -55,7 +55,7 @@ export default function MyPage() {
     };
 
     fetchSubscription();
-  }, [profile, getAccessToken]);
+  }, [profile]);
 
   // 支払い方法変更（Stripeポータルを開く）
   const handleUpdatePaymentMethod = async () => {
@@ -214,8 +214,56 @@ export default function MyPage() {
             <div className="p-4 bg-gray-100 rounded mb-4">
               <div className="mb-2">
                 <span className="font-semibold">ステータス：</span>
-                <span className="inline-block px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800 ml-2">
-                  {subscription?.cancelAtPeriodEnd ? '解約予定' : 'アクティブ'}
+                <span
+                  className={`inline-block px-2 py-1 text-xs font-semibold rounded ml-2 ${(() => {
+                    if (subscription?.cancelAtPeriodEnd) return 'bg-orange-100 text-orange-800';
+
+                    switch (subscription?.status) {
+                      case 'active':
+                        return 'bg-green-100 text-green-800';
+                      case 'past_due':
+                        return 'bg-red-100 text-red-800';
+                      case 'unpaid':
+                        return 'bg-red-100 text-red-800';
+                      case 'canceled':
+                        return 'bg-gray-100 text-gray-800';
+                      case 'incomplete':
+                        return 'bg-yellow-100 text-yellow-800';
+                      case 'incomplete_expired':
+                        return 'bg-gray-100 text-gray-800';
+                      case 'trialing':
+                        return 'bg-blue-100 text-blue-800';
+                      case 'paused':
+                        return 'bg-purple-100 text-purple-800';
+                      default:
+                        return 'bg-gray-100 text-gray-800';
+                    }
+                  })()}`}
+                >
+                  {(() => {
+                    if (subscription?.cancelAtPeriodEnd) return '解約予定';
+
+                    switch (subscription?.status) {
+                      case 'active':
+                        return 'アクティブ';
+                      case 'past_due':
+                        return '支払い期限切れ';
+                      case 'unpaid':
+                        return '未払い';
+                      case 'canceled':
+                        return 'キャンセル済み';
+                      case 'incomplete':
+                        return '処理中';
+                      case 'incomplete_expired':
+                        return '処理失敗';
+                      case 'trialing':
+                        return 'トライアル中';
+                      case 'paused':
+                        return '一時停止中';
+                      default:
+                        return subscription?.status || '不明';
+                    }
+                  })()}
                 </span>
               </div>
 
@@ -240,35 +288,75 @@ export default function MyPage() {
             </div>
 
             <div className="space-y-3">
-              <Button
-                className="w-full"
-                onClick={handleUpdatePaymentMethod}
-                disabled={paymentLoading}
-              >
-                {paymentLoading ? '処理中...' : '支払い方法を変更する'}
-              </Button>
-
-              {subscription?.cancelAtPeriodEnd ? (
-                // 解約予定の場合は「解約をキャンセル」ボタンを表示
+              {/* 有効なステータスの場合のみ支払い方法変更ボタンを表示 */}
+              {(subscription?.status === 'active' ||
+                subscription?.status === 'trialing' ||
+                (subscription?.status === 'past_due' && !subscription?.cancelAtPeriodEnd)) && (
                 <Button
-                  variant="outline"
-                  className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
-                  onClick={handleResumeSubscription}
-                  disabled={resumeLoading}
+                  className="w-full"
+                  onClick={handleUpdatePaymentMethod}
+                  disabled={paymentLoading}
                 >
-                  {resumeLoading ? '処理中...' : 'サブスクリプションを継続する'}
-                </Button>
-              ) : (
-                // アクティブな場合は「解約」ボタンを表示
-                <Button
-                  variant="outline"
-                  className="w-full border-red-300 text-red-600 hover:bg-red-50"
-                  onClick={handleCancelSubscription}
-                  disabled={cancelLoading}
-                >
-                  {cancelLoading ? '処理中...' : 'サブスクリプションを解約する'}
+                  {paymentLoading ? '処理中...' : '支払い方法を変更する'}
                 </Button>
               )}
+
+              {/* 有効なステータスの場合のみ解約/継続ボタンを表示 */}
+              {(subscription?.status === 'active' ||
+                subscription?.status === 'trialing' ||
+                (subscription?.status === 'past_due' && !subscription?.cancelAtPeriodEnd)) &&
+                (subscription?.cancelAtPeriodEnd ? (
+                  // 解約予定の場合は「解約をキャンセル」ボタンを表示
+                  <Button
+                    variant="outline"
+                    className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
+                    onClick={handleResumeSubscription}
+                    disabled={resumeLoading}
+                  >
+                    {resumeLoading ? '処理中...' : 'サブスクリプションを継続する'}
+                  </Button>
+                ) : (
+                  // アクティブな場合は「解約」ボタンを表示
+                  <Button
+                    variant="outline"
+                    className="w-full border-red-300 text-red-600 hover:bg-red-50"
+                    onClick={handleCancelSubscription}
+                    disabled={cancelLoading}
+                  >
+                    {cancelLoading ? '処理中...' : 'サブスクリプションを解約する'}
+                  </Button>
+                ))}
+
+              {/* 無効なステータスの場合のメッセージと新規登録ボタン */}
+              {subscription?.status !== 'active' &&
+                subscription?.status !== 'trialing' &&
+                !(subscription?.status === 'past_due' && !subscription?.cancelAtPeriodEnd) && (
+                  <div className="p-3 bg-gray-100 rounded text-sm text-gray-700 text-center">
+                    {(() => {
+                      switch (subscription?.status) {
+                        case 'canceled':
+                        case 'incomplete_expired':
+                          return 'このサブスクリプションは既に終了しています。';
+                        case 'past_due':
+                          return 'お支払いが遅延しています。新しいサブスクリプションにご登録ください。';
+                        case 'unpaid':
+                          return 'お支払いが確認できません。新しいサブスクリプションにご登録ください。';
+                        case 'incomplete':
+                          return 'サブスクリプションの設定が完了していません。';
+                        case 'paused':
+                          return 'サブスクリプションは現在一時停止中です。';
+                        default:
+                          return 'サブスクリプションに問題があります。';
+                      }
+                    })()}
+                    <Button
+                      className="mt-3 w-full"
+                      onClick={() => (window.location.href = '/subscription')}
+                    >
+                      新しいサブスクリプションに登録する
+                    </Button>
+                  </div>
+                )}
             </div>
           </>
         )}

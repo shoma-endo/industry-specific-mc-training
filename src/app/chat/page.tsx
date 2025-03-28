@@ -16,6 +16,7 @@ import {
 import { useLiffContext } from '@/components/LiffProvider';
 import { Bot, Send, AlertCircle, PlusCircle, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
 // 使用可能なモデル一覧
 export const AVAILABLE_MODELS = {
   'gpt-4o': 'GPT-4o',
@@ -73,6 +74,53 @@ export default function ChatPage() {
 
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
+
+  // サブスクリプションの有効性チェック
+  useEffect(() => {
+    const checkSubscription = async () => {
+      if (!isLoggedIn) return;
+
+      try {
+        const accessToken = await liff.getAccessToken();
+        if (!accessToken) return;
+
+        const subscriptionResult = await getUserSubscription(accessToken);
+
+        if (!subscriptionResult.success) {
+          setError(subscriptionResult.error || 'サブスクリプション情報の取得に失敗しました');
+          setRequiresSubscription(!!subscriptionResult.requiresSubscription);
+          return;
+        }
+
+        if (!subscriptionResult.hasActiveSubscription) {
+          setRequiresSubscription(true);
+          setError('チャット機能を利用するにはサブスクリプションが必要です');
+          return;
+        }
+
+        // サブスクリプションが存在するが有効でない場合
+        if (subscriptionResult.subscription) {
+          const status = subscriptionResult.subscription.status;
+
+          // 条件を修正: 論理演算順序を調整
+          const isInactiveSubscription = status !== 'active' && status !== 'trialing';
+          const isCancelledPastDue =
+            subscriptionResult.subscription.cancelAtPeriodEnd && status === 'past_due';
+
+          if (isInactiveSubscription || isCancelledPastDue) {
+            setRequiresSubscription(true);
+            setError(
+              'サブスクリプションが有効ではありません。新しいサブスクリプションにご登録ください。'
+            );
+          }
+        }
+      } catch (error) {
+        console.error('サブスクリプションチェックエラー:', error);
+      }
+    };
+
+    checkSubscription();
+  }, [isLoggedIn]);
 
   // セッション一覧を取得
   const fetchSessions = async () => {
@@ -509,7 +557,9 @@ export default function ChatPage() {
                 <AlertCircle className="h-5 w-5 text-yellow-400" />
               </div>
               <div className="ml-3 flex-1">
-                <p className="text-sm text-yellow-700">{error}</p>
+                <p className="text-sm text-yellow-700">
+                  {error || 'チャット機能を利用するにはサブスクリプションが必要です'}
+                </p>
                 <div className="mt-2">
                   <Button
                     variant="outline"
@@ -569,7 +619,9 @@ export default function ChatPage() {
               <Bot size={48} className="text-gray-300 mb-3" />
               <h3 className="text-lg font-medium mb-1">AIアシスタントへようこそ</h3>
               <p className="text-sm text-gray-500 max-w-xs">
-                何か質問や相談があれば、お気軽にメッセージを送ってください。
+                {requiresSubscription
+                  ? 'チャット機能を利用するにはサブスクリプションが必要です。'
+                  : '何か質問や相談があれば、お気軽にメッセージを送ってください。'}
               </p>
               {requiresSubscription && (
                 <div className="mt-4">

@@ -23,17 +23,7 @@ export async function getUserSubscription(liffAccessToken: string) {
       };
     }
 
-    const user = await userService.getUserFromLiffToken(liffAccessToken);
-
-    if (!user || !user.stripeCustomerId) {
-      return {
-        success: true,
-        hasActiveSubscription: false,
-      };
-    }
-
-    // カスタマー情報を取得
-    const subscription = await stripeService.getActiveSubscription(user.stripeCustomerId);
+    const subscription = authResult.subscription;
 
     if (!subscription) {
       return {
@@ -175,14 +165,7 @@ export async function createCustomerPortalSession(returnUrl: string, liffAccessT
  */
 export async function getSubscriptionPriceDetails(liffAccessToken: string) {
   try {
-    const authResult = await authMiddleware(liffAccessToken);
-    if (authResult.error) {
-      return {
-        success: false,
-        error: authResult.error,
-        requiresSubscription: authResult.requiresSubscription,
-      };
-    }
+    await authMiddleware(liffAccessToken);
 
     const priceId = env.STRIPE_PRICE_ID;
     const priceDetails = await stripeService.getPriceDetails(priceId);
@@ -273,26 +256,22 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
 export async function getCheckoutSessionDetails(sessionId: string, liffAccessToken: string) {
   try {
     const authResult = await authMiddleware(liffAccessToken);
-    if (authResult.error) {
-      return {
-        success: false,
-        error: authResult.error,
-        requiresSubscription: authResult.requiresSubscription,
-      };
-    }
 
     const session = await stripeService.getCheckoutSession(sessionId);
 
-    if (session && session.subscription && session.metadata?.userId) {
+    if (session && session.subscription && authResult.lineUserId) {
       const subscriptionId = session.subscription as string;
-      const userId = session.metadata.userId;
 
-      await userService.updateStripeSubscriptionId(userId, subscriptionId);
+      await userService.updateStripeSubscriptionId(authResult.lineUserId, subscriptionId);
     }
 
     return {
       success: true,
-      session,
+      session: {
+        id: session.id,
+        amount_total: session.amount_total,
+        payment_status: session.payment_status,
+      },
     };
   } catch (error) {
     console.error('チェックアウトセッション取得エラー:', error);

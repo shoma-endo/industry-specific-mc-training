@@ -53,7 +53,7 @@ export default function SubscriptionSuccessPage({
     };
 
     fetchSessionDetails();
-  }, [searchParams.session_id, getAccessToken]);
+  }, [searchParams.session_id]);
 
   return (
     <div className="container mx-auto px-4 py-12">

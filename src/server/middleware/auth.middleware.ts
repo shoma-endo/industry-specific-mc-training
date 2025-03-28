@@ -2,13 +2,18 @@
 
 import { LineAuthService } from '@/server/services/lineAuthService';
 import { userService } from '@/server/services/userService';
+import { StripeService } from '@/server/services/stripeService';
+import Stripe from 'stripe';
 
 const lineAuthService = new LineAuthService();
+const stripeService = new StripeService();
 
 export type AuthMiddlewareResult = {
-  userId?: string;
+  lineUserId: string;
+  userId: string;
+  requiresSubscription: boolean;
+  subscription: Stripe.Subscription | null;
   error?: string;
-  requiresSubscription?: boolean;
 };
 
 /**
@@ -17,20 +22,53 @@ export type AuthMiddlewareResult = {
 export async function authMiddleware(liffAccessToken: string): Promise<AuthMiddlewareResult> {
   try {
     await lineAuthService.verifyLineToken(liffAccessToken);
-
-    const hasSubscription = await userService.hasActiveSubscription(liffAccessToken);
-    if (!hasSubscription) {
+    const lineProfile = await lineAuthService.getLineProfile(liffAccessToken);
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (!user) {
       return {
-        error:
-          '⚠️ この機能は有料会員のみご利用いただけます。サブスクリプションに登録してください。',
+        error: 'ユーザー認証に失敗しました。再ログインしてください。',
+        lineUserId: '',
+        userId: '',
         requiresSubscription: true,
+        subscription: null,
       };
     }
 
-    const lineProfile = await lineAuthService.getLineProfile(liffAccessToken);
-    return { userId: lineProfile.userId };
+    if (!user.stripeSubscriptionId) {
+      return {
+        error: 'サブスクリプションが存在しません。',
+        lineUserId: lineProfile.userId,
+        userId: user.id,
+        requiresSubscription: true,
+        subscription: null,
+      };
+    }
+
+    const subscription = await stripeService.getSubscription(user.stripeSubscriptionId);
+    if (!subscription) {
+      return {
+        error: 'サブスクリプションが存在しません。',
+        lineUserId: lineProfile.userId,
+        userId: user.id,
+        requiresSubscription: true,
+        subscription: null,
+      };
+    }
+
+    return {
+      lineUserId: lineProfile.userId,
+      userId: user.id,
+      requiresSubscription: subscription.status !== 'active' && subscription.status !== 'trialing',
+      subscription,
+    };
   } catch (error) {
     console.error('Authentication failed:', error);
-    return { error: 'ユーザー認証に失敗しました。再ログインしてください。' };
+    return {
+      error: 'ユーザー認証に失敗しました。再ログインしてください。',
+      lineUserId: '',
+      userId: '',
+      requiresSubscription: false,
+      subscription: null,
+    };
   }
 }
