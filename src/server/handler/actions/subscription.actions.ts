@@ -15,13 +15,6 @@ const lineAuthService = new LineAuthService();
 export async function getUserSubscription(liffAccessToken: string) {
   try {
     const authResult = await authMiddleware(liffAccessToken);
-    if (authResult.error) {
-      return {
-        success: false,
-        error: authResult.error,
-        requiresSubscription: authResult.requiresSubscription,
-      };
-    }
 
     const subscription = authResult.subscription;
 
@@ -29,6 +22,7 @@ export async function getUserSubscription(liffAccessToken: string) {
       return {
         success: true,
         hasActiveSubscription: false,
+        requiresSubscription: false,
       };
     }
 
