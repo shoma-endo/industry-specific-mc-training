@@ -26,7 +26,7 @@ export class SupabaseService {
   /**
    * ユーザープロフィールを保存または更新
    */
-  async saveUserProfile(userId: string, lineProfile: any) {
+  async saveUserProfile(userId: string, lineProfile: { displayName: string; pictureUrl?: string; statusMessage?: string }) {
     const { data, error } = await this.supabase
       .from('users')
       .upsert(

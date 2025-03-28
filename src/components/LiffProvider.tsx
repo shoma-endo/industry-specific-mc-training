@@ -15,7 +15,7 @@ interface LiffContextType {
   } | null;
   login: () => void;
   logout: () => void;
-  liffObject: any;
+  liffObject: unknown;
   getAccessToken: () => Promise<string>;
 }
 

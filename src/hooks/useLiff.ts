@@ -58,7 +58,7 @@ export const useLiff = (): UseLiffResult => {
     return profile;
   };
 
-  const getAccessToken = async () => {
+  const getAccessToken = async (): Promise<string> => {
     await liff.ready;
     const lineAccessToken = liff.getAccessToken();
     if (!lineAccessToken) {
