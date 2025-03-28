@@ -35,7 +35,9 @@ export const useLiff = (): UseLiffResult => {
   // ログイン処理
   const login = () => {
     if (!liff) return;
-    liff.login();
+    liff.login({
+      redirectUri: window.location.href,
+    });
   };
 
   // ログアウト処理
@@ -58,7 +60,7 @@ export const useLiff = (): UseLiffResult => {
     return profile;
   };
 
-  const getAccessToken = async () => {
+  const getAccessToken = async (): Promise<string> => {
     await liff.ready;
     const lineAccessToken = liff.getAccessToken();
     if (!lineAccessToken) {

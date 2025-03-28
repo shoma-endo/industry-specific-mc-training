@@ -3,21 +3,27 @@
 import { env } from '@/env';
 import { StripeService } from '@/server/services/stripeService';
 import { LineAuthService } from '@/server/services/lineAuthService';
+import { userService } from '@/server/services/userService';
 
 const stripeService = new StripeService();
 const lineAuthService = new LineAuthService();
 
-// 一時的にハードコードしたカスタマーID
-const TEMP_CUSTOMER_ID = 'cus_S13J6K9aLURBfj';
-
 /**
  * ユーザーのサブスクリプション情報を取得するサーバーアクション
  */
-export async function getUserSubscription() {
+export async function getUserSubscription(liffAccessToken: string) {
   try {
-    const customerId: string = TEMP_CUSTOMER_ID;
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    
+    if (!user || !user.stripeCustomerId) {
+      return {
+        success: true,
+        hasActiveSubscription: false,
+      };
+    }
+    
     // カスタマー情報を取得
-    const subscription = await stripeService.getActiveSubscription(customerId);
+    const subscription = await stripeService.getActiveSubscription(user.stripeCustomerId);
 
     if (!subscription) {
       return {
@@ -96,10 +102,19 @@ export async function resumeUserSubscription(subscriptionId: string) {
  */
 export async function createCustomerPortalSession(
   returnUrl: string,
-  customerId: string = TEMP_CUSTOMER_ID
+  liffAccessToken: string
 ) {
   try {
-    const { url } = await stripeService.createCustomerPortalSession(customerId, returnUrl);
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    
+    if (!user || !user.stripeCustomerId) {
+      return {
+        success: false,
+        error: 'サブスクリプション情報が見つかりません',
+      };
+    }
+
+    const { url } = await stripeService.createCustomerPortalSession(user.stripeCustomerId, returnUrl);
 
     return {
       success: true,
@@ -148,13 +163,24 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
     const successUrl = `${host}/subscription/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${host}/subscription/cancel`;
 
-    // カスタマーIDを新規作成
-    const customerId = await stripeService.createCustomer(userId, lineProfile.displayName);
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (!user) {
+      return {
+        success: false,
+        error: 'ユーザー情報の取得に失敗しました',
+      };
+    }
+
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      customerId = await stripeService.createCustomer(userId, lineProfile.displayName);
+      await userService.updateStripeCustomerId(userId, customerId);
+    }
 
     // Stripeチェックアウトセッション作成
     const { url, sessionId } = await stripeService.createSubscriptionCheckout({
       priceId: env.STRIPE_PRICE_ID,
-      customerId, // 新規作成したカスタマーIDを使用
+      customerId,
       successUrl,
       cancelUrl,
       metadata: {
@@ -189,6 +215,13 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
 export async function getCheckoutSessionDetails(sessionId: string) {
   try {
     const session = await stripeService.getCheckoutSession(sessionId);
+    
+    if (session && session.subscription && session.metadata?.userId) {
+      const subscriptionId = session.subscription as string;
+      const userId = session.metadata.userId;
+      
+      await userService.updateStripeSubscriptionId(userId, subscriptionId);
+    }
 
     return {
       success: true,

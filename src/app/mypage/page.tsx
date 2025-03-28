@@ -20,7 +20,7 @@ interface SubscriptionInfo {
 }
 
 export default function MyPage() {
-  const { profile } = useLiff();
+  const { profile, getAccessToken } = useLiff();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
@@ -35,7 +35,8 @@ export default function MyPage() {
       if (!profile) return;
 
       try {
-        const result = await getUserSubscription();
+        const liffAccessToken = await getAccessToken();
+        const result = await getUserSubscription(liffAccessToken);
 
         if (result.success) {
           setHasActiveSubscription(result.hasActiveSubscription || false);
@@ -54,7 +55,7 @@ export default function MyPage() {
     };
 
     fetchSubscription();
-  }, [profile]);
+  }, [profile, getAccessToken]);
 
   // 支払い方法変更（Stripeポータルを開く）
   const handleUpdatePaymentMethod = async () => {
@@ -62,7 +63,11 @@ export default function MyPage() {
     setError(null);
 
     try {
-      const result = await createCustomerPortalSession(window.location.origin + '/mypage');
+      const liffAccessToken = await getAccessToken();
+      const result = await createCustomerPortalSession(
+        window.location.origin + '/mypage',
+        liffAccessToken
+      );
 
       if (result.success && result.url) {
         // Stripeカスタマーポータルにリダイレクト
@@ -101,7 +106,8 @@ export default function MyPage() {
 
       if (result.success) {
         // 最新のサブスクリプション情報を再取得
-        const updatedResult = await getUserSubscription();
+        const liffAccessToken = await getAccessToken();
+        const updatedResult = await getUserSubscription(liffAccessToken);
         if (updatedResult.success) {
           setHasActiveSubscription(updatedResult.hasActiveSubscription || false);
           setSubscription(updatedResult.subscription || null);
@@ -137,11 +143,12 @@ export default function MyPage() {
     setError(null);
 
     try {
+      const liffAccessToken = await getAccessToken();
       const result = await resumeUserSubscription(subscription.id);
 
       if (result.success) {
         // 最新のサブスクリプション情報を再取得
-        const updatedResult = await getUserSubscription();
+        const updatedResult = await getUserSubscription(liffAccessToken);
         if (updatedResult.success) {
           setHasActiveSubscription(updatedResult.hasActiveSubscription || false);
           setSubscription(updatedResult.subscription || null);
