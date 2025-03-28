@@ -15,6 +15,10 @@ OpenAI APIの主な特徴：
 
 OpenAI APIを使用するには、APIキーが必要です。以下の手順でAPIキーを取得できます。
 
+![OpenAI APIキーの取得手順](./images/openai_api_key.svg)
+
+*図: OpenAI APIキー取得の5ステップ*
+
 ### 2.2.1 OpenAIアカウントの作成
 
 1. [OpenAIのウェブサイト](https://openai.com/)にアクセスします。
@@ -62,6 +66,10 @@ LIFF-Templateプロジェクトでは、OpenAI APIキーを環境変数として
 - **ブランドボイスの統一**: 企業や製品の一貫したコミュニケーションスタイルを維持
 
 ### 2.3.2 ファインチューニングの手順
+
+![ファインチューニングのワークフロー](./images/fine_tuning_workflow.svg)
+
+*図: OpenAIファインチューニングの5ステップワークフロー*
 
 #### 1. トレーニングデータの準備
 
@@ -152,6 +160,10 @@ async function useFineTunedModel(fineTunedModel) {
 - **評価**: ファインチューニング済みモデルを評価し、必要に応じて改善する
 
 ## 2.4 LIFF-TemplateでのOpenAI実装
+
+![OpenAI APIとLIFF-Templateの統合アーキテクチャ](./images/openai_integration.svg)
+
+*図: OpenAI APIとLIFF-Templateの統合アーキテクチャ*
 
 LIFF-Templateプロジェクトでは、`openAiService.ts`ファイルにOpenAI APIとの統合が実装されています。
 

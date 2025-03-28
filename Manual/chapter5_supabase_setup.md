@@ -15,6 +15,10 @@ Supabaseの主な特徴：
 
 ## 4.2 Supabaseアカウントの作成とプロジェクトのセットアップ
 
+![Supabaseセットアップ手順](./images/supabase_setup.svg)
+
+*図: Supabaseプロジェクトのセットアップ手順*
+
 ### 4.2.1 アカウント作成
 
 1. [Supabaseのウェブサイト](https://supabase.com/)にアクセスします。
@@ -76,6 +80,10 @@ export const env = createEnv({
 ## 4.4 データベースのセットアップ
 
 LIFF-Templateプロジェクトでは、マイグレーションファイルを使用してデータベーススキーマを定義しています。
+
+![Supabaseデータベース構造](./images/supabase_database_structure.svg)
+
+*図: LIFF-Templateのデータベース構造とテーブル間の関連性*
 
 ### 4.4.1 マイグレーションファイルの概要
 
@@ -172,6 +180,10 @@ Supabaseプロジェクトでマイグレーションを実行するには、以
    - 「Run」ボタンをクリック
 
 ## 4.5 Row Level Security（RLS）の設定
+
+![Supabase RLS ポリシー](./images/supabase_rls_policies.svg)
+
+*図: Supabaseのテーブルごとに設定されたRow Level Security（RLS）ポリシー*
 
 Supabaseでは、Row Level Security（RLS）を使用して、ユーザーごとにデータアクセスを制限できます。LIFF-Templateプロジェクトでは、以下のRLSポリシーを設定しています：
 

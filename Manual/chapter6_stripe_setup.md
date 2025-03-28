@@ -15,6 +15,10 @@ Stripeの主な特徴：
 
 ## 5.2 Stripeアカウントの作成
 
+![Stripeセットアップ手順](./images/stripe_setup.svg)
+
+*図: Stripeアカウント作成からAPIキー取得、環境変数設定までの手順*
+
 ### 5.2.1 アカウント登録
 
 1. [Stripeのウェブサイト](https://stripe.com/)にアクセスします。
@@ -108,6 +112,10 @@ export const env = createEnv({
 
 ## 5.5 Stripeサービスの実装
 
+![Stripe統合アーキテクチャ](./images/stripe_integration.svg)
+
+*図: LIFF-TemplateとStripe APIの統合アーキテクチャ*
+
 LIFF-Templateプロジェクトでは、`stripeService.ts`ファイルでStripe APIとの通信を管理しています：
 
 ```typescript
@@ -189,6 +197,10 @@ export class StripeService {
 ```
 
 ## 5.6 サブスクリプションフロー
+
+![サブスクリプションフロー](./images/stripe_subscription_flow.svg)
+
+*図: 無料プランとプレミアムプラン間の移行フローと処理ステップ*
 
 ### 5.6.1 サブスクリプションの作成フロー
 

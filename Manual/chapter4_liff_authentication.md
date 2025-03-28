@@ -12,6 +12,10 @@ LIFFの主な特徴：
 
 ## 3.2 LIFF SDKの初期化
 
+![LIFF-Templateの実装構造](./images/liff_implementation.svg)
+
+*図: LIFF-Templateにおける主要なLIFF関連コンポーネントの構造*
+
 LIFF-Templateプロジェクトでは、`LiffProvider`コンポーネントを使用してLIFF SDKを初期化しています。
 
 ### 3.2.1 LiffProviderコンポーネント
@@ -89,6 +93,10 @@ export default function LiffProvider({ children }: { children: ReactNode }) {
 ### 3.2.2 環境変数の設定
 
 LIFF SDKを初期化するには、LIFF IDが必要です。LIFF IDは、LINEデベロッパーコンソールで作成したLIFFアプリケーションに割り当てられる一意の識別子です。
+
+![LINE Developers ConsoleでのLIFF設定手順](./images/liff_console_setup.svg)
+
+*図: LINE Developers ConsoleでLIFFアプリを設定する5つのステップ*
 
 LIFF-Templateプロジェクトでは、LIFF IDを環境変数として設定します：
 
@@ -317,6 +325,10 @@ export class LineAuthService {
 - LINEユーザープロフィールの取得（ユーザーID、表示名、プロフィール画像、ステータスメッセージ）
 
 ## 3.5 認証フローとユーザー管理
+
+![LIFFトークン管理フロー](./images/liff_token_management.svg)
+
+*図: LIFFトークンの取得、検証、およびユーザー情報管理のフロー*
 
 LIFF-Templateプロジェクトの認証フローとユーザー管理は、以下のステップで構成されています：
 

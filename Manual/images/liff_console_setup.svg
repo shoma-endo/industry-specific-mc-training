@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .step-title { font: bold 16px sans-serif; fill: #333; }
+    .step-desc { font: 14px sans-serif; fill: #333; }
+    .step-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .step-number { font: bold 20px sans-serif; fill: #fff; }
+    .step-circle { stroke: #333; stroke-width: 1; }
+    .line-box { fill: #DCFCE7; stroke: #94A3B8; stroke-width: 2; }
+    .code-box { font: 12px monospace; fill: #333; background: #F1F5F9; }
+    .warning { font: bold 14px sans-serif; fill: #B91C1C; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">LINE Developers ConsoleでのLIFF設定手順</text>
+  
+  <!-- Step 1: Create Provider -->
+  <rect x="50" y="80" width="700" height="80" rx="8" class="step-box" />
+  <circle cx="90" cy="120" r="25" class="step-circle" fill="#06B6D4" />
+  <text x="90" y="125" text-anchor="middle" class="step-number">1</text>
+  <text x="400" y="105" text-anchor="middle" class="step-title">LINE Developersアカウント作成</text>
+  <text x="400" y="135" text-anchor="middle" class="step-desc">https://developers.line.biz/console/ にアクセスし、アカウントを作成またはログイン</text>
+  
+  <!-- Step 2: Create Provider -->
+  <rect x="50" y="180" width="700" height="80" rx="8" class="step-box" />
+  <circle cx="90" cy="220" r="25" class="step-circle" fill="#06B6D4" />
+  <text x="90" y="225" text-anchor="middle" class="step-number">2</text>
+  <text x="400" y="205" text-anchor="middle" class="step-title">プロバイダーの作成</text>
+  <text x="400" y="235" text-anchor="middle" class="step-desc">「新規プロバイダー作成」をクリックし、プロバイダー名を入力して作成</text>
+  
+  <!-- Step 3: Create Channel -->
+  <rect x="50" y="280" width="700" height="80" rx="8" class="step-box" />
+  <circle cx="90" cy="320" r="25" class="step-circle" fill="#06B6D4" />
+  <text x="90" y="325" text-anchor="middle" class="step-number">3</text>
+  <text x="400" y="305" text-anchor="middle" class="step-title">チャネルの作成</text>
+  <text x="400" y="335" text-anchor="middle" class="step-desc">「LINEログイン」チャネルを選択し、必要情報を入力して作成</text>
+  
+  <!-- Step 4: LIFF App Settings -->
+  <rect x="50" y="380" width="700" height="100" rx="8" class="step-box" />
+  <circle cx="90" cy="430" r="25" class="step-circle" fill="#06B6D4" />
+  <text x="90" y="435" text-anchor="middle" class="step-number">4</text>
+  <text x="400" y="405" text-anchor="middle" class="step-title">LIFFアプリの追加</text>
+  <text x="400" y="435" text-anchor="middle" class="step-desc">「LIFF」タブを選択し、「追加」ボタンをクリック</text>
+  <text x="400" y="455" text-anchor="middle" class="step-desc">アプリ名、サイズ、エンドポイントURLを設定</text>
+  
+  <!-- Step 5: Get LIFF ID -->
+  <rect x="50" y="500" width="700" height="80" rx="8" class="step-box" />
+  <circle cx="90" cy="540" r="25" class="step-circle" fill="#06B6D4" />
+  <text x="90" y="545" text-anchor="middle" class="step-number">5</text>
+  <text x="400" y="525" text-anchor="middle" class="step-title">LIFF IDの取得と環境変数の設定</text>
+  <text x="400" y="555" text-anchor="middle" class="step-desc">作成したLIFFアプリのIDをコピーし、.envファイルに「NEXT_PUBLIC_LIFF_ID=xxx」として設定</text>
+</svg>

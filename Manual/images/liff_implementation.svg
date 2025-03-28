@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .component-title { font: bold 16px sans-serif; fill: #333; }
+    .component-desc { font: 14px sans-serif; fill: #333; }
+    .component-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .code-box { font: 12px monospace; fill: #333; background: #F1F5F9; }
+    .provider-box { fill: #EFF6FF; stroke: #3B82F6; stroke-width: 2; }
+    .hook-box { fill: #E0F2FE; stroke: #0EA5E9; stroke-width: 2; }
+    .service-box { fill: #DCFCE7; stroke: #10B981; stroke-width: 2; }
+    .action-box { fill: #FEF3C7; stroke: #F59E0B; stroke-width: 2; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">LIFF-Templateの実装構造</text>
+  
+  <!-- LiffProvider Component -->
+  <rect x="50" y="80" width="700" height="120" rx="8" class="provider-box" />
+  <text x="400" y="105" text-anchor="middle" class="component-title">LiffProvider.tsx</text>
+  <text x="400" y="130" text-anchor="middle" class="component-desc">LIFF SDKの初期化と認証状態の管理</text>
+  <text x="400" y="155" text-anchor="middle" class="component-desc">すべてのコンポーネントにLIFF機能を提供するコンテキストプロバイダー</text>
+  <rect x="150" y="170" width="500" height="20" rx="4" fill="#F1F5F9" />
+  <text x="400" y="185" text-anchor="middle" class="code-box">const { liff, isLoggedIn, profile, login, logout } = useLiff();</text>
+  
+  <!-- useLiff Hook -->
+  <rect x="50" y="220" width="700" height="120" rx="8" class="hook-box" />
+  <text x="400" y="245" text-anchor="middle" class="component-title">useLiff.ts</text>
+  <text x="400" y="270" text-anchor="middle" class="component-desc">LIFF SDKの機能をReactフックとして提供</text>
+  <text x="400" y="295" text-anchor="middle" class="component-desc">ログイン状態、プロフィール情報、トークン管理</text>
+  <rect x="150" y="310" width="500" height="20" rx="4" fill="#F1F5F9" />
+  <text x="400" y="325" text-anchor="middle" class="code-box">const { isReady, error } = await liff.init({ liffId: LIFF_ID });</text>
+  
+  <!-- LineAuthService -->
+  <rect x="50" y="360" width="700" height="120" rx="8" class="service-box" />
+  <text x="400" y="385" text-anchor="middle" class="component-title">lineAuthService.ts</text>
+  <text x="400" y="410" text-anchor="middle" class="component-desc">サーバーサイドでのLINE認証処理</text>
+  <text x="400" y="435" text-anchor="middle" class="component-desc">トークン検証、プロフィール取得、ユーザー情報の管理</text>
+  <rect x="150" y="450" width="500" height="20" rx="4" fill="#F1F5F9" />
+  <text x="400" y="465" text-anchor="middle" class="code-box">async verifyIdToken(idToken: string): Promise<LineProfile></text>
+  
+  <!-- Login Actions -->
+  <rect x="50" y="500" width="700" height="80" rx="8" class="action-box" />
+  <text x="400" y="525" text-anchor="middle" class="component-title">login.actions.ts</text>
+  <text x="400" y="550" text-anchor="middle" class="component-desc">Server Actionsを使用したログイン処理とセッション管理</text>
+  <rect x="150" y="565" width="500" height="20" rx="4" fill="#F1F5F9" />
+  <text x="400" y="580" text-anchor="middle" class="code-box">export async function setUserId(userId: string): Promise<void></text>
+</svg>

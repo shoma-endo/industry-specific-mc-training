@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .step-title { font: bold 16px sans-serif; fill: #333; }
+    .step-desc { font: 14px sans-serif; fill: #333; }
+    .step-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .step-number { font: bold 20px sans-serif; fill: #fff; }
+    .step-circle { stroke: #333; stroke-width: 1; }
+    .layer-label { font: italic 12px sans-serif; fill: #666; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">データフロー</text>
+  
+  <!-- Step 1: User Action -->
+  <rect x="50" y="80" width="200" height="80" rx="8" class="step-box" />
+  <circle cx="80" cy="120" r="20" class="step-circle" fill="#61DAFB" />
+  <text x="80" y="125" text-anchor="middle" class="step-number">1</text>
+  <text x="170" y="105" text-anchor="middle" class="step-title">ユーザーアクション</text>
+  <text x="170" y="130" text-anchor="middle" class="step-desc">メッセージ送信など</text>
+  <text x="170" y="150" text-anchor="middle" class="layer-label">クライアント層</text>
+  
+  <!-- Step 2: Server Action -->
+  <rect x="300" y="80" width="200" height="80" rx="8" class="step-box" />
+  <circle cx="330" cy="120" r="20" class="step-circle" fill="#0EA5E9" />
+  <text x="330" y="125" text-anchor="middle" class="step-number">2</text>
+  <text x="420" y="105" text-anchor="middle" class="step-title">Server Action呼び出し</text>
+  <text x="420" y="130" text-anchor="middle" class="step-desc">リクエスト送信</text>
+  <text x="420" y="150" text-anchor="middle" class="layer-label">サーバーアクション層</text>
+  
+  <!-- Step 3: Validation & Service -->
+  <rect x="550" y="80" width="200" height="80" rx="8" class="step-box" />
+  <circle cx="580" cy="120" r="20" class="step-circle" fill="#0284C7" />
+  <text x="580" y="125" text-anchor="middle" class="step-number">3</text>
+  <text x="670" y="105" text-anchor="middle" class="step-title">リクエスト検証</text>
+  <text x="670" y="130" text-anchor="middle" class="step-desc">サービス層へ渡す</text>
+  <text x="670" y="150" text-anchor="middle" class="layer-label">サーバーアクション層</text>
+  
+  <!-- Step 4: Business Logic -->
+  <rect x="550" y="210" width="200" height="80" rx="8" class="step-box" />
+  <circle cx="580" cy="250" r="20" class="step-circle" fill="#0284C7" />
+  <text x="580" y="255" text-anchor="middle" class="step-number">4</text>
+  <text x="670" y="235" text-anchor="middle" class="step-title">ビジネスロジック実行</text>
+  <text x="670" y="260" text-anchor="middle" class="step-desc">複数サービスの連携</text>
+  <text x="670" y="280" text-anchor="middle" class="layer-label">サービス層</text>
+  
+  <!-- Step 5: Database Access -->
+  <rect x="300" y="210" width="200" height="80" rx="8" class="step-box" />
+  <circle cx="330" cy="250" r="20" class="step-circle" fill="#0369A1" />
+  <text x="330" y="255" text-anchor="middle" class="step-number">5</text>
+  <text x="420" y="235" text-anchor="middle" class="step-title">データベースアクセス</text>
+  <text x="420" y="260" text-anchor="middle" class="step-desc">データの取得・保存</text>
+  <text x="420" y="280" text-anchor="middle" class="layer-label">リポジトリ層</text>
+  
+  <!-- Step 6: Response -->
+  <rect x="50" y="210" width="200" height="80" rx="8" class="step-box" />
+  <circle cx="80" cy="250" r="20" class="step-circle" fill="#61DAFB" />
+  <text x="80" y="255" text-anchor="middle" class="step-number">6</text>
+  <text x="170" y="235" text-anchor="middle" class="step-title">結果返却</text>
+  <text x="170" y="260" text-anchor="middle" class="step-desc">UIの更新</text>
+  <text x="170" y="280" text-anchor="middle" class="layer-label">クライアント層</text>
+  
+  <!-- External Services -->
+  <rect x="300" y="340" width="200" height="80" rx="8" class="step-box" />
+  <text x="400" y="365" text-anchor="middle" class="step-title">外部サービス</text>
+  <text x="400" y="390" text-anchor="middle" class="step-desc">OpenAI, LINE, Stripe</text>
+  <text x="400" y="410" text-anchor="middle" class="layer-label">外部サービス抽象層</text>
+  
+  <!-- Arrows -->
+  <path d="M250,120 L300,120" class="arrow" />
+  <path d="M500,120 L550,120" class="arrow" />
+  <path d="M650,160 L650,210" class="arrow" />
+  <path d="M550,250 L500,250" class="arrow" />
+  <path d="M300,250 L250,250" class="arrow" />
+  <path d="M400,290 L400,340" class="arrow" />
+  <path d="M500,340 L600,290" class="arrow" stroke-dasharray="5,5" />
+  
+  <!-- Legend -->
+  <rect x="50" y="430" width="700" height="50" rx="8" fill="#F1F5F9" stroke="#94A3B8" stroke-width="1" />
+  <text x="400" y="455" text-anchor="middle" class="step-desc">
+    リクエストフロー: ユーザーアクション → Server Action → サービス層 → リポジトリ層 → データベース
+  </text>
+  <text x="400" y="475" text-anchor="middle" class="step-desc">
+    レスポンスフロー: データベース → リポジトリ層 → サービス層 → Server Action → クライアント層 → UI更新
+  </text>
+</svg>

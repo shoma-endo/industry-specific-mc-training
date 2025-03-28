@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .component-title { font: bold 16px sans-serif; fill: #333; }
+    .component-desc { font: 14px sans-serif; fill: #333; }
+    .component-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .token-box { fill: #EFF6FF; stroke: #3B82F6; stroke-width: 2; }
+    .app-box { fill: #E0F2FE; stroke: #0EA5E9; stroke-width: 2; }
+    .user-box { fill: #FEF3C7; stroke: #F59E0B; stroke-width: 2; }
+    .line-box { fill: #DCFCE7; stroke: #10B981; stroke-width: 2; }
+    .code-box { font: 12px monospace; fill: #333; background: #F1F5F9; }
+    .warning { font: bold 14px sans-serif; fill: #B91C1C; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">LIFFトークン管理フロー</text>
+  
+  <!-- Components -->
+  <rect x="50" y="100" width="200" height="400" rx="8" class="user-box" />
+  <text x="150" y="130" text-anchor="middle" class="component-title">クライアント</text>
+  <text x="150" y="155" text-anchor="middle" class="component-desc">LIFFProvider</text>
+  <text x="150" y="175" text-anchor="middle" class="component-desc">useLiff Hook</text>
+  
+  <rect x="300" y="100" width="200" height="400" rx="8" class="line-box" />
+  <text x="400" y="130" text-anchor="middle" class="component-title">LINE Platform</text>
+  <text x="400" y="155" text-anchor="middle" class="component-desc">LIFF SDK</text>
+  <text x="400" y="175" text-anchor="middle" class="component-desc">認証サーバー</text>
+  
+  <rect x="550" y="100" width="200" height="400" rx="8" class="app-box" />
+  <text x="650" y="130" text-anchor="middle" class="component-title">サーバーサイド</text>
+  <text x="650" y="155" text-anchor="middle" class="component-desc">lineAuthService</text>
+  <text x="650" y="175" text-anchor="middle" class="component-desc">userService</text>
+  
+  <!-- Token Flow -->
+  <rect x="100" y="220" width="100" height="40" rx="4" class="token-box" />
+  <text x="150" y="245" text-anchor="middle" class="component-desc">初期化</text>
+  
+  <rect x="350" y="220" width="100" height="40" rx="4" class="token-box" />
+  <text x="400" y="245" text-anchor="middle" class="component-desc">認証</text>
+  
+  <rect x="350" y="300" width="100" height="40" rx="4" class="token-box" />
+  <text x="400" y="325" text-anchor="middle" class="component-desc">アクセストークン</text>
+  
+  <rect x="100" y="300" width="100" height="40" rx="4" class="token-box" />
+  <text x="150" y="325" text-anchor="middle" class="component-desc">トークン保存</text>
+  
+  <rect x="600" y="300" width="100" height="40" rx="4" class="token-box" />
+  <text x="650" y="325" text-anchor="middle" class="component-desc">トークン検証</text>
+  
+  <rect x="600" y="380" width="100" height="40" rx="4" class="token-box" />
+  <text x="650" y="405" text-anchor="middle" class="component-desc">ユーザー情報</text>
+  
+  <rect x="100" y="380" width="100" height="40" rx="4" class="token-box" />
+  <text x="150" y="405" text-anchor="middle" class="component-desc">セッション確立</text>
+  
+  <!-- Arrows -->
+  <path d="M200,240 L350,240" class="arrow" />
+  <path d="M400,260 L400,300" class="arrow" />
+  <path d="M350,320 L200,320" class="arrow" />
+  <path d="M450,320 L600,320" class="arrow" />
+  <path d="M650,340 L650,380" class="arrow" />
+  <path d="M600,400 L200,400" class="arrow" />
+  
+  <!-- Labels -->
+  <text x="275" y="230" text-anchor="middle" class="component-desc">1. LIFF初期化</text>
+  <text x="390" y="285" text-anchor="middle" class="component-desc">2. ログイン</text>
+  <text x="275" y="310" text-anchor="middle" class="component-desc">3. トークン返却</text>
+  <text x="525" y="310" text-anchor="middle" class="component-desc">4. トークン送信</text>
+  <text x="640" y="365" text-anchor="middle" class="component-desc">5. プロフィール取得</text>
+  <text x="400" y="390" text-anchor="middle" class="component-desc">6. ユーザー情報返却</text>
+  
+  <!-- Code Example -->
+  <rect x="50" y="500" width="700" height="80" rx="8" class="component-box" />
+  <text x="400" y="525" text-anchor="middle" class="component-title">トークン管理コード例</text>
+  <rect x="100" y="540" width="600" height="20" rx="4" fill="#F1F5F9" />
+  <text x="400" y="555" text-anchor="middle" class="code-box">const { accessToken } = liff; // クライアント側でトークンを取得</text>
+  <rect x="100" y="565" width="600" height="20" rx="4" fill="#F1F5F9" />
+  <text x="400" y="580" text-anchor="middle" class="code-box">await lineAuthService.verifyIdToken(idToken); // サーバー側でトークンを検証</text>
+</svg>

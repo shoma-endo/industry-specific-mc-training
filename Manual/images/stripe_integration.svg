@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .component-title { font: bold 16px sans-serif; fill: #333; }
+    .component-desc { font: 14px sans-serif; fill: #333; }
+    .component-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .code-box { font: 12px monospace; fill: #333; background: #F1F5F9; }
+    .app-box { fill: #EFF6FF; stroke: #3B82F6; stroke-width: 2; }
+    .stripe-box { fill: #F0FDF4; stroke: #10B981; stroke-width: 2; }
+    .user-box { fill: #FEF3C7; stroke: #F59E0B; stroke-width: 2; }
+    .db-box { fill: #E0F2FE; stroke: #0EA5E9; stroke-width: 2; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">Stripe統合アーキテクチャ</text>
+  
+  <!-- Components -->
+  <rect x="50" y="100" width="150" height="400" rx="8" class="user-box" />
+  <text x="125" y="130" text-anchor="middle" class="component-title">ユーザー</text>
+  <text x="125" y="155" text-anchor="middle" class="component-desc">LINEユーザー</text>
+  
+  <rect x="250" y="100" width="150" height="400" rx="8" class="app-box" />
+  <text x="325" y="130" text-anchor="middle" class="component-title">フロントエンド</text>
+  <text x="325" y="155" text-anchor="middle" class="component-desc">Next.js</text>
+  <text x="325" y="175" text-anchor="middle" class="component-desc">Stripe.js</text>
+  
+  <rect x="450" y="100" width="150" height="400" rx="8" class="app-box" />
+  <text x="525" y="130" text-anchor="middle" class="component-title">バックエンド</text>
+  <text x="525" y="155" text-anchor="middle" class="component-desc">Server Actions</text>
+  <text x="525" y="175" text-anchor="middle" class="component-desc">stripeService</text>
+  
+  <rect x="650" y="100" width="150" height="200" rx="8" class="stripe-box" />
+  <text x="725" y="130" text-anchor="middle" class="component-title">Stripe API</text>
+  <text x="725" y="155" text-anchor="middle" class="component-desc">顧客管理</text>
+  <text x="725" y="175" text-anchor="middle" class="component-desc">サブスクリプション</text>
+  <text x="725" y="195" text-anchor="middle" class="component-desc">支払い処理</text>
+  
+  <rect x="650" y="350" width="150" height="150" rx="8" class="db-box" />
+  <text x="725" y="380" text-anchor="middle" class="component-title">Supabase</text>
+  <text x="725" y="405" text-anchor="middle" class="component-desc">ユーザーテーブル</text>
+  <text x="725" y="425" text-anchor="middle" class="component-desc">サブスクリプション</text>
+  <text x="725" y="445" text-anchor="middle" class="component-desc">情報の保存</text>
+  
+  <!-- Flow Arrows -->
+  <!-- User to Frontend -->
+  <path d="M200,200 L250,200" class="arrow" />
+  <text x="225" y="190" text-anchor="middle" class="component-desc">1. 購入</text>
+  
+  <!-- Frontend to Backend -->
+  <path d="M400,200 L450,200" class="arrow" />
+  <text x="425" y="190" text-anchor="middle" class="component-desc">2. 支払い</text>
+  <text x="425" y="210" text-anchor="middle" class="component-desc">リクエスト</text>
+  
+  <!-- Backend to Stripe -->
+  <path d="M600,200 L650,200" class="arrow" />
+  <text x="625" y="190" text-anchor="middle" class="component-desc">3. Stripe</text>
+  <text x="625" y="210" text-anchor="middle" class="component-desc">API呼び出し</text>
+  
+  <!-- Stripe to Backend -->
+  <path d="M650,250 L600,250" class="arrow" />
+  <text x="625" y="240" text-anchor="middle" class="component-desc">4. 支払い</text>
+  <text x="625" y="260" text-anchor="middle" class="component-desc">結果</text>
+  
+  <!-- Backend to Frontend -->
+  <path d="M450,250 L400,250" class="arrow" />
+  <text x="425" y="240" text-anchor="middle" class="component-desc">5. 処理</text>
+  <text x="425" y="260" text-anchor="middle" class="component-desc">結果</text>
+  
+  <!-- Frontend to User -->
+  <path d="M250,250 L200,250" class="arrow" />
+  <text x="225" y="240" text-anchor="middle" class="component-desc">6. 完了</text>
+  <text x="225" y="260" text-anchor="middle" class="component-desc">通知</text>
+  
+  <!-- Backend to Database -->
+  <path d="M600,400 L650,400" class="arrow" />
+  <text x="625" y="390" text-anchor="middle" class="component-desc">7. サブスク</text>
+  <text x="625" y="410" text-anchor="middle" class="component-desc">情報保存</text>
+  
+  <!-- Webhook Flow -->
+  <path d="M725,300 L725,350" class="arrow" />
+  <text x="750" y="325" text-anchor="middle" class="component-desc">Webhook</text>
+  
+  <!-- Code Example -->
+  <rect x="50" y="520" width="700" height="60" rx="8" class="component-box" />
+  <text x="400" y="545" text-anchor="middle" class="component-title">Stripe統合コード例</text>
+  <rect x="100" y="560" width="600" height="20" rx="4" fill="#F1F5F9" />
+  <text x="400" y="575" text-anchor="middle" class="code-box">await stripeService.createSubscription(userId, priceId);</text>
+</svg>
