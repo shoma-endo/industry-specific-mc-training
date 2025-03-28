@@ -35,7 +35,9 @@ export const useLiff = (): UseLiffResult => {
   // ログイン処理
   const login = () => {
     if (!liff) return;
-    liff.login();
+    liff.login({
+      redirectUri: window.location.href,
+    });
   };
 
   // ログアウト処理
