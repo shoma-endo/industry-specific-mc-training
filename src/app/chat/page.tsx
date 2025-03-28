@@ -57,15 +57,18 @@ export default function ChatPage() {
       if (!isLoggedIn) return;
 
       try {
+        setIsLoading(true);
         const accessToken = await liff.getAccessToken();
         if (!accessToken) {
           console.error('LINEアクセストークンが取得できません');
+          setIsLoading(false);
           return;
         }
 
         const result = await getChatSessions(accessToken);
         if (result.error) {
           console.error(result.error);
+          setIsLoading(false);
           return;
         }
 
@@ -88,6 +91,8 @@ export default function ChatPage() {
         }
       } catch (error) {
         console.error('Failed to load chat session:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -266,7 +271,30 @@ export default function ChatPage() {
 
       {/* メッセージエリア */}
       <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
-        {messages.length === 0 ? (
+        {isLoading && messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="bg-white p-6 rounded-xl shadow-sm flex flex-col items-center">
+              <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center mb-4">
+                <Bot size={24} className="text-white" />
+              </div>
+              <h3 className="text-lg font-medium mb-3">メッセージを取得中です</h3>
+              <div className="flex gap-2 items-center">
+                <div
+                  className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '200ms' }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '400ms' }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <Bot size={48} className="text-gray-300 mb-3" />
             <h3 className="text-lg font-medium mb-1">AIアシスタントへようこそ</h3>
@@ -338,32 +366,35 @@ export default function ChatPage() {
                 )}
               </div>
             ))}
-          </>
-        )}
 
-        {/* AIの入力中表示 */}
-        {isLoading && (
-          <div className="flex items-start gap-2 mb-3 animate-in fade-in">
-            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-500 flex items-center justify-center">
-              <Bot size={16} className="text-white" />
-            </div>
-            <div className="bg-white text-foreground p-3 rounded-lg rounded-tl-none border border-gray-100 shadow-sm">
-              <div className="flex gap-1 items-center">
-                <div
-                  className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: '0ms' }}
-                ></div>
-                <div
-                  className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: '200ms' }}
-                ></div>
-                <div
-                  className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: '400ms' }}
-                ></div>
+            {/* AIの入力中表示 */}
+            {isLoading && (
+              <div className="flex items-start gap-2 mb-3 animate-in fade-in">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-500 flex items-center justify-center">
+                  <Bot size={16} className="text-white" />
+                </div>
+                <div className="bg-white text-foreground p-3 rounded-lg rounded-tl-none border border-gray-100 shadow-sm">
+                  <div className="flex gap-2 items-center">
+                    <div className="flex gap-1 items-center">
+                      <div
+                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '0ms' }}
+                      ></div>
+                      <div
+                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '200ms' }}
+                      ></div>
+                      <div
+                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '400ms' }}
+                      ></div>
+                    </div>
+                    <span className="text-sm text-gray-500">メッセージを取得中です...</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
         <div ref={messagesEndRef} />
