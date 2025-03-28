@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -457,9 +457,25 @@ export default function ChatPage() {
       {/* チャットメイン部分 */}
       <div className="flex-1 flex flex-col">
         {/* ヘッダー */}
-        <div className="border-b py-2 px-4 flex items-center justify-between">
+        <div className="border-b py-2 px-4 bg-white flex items-center justify-between">
+          <div className="flex items-center">
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mr-2"
+                onClick={() => setSheetOpen(!sheetOpen)}
+              >
+                <Menu size={20} />
+              </Button>
+            )}
+            <h1 className="font-medium text-sm truncate max-w-[200px] md:max-w-[400px]">
+              {(sessionId && sessions.find(s => s.id === sessionId)?.title) || '新しいチャット'}
+            </h1>
+          </div>
+
           <Select value={selectedModel} onValueChange={setSelectedModel}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[120px] md:w-[180px]">
               <SelectValue placeholder="モデルを選択" />
             </SelectTrigger>
             <SelectContent>
