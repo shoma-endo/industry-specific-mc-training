@@ -17,10 +17,6 @@ export interface User {
   // Stripe関連情報
   stripeCustomerId?: string | undefined; // StripeカスタマーID
   stripeSubscriptionId?: string | undefined; // Stripeサブスクリプション ID
-
-  // システム情報
-  isActive: boolean; // アカウントが有効かどうか
-  lastLoginAt?: number | undefined; // 最終ログイン日時 (タイムスタンプ)
 }
 
 /**
@@ -51,8 +47,6 @@ export interface DbUser {
   line_status_message?: string | undefined;
   stripe_customer_id?: string | undefined;
   stripe_subscription_id?: string | undefined;
-  is_active: boolean;
-  last_login_at?: number | undefined;
 }
 
 /**
@@ -69,8 +63,6 @@ export function toDbUser(user: User): DbUser {
     line_status_message: user.lineStatusMessage,
     stripe_customer_id: user.stripeCustomerId,
     stripe_subscription_id: user.stripeSubscriptionId,
-    is_active: user.isActive,
-    last_login_at: user.lastLoginAt,
   };
 }
 
@@ -85,7 +77,5 @@ export function toUser(dbUser: DbUser): User {
     lineStatusMessage: dbUser.line_status_message,
     stripeCustomerId: dbUser.stripe_customer_id,
     stripeSubscriptionId: dbUser.stripe_subscription_id,
-    isActive: dbUser.is_active,
-    lastLoginAt: dbUser.last_login_at,
   };
 }
