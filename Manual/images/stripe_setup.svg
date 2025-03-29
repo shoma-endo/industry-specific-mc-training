@@ -41,17 +41,10 @@
   <text x="400" y="305" text-anchor="middle" class="step-title">商品とプランの作成</text>
   <text x="400" y="335" text-anchor="middle" class="step-desc">「Products」→「Add Product」から商品とサブスクリプションプランを設定</text>
   
-  <!-- Step 4: Webhook Setup -->
-  <rect x="50" y="380" width="700" height="80" rx="8" class="step-box" />
-  <circle cx="90" cy="420" r="25" class="step-circle" fill="#635BFF" />
-  <text x="90" y="425" text-anchor="middle" class="step-number">4</text>
-  <text x="400" y="405" text-anchor="middle" class="step-title">Webhookの設定</text>
-  <text x="400" y="435" text-anchor="middle" class="step-desc">「Developers」→「Webhooks」からエンドポイントを設定し、イベントを購読</text>
-  
-  <!-- Step 5: Environment Variables -->
-  <rect x="50" y="480" width="700" height="100" rx="8" class="step-box" />
-  <circle cx="90" cy="530" r="25" class="step-circle" fill="#635BFF" />
-  <text x="90" y="535" text-anchor="middle" class="step-number">5</text>
+  <!-- Step 4: Environment Variables -->
+  <rect x="50" y="380" width="700" height="100" rx="8" class="step-box" />
+  <circle cx="90" cy="430" r="25" class="step-circle" fill="#635BFF" />
+  <text x="90" y="435" text-anchor="middle" class="step-number">4</text>
   <text x="400" y="505" text-anchor="middle" class="step-title">環境変数の設定</text>
   <text x="400" y="535" text-anchor="middle" class="step-desc">.envファイルに以下の変数を設定：</text>
   <rect x="150" y="550" width="500" height="20" rx="4" fill="#F1F5F9" />

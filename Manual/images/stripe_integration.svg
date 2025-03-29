@@ -29,7 +29,7 @@
   <rect x="250" y="100" width="150" height="400" rx="8" class="app-box" />
   <text x="325" y="130" text-anchor="middle" class="component-title">フロントエンド</text>
   <text x="325" y="155" text-anchor="middle" class="component-desc">Next.js</text>
-  <text x="325" y="175" text-anchor="middle" class="component-desc">Stripe.js</text>
+  <text x="325" y="175" text-anchor="middle" class="component-desc">Server Actions</text>
   
   <rect x="450" y="100" width="150" height="400" rx="8" class="app-box" />
   <text x="525" y="130" text-anchor="middle" class="component-title">バックエンド</text>

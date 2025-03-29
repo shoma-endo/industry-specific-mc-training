@@ -30,7 +30,7 @@
   <text x="320" y="130" class="tech">• Next.js Server Actions</text>
   <text x="320" y="155" class="tech">• Supabase</text>
   <text x="340" y="180" class="tech">- PostgreSQL データベース</text>
-  <text x="340" y="205" class="tech">- Row Level Security</text>
+  <text x="340" y="205" class="tech">- データベースポリシー</text>
   <text x="340" y="230" class="tech">- リアルタイム機能</text>
   
   <!-- Authentication -->

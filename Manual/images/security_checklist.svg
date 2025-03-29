@@ -36,8 +36,8 @@
   
   <circle cx="80" cy="265" r="15" class="check-circle" />
   <path d="M73,265 L80,272 L87,258" class="check-mark" />
-  <text x="110" y="265" class="item-title">Row Level Security</text>
-  <text x="110" y="285" class="item-desc">Supabaseでのユーザーごとのデータアクセス制限</text>
+  <text x="110" y="265" class="item-title">データアクセス制御</text>
+  <text x="110" y="285" class="item-desc">適切なアクセス制御の実装と保護対策</text>
   
   <circle cx="80" cy="315" r="15" class="check-circle" />
   <path d="M73,315 L80,322 L87,308" class="check-mark" />

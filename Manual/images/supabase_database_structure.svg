@@ -98,8 +98,8 @@
   <text x="70" y="460" class="table-desc">- 20250327000000_create_users_table.sql</text>
   <text x="70" y="490" class="table-desc">- 20240327000001_create_chat_tables.sql</text>
   
-  <text x="70" y="530" class="table-desc">各テーブルにはRow Level Security (RLS)ポリシーが設定されており、</text>
-  <text x="70" y="560" class="table-desc">ユーザーは自分のデータのみにアクセスできます。</text>
+  <text x="70" y="530" class="table-desc">各テーブルには開発環境用のデータベースポリシーが設定されています。</text>
+  <text x="70" y="560" class="table-desc">本番環境では適切なアクセス制御の実装を検討してください。</text>
   
   <!-- Relationship Arrows -->
   <path d="M270,190 L320,190" class="arrow" />

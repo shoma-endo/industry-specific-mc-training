@@ -9,7 +9,6 @@ Supabaseの主な特徴：
 - リアルタイムサブスクリプション
 - 認証システム
 - ストレージ
-- Row Level Security（RLS）の機能（現在のプロジェクトでは未使用）
 - REST APIとGraphQL API
 - サーバーレス関数
 
@@ -179,25 +178,11 @@ Supabaseプロジェクトでマイグレーションを実行するには、以
    - マイグレーションファイルの内容をコピー＆ペースト
    - 「Run」ボタンをクリック
 
-## 4.5 Row Level Security（RLS）について
+## 4.5 データベースポリシーについて
 
-![Supabase開発環境ポリシー](./images/supabase_dev_policies.svg)
-
-*図: LIFF-Templateプロジェクトの現在の開発環境ポリシー*
-
-Supabaseでは、Row Level Security（RLS）を使用して、ユーザーごとにデータアクセスを制限できます。LIFF-Templateプロジェクトでは現在RLSは有効化されていませんが、本番環境への移行時には有効化を検討できます。
-
-### 4.5.1 現在の開発環境設定
-
-現在のマイグレーションファイルでは、RLSは有効化されておらず、開発を容易にするために全許可ポリシーのみが実装されています：
+LIFF-Templateプロジェクトでは、開発を容易にするために、以下のようなデータベースポリシーが実装されています：
 
 ```sql
--- RLSは現在無効化されています
--- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
-
--- 開発環境用の全許可ポリシー
 CREATE POLICY "開発環境用全許可ポリシー_users" ON users
   FOR ALL USING (true);
 
@@ -208,34 +193,7 @@ CREATE POLICY "開発環境用全許可ポリシー_chat_messages" ON chat_messa
   FOR ALL USING (true);
 ```
 
-### 4.5.2 本番環境向けRLS実装の検討事項
-
-本番環境ではセキュリティを強化するために、RLSを有効化し、以下のようなポリシーを実装することを検討できます：
-
-```sql
--- RLSを有効化する
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
-
--- ユーザー固有のデータアクセスポリシーを設定
-CREATE POLICY "ユーザー所有データのみ許可_users" ON users
-  FOR ALL USING (line_user_id = current_setting('app.user_id', true)::text);
-
-CREATE POLICY "ユーザー所有データのみ許可_chat_sessions" ON chat_sessions
-  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
-
-CREATE POLICY "ユーザー所有データのみ許可_chat_messages" ON chat_messages
-  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
-```
-
-### 4.5.3 RLSポリシーの管理
-
-Supabaseダッシュボードで、RLSポリシーを管理できます：
-
-1. 「Authentication」→「Policies」を選択
-2. テーブルを選択
-3. 既存のポリシーを編集または新しいポリシーを追加
+これらのポリシーは、すべてのユーザーがすべてのデータにアクセスできるようにしています。本番環境では、セキュリティを強化するための追加対策を検討することをお勧めします。
 
 ## 4.6 Supabaseクライアントの初期化
 
@@ -815,9 +773,9 @@ SUPABASE_SERVICE_ROLE=your_local_service_role_key
 
 開発が完了したら、本番環境に移行する際に以下の点に注意してください：
 
-### 4.12.1 RLSポリシーの見直し
+### 4.12.1 データベースポリシーの見直し
 
-開発環境用の全許可ポリシーを削除または無効化し、本番環境用のポリシーを有効化します：
+本番環境に移行する際は、開発環境用のポリシーを見直し、適切なアクセス制御を実装することを検討してください：
 
 ```sql
 -- 開発環境用ポリシーの削除
@@ -825,15 +783,8 @@ DROP POLICY IF EXISTS "開発環境用全許可ポリシー_users" ON users;
 DROP POLICY IF EXISTS "開発環境用全許可ポリシー_chat_sessions" ON chat_sessions;
 DROP POLICY IF EXISTS "開発環境用全許可ポリシー_chat_messages" ON chat_messages;
 
--- 本番環境用ポリシーの有効化
-CREATE POLICY "ユーザー所有データのみ許可_users" ON users
-  FOR ALL USING (line_user_id = current_setting('app.user_id', true)::text);
-
-CREATE POLICY "ユーザー所有データのみ許可_chat_sessions" ON chat_sessions
-  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
-
-CREATE POLICY "ユーザー所有データのみ許可_chat_messages" ON chat_messages
-  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
+-- 本番環境用のアクセス制御を実装
+-- 例: ユーザー固有のデータアクセスポリシーなど
 ```
 
 ### 4.12.2 本番環境の環境変数の設定
@@ -852,10 +803,10 @@ SUPABASE_SERVICE_ROLE=your_production_service_role_key
 
 ## 4.13 まとめ
 
-Supabaseは、LIFF-Templateプロジェクトのバックエンドとして重要な役割を果たしています。PostgreSQLデータベース、Row Level Security、認証機能を提供し、LINE認証と統合することで、安全で効率的なデータ管理を実現しています。
+Supabaseは、LIFF-Templateプロジェクトのバックエンドとして重要な役割を果たしています。PostgreSQLデータベース、認証機能を提供し、LINE認証と統合することで、効率的なデータ管理を実現しています。
 
 新しいAIチャットアプリケーションでは、ユーザー情報、チャットセッション、チャットメッセージを管理するためのテーブルが設計され、リポジトリパターンを使用してデータアクセスロジックをカプセル化しています。これにより、保守性と拡張性の高いアプリケーションを構築できます。
 
 Stripeとの統合により、サブスクリプションベースのアクセス制御も実現され、ユーザーテーブルにStripe関連の情報を保存することで、有料機能へのアクセスを管理しています。
 
-開発環境から本番環境への移行時には、RLSポリシーの見直しや環境変数の設定など、セキュリティに関する考慮事項に注意することが重要です。
+開発環境から本番環境への移行時には、データベースポリシーの見直しや環境変数の設定など、セキュリティに関する考慮事項に注意することが重要です。
