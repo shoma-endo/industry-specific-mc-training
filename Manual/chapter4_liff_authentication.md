@@ -217,7 +217,6 @@ LIFF-Templateプロジェクトでは、クライアントサイドの認証に�
 ```typescript
 'use server';
 
-import { cookies } from 'next/headers';
 import { LineAuthService } from '@/server/services/lineAuthService';
 import { LiffProfile } from '@/hooks/useLiff';
 
@@ -241,14 +240,17 @@ export const getProfile = async (accessToken: string): Promise<LiffProfile> => {
   }
 };
 
-export const setUserId = async (userId: string): Promise<void> => {
-  cookies().set('userId', userId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 1 week
-  });
+export const storeUserSession = async (accessToken: string): Promise<void> => {
+  try {
+    // LIFFアクセストークンを使用してユーザー情報を取得・保存
+    const profile = await lineAuthService.getLineProfile(accessToken);
+    // ユーザー情報をデータベースに保存する処理
+    // 注: 現在の実装ではアクセストークンをリクエストごとに検証するため
+    // クッキーベースのセッション管理は使用していません
+  } catch (error) {
+    console.error('Failed to store user session:', error);
+    throw new Error('Failed to store user session');
+  }
 };
 ```
 

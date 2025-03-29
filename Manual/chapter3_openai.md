@@ -227,102 +227,123 @@ export const AVAILABLE_MODELS = {
 
 ### 2.4.3 サブスクリプションによるアクセス制御
 
-LIFF-Templateプロジェクトでは、高度なAI機能へのアクセスは有料サブスクリプションによって制限されています。これは`chat.actions.ts`ファイルで実装されています：
+LIFF-Templateプロジェクトでは、高度なAI機能へのアクセスは有料サブスクリプションによって制限されています。これは`chat.actions.ts`ファイルで実装されており、LIFFアクセストークンを使用してユーザー認証とサブスクリプション確認を行っています：
 
 ```typescript
-export async function sendMessage(
-  sessionId: string,
-  message: string
-): Promise<ChatResponse> {
+export async function startChat(data: z.infer<typeof startChatSchema>) {
+  const validatedData = startChatSchema.parse(data);
+  
   try {
-    // ユーザーIDを取得
-    const userId = cookies().get('userId')?.value;
-    if (!userId) {
-      return {
-        message: '',
-        error: 'ユーザーが認証されていません',
+    // サブスクリプション状態を確認
+    const hasSubscription = await userService.hasActiveSubscription(validatedData.liffAccessToken);
+    if (!hasSubscription) {
+      return { 
+        message: '', 
+        error: '⚠️ この機能は有料会員のみご利用いただけます。サブスクリプションに登録してください。', 
+        requiresSubscription: true 
       };
     }
-
-    // ユーザーのサブスクリプション状態を確認
-    const userService = new UserService();
-    const user = await userService.getUserById(userId);
     
-    // サブスクリプションがない場合はエラーを返す
-    if (!user?.stripeSubscriptionId) {
-      return {
-        message: '',
-        error: 'この機能を利用するにはサブスクリプションが必要です',
-      };
-    }
-
+    // LIFFアクセストークンからLINEプロフィールを取得
+    const lineProfile = await lineAuthService.getLineProfile(validatedData.liffAccessToken);
+    const userId = lineProfile.userId;
+    
     // チャットサービスを使用してメッセージを送信
-    const chatService = new ChatService();
-    return await chatService.sendMessage(userId, sessionId, message);
+    return chatService.startChat(
+      userId,
+      validatedData.systemPrompt,
+      validatedData.userMessage,
+      validatedData.model
+    );
   } catch (error) {
-    console.error('Error in sendMessage action:', error);
-    return {
-      message: '',
-      error: 'メッセージの送信中にエラーが発生しました',
-    };
+    console.error('Failed to start chat:', error);
+    return { message: '', error: 'ユーザー認証に失敗しました。再ログインしてください。' };
   }
 }
 ```
 
-このコードは、ユーザーがStripeサブスクリプションを持っているかどうかを確認し、サブスクリプションがない場合はエラーメッセージを返します。
+このコードは、まずLIFFアクセストークンを使用してユーザーのサブスクリプション状態を確認し、サブスクリプションがない場合はエラーメッセージを返します。サブスクリプションがある場合は、LINEプロフィールからユーザーIDを取得し、チャットサービスを使用してメッセージを送信します。
 
 ### 2.4.4 チャットサービスとの統合
 
 OpenAIサービスは、`ChatService`クラスによって使用され、チャットセッションとメッセージの管理を担当します：
 
 ```typescript
-export class ChatService {
-  private chatRepository: ChatRepository;
+class ChatService {
+  private supabaseService: SupabaseService;
 
   constructor() {
-    this.chatRepository = new ChatRepository();
+    this.supabaseService = new SupabaseService();
   }
 
-  async sendMessage(
+  /**
+   * 新しいチャットを開始する
+   */
+  async startChat(
     userId: string,
-    sessionId: string,
-    message: string
-  ): Promise<ChatResponse> {
+    systemPrompt: string,
+    userMessage: string,
+    model?: string
+  ): Promise<{ message: string; error?: string; sessionId?: string; requiresSubscription?: boolean }> {
     try {
-      // セッションの取得または作成
-      let session = await this.chatRepository.getSessionById(sessionId);
-      if (!session) {
-        session = await this.chatRepository.createSession(userId);
+      const aiResponse = await openAiService.startChat(
+        systemPrompt,
+        userMessage,
+        model
+      );
+
+      if (aiResponse.error) {
+        return aiResponse;
       }
 
-      // ユーザーメッセージの保存
-      await this.chatRepository.saveMessage(session.id, 'user', message);
-
-      // 過去のメッセージを取得
-      const messages = await this.chatRepository.getMessagesBySessionId(session.id);
-      const chatMessages: ChatMessage[] = messages.map(msg => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content: msg.content,
-      }));
-
-      // OpenAIサービスを使用して応答を生成
-      const response = await openAiService.continueChat(chatMessages, message);
-
-      // AIの応答を保存
-      if (response.message) {
-        await this.chatRepository.saveMessage(session.id, 'assistant', response.message);
-      }
-
-      return response;
-    } catch (error) {
-      console.error('ChatService Error:', error);
-      return {
-        message: '',
-        error: 'チャットサービスでエラーが発生しました',
+      const sessionId = uuidv4();
+      const now = Date.now();
+      
+      const session: DbChatSession = {
+        id: sessionId,
+        user_id: userId,
+        title: userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''),
+        created_at: now,
+        last_message_at: now,
+        system_prompt: systemPrompt
       };
+      
+      await this.supabaseService.createChatSession(session);
+      
+      // ユーザーメッセージの保存
+      const userDbMessage: DbChatMessage = {
+        id: uuidv4(),
+        user_id: userId,
+        session_id: sessionId,
+        role: ChatRole.USER,
+        content: userMessage,
+        created_at: now
+      };
+      
+      await this.supabaseService.createChatMessage(userDbMessage);
+      
+      // AIの応答を保存
+      const assistantDbMessage: DbChatMessage = {
+        id: uuidv4(),
+        user_id: userId,
+        session_id: sessionId,
+        role: ChatRole.ASSISTANT,
+        content: aiResponse.message,
+        model: model,
+        created_at: now + 1 // 順序を保証するため
+      };
+      
+      await this.supabaseService.createChatMessage(assistantDbMessage);
+
+      return {
+        ...aiResponse,
+        sessionId,
+      };
+    } catch (error) {
+      console.error('Failed to start chat:', error);
+      return { message: '', error: 'チャットの開始に失敗しました' };
     }
   }
-}
 ```
 
 ## 2.5 セキュリティ考慮事項

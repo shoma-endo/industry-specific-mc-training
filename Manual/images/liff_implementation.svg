@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="800" height="600" viewBox="0 0 800 600" version="1.1">
   <style>
     .title { font: bold 24px sans-serif; fill: #333; }
     .component-title { font: bold 16px sans-serif; fill: #333; }
@@ -43,12 +44,12 @@
   <text x="400" y="410" text-anchor="middle" class="component-desc">サーバーサイドでのLINE認証処理</text>
   <text x="400" y="435" text-anchor="middle" class="component-desc">トークン検証、プロフィール取得、ユーザー情報の管理</text>
   <rect x="150" y="450" width="500" height="20" rx="4" fill="#F1F5F9" />
-  <text x="400" y="465" text-anchor="middle" class="code-box">async verifyIdToken(idToken: string): Promise<LineProfile></text>
+  <text x="400" y="465" text-anchor="middle" class="code-box">async verifyIdToken(idToken: string): Promise&lt;LineProfile&gt;</text>
   
   <!-- Login Actions -->
   <rect x="50" y="500" width="700" height="80" rx="8" class="action-box" />
   <text x="400" y="525" text-anchor="middle" class="component-title">login.actions.ts</text>
   <text x="400" y="550" text-anchor="middle" class="component-desc">Server Actionsを使用したログイン処理とセッション管理</text>
   <rect x="150" y="565" width="500" height="20" rx="4" fill="#F1F5F9" />
-  <text x="400" y="580" text-anchor="middle" class="code-box">export async function setUserId(userId: string): Promise<void></text>
+  <text x="400" y="580" text-anchor="middle" class="code-box">export async function setUserId(userId: string): Promise&lt;void&gt;</text>
 </svg>
