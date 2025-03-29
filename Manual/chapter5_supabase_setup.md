@@ -9,7 +9,7 @@ Supabaseの主な特徴：
 - リアルタイムサブスクリプション
 - 認証システム
 - ストレージ
-- Row Level Security（RLS）
+- Row Level Security（RLS）の機能（現在のプロジェクトでは未使用）
 - REST APIとGraphQL API
 - サーバーレス関数
 
@@ -179,34 +179,25 @@ Supabaseプロジェクトでマイグレーションを実行するには、以
    - マイグレーションファイルの内容をコピー＆ペースト
    - 「Run」ボタンをクリック
 
-## 4.5 Row Level Security（RLS）の設定
+## 4.5 Row Level Security（RLS）について
 
-![Supabase RLS ポリシー](./images/supabase_rls_policies.svg)
+![Supabase開発環境ポリシー](./images/supabase_dev_policies.svg)
 
-*図: Supabaseのテーブルごとに設定されたRow Level Security（RLS）ポリシー*
+*図: LIFF-Templateプロジェクトの現在の開発環境ポリシー*
 
-Supabaseでは、Row Level Security（RLS）を使用して、ユーザーごとにデータアクセスを制限できます。LIFF-Templateプロジェクトでは、以下のRLSポリシーを設定しています：
+Supabaseでは、Row Level Security（RLS）を使用して、ユーザーごとにデータアクセスを制限できます。LIFF-Templateプロジェクトでは現在RLSは有効化されていませんが、本番環境への移行時には有効化を検討できます。
 
-### 4.5.1 本番環境用のユーザーデータアクセスポリシー
+### 4.5.1 現在の開発環境設定
 
-マイグレーションファイルには、本番環境で使用するRLSポリシーがコメントアウトされています：
-
-```sql
--- CREATE POLICY "ユーザー所有データのみ許可_users" ON users
---   FOR ALL USING (line_user_id = current_setting('app.user_id', true)::text);
-
--- CREATE POLICY "ユーザー所有データのみ許可_chat_sessions" ON chat_sessions
---   FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
-
--- CREATE POLICY "ユーザー所有データのみ許可_chat_messages" ON chat_messages
---   FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
-```
-
-これらのポリシーは、ユーザーが自分のデータ（line_user_idまたはuser_idが自分のIDと一致するデータ）のみにアクセスできるようにします。本番環境では、これらのポリシーのコメントを解除して有効化することをお勧めします。
-
-### 4.5.2 開発環境用の全許可ポリシー
+現在のマイグレーションファイルでは、RLSは有効化されておらず、開発を容易にするために全許可ポリシーのみが実装されています：
 
 ```sql
+-- RLSは現在無効化されています
+-- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+-- 開発環境用の全許可ポリシー
 CREATE POLICY "開発環境用全許可ポリシー_users" ON users
   FOR ALL USING (true);
 
@@ -217,7 +208,26 @@ CREATE POLICY "開発環境用全許可ポリシー_chat_messages" ON chat_messa
   FOR ALL USING (true);
 ```
 
-これらのポリシーは、開発環境ですべてのユーザーがすべてのデータにアクセスできるようにします。本番環境では、これらのポリシーを削除または無効化することをお勧めします。
+### 4.5.2 本番環境向けRLS実装の検討事項
+
+本番環境ではセキュリティを強化するために、RLSを有効化し、以下のようなポリシーを実装することを検討できます：
+
+```sql
+-- RLSを有効化する
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+-- ユーザー固有のデータアクセスポリシーを設定
+CREATE POLICY "ユーザー所有データのみ許可_users" ON users
+  FOR ALL USING (line_user_id = current_setting('app.user_id', true)::text);
+
+CREATE POLICY "ユーザー所有データのみ許可_chat_sessions" ON chat_sessions
+  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
+
+CREATE POLICY "ユーザー所有データのみ許可_chat_messages" ON chat_messages
+  FOR ALL USING (user_id = current_setting('app.user_id', true)::text);
+```
 
 ### 4.5.3 RLSポリシーの管理
 
