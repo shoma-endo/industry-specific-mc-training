@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .reason-title { font: bold 16px sans-serif; fill: #333; }
+    .reason-desc { font: 14px sans-serif; fill: #333; }
+    .reason-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .tech-icon { font: bold 18px sans-serif; fill: #fff; }
+    .tech-circle { stroke: #333; stroke-width: 1; }
+  </style>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">技術選定の理由</text>
+  
+  <!-- Next.js & React -->
+  <rect x="50" y="70" width="340" height="100" rx="8" class="reason-box" />
+  <circle cx="90" cy="120" r="30" class="tech-circle" fill="#000000" />
+  <text x="90" y="125" text-anchor="middle" class="tech-icon">N</text>
+  <text x="250" y="95" text-anchor="middle" class="reason-title">Next.js & React</text>
+  <text x="250" y="120" text-anchor="middle" class="reason-desc">高いパフォーマンス</text>
+  <text x="250" y="145" text-anchor="middle" class="reason-desc">SEO対応と開発効率の向上</text>
+  
+  <!-- TypeScript -->
+  <rect x="410" y="70" width="340" height="100" rx="8" class="reason-box" />
+  <circle cx="450" cy="120" r="30" class="tech-circle" fill="#3178C6" />
+  <text x="450" y="125" text-anchor="middle" class="tech-icon">TS</text>
+  <text x="610" y="95" text-anchor="middle" class="reason-title">TypeScript</text>
+  <text x="610" y="120" text-anchor="middle" class="reason-desc">型安全性による開発時のエラー検出</text>
+  <text x="610" y="145" text-anchor="middle" class="reason-desc">保守性の向上</text>
+  
+  <!-- TailwindCSS -->
+  <rect x="50" y="190" width="340" height="100" rx="8" class="reason-box" />
+  <circle cx="90" cy="240" r="30" class="tech-circle" fill="#06B6D4" />
+  <text x="90" y="245" text-anchor="middle" class="tech-icon">TW</text>
+  <text x="250" y="215" text-anchor="middle" class="reason-title">TailwindCSS</text>
+  <text x="250" y="240" text-anchor="middle" class="reason-desc">迅速なUI開発</text>
+  <text x="250" y="265" text-anchor="middle" class="reason-desc">一貫したデザインシステムの実現</text>
+  
+  <!-- Supabase -->
+  <rect x="410" y="190" width="340" height="100" rx="8" class="reason-box" />
+  <circle cx="450" cy="240" r="30" class="tech-circle" fill="#3ECF8E" />
+  <text x="450" y="245" text-anchor="middle" class="tech-icon">SB</text>
+  <text x="610" y="215" text-anchor="middle" class="reason-title">Supabase</text>
+  <text x="610" y="240" text-anchor="middle" class="reason-desc">サーバーレスアーキテクチャ</text>
+  <text x="610" y="265" text-anchor="middle" class="reason-desc">開発・運用コストの削減</text>
+  
+  <!-- LINE LIFF -->
+  <rect x="50" y="310" width="340" height="100" rx="8" class="reason-box" />
+  <circle cx="90" cy="360" r="30" class="tech-circle" fill="#00C300" />
+  <text x="90" y="365" text-anchor="middle" class="tech-icon">LN</text>
+  <text x="250" y="335" text-anchor="middle" class="reason-title">LINE LIFF</text>
+  <text x="250" y="360" text-anchor="middle" class="reason-desc">LINEプラットフォーム上での</text>
+  <text x="250" y="385" text-anchor="middle" class="reason-desc">シームレスなユーザー体験の提供</text>
+  
+  <!-- OpenAI API -->
+  <rect x="410" y="310" width="340" height="100" rx="8" class="reason-box" />
+  <circle cx="450" cy="360" r="30" class="tech-circle" fill="#412991" />
+  <text x="450" y="365" text-anchor="middle" class="tech-icon">AI</text>
+  <text x="610" y="335" text-anchor="middle" class="reason-title">OpenAI API</text>
+  <text x="610" y="360" text-anchor="middle" class="reason-desc">高度なAI機能の簡単な統合</text>
+  <text x="610" y="385" text-anchor="middle" class="reason-desc">GPT-4oモデルの活用</text>
+  
+  <!-- Stripe -->
+  <rect x="50" y="430" width="340" height="100" rx="8" class="reason-box" />
+  <circle cx="90" cy="480" r="30" class="tech-circle" fill="#6772E5" />
+  <text x="90" y="485" text-anchor="middle" class="tech-icon">$</text>
+  <text x="250" y="455" text-anchor="middle" class="reason-title">Stripe</text>
+  <text x="250" y="480" text-anchor="middle" class="reason-desc">安全で信頼性の高い決済処理</text>
+  <text x="250" y="505" text-anchor="middle" class="reason-desc">サブスクリプション管理</text>
+  
+  <!-- Radix UI -->
+  <rect x="410" y="430" width="340" height="100" rx="8" class="reason-box" />
+  <circle cx="450" cy="480" r="30" class="tech-circle" fill="#0EA5E9" />
+  <text x="450" y="485" text-anchor="middle" class="tech-icon">RX</text>
+  <text x="610" y="455" text-anchor="middle" class="reason-title">Radix UI</text>
+  <text x="610" y="480" text-anchor="middle" class="reason-desc">アクセシビリティと再利用性に</text>
+  <text x="610" y="505" text-anchor="middle" class="reason-desc">優れたコンポーネントの提供</text>
+  
+  <!-- Summary -->
+  <rect x="230" y="550" width="340" height="30" rx="15" fill="#F1F5F9" stroke="#94A3B8" stroke-width="2" />
+  <text x="400" y="570" text-anchor="middle" class="reason-desc">モダンなAIチャットアプリケーションの効率的な開発</text>
+</svg>

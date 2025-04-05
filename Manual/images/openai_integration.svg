@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .component-title { font: bold 16px sans-serif; fill: #333; }
+    .component-desc { font: 14px sans-serif; fill: #333; }
+    .component-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .openai-box { fill: #F0FDF4; stroke: #10B981; stroke-width: 2; }
+    .app-box { fill: #E0F2FE; stroke: #0EA5E9; stroke-width: 2; }
+    .user-box { fill: #FEF3C7; stroke: #F59E0B; stroke-width: 2; }
+    .stripe-box { fill: #EFF6FF; stroke: #3B82F6; stroke-width: 2; }
+    .code-box { font: 12px monospace; fill: #333; background: #F1F5F9; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">OpenAI APIとLIFF-Templateの統合アーキテクチャ</text>
+  
+  <!-- User Component -->
+  <rect x="50" y="100" width="200" height="100" rx="8" class="user-box" />
+  <text x="150" y="130" text-anchor="middle" class="component-title">ユーザー</text>
+  <text x="150" y="155" text-anchor="middle" class="component-desc">チャットメッセージを送信</text>
+  <text x="150" y="175" text-anchor="middle" class="component-desc">AIレスポンスを受信</text>
+  
+  <!-- App Components -->
+  <rect x="300" y="100" width="200" height="100" rx="8" class="app-box" />
+  <text x="400" y="130" text-anchor="middle" class="component-title">UIコンポーネント</text>
+  <text x="400" y="155" text-anchor="middle" class="component-desc">チャットインターフェース</text>
+  <text x="400" y="175" text-anchor="middle" class="component-desc">メッセージの表示と入力</text>
+  
+  <rect x="300" y="250" width="200" height="100" rx="8" class="app-box" />
+  <text x="400" y="280" text-anchor="middle" class="component-title">Server Actions</text>
+  <text x="400" y="305" text-anchor="middle" class="component-desc">chat.actions.ts</text>
+  <text x="400" y="325" text-anchor="middle" class="component-desc">リクエスト処理と検証</text>
+  
+  <rect x="300" y="400" width="200" height="100" rx="8" class="app-box" />
+  <text x="400" y="430" text-anchor="middle" class="component-title">サービス層</text>
+  <text x="400" y="455" text-anchor="middle" class="component-desc">openAiService.ts</text>
+  <text x="400" y="475" text-anchor="middle" class="component-desc">chatService.ts</text>
+  
+  <!-- OpenAI Component -->
+  <rect x="550" y="250" width="200" height="100" rx="8" class="openai-box" />
+  <text x="650" y="280" text-anchor="middle" class="component-title">OpenAI API</text>
+  <text x="650" y="305" text-anchor="middle" class="component-desc">GPT-4o</text>
+  <text x="650" y="325" text-anchor="middle" class="component-desc">ファインチューニング済みモデル</text>
+  
+  <!-- Stripe Component -->
+  <rect x="550" y="400" width="200" height="100" rx="8" class="stripe-box" />
+  <text x="650" y="430" text-anchor="middle" class="component-title">サブスクリプション管理</text>
+  <text x="650" y="455" text-anchor="middle" class="component-desc">stripeService.ts</text>
+  <text x="650" y="475" text-anchor="middle" class="component-desc">ユーザーの利用制限管理</text>
+  
+  <!-- Arrows -->
+  <path d="M250,150 L300,150" class="arrow" />
+  <path d="M400,200 L400,250" class="arrow" />
+  <path d="M400,350 L400,400" class="arrow" />
+  <path d="M500,300 L550,300" class="arrow" />
+  <path d="M500,450 L550,450" class="arrow" />
+  
+  <!-- Bidirectional Arrows -->
+  <path d="M650,350 L650,400" class="arrow" />
+  <path d="M650,400 L650,350" class="arrow" />
+  
+  <!-- Labels -->
+  <text x="275" y="140" text-anchor="middle" class="component-desc">1</text>
+  <text x="390" y="230" text-anchor="middle" class="component-desc">2</text>
+  <text x="390" y="380" text-anchor="middle" class="component-desc">3</text>
+  <text x="525" y="290" text-anchor="middle" class="component-desc">4</text>
+  <text x="525" y="440" text-anchor="middle" class="component-desc">5</text>
+  <text x="660" y="375" text-anchor="middle" class="component-desc">6</text>
+</svg>

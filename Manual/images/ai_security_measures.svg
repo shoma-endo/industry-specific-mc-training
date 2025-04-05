@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .component-title { font: bold 16px sans-serif; fill: #333; }
+    .component-desc { font: 14px sans-serif; fill: #333; }
+    .component-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .code-box { font: 12px monospace; fill: #333; background: #F1F5F9; }
+    .input-box { fill: #EFF6FF; stroke: #3B82F6; stroke-width: 2; }
+    .validation-box { fill: #E0F2FE; stroke: #0EA5E9; stroke-width: 2; }
+    .model-box { fill: #F0FDF4; stroke: #10B981; stroke-width: 2; }
+    .output-box { fill: #FEF3C7; stroke: #F59E0B; stroke-width: 2; }
+    .warning-box { fill: #FEE2E2; stroke: #EF4444; stroke-width: 2; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">AI特有のセキュリティ対策</text>
+  
+  <!-- User Input -->
+  <rect x="50" y="80" width="150" height="100" rx="8" class="input-box" />
+  <text x="125" y="105" text-anchor="middle" class="component-title">ユーザー入力</text>
+  <text x="125" y="130" text-anchor="middle" class="component-desc">チャットメッセージ</text>
+  <text x="125" y="150" text-anchor="middle" class="component-desc">プロンプト</text>
+  
+  <!-- Input Validation -->
+  <rect x="250" y="80" width="150" height="100" rx="8" class="validation-box" />
+  <text x="325" y="105" text-anchor="middle" class="component-title">入力検証</text>
+  <text x="325" y="130" text-anchor="middle" class="component-desc">長さ制限</text>
+  <text x="325" y="150" text-anchor="middle" class="component-desc">サニタイズ</text>
+  <text x="325" y="170" text-anchor="middle" class="component-desc">禁止語句フィルター</text>
+  
+  <!-- AI Model -->
+  <rect x="450" y="80" width="150" height="100" rx="8" class="model-box" />
+  <text x="525" y="105" text-anchor="middle" class="component-title">AIモデル</text>
+  <text x="525" y="130" text-anchor="middle" class="component-desc">GPT-4o</text>
+  <text x="525" y="150" text-anchor="middle" class="component-desc">システムプロンプト</text>
+  <text x="525" y="170" text-anchor="middle" class="component-desc">パラメーター制限</text>
+  
+  <!-- Output Filtering -->
+  <rect x="650" y="80" width="150" height="100" rx="8" class="output-box" />
+  <text x="725" y="105" text-anchor="middle" class="component-title">出力フィルタリング</text>
+  <text x="725" y="130" text-anchor="middle" class="component-desc">有害コンテンツ検出</text>
+  <text x="725" y="150" text-anchor="middle" class="component-desc">機密情報マスキング</text>
+  <text x="725" y="170" text-anchor="middle" class="component-desc">コード実行制限</text>
+  
+  <!-- Arrows -->
+  <path d="M200,130 L250,130" class="arrow" />
+  <path d="M400,130 L450,130" class="arrow" />
+  <path d="M600,130 L650,130" class="arrow" />
+  
+  <!-- Prompt Injection Warning -->
+  <rect x="50" y="220" width="350" height="160" rx="8" class="warning-box" />
+  <text x="225" y="245" text-anchor="middle" class="component-title">プロンプトインジェクション攻撃</text>
+  <text x="70" y="275" class="component-desc">• システムプロンプトの上書き試行</text>
+  <text x="70" y="300" class="component-desc">• 悪意のある指示の挿入</text>
+  <text x="70" y="325" class="component-desc">• ロールプレイによる制限回避</text>
+  <text x="70" y="350" class="component-desc">• 機密情報の抽出試行</text>
+  
+  <!-- Mitigation Strategies -->
+  <rect x="450" y="220" width="350" height="160" rx="8" class="model-box" />
+  <text x="625" y="245" text-anchor="middle" class="component-title">対策戦略</text>
+  <text x="470" y="275" class="component-desc">• 強固なシステムプロンプトの設計</text>
+  <text x="470" y="300" class="component-desc">• 入力の長さと複雑さの制限</text>
+  <text x="470" y="325" class="component-desc">• 特定のキーワードやパターンのブロック</text>
+  <text x="470" y="350" class="component-desc">• 出力の検証と有害コンテンツのフィルタリング</text>
+  
+  <!-- Code Example -->
+  <rect x="50" y="400" width="750" height="180" rx="8" class="component-box" />
+  <text x="425" y="425" text-anchor="middle" class="component-title">実装例: 入力検証とサニタイズ</text>
+  
+  <rect x="70" y="445" width="710" height="120" rx="4" fill="#F1F5F9" />
+  <text x="80" y="465" class="code-box">// ユーザー入力の検証と前処理</text>
+  <text x="80" y="485" class="code-box">function validateAndSanitizeInput(input: string): string | null {</text>
+  <text x="80" y="505" class="code-box">  if (input.length > MAX_INPUT_LENGTH || input.length < MIN_INPUT_LENGTH) {</text>
+  <text x="80" y="525" class="code-box">    return null; // 長さ制限違反</text>
+  <text x="80" y="545" class="code-box">  }</text>
+  <text x="80" y="565" class="code-box">  // 禁止パターンのチェックと特殊文字のエスケープ処理</text>
+  <text x="80" y="585" class="code-box">  return sanitizeInput(input);</text>
+  <text x="80" y="605" class="code-box">}</text>
+</svg>

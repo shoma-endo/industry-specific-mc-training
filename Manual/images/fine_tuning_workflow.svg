@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <style>
+    .title { font: bold 24px sans-serif; fill: #333; }
+    .step-title { font: bold 16px sans-serif; fill: #333; }
+    .step-desc { font: 14px sans-serif; fill: #333; }
+    .step-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 2; }
+    .arrow { stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .step-number { font: bold 20px sans-serif; fill: #fff; }
+    .step-circle { stroke: #333; stroke-width: 1; }
+    .code-box { font: 12px monospace; fill: #333; background: #F1F5F9; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" class="title">OpenAI ファインチューニングのワークフロー</text>
+  
+  <!-- Step 1: Prepare Data -->
+  <rect x="50" y="80" width="700" height="100" rx="8" class="step-box" />
+  <circle cx="90" cy="130" r="25" class="step-circle" fill="#412991" />
+  <text x="90" y="135" text-anchor="middle" class="step-number">1</text>
+  <text x="400" y="105" text-anchor="middle" class="step-title">トレーニングデータの準備</text>
+  <text x="400" y="130" text-anchor="middle" class="step-desc">JSONLフォーマットでデータを準備（各行が1つのJSONオブジェクト）</text>
+  <rect x="150" y="145" width="500" height="20" rx="4" fill="#F1F5F9" />
+  <text x="400" y="160" text-anchor="middle" class="code-box">{"messages": [{"role": "user", "content": "質問"}, {"role": "assistant", "content": "回答"}]}</text>
+  
+  <!-- Step 2: Upload Data -->
+  <rect x="50" y="200" width="700" height="80" rx="8" class="step-box" />
+  <circle cx="90" cy="240" r="25" class="step-circle" fill="#412991" />
+  <text x="90" y="245" text-anchor="middle" class="step-number">2</text>
+  <text x="400" y="225" text-anchor="middle" class="step-title">トレーニングファイルのアップロード</text>
+  <text x="400" y="255" text-anchor="middle" class="step-desc">OpenAI APIを使用してファイルをアップロード</text>
+  
+  <!-- Step 3: Create Fine-tuning Job -->
+  <rect x="50" y="300" width="700" height="80" rx="8" class="step-box" />
+  <circle cx="90" cy="340" r="25" class="step-circle" fill="#412991" />
+  <text x="90" y="345" text-anchor="middle" class="step-number">3</text>
+  <text x="400" y="325" text-anchor="middle" class="step-title">ファインチューニングジョブの作成</text>
+  <text x="400" y="355" text-anchor="middle" class="step-desc">ベースモデルとトレーニングファイルを指定してジョブを開始</text>
+  
+  <!-- Step 4: Monitor Progress -->
+  <rect x="50" y="400" width="700" height="80" rx="8" class="step-box" />
+  <circle cx="90" cy="440" r="25" class="step-circle" fill="#412991" />
+  <text x="90" y="445" text-anchor="middle" class="step-number">4</text>
+  <text x="400" y="425" text-anchor="middle" class="step-title">ジョブの進捗モニタリング</text>
+  <text x="400" y="455" text-anchor="middle" class="step-desc">APIまたはダッシュボードでジョブの進行状況を確認</text>
+  
+  <!-- Step 5: Use Fine-tuned Model -->
+  <rect x="50" y="500" width="700" height="80" rx="8" class="step-box" />
+  <circle cx="90" cy="540" r="25" class="step-circle" fill="#412991" />
+  <text x="90" y="545" text-anchor="middle" class="step-number">5</text>
+  <text x="400" y="525" text-anchor="middle" class="step-title">ファインチューニング済みモデルの使用</text>
+  <text x="400" y="555" text-anchor="middle" class="step-desc">完了後、モデル名を指定してAPIリクエストを送信</text>
+  
+  <!-- Arrows -->
+  <path d="M400,180 L400,200" class="arrow" />
+  <path d="M400,280 L400,300" class="arrow" />
+  <path d="M400,380 L400,400" class="arrow" />
+  <path d="M400,480 L400,500" class="arrow" />
+</svg>
