@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, createContext, useContext, ReactNode } from 'react';
 import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,26 +31,47 @@ export function useLiffContext() {
 
 interface LiffProviderProps {
   children: ReactNode;
+  /**
+   * LIFF初期化を明示的に呼び出す場所でtrueに設定する
+   */
+  initialize?: boolean;
 }
 
-export function LiffProvider({ children }: LiffProviderProps) {
-  const { isLoggedIn, isLoading, error, profile, login, logout, liffObject } = useLiff();
+export function LiffProvider({ children, initialize = false }: LiffProviderProps) {
+  const {
+    isLoggedIn,
+    isLoading,
+    error,
+    profile,
+    login,
+    logout,
+    liffObject,
+    initLiff,
+  } = useLiff();
+
   const [syncedWithServer, setSyncedWithServer] = useState(false);
 
-  // LINEログイン後、ユーザーIDをサーバーと同期
-  useEffect(() => {
-    const syncUserIdWithServer = async () => {
-      if (isLoggedIn && profile && !syncedWithServer) {
-        try {
-          setSyncedWithServer(true);
-        } catch (error) {
-          console.error('Failed to sync user ID with server:', error);
-        }
-      }
-    };
+  // 🔁 LIFFの初期化を明示的に呼び出す（useEffectを使わず、initializeフラグで制御）
+  if (initialize && !isLoading && !isLoggedIn && !error) {
+    initLiff().catch((e) => console.error('initLiff error:', e));
+  }
 
-    syncUserIdWithServer();
-  }, [isLoggedIn, profile, syncedWithServer]);
+  // 🧠 サーバーとの同期処理を外から呼べるように分離（useEffect削除）
+  const syncUserIdWithServer = async () => {
+    if (isLoggedIn && profile && !syncedWithServer) {
+      try {
+        // 🔁 サーバーとの同期処理があればここに記述
+        setSyncedWithServer(true);
+      } catch (error) {
+        console.error('Failed to sync user ID with server:', error);
+      }
+    }
+  };
+
+  if (initialize && isLoggedIn && profile && !syncedWithServer) {
+    syncUserIdWithServer().catch(console.error);
+  }
+  
 
   // エラー表示
   if (error) {
@@ -106,15 +127,17 @@ export function LiffProvider({ children }: LiffProviderProps) {
   };
 
   return (
-    <LiffContext.Provider value={{ 
-      isLoggedIn, 
-      isLoading, 
-      profile, 
-      login, 
-      logout, 
-      liffObject, 
-      getAccessToken 
-    }}>
+    <LiffContext.Provider
+      value={{
+        isLoggedIn,
+        isLoading,
+        profile,
+        login,
+        logout,
+        liffObject,
+        getAccessToken,
+      }}
+    >
       {children}
     </LiffContext.Provider>
   );

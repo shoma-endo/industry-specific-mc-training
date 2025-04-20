@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import liff from '@line/liff';
 import { getLineProfileServer } from '@/server/handler/actions/login.actions';
 import { getLineProfileServerResponse } from '@/server/handler/actions/login.actions';
 import { env } from '@/env';
-import { useCallback } from 'react';
+
 interface LiffProfile {
   userId: string;
   displayName: string;
@@ -23,16 +23,65 @@ interface UseLiffResult {
   logout: () => void;
   getLineProfile: () => Promise<getLineProfileServerResponse>;
   getAccessToken: () => Promise<string>;
+  initLiff: () => Promise<void>; 
 }
 
+// -----------------------------
+// useLiff フック
+// -----------------------------
 export const useLiff = (): UseLiffResult => {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [profile, setProfile] = useState<LiffProfile | null>(null);
   const [liffObject, setLiffObject] = useState<typeof liff | null>(null);
 
+  // -----------------------------
+  // 明示的に呼び出す：LIFF初期化＆ログイン状態確認
+  // -----------------------------
+  const initLiff = async () => {
+    setIsLoading(true);
+
+    try {
+      const liffId = env.NEXT_PUBLIC_LIFF_ID;
+      if (!liffId) {
+        throw new Error('LIFF ID is not defined');
+      }
+
+      await liff.init({ liffId });
+      setLiffObject(liff);
+
+      if (liff.isLoggedIn()) {
+        setIsLoggedIn(true);
+
+        try {
+          const profileData = await liff.getProfile();
+          setProfile({
+            userId: profileData.userId,
+            displayName: profileData.displayName,
+            pictureUrl: profileData.pictureUrl || '',
+            statusMessage: profileData.statusMessage || '',
+          });
+        } catch (profileError) {
+          console.error('Failed to get profile:', profileError);
+        }
+      } else {
+        if (!liff.isInClient()) {
+          console.log('自動ログインを実行します');
+          login();
+        }
+      }
+    } catch (initError) {
+      console.error('LIFF initialization failed:', initError);
+      setError(initError instanceof Error ? initError : new Error('Failed to initialize LIFF'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // -----------------------------
   // ログイン処理
+  // -----------------------------
   const login = () => {
     if (!liff) return;
     liff.login({
@@ -40,7 +89,9 @@ export const useLiff = (): UseLiffResult => {
     });
   };
 
+  // -----------------------------
   // ログアウト処理
+  // -----------------------------
   const logout = () => {
     if (!liff) return;
     liff.logout();
@@ -49,6 +100,9 @@ export const useLiff = (): UseLiffResult => {
     window.location.reload();
   };
 
+  // -----------------------------
+  // プロフィール取得（サーバーでトークンを検証）
+  // -----------------------------
   const getLineProfile = async (): Promise<getLineProfileServerResponse> => {
     await liff.ready;
     const lineAccessToken = liff.getAccessToken();
@@ -56,69 +110,24 @@ export const useLiff = (): UseLiffResult => {
       throw new Error('LINE access token not available');
     }
     const profile = await getLineProfileServer(lineAccessToken);
-    console.log('profile.front', profile);
     return profile;
   };
 
-  // 無限ループ対策でuseCallbackを使用
-  const getAccessToken = useCallback(async () => {
-    // アクセストークン取得の処理
+  // -----------------------------
+  // アクセストークン取得
+  // -----------------------------
+  const getAccessToken = async (): Promise<string> => {
     await liff.ready;
     const lineAccessToken = liff.getAccessToken();
     if (!lineAccessToken) {
       throw new Error('LINE access token not available');
     }
     return lineAccessToken;
-  }, []);
+  };
 
-  // LIFF初期化
-  useEffect(() => {
-    const initLiff = async () => {
-      try {
-        const liffId = env.NEXT_PUBLIC_LIFF_ID;
-        if (!liffId) {
-          throw new Error('LIFF ID is not defined');
-        }
-
-        // LIFF初期化
-        await liff.init({ liffId });
-        setLiffObject(liff);
-
-        // ログイン状態を確認
-        if (liff.isLoggedIn()) {
-          setIsLoggedIn(true);
-
-          // プロフィール情報を取得
-          try {
-            const profileData = await liff.getProfile();
-            setProfile({
-              userId: profileData.userId,
-              displayName: profileData.displayName,
-              pictureUrl: profileData.pictureUrl || '',
-              statusMessage: profileData.statusMessage || '',
-            });
-          } catch (profileError) {
-            console.error('Failed to get profile:', profileError);
-          }
-        } else {
-          // ログインしていない場合は即座にログイン処理を実行
-          // ブラウザ環境でのみ自動ログインを実行（LINE内で実行されている場合は不要）
-          if (!liff.isInClient()) {
-            console.log('自動ログインを実行します');
-            login();
-          }
-        }
-      } catch (initError) {
-        console.error('LIFF initialization failed:', initError);
-        setError(initError instanceof Error ? initError : new Error('Failed to initialize LIFF'));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initLiff();
-  }, []);
-
+  // -----------------------------
+  // 返却（構造はそのまま）
+  // -----------------------------
   return {
     isLoggedIn,
     isLoading,
@@ -129,5 +138,6 @@ export const useLiff = (): UseLiffResult => {
     logout,
     getLineProfile,
     getAccessToken,
+    initLiff,
   };
 };
