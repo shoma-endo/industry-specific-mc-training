@@ -34,7 +34,6 @@ export const env = createEnv({
    * 💡 You'll get type errors if not all variables from `server` & `client` are included here.
    */
   runtimeEnv: {
-    DBPASS: process.env.DBPASS,
     NEXT_PUBLIC_LIFF_ID: process.env.NEXT_PUBLIC_LIFF_ID,
     NEXT_PUBLIC_LIFF_CHANNEL_ID: process.env.NEXT_PUBLIC_LIFF_CHANNEL_ID,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -45,5 +44,6 @@ export const env = createEnv({
     STRIPE_PRODUCT_ID: process.env.STRIPE_PRODUCT_ID,
     STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    DBPASS: process.env.DBPASS,
   },
 });
