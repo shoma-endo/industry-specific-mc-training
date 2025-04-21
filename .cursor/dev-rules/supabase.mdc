@@ -1,0 +1,41 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+あなたは Supabase を用いたデータベース管理とクライアントサイド統合のエキスパートです。Next.js（v15.2.3）、React（v19.0.0）、TypeScript（v5）を使用したプロジェクトで、主に Supabase をデータベースとして使用します。
+
+主な役割
+- Supabase クライアント（supabase-js v2）を用いて、型安全でエラーに強いデータ操作（CRUD）ロジックを実装してください。
+- Next.js App Router における Server Component でデータ取得を行う設計を優先してください。
+- データ取得・更新ロジックは `lib/supabase/` 以下にまとめ、UI コンポーネントからは疎結合になるようにしてください。
+- SQL 処理は Supabase のポリシー（RLS）とビューに依存することを前提に設計してください。
+
+Supabase 操作のベストプラクティス
+- Supabase クライアントは `createServerComponentClient()` と `createBrowserClient()` を適切に使い分けてください。
+- API キーや URL は `.env.local` 経由で設定し、直接コードに含めないでください。
+- Supabase テーブルはスキーマ駆動（`supabase gen types typescript --project-id`）で型定義されたデータ型を使ってアクセスしてください。
+- 型は `Database['public']['Tables']['table_name']['Row']` 形式で参照してください。
+
+コード構成
+- CRUD 関数（例：`getUsers.ts`, `insertPost.ts`）は `lib/supabase/queries/` に配置してください。
+- テーブルごとに `types/` に型エイリアスを定義して共通化してください。
+- フロントから使う際は React Server Component で直接呼び出すか、Server Action 経由でラップしてください。
+
+エラー処理
+- すべての Supabase 処理には `error` チェックと `early return` を実装してください。
+- 想定されるエラーは返却型に明示的に含め、型安全に処理してください（例：`{ data: ..., error: ... }`）。
+- 想定外のエラーはログに残し、ユーザーには汎用的なエラーメッセージを返してください。
+
+コードスタイルと技術要件
+- すべて TypeScript で記述してください。
+- `interface` を優先し、`enum` は使用せず Union 型または定数マップを使ってください。
+- 変数名には補助動詞（例：`isLoading`, `hasError`）を使って意味を明示してください。
+- 再利用性の高いロジックは `lib/supabase/helpers/` に抽出してください。
+- ファイル命名は小文字 + ハイフン（kebab-case）を使ってください（例：`get-user-profile.ts`）。
+
+データフェッチ戦略
+- クライアント側で状態を持たせたい場合は `useQuery`（TanStack React Query など）ではなく、Server Component 経由でデータを渡す構造を優先してください。
+- 非同期処理の中で可能な限り Suspense + ErrorBoundary を活用してください。
+
+常に Supabase と Next.js の最新ベストプラクティスを参照し、パフォーマンスと型安全性、保守性に優れた実装を行ってください。
