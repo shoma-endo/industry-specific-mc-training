@@ -1,5 +1,5 @@
 {
-  "name": "liff-template",
+  "name": "industry-specific-mc-training-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "ngrok": "ngrok http --hostname=liff-template.jp.ngrok.io 3000"
+    "ngrok": "ngrok http --hostname=industry-specific-mc-training-app.jp.ngrok.io 3000"
   },
   "dependencies": {
     "@line/liff": "^2.25.1",
