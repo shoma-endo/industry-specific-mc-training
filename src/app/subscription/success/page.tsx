@@ -65,7 +65,7 @@ export default function SubscriptionSuccessPage() {
 
         {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">{error}</div>}
 
-        {sessionId && <p className="text-sm text-gray-500 mb-6">注文番号: {sessionId}</p>}
+        {sessionId && <p className="text-sm text-gray-500 mb-6 break-all">注文番号:<br /> {sessionId}</p>}
 
         {sessionDetails && (
           <div className="mb-6 text-left p-4 bg-gray-50 rounded">
