@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { chatService } from '@/server/services/chatService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { SYSTEM_PROMPT, KEYWORD_CATEGORIZATION_PROMPT } from '@/lib/prompts';
 
 type ChatResponse = {
   message: string;
@@ -12,29 +13,28 @@ type ChatResponse = {
 };
 
 const startChatSchema = z.object({
-  systemPrompt: z.string(),
   userMessage: z.string(),
-  model: z.string().optional(),
+  model: z.string(),
   liffAccessToken: z.string(),
 });
 
 const continueChatSchema = z.object({
   sessionId: z.string(),
-  messages: z.array(
-    z.object({
-      role: z.enum(['user', 'assistant', 'system']),
-      content: z.string(),
-    })
-  ),
+  messages: z.array(z.object({ role: z.string(), content: z.string() })),
   userMessage: z.string(),
-  model: z.string().optional(),
+  model: z.string(),
   liffAccessToken: z.string(),
 });
 
-export async function startChat(data: z.infer<typeof startChatSchema>): Promise<ChatResponse> {
-  const validatedData = startChatSchema.parse(data);
+const SYSTEM_PROMPTS: Record<string, string> = {
+  'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': KEYWORD_CATEGORIZATION_PROMPT,
+  // 他のFTモデルがあればここに追加…
+};
 
-  const authResult = await authMiddleware(validatedData.liffAccessToken);
+export async function startChat(data: z.infer<typeof startChatSchema>): Promise<ChatResponse> {
+  const { liffAccessToken, userMessage, model } = startChatSchema.parse(data);
+
+  const authResult = await authMiddleware(liffAccessToken);
   if (authResult.error || authResult.requiresSubscription) {
     return {
       message: '',
@@ -43,20 +43,19 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
     };
   }
 
-  return chatService.startChat(
-    authResult.userId!,
-    validatedData.systemPrompt,
-    validatedData.userMessage,
-    validatedData.model
-  );
+  // モデルに応じたシステムプロンプトを選択
+  const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+
+  return chatService.startChat(authResult.userId!, systemPrompt, userMessage, model);
 }
 
 export async function continueChat(
   data: z.infer<typeof continueChatSchema>
 ): Promise<ChatResponse> {
-  const validatedData = continueChatSchema.parse(data);
+  const { liffAccessToken, sessionId, messages, userMessage, model } =
+    continueChatSchema.parse(data);
 
-  const authResult = await authMiddleware(validatedData.liffAccessToken);
+  const authResult = await authMiddleware(liffAccessToken);
   if (authResult.error || authResult.requiresSubscription) {
     return {
       message: '',
@@ -65,12 +64,18 @@ export async function continueChat(
     };
   }
 
+  const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+
   return chatService.continueChat(
     authResult.userId!,
-    validatedData.sessionId,
-    validatedData.userMessage,
-    validatedData.messages,
-    validatedData.model
+    sessionId,
+    userMessage,
+    systemPrompt,
+    messages.map(msg => ({
+      role: msg.role as 'user' | 'assistant' | 'system',
+      content: msg.content,
+    })),
+    model
   );
 }
 

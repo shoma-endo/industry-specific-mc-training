@@ -27,7 +27,6 @@ export const openAiService = {
       const completion = await openai.chat.completions.create({
         model: model,
         messages: messages,
-        temperature: 0.7,
         max_tokens: 1000,
       });
 
@@ -84,9 +83,14 @@ export const openAiService = {
   async continueChat(
     messages: ChatMessage[],
     userMessage: string,
+    systemPrompt: string,
     model: string = 'gpt-4o'
   ): Promise<ChatResponse> {
     const updatedMessages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
       ...messages,
       {
         role: 'user',

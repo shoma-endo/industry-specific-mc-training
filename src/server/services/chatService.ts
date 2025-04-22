@@ -94,6 +94,7 @@ class ChatService {
     userId: string,
     sessionId: string,
     userMessage: string,
+    systemPrompt: string,
     messages: OpenAIMessage[],
     model?: string
   ): Promise<{
@@ -103,7 +104,12 @@ class ChatService {
     requiresSubscription?: boolean;
   }> {
     try {
-      const aiResponse = await openAiService.continueChat(messages, userMessage, model);
+      const aiResponse = await openAiService.continueChat(
+        messages,
+        userMessage,
+        systemPrompt,
+        model
+      );
 
       if (aiResponse.error) {
         return aiResponse;

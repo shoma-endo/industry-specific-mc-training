@@ -19,9 +19,7 @@ import { cn } from '@/lib/utils';
 import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
 // 使用可能なモデル一覧
 const AVAILABLE_MODELS = {
-  'gpt-4o': 'GPT-4o',
-  'ft:gpt-4o-2024-08-06:personal::BC8R5f5J': 'カスタムGPT-4o',
-  'ft:gpt-4o-2024-08-06:personal::BG2IVbFe': 'カスタムGPT-4o:20250328',
+  'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': 'キーワードカテゴライズ',
 };
 
 import {
@@ -32,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-const SYSTEM_PROMPT = 'あなたは親切なアシスタントです。ユーザーの質問に丁寧に答えてください。';
+
 const MAX_MESSAGES = 10;
 
 type Message = {
@@ -315,7 +313,6 @@ export default function ChatPage() {
       const response =
         messages.length === 0 || !sessionId
           ? await startChat({
-              systemPrompt: SYSTEM_PROMPT,
               userMessage: input,
               model: selectedModel,
               liffAccessToken,
