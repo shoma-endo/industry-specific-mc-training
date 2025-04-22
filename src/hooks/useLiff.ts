@@ -23,7 +23,7 @@ interface UseLiffResult {
   logout: () => void;
   getLineProfile: () => Promise<getLineProfileServerResponse>;
   getAccessToken: () => Promise<string>;
-  initLiff: () => Promise<void>; 
+  initLiff: () => Promise<void>;
 }
 
 // -----------------------------
@@ -84,6 +84,35 @@ export const useLiff = (): UseLiffResult => {
   // -----------------------------
   const login = () => {
     if (!liff) return;
+
+    // liffIdが設定されているか確認
+    const liffId = env.NEXT_PUBLIC_LIFF_ID;
+    if (!liffId) {
+      console.error(
+        'LIFF ID is not defined. Please set NEXT_PUBLIC_LIFF_ID in your environment variables.'
+      );
+      setError(new Error('LIFF ID is not defined for login'));
+      return;
+    }
+
+    // 初期化済みであることを確認
+    if (!liffObject) {
+      // 初期化されていない場合は初期化を試みる
+      console.log('LIFFが初期化されていません。初期化を試みます。');
+      initLiff()
+        .then(() => {
+          // 初期化成功後にログインを試みる
+          liff.login({
+            redirectUri: window.location.href,
+          });
+        })
+        .catch(err => {
+          console.error('LIFFの初期化に失敗しました:', err);
+        });
+      return;
+    }
+
+    // liffが初期化済みの場合は直接ログイン
     liff.login({
       redirectUri: window.location.href,
     });
