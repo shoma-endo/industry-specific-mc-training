@@ -20,6 +20,7 @@ import { getUserSubscription } from '@/server/handler/actions/subscription.actio
 // 使用可能なモデル一覧
 const AVAILABLE_MODELS = {
   'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': 'キーワードカテゴライズ',
+  'google_search': 'Google検索',
 };
 
 import {
@@ -29,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
 
 const MAX_MESSAGES = 10;
 
@@ -406,6 +406,49 @@ export default function ChatPage() {
     router.push('/subscription');
   };
 
+  // URLを検出してリンクに変換する関数
+  const formatMessageContent = (content: string) => {
+    // URLを検出する正規表現パターン
+    const urlPattern = /https?:\/\/[^\s\n]+/g;
+
+    // テキストを行ごとに分割
+    const lines = content.split('\n');
+
+    // Google検索結果の形式（URL、タイトル、スニペットのパターン）を検出
+    // 処理済みの行を格納
+    const processedContent: React.ReactNode[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // URLの行を検出（Google検索結果の最初の行）
+      if (line && urlPattern.test(line)) {
+        // URL行の場合はリンクとして追加
+        processedContent.push(
+          <a
+            key={`link-${i}`}
+            href={line}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline break-all"
+          >
+            {line}
+          </a>
+        );
+      } else if (line) {
+        // URL以外の行は通常のテキストとして追加
+        processedContent.push(<span key={`text-${i}`}>{line}</span>);
+      }
+
+      // 行の間に改行を追加（最後の行以外）
+      if (i < lines.length - 1) {
+        processedContent.push(<br key={`br-${i}`} />);
+      }
+    }
+
+    return processedContent;
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3rem)]">
@@ -654,7 +697,9 @@ export default function ChatPage() {
                           : 'bg-white text-gray-800 border border-gray-100'
                       )}
                     >
-                      <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                      <div className="whitespace-pre-wrap text-sm">
+                        {formatMessageContent(message.content)}
+                      </div>
                     </div>
                     {message.role === 'user' && (
                       <div className="opacity-0 w-8 h-8">

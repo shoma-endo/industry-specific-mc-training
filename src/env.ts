@@ -15,6 +15,8 @@ export const env = createEnv({
     STRIPE_PRODUCT_ID: z.string().min(1),
     STRIPE_PRICE_ID: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),
+    GOOGLE_CUSTOM_SEARCH_KEY: z.string().min(1),
+    GOOGLE_CSE_ID: z.string().min(1),
   },
   /*
    * Environment variables available on the client (and server).
@@ -44,6 +46,8 @@ export const env = createEnv({
     STRIPE_PRODUCT_ID: process.env.STRIPE_PRODUCT_ID,
     STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    GOOGLE_CUSTOM_SEARCH_KEY: process.env.GOOGLE_CUSTOM_SEARCH_KEY,
+    GOOGLE_CSE_ID: process.env.GOOGLE_CSE_ID,
     DBPASS: process.env.DBPASS,
   },
 });

@@ -23,6 +23,13 @@ export interface ChatSession {
   createdAt: number; // 作成日時
 }
 
+export type ChatResponse = {
+  message: string;
+  error?: string | undefined;
+  sessionId?: string | undefined;
+  requiresSubscription?: boolean | undefined;
+};
+
 /**
  * チャットの役割
  */
