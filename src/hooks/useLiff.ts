@@ -40,6 +40,7 @@ export const useLiff = (): UseLiffResult => {
   // 明示的に呼び出す：LIFF初期化＆ログイン状態確認
   // -----------------------------
   const initLiff = async () => {
+    if (liffObject) return;
     setIsLoading(true);
 
     try {
@@ -83,35 +84,7 @@ export const useLiff = (): UseLiffResult => {
   // ログイン処理
   // -----------------------------
   const login = () => {
-    if (!liff) return;
-
-    // liffIdが設定されているか確認
-    const liffId = env.NEXT_PUBLIC_LIFF_ID;
-    if (!liffId) {
-      console.error(
-        'LIFF ID is not defined. Please set NEXT_PUBLIC_LIFF_ID in your environment variables.'
-      );
-      setError(new Error('LIFF ID is not defined for login'));
-      return;
-    }
-
-    // 初期化済みであることを確認
-    if (!liffObject) {
-      // 初期化されていない場合は初期化を試みる
-      console.log('LIFFが初期化されていません。初期化を試みます。');
-      initLiff()
-        .then(() => {
-          // 初期化成功後にログインを試みる
-          liff.login({
-            redirectUri: window.location.href,
-          });
-        })
-        .catch(err => {
-          console.error('LIFFの初期化に失敗しました:', err);
-        });
-      return;
-    }
-
+    if (!liffObject) return console.error('LIFF not initialized');
     // liffが初期化済みの場合は直接ログイン
     liff.login({
       redirectUri: window.location.href,

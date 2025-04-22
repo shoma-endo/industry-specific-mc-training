@@ -32,7 +32,10 @@ export default function MyPage() {
   // サブスクリプション情報を取得
   useEffect(() => {
     const fetchSubscription = async () => {
-      if (!profile) return;
+      if (!profile) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const liffAccessToken = await getAccessToken();
