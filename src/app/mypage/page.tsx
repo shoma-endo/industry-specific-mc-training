@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useLiff } from '@/hooks/useLiff';
+import { useLiffContext } from '@/components/LiffProvider';
 import { Button } from '@/components/ui/button';
 import {
   getUserSubscription,
@@ -20,7 +20,7 @@ interface SubscriptionInfo {
 }
 
 export default function MyPage() {
-  const { profile, getAccessToken } = useLiff();
+  const { profile, getAccessToken } = useLiffContext();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
@@ -33,7 +33,6 @@ export default function MyPage() {
   useEffect(() => {
     const fetchSubscription = async () => {
       if (!profile) {
-        setLoading(false);
         return;
       }
 
@@ -58,7 +57,7 @@ export default function MyPage() {
     };
 
     fetchSubscription();
-  }, [profile, getAccessToken]);
+  }, [profile]);
 
   // 支払い方法変更（Stripeポータルを開く）
   const handleUpdatePaymentMethod = async () => {

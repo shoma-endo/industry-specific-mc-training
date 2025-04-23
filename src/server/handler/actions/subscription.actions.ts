@@ -16,15 +16,16 @@ export async function getUserSubscription(liffAccessToken: string) {
   try {
     const authResult = await authMiddleware(liffAccessToken);
 
-    const subscription = authResult.subscription;
-
-    if (!subscription) {
+    // 認証エラーまたは未加入の場合はフラグをそのまま返す
+    if (authResult.error || authResult.requiresSubscription) {
       return {
         success: true,
         hasActiveSubscription: false,
-        requiresSubscription: false,
+        error: authResult.error,
+        requiresSubscription: authResult.requiresSubscription,
       };
     }
+    const subscription = authResult.subscription!;
 
     // 次回の請求日を取得
     const nextBillingDate = new Date(subscription.current_period_end * 1000);

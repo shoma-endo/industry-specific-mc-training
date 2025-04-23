@@ -26,7 +26,8 @@ export default function SubscriptionPage() {
   const [priceDetails, setPriceDetails] = useState<PriceDetails | null>(null);
   const [priceLoading, setPriceLoading] = useState(true);
 
-  // 価格情報を取得
+  // NOTE: getAccessTokenを依存配列から除外し、マウント時に一度だけ実行
+
   useEffect(() => {
     const fetchPriceDetails = async () => {
       try {
@@ -45,7 +46,7 @@ export default function SubscriptionPage() {
     };
 
     fetchPriceDetails();
-  }, [getAccessToken]);
+  }, []);
 
   // 金額を表示用にフォーマット
   const formatPrice = (amount: number | null, currency: string) => {

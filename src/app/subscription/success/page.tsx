@@ -20,6 +20,8 @@ export default function SubscriptionSuccessPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // NOTE: getAccessTokenは依存配列から除外し、sessionIdの変更時のみ実行
+
   useEffect(() => {
     const fetchSessionDetails = async () => {
       if (!sessionId) {
@@ -50,7 +52,7 @@ export default function SubscriptionSuccessPage() {
     };
 
     fetchSessionDetails();
-  }, [sessionId, getAccessToken]);
+  }, [sessionId]);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -65,7 +67,12 @@ export default function SubscriptionSuccessPage() {
 
         {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">{error}</div>}
 
-        {sessionId && <p className="text-sm text-gray-500 mb-6 break-all">注文番号:<br /> {sessionId}</p>}
+        {sessionId && (
+          <p className="text-sm text-gray-500 mb-6 break-all">
+            注文番号:
+            <br /> {sessionId}
+          </p>
+        )}
 
         {sessionDetails && (
           <div className="mb-6 text-left p-4 bg-gray-50 rounded">
