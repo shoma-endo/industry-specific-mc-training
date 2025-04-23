@@ -128,3 +128,18 @@ export interface OpenAIResponse {
   message: string;
   error?: string;
 }
+
+/**
+ * Google検索結果のデータベースモデル
+ */
+export type DbSearchResult = {
+  id: string;
+  user_id: string;
+  session_id: string;
+  rank: number;
+  title: string;
+  snippet: string;
+  link: string;
+  created_at: number;
+};
+

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { env } from '@/env';
-import { DbChatMessage, DbChatSession } from '@/types/chat';
+import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
 
 /**
  * SupabaseServiceクラス: サーバーサイドでSupabaseを操作するためのサービス
@@ -175,5 +175,51 @@ export class SupabaseService {
     }
 
     return data || [];
+  }
+
+  /**
+   * Google検索結果を一括で保存
+   */
+  async createSearchResults(results: DbSearchResult[]): Promise<void> {
+    const { error } = await this.supabase.from('search_results').insert(results);
+
+    if (error) {
+      console.error('Failed to create search results:', error);
+      throw new Error('検索結果の保存に失敗しました');
+    }
+  }
+
+  /**
+   * セッションに紐づく検索結果を取得
+   */
+  async getSearchResultsBySessionId(sessionId: string, userId: string): Promise<DbSearchResult[]> {
+    const { data, error } = await this.supabase
+      .from('search_results')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('user_id', userId)
+      .order('rank', { ascending: true });
+
+    if (error) {
+      console.error('Failed to get search results:', error);
+      return [];
+    }
+    return data || [];
+  }
+
+  /**
+   * セッションに紐づく検索結果を削除
+   */
+  async deleteSearchResultsBySessionId(sessionId: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('search_results')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Failed to delete search results:', error);
+      throw new Error('検索結果の削除に失敗しました');
+    }
   }
 }

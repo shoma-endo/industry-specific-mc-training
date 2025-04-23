@@ -51,7 +51,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('gpt-4o');
+  const [selectedModel, setSelectedModel] = useState<string>('ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz'); // デフォルトはGPT-4o-miniのキーワードカテゴライズモデル
   const [error, setError] = useState<string | null>(null);
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
