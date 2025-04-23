@@ -175,7 +175,7 @@ export default function Home() {
       {/* --- サブスクリプション情報カード --- */}
       <Card className="w-full max-w-md mb-6 mt-4">
         <CardHeader>
-          <CardTitle className="text-xl font-semibold mb-4 text-center">
+          <CardTitle className="text-xl font-semibold text-center">
             サブスクリプション情報
           </CardTitle>
         </CardHeader>
