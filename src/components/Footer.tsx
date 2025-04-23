@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { Home, MessageCircle, User } from 'lucide-react';
+import { Home, MessageCircle } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -18,18 +18,13 @@ export function Footer() {
   const navItems: NavItem[] = [
     {
       icon: <Home className="h-6 w-6" />,
-      label: 'ホーム',
+      label: 'マイホーム',
       href: '/',
     },
     {
       icon: <MessageCircle className="h-6 w-6" />,
       label: 'チャット',
       href: '/chat',
-    },
-    {
-      icon: <User className="h-6 w-6" />,
-      label: 'マイページ',
-      href: '/mypage',
     },
   ];
 
