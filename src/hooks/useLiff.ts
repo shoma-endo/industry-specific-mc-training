@@ -69,7 +69,7 @@ export const useLiff = (): UseLiffResult => {
       } else {
         if (!liff.isInClient()) {
           console.log('自動ログインを実行します');
-          login();
+          liff.login({ redirectUri: window.location.href });
         }
       }
     } catch (initError) {
@@ -84,11 +84,7 @@ export const useLiff = (): UseLiffResult => {
   // ログイン処理
   // -----------------------------
   const login = () => {
-    if (!liffObject) return console.error('LIFF not initialized');
-    // liffが初期化済みの場合は直接ログイン
-    liff.login({
-      redirectUri: window.location.href,
-    });
+    liff.login({ redirectUri: window.location.href });
   };
 
   // -----------------------------

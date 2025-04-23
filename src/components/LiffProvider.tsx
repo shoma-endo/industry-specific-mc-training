@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,23 +38,16 @@ interface LiffProviderProps {
 }
 
 export function LiffProvider({ children, initialize = false }: LiffProviderProps) {
-  const {
-    isLoggedIn,
-    isLoading,
-    error,
-    profile,
-    login,
-    logout,
-    liffObject,
-    initLiff,
-  } = useLiff();
+  const { isLoggedIn, isLoading, error, profile, login, logout, liffObject, initLiff } = useLiff();
+
+  // 🔁 LIFFの初期化を副作用で一度だけ実行
+  useEffect(() => {
+    if (initialize && !isLoading && !isLoggedIn && !error) {
+      initLiff().catch(e => console.error('initLiff error:', e));
+    }
+  }, [initialize, isLoading, isLoggedIn, error, initLiff]);
 
   const [syncedWithServer, setSyncedWithServer] = useState(false);
-
-  // 🔁 LIFFの初期化を明示的に呼び出す（useEffectを使わず、initializeフラグで制御）
-  if (initialize && !isLoading && !isLoggedIn && !error) {
-    initLiff().catch((e) => console.error('initLiff error:', e));
-  }
 
   // 🧠 サーバーとの同期処理を外から呼べるように分離（useEffect削除）
   const syncUserIdWithServer = async () => {
@@ -71,7 +64,14 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   if (initialize && isLoggedIn && profile && !syncedWithServer) {
     syncUserIdWithServer().catch(console.error);
   }
-  
+
+  // 自動ログイン：LIFF初期化後にログインしていなければ遷移
+  useEffect(() => {
+    if (!isLoading && liffObject && !isLoggedIn) {
+      console.log('LiffProvider: 未ログイン検出、自動ログイン実行');
+      login();
+    }
+  }, [isLoading, liffObject, isLoggedIn, login]);
 
   // エラー表示
   if (error) {
