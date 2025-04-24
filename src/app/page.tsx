@@ -12,6 +12,7 @@ import {
   createCustomerPortalSession,
 } from '@/server/handler/actions/subscription.actions';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image'
 
 function ProfileDisplay() {
   const { profile, isLoading, isLoggedIn, logout } = useLiffContext();
@@ -32,7 +33,7 @@ function ProfileDisplay() {
       <CardContent className="flex flex-col items-center">
         {profile.pictureUrl && (
           <Avatar className="h-26 w-26 mb-6">
-            <img src={profile.pictureUrl} alt={profile.displayName} />
+            <Image src={profile.pictureUrl} alt={profile.displayName} width={104} height={104} />
           </Avatar>
         )}
         <h3 className="text-xl font-bold mb-2">{profile.displayName}</h3>

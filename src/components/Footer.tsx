@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { Home, MessageCircle } from 'lucide-react';
+import { Home, MessageCircle, FileText } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,11 @@ export function Footer() {
       label: 'チャット',
       href: '/chat',
     },
+    {
+      icon: <FileText className="h-6 w-6" />,
+      label: 'CMS',
+      href: '/studio',
+    },
   ];
 
   return (
@@ -35,6 +40,8 @@ export function Footer() {
           <Link
             key={item.label}
             href={item.href}
+            target={item.label === 'CMS' ? '_blank' : undefined}
+            rel={item.label === 'CMS' ? 'noopener noreferrer' : undefined}
             className="flex flex-col items-center justify-center w-full h-full"
           >
             <div
