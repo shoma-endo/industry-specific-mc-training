@@ -18,6 +18,14 @@ export default defineType({
         defineField({ name: 'backgroundImage', title: '背景画像', type: 'image' }),
       ],
     }),
+    // URL スラッグ
+    defineField({
+      name: 'slug',
+      title: 'URL スラッグ',
+      type: 'slug',
+      options: { source: 'hero.title', maxLength: 96 },
+      validation: Rule => Rule.required().error('URLスラッグは必須です'),
+    }),
     // ポイント（Why Choose）セクション
     defineField({
       name: 'features',
@@ -101,5 +109,5 @@ export default defineType({
         }),
       ],
     }),
-	],
+  ],
 });

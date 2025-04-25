@@ -17,6 +17,8 @@ export const env = createEnv({
     OPENAI_API_KEY: z.string().min(1),
     GOOGLE_CUSTOM_SEARCH_KEY: z.string().min(1),
     GOOGLE_CSE_ID: z.string().min(1),
+    SANITY_STUDIO_READ_TOKEN: z.string().min(1),
+    SANITY_WEBHOOK_SECRET: z.string().min(1),
   },
   /*
    * Environment variables available on the client (and server).
@@ -52,6 +54,8 @@ export const env = createEnv({
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     GOOGLE_CUSTOM_SEARCH_KEY: process.env.GOOGLE_CUSTOM_SEARCH_KEY,
     GOOGLE_CSE_ID: process.env.GOOGLE_CSE_ID,
+    SANITY_STUDIO_READ_TOKEN: process.env.SANITY_STUDIO_READ_TOKEN,
+    SANITY_WEBHOOK_SECRET: process.env.SANITY_WEBHOOK_SECRET,
     DBPASS: process.env.DBPASS,
   },
 });
