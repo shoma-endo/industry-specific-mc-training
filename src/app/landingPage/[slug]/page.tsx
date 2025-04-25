@@ -18,8 +18,8 @@ type LandingPageData = {
   footerLinks: { label: string; url: string }[];
 };
 
-export default async function LandingPage({ params }: { params: { slug: string } }) {
-  const slug = params.slug;
+export default async function LandingPage(props: { params: { slug: string } }) {
+  const slug = props.params.slug;
   if (!slug) {
     notFound(); // Next.js 404 を返す
   }
