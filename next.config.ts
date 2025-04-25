@@ -1,13 +1,13 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
   images: {
-    domains: ['profile.line-scdn.net'],
+    domains: ['profile.line-scdn.net', 'cdn.sanity.io'],
   },
-  typescript: { 
-    ignoreBuildErrors: false 
-  }
+  typescript: {
+    ignoreBuildErrors: false,
+  },
 };
 
 export default nextConfig;

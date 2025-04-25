@@ -1,7 +1,7 @@
 // src/sanity/schemaTypes/landingPage.ts
 import { defineType, defineField, defineArrayMember } from 'sanity';
 
-// ランディングページ全体を表すドキュメントタイプ
+// ランディングページ全体を表すLiteWordのドキュメントタイプ
 export default defineType({
   name: 'landingPage',
   title: 'ランディングページ',

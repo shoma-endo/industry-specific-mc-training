@@ -1,14 +1,14 @@
-import { Geist } from 'next/font/google'
-import './globals.css'
-import { Footer } from '@/components/Footer'
-import { ClientLiffProvider } from '@/components/ClientLiffProvider'
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Footer } from '@/components/Footer';
+import { ClientLiffProvider } from '@/components/ClientLiffProvider';
 
-const geistSans = Geist({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
-      <body className={geistSans.className}>
+    <html lang="ja" className={inter.className}>
+      <body suppressHydrationWarning>
         <ClientLiffProvider initialize={true}>
           <div className="flex flex-col min-h-screen">
             <main className="flex-1 pb-20">{children}</main>
@@ -17,5 +17,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </ClientLiffProvider>
       </body>
     </html>
-  )
+  );
 }

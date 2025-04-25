@@ -5,11 +5,11 @@
  */
 
 import { defineConfig } from 'sanity';
-import { visionTool } from '@sanity/vision';
+// import { visionTool } from '@sanity/vision';
 import { structureTool } from 'sanity/structure';
 
 // Go to https://www.sanity.io/docs/api-versioning to learn how API versioning works
-import { apiVersion, dataset, projectId } from './src/sanity/env';
+import { dataset, projectId } from './src/sanity/env';
 import { schema } from './src/sanity/schemaTypes';
 import { structure } from './src/sanity/structure';
 
@@ -20,9 +20,9 @@ export default defineConfig({
   title: 'LP 管理画面',
   schema,
   plugins: [
-    // サイドバー構造
-    structureTool({ structure }),
-    // GROQ クエリエディタ
-    visionTool({ defaultApiVersion: apiVersion }),
+    // サイドバー構造（Structureを日本語で表示）
+    structureTool({ structure, title: 'コンテンツ' }),
+    // クエリエディタを日本語で表示。必要であればカスタム Vision Toolを作る
+    // visionTool({ defaultApiVersion: apiVersion, title: 'クエリ' }),
   ],
 });
