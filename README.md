@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+ローカル起動コマンド
+ngrok http --region=jp --subdomain=industry-specific-mc-training 3000
+
+
 ## Getting Started
 
 First, run the development server:

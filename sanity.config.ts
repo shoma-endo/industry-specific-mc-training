@@ -12,7 +12,7 @@ import 'dotenv/config';
 const previewUrl =
   process.env.SANITY_STUDIO_PREVIEW_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
-  'http://localhost:3000';
+  'https://industry-specific-mc-training.jp.ngrok.io';
 
 import { defineConfig } from 'sanity';
 // import { visionTool } from '@sanity/vision';
@@ -41,7 +41,10 @@ export default defineConfig({
               S.view
                 .component(Iframe)
                 .options({
-                  url: (doc: any) => `${previewUrl}/landingPage/${doc.slug.current}`,
+                  url: (doc: object) => {
+                    const slug = doc.slug?.current;
+                    return slug ? `${previewUrl}/landingPage/${slug}` : previewUrl;
+                  },
                   reload: { button: true },
                 })
                 .id('preview')
