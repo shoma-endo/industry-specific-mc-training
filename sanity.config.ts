@@ -11,8 +11,7 @@ import 'dotenv/config';
 // プレビュー用のベースURLを環境変数から取得、なければローカルにフォールバック
 const previewUrl =
   process.env.SANITY_STUDIO_PREVIEW_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  'https://industry-specific-mc-training.jp.ngrok.io';
+  process.env.NEXT_PUBLIC_SITE_URL
 
 import { defineConfig } from 'sanity';
 // import { visionTool } from '@sanity/vision';
