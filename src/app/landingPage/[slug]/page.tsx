@@ -3,6 +3,7 @@ import { landingPageBySlugQuery } from '@/lib/queries';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { ParsedUrlQuery } from 'querystring';
 
 // 常に最新のデータを取得する（SSR）
 export const dynamic = 'force-dynamic';
@@ -18,8 +19,16 @@ type LandingPageData = {
   footerLinks: { label: string; url: string }[];
 };
 
-export default async function LandingPage(props: { params: { slug: string } }) {
-  const slug = props.params.slug;
+// PageProps に合わせて params と searchParams を受け取ります（searchParams は未使用）
+export default async function LandingPage({
+  params,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  searchParams: _searchParams,
+}: {
+  params: { slug: string };
+  searchParams?: ParsedUrlQuery;
+}) {
+  const slug = params.slug;
   if (!slug) {
     notFound(); // Next.js 404 を返す
   }
