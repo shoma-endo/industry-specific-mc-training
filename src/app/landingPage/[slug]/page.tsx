@@ -1,10 +1,11 @@
 import { sanityClient } from '@/lib/sanity.client';
 import { landingPageBySlugQuery } from '@/lib/queries';
+import { groq } from 'next-sanity';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-// 常に最新のデータを取得する（SSR）
+// SSR で毎回最新データを取得（プレビュー対応）
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -18,12 +19,14 @@ type LandingPageData = {
   footerLinks: { label: string; url: string }[];
 };
 
-type LandingPageProps = {
-  params: Promise<{ slug: string }>;
-};
+// ビルド時に生成するスラッグ一覧
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  const slugs = await sanityClient.fetch<string[]>(groq`*[_type=="landingPage"].slug.current`);
+  return slugs.map(slug => ({ slug }));
+}
 
-export default async function LandingPage({ params }: LandingPageProps) {
-  const { slug } = await params;
+export default async function LandingPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   if (!slug) {
     notFound(); // Next.js 404 を返す
   }
