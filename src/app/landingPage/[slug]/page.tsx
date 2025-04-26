@@ -25,8 +25,8 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
   return slugs.map(slug => ({ slug }));
 }
 
-export default async function LandingPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default async function LandingPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   if (!slug) {
     notFound(); // Next.js 404 を返す
   }
