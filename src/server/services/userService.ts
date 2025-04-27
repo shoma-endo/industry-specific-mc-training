@@ -45,8 +45,8 @@ export class UserService {
 
       return user;
     } catch (error) {
-      console.error('Failed to get or create user:', error);
-      return null;
+      console.error('Failed to get or create user in userService:', error);
+      throw error;
     }
   }
 

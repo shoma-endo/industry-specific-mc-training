@@ -222,4 +222,50 @@ export class SupabaseService {
       throw new Error('検索結果の削除に失敗しました');
     }
   }
+
+  /**
+   * sanity_projectsテーブルからユーザーのSanityプロジェクトを取得
+   */
+  async getSanityProjectByUserId(userId: string): Promise<{
+    id: string;
+    user_id: string;
+    project_id: string;
+    dataset: string;
+    created_at: string;
+  } | null> {
+    const { data, error } = await this.supabase
+      .from('sanity_projects')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) {
+      console.error('Failed to fetch sanity project:', error);
+      return null;
+    }
+    return data;
+  }
+
+  /**
+   * sanity_projectsテーブルにユーザーのSanityプロジェクトを挿入または更新 (Upsert)
+   */
+  async createSanityProject(userId: string, projectId: string, dataset: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('sanity_projects')
+      // .insert([{ user_id: userId, project_id: projectId, dataset: dataset }]);
+      .upsert(
+        {
+          user_id: userId,
+          project_id: projectId,
+          dataset: dataset,
+        },
+        {
+          onConflict: 'user_id', // user_id が重複した場合に更新
+        }
+      );
+
+    if (error) {
+      console.error('Failed to upsert sanity project:', error);
+      throw new Error('Sanityプロジェクトの登録または更新に失敗しました');
+    }
+  }
 }

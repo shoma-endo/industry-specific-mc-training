@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
+  id uuid PRIMARY KEY,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   line_user_id TEXT NOT NULL UNIQUE,

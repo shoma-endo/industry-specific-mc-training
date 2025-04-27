@@ -4,7 +4,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
+import { verifyLineTokenServer } from '@/server/handler/actions/login.actions';
 interface LiffContextType {
   isLoggedIn: boolean;
   isLoading: boolean;
@@ -49,11 +49,22 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
 
   const [syncedWithServer, setSyncedWithServer] = useState(false);
 
+  // コンテキストに値を設定して子コンポーネントにLIFF状態を提供
+  const getAccessToken = async (): Promise<string> => {
+    if (liffObject && isLoggedIn) {
+      const token = await liffObject.getAccessToken();
+      if (token) return token;
+    }
+    throw new Error('LIFF is not initialized or user is not logged in');
+  };
+
   // 🧠 サーバーとの同期処理を外から呼べるように分離（useEffect削除）
   const syncUserIdWithServer = async () => {
     if (isLoggedIn && profile && !syncedWithServer) {
       try {
         // 🔁 サーバーとの同期処理があればここに記述
+        const token = await getAccessToken(); // LIFFからアクセストークン取得
+        await verifyLineTokenServer(token);   // サーバーに送ってHttpOnly Cookie保存！！
         setSyncedWithServer(true);
       } catch (error) {
         console.error('Failed to sync user ID with server:', error);
@@ -116,15 +127,6 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
       </Card>
     );
   }
-
-  // コンテキストに値を設定して子コンポーネントにLIFF状態を提供
-  const getAccessToken = async (): Promise<string> => {
-    if (liffObject && isLoggedIn) {
-      const token = await liffObject.getAccessToken();
-      if (token) return token;
-    }
-    throw new Error('LIFF is not initialized or user is not logged in');
-  };
 
   return (
     <LiffContext.Provider
