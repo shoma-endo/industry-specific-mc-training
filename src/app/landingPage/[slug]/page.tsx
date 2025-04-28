@@ -19,7 +19,7 @@ type LandingPageData = {
 };
 
 // クッキーからLIFFアクセストークンを取得してSanityクライアントを生成
-export async function getSanityClientFromCookie() {
+async function getSanityClientFromCookie() {
   const cookieStore = await cookies();
   const lineAccessToken = cookieStore.get('line_access_token')?.value;
   if (!lineAccessToken) notFound();

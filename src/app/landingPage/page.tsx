@@ -1,8 +1,9 @@
-import { getSanityClientFromCookie } from '@/app/landingPage/[slug]/page';
+import { cookies } from 'next/headers';
+import { getSanityClient } from '@/lib/utils';
 import { landingPageQuery } from '@/lib/queries';
 import Image from 'next/image';
 import Link from 'next/link';
-
+import { notFound } from 'next/navigation';
 // 型定義
 type Feature = { title: string; description: string; icon: string };
 type Sample = { url: string; imageUrl: string; title: string };
@@ -17,6 +18,13 @@ type LandingPageData = {
   faq: FAQItem[];
   footerLinks: FooterLink[];
 };
+
+async function getSanityClientFromCookie() {
+  const cookieStore = await cookies();
+  const lineAccessToken = cookieStore.get('line_access_token')?.value;
+  if (!lineAccessToken) notFound();
+  return getSanityClient(lineAccessToken);
+}
 
 export default async function LandingPage() {
   let data: LandingPageData | null = null;
