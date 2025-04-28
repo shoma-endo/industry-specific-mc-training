@@ -1,10 +1,9 @@
-import { sanityClient } from '@/lib/sanity.client';
 import { landingPageBySlugQuery } from '@/lib/queries';
-import { groq } from 'next-sanity';
+import { cookies } from 'next/headers';
+import { getSanityClient } from '@/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-
 // SSR で毎回最新データを取得（プレビュー対応）
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -19,18 +18,27 @@ type LandingPageData = {
   footerLinks: { label: string; url: string }[];
 };
 
-// ビルド時に生成するスラッグ一覧
-export async function generateStaticParams(): Promise<{ slug: string }[]> {
-  const slugs = await sanityClient.fetch<string[]>(groq`*[_type=="landingPage"].slug.current`);
-  return slugs.map(slug => ({ slug }));
+// クッキーからLIFFアクセストークンを取得してSanityクライアントを生成
+export async function getSanityClientFromCookie() {
+  const cookieStore = await cookies();
+  const lineAccessToken = cookieStore.get('line_access_token')?.value;
+  if (!lineAccessToken) notFound();
+  return getSanityClient(lineAccessToken);
 }
+
+// URL毎に静的ビルドで生成するスラッグ一覧
+// export async function generateStaticParams(): Promise<{ slug: string }[]> {
+//   const slugs = await sanityClient.fetch<string[]>(groq`*[_type=="landingPage"].slug.current`);
+//   return slugs.map(slug => ({ slug }));
+// }
 
 export default async function LandingPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (!slug) {
     notFound(); // Next.js 404 を返す
   }
-  const data = await sanityClient.fetch<LandingPageData>(landingPageBySlugQuery, { slug });
+  const userSanityClient = await getSanityClientFromCookie();
+  const data = await userSanityClient.fetch<LandingPageData>(landingPageBySlugQuery, { slug });
   if (!data) {
     return <p>コンテンツが見つかりません</p>;
   }

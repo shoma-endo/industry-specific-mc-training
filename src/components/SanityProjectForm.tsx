@@ -20,7 +20,6 @@ export default function SanityProjectForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    console.log('[SanityForm] handleSubmit called.');
 
     try {
       const liffAccessToken = await getAccessToken();

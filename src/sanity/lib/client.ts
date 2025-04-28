@@ -1,10 +1,18 @@
-import { createClient } from 'next-sanity'
+import { createClient } from 'next-sanity';
 
-import { dataset, projectId } from '../env'
-
-export const client = createClient({
-  projectId,
-  dataset,
+// Sanity クライアントの初期化
+export const sanityClient = createClient({
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!,
+  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET!,
   apiVersion: '2025-04-23',
-  useCdn: false,
-})
+  useCdn: true,
+});
+
+export function createUserSanityClient(projectId: string, dataset: string) {
+  return createClient({
+    projectId,
+    dataset,
+    apiVersion: '2025-04-23',
+    useCdn: false,
+  });
+}

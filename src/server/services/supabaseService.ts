@@ -268,4 +268,26 @@ export class SupabaseService {
       throw new Error('Sanityプロジェクトの登録または更新に失敗しました');
     }
   }
+
+  // ユーザーIDからSanityプロジェクト情報を取得
+  async getSanityProjectInfoByUserId(userId: string): Promise<{
+    projectId: string;
+    dataset: string;
+  }> {
+    const { data, error } = await this.supabase
+      .from('sanity_projects')
+      .select('project_id, dataset')
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !data) {
+      console.error('Failed to fetch basic sanity project info:', error);
+      throw new Error('Sanity project info not found');
+    }
+
+    return {
+      projectId: data.project_id,
+      dataset: data.dataset,
+    };
+  }
 }

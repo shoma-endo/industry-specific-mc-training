@@ -5,6 +5,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 
 const supabaseService = new SupabaseService();
+
 /**
  * ユーザーに紐づくSanityプロジェクトをLIFFアクセストークン経由で取得する
  */
@@ -37,27 +38,34 @@ export async function createSanityProject(
       throw new Error('LIFFユーザーの取得に失敗しました');
     }
     await supabaseService.createSanityProject(authResult.userId!, projectId, dataset);
-    console.log('[SanityAction] createSanityProject in SupabaseService success.');
   } catch (error) {
-    // ★★★ エラーオブジェクトの詳細をログ出力 ★★★
-    console.error('[SanityAction] Caught error in createSanityProject.');
-    console.error('[SanityAction] Error type:', typeof error);
-    console.error(
-      '[SanityAction] Error message:',
-      error instanceof Error ? error.message : String(error)
-    );
-    console.error(
-      '[SanityAction] Error stack:',
-      error instanceof Error ? error.stack : 'No stack available'
-    );
-    // Supabaseのエラーオブジェクトの場合、詳細が含まれている可能性がある
-    if (error && typeof error === 'object') {
-      console.error('[SanityAction] Full error object:', JSON.stringify(error, null, 2));
-    }
-    // ★★★ ここまで ★★★
-
     throw new Error(
       error instanceof Error ? error.message : 'サーバー側で予期せぬエラーが発生しました。'
     );
   }
+}
+
+export async function getSanityProjectForUser(lineAccessToken: string) {
+  const user = await userService.getUserFromLiffToken(lineAccessToken);
+  if (!user) {
+    throw new Error('Failed to get user from LIFF token');
+  }
+
+  const supabaseService = new SupabaseService();
+  const sbUser = await supabaseService.getUserByLineId(user.lineUserId);
+
+  if (!sbUser) {
+    throw new Error('Supabase user not found');
+  }
+
+  const { projectId, dataset } = await supabaseService.getSanityProjectInfoByUserId(sbUser.id);
+
+  if (!projectId || !dataset) {
+    throw new Error('Sanity project not found for user');
+  }
+
+  return {
+    projectId,
+    dataset,
+  };
 }

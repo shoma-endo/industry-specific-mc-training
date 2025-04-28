@@ -1,5 +1,4 @@
-// app/landingPage/page.tsx
-import { sanityClient } from '@/lib/sanity.client';
+import { getSanityClientFromCookie } from '@/app/landingPage/[slug]/page';
 import { landingPageQuery } from '@/lib/queries';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -22,7 +21,8 @@ type LandingPageData = {
 export default async function LandingPage() {
   let data: LandingPageData | null = null;
   try {
-    data = await sanityClient.fetch<LandingPageData>(landingPageQuery);
+    const userSanityClient = await getSanityClientFromCookie();
+    data = await userSanityClient.fetch<LandingPageData>(landingPageQuery);
   } catch (error) {
     console.error('Sanity fetch error:', error);
   }
