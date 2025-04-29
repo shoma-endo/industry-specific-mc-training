@@ -6,15 +6,17 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createSanityProject } from '@/server/handler/actions/sanity.action';
-import { useLiffContext } from '@/components/LiffProvider';
 
-export default function SanityProjectForm() {
+interface Props {
+  liffAccessToken: string;
+}
+
+export default function SanityProjectForm({ liffAccessToken }: Props) {
   const [projectId, setProjectId] = useState('');
   const [dataset, setDataset] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { getAccessToken } = useLiffContext();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -22,8 +24,6 @@ export default function SanityProjectForm() {
     setError(null);
 
     try {
-      const liffAccessToken = await getAccessToken();
-
       if (!liffAccessToken) {
         console.error('[SanityForm] Failed to get LIFF Access Token or token is empty.');
         setError('LIFF認証トークンの取得に失敗しました。');

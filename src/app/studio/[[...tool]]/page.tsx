@@ -14,7 +14,7 @@ export default async function StudioPage() {
   }
   const project = await getSanityProject(liffAccessToken);
   if (!project) {
-    return <SanityProjectForm />;
+    return <SanityProjectForm liffAccessToken={liffAccessToken} />;
   }
   return (
     <div className="w-full h-screen">
