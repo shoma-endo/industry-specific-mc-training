@@ -1,4 +1,3 @@
-import config from '../../../../sanity.config';
 import SanityProjectForm from '@/components/SanityProjectForm';
 import { StudioClient } from '@/components/StudioClient';
 import { getSanityProject } from '@/server/handler/actions/sanity.action';
@@ -18,7 +17,7 @@ export default async function StudioPage() {
   }
   return (
     <div className="w-full h-screen">
-      <StudioClient config={config} />
+      <StudioClient projectId={project.project_id} dataset={project.dataset} />
     </div>
   );
 }
