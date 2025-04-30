@@ -77,7 +77,17 @@ export default async function LandingPage({ params }: { params: Promise<{ slug: 
               target="_blank"
               className="block border rounded overflow-hidden hover:shadow-lg"
             >
-              <Image src={sample.imageUrl} alt={sample.title} width={400} height={250} />
+              {sample.imageUrl ? (
+                <Image
+                  src={sample.imageUrl}
+                  alt={sample.title}
+                  width={400}
+                  height={250}
+                  className="w-full h-40 object-cover"
+                />
+              ) : (
+                null
+              )}
               <div className="p-4">{sample.title}</div>
             </a>
           ))}
@@ -117,9 +127,15 @@ export default async function LandingPage({ params }: { params: Promise<{ slug: 
       <footer className="mt-12 pt-6 border-t text-center">
         <div className="flex justify-center flex-wrap gap-4 text-sm text-gray-600">
           {(data.footerLinks ?? []).map((link, i) => (
-            <Link href={link.url} key={i} className="hover:underline">
-              {link.label}
-            </Link>
+            link.url ? (
+              <Link href={link.url} key={i} className="hover:underline">
+                {link.label}
+              </Link>
+            ) : (
+              <span key={i} className="text-gray-400 cursor-not-allowed">
+                {link.label}
+              </span>
+            )
           ))}
         </div>
       </footer>
