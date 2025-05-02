@@ -102,11 +102,7 @@ export const useLiff = (): UseLiffResult => {
   // プロフィール取得（サーバーでトークンを検証）
   // -----------------------------
   const getLineProfile = async (): Promise<getLineProfileServerResponse> => {
-    await liff.ready;
-    const lineAccessToken = liff.getAccessToken();
-    if (!lineAccessToken) {
-      throw new Error('LINE access token not available');
-    }
+    const lineAccessToken = await getAccessToken();
     const profile = await getLineProfileServer(lineAccessToken);
     return profile;
   };
@@ -116,10 +112,27 @@ export const useLiff = (): UseLiffResult => {
   // -----------------------------
   const getAccessToken = async (): Promise<string> => {
     await liff.ready;
-    const lineAccessToken = liff.getAccessToken();
-    if (!lineAccessToken) {
-      throw new Error('LINE access token not available');
+    const lineAccessToken = liff.getAccessToken() ?? '';
+    try {
+      // トークンの有効性をフロント側でチェック
+      const res = await fetch(
+        `https://api.line.me/oauth2/v2.1/verify?access_token=${lineAccessToken}`
+      );
+      const data = await res.json();
+
+      if (!res.ok || data.expires_in < 0) {
+        console.warn('[LIFF] トークン期限切れ、再ログインを実行');
+        liff.logout();
+        liff.login({ redirectUri: window.location.href });
+        throw new Error('LINE access token is expired');
+      }
+    } catch (err) {
+      console.warn('[LIFF] トークン確認失敗、再ログイン', err);
+      liff.logout();
+      liff.login({ redirectUri: window.location.href });
+      throw err;
     }
+
     return lineAccessToken;
   };
 

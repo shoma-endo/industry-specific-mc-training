@@ -3,7 +3,6 @@
 import { userService } from '@/server/services/userService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-
 const supabaseService = new SupabaseService();
 
 /**

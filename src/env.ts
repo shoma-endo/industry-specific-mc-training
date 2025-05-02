@@ -19,6 +19,8 @@ export const env = createEnv({
     GOOGLE_CSE_ID: z.string().min(1),
     SANITY_STUDIO_READ_TOKEN: z.string().min(1),
     SANITY_WEBHOOK_SECRET: z.string().min(1),
+    LINE_CHANNEL_ID: z.string().min(1),
+    LINE_CHANNEL_SECRET: z.string().min(1),
   },
   /*
    * Environment variables available on the client (and server).
@@ -32,6 +34,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
     NEXT_PUBLIC_SANITY_PROJECT_ID: z.string().min(1),
     NEXT_PUBLIC_SANITY_DATASET: z.string().min(1),
+    NEXT_PUBLIC_SITE_URL: z.string().url(),
   },
   /*
    * Due to how Next.js bundles environment variables on Edge and Client,
@@ -57,5 +60,8 @@ export const env = createEnv({
     SANITY_STUDIO_READ_TOKEN: process.env.SANITY_STUDIO_READ_TOKEN,
     SANITY_WEBHOOK_SECRET: process.env.SANITY_WEBHOOK_SECRET,
     DBPASS: process.env.DBPASS,
+    LINE_CHANNEL_ID: process.env.LINE_CHANNEL_ID,
+    LINE_CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET,
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   },
 });

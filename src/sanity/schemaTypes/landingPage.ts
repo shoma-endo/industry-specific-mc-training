@@ -6,6 +6,23 @@ export default defineType({
   name: 'landingPage',
   title: 'ランディングページ',
   type: 'document',
+  preview: {
+    select: {
+      title: 'hero.title',
+      subtitle: 'slug.current',
+      media: 'hero.backgroundImage',
+    },
+  },
+  initialValue: async () => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/user/current`, {
+      credentials: 'include',
+    });
+    const result = await res.json();
+
+    return {
+      userId: result.userId ?? '',
+    };
+  },
   fields: [
     // Hero セクション
     defineField({
@@ -24,7 +41,16 @@ export default defineType({
       title: 'URL スラッグ',
       type: 'slug',
       options: { source: 'hero.title', maxLength: 96 },
-      validation: Rule => Rule.required().error('URLスラッグは必須です'),
+      validation: (Rule) =>
+        Rule.required().custom(async (slug, context) => {
+          const userId = context.document?.userId;
+          if (!slug || !userId) return true; // slug or userIdが無ければスキップ
+          const existing = await context.getClient({ apiVersion: '2023-01-01' }).fetch(
+            `*[_type == "landingPage" && slug.current == $slug && userId == $userId && _id != $id][0]`,
+            { slug: slug.current, userId, id: context.document?._id }
+          );
+          return existing ? 'このスラッグは既に存在します（あなたのLP内で重複しています）' : true;
+        }),
     }),
     // ポイント（Why Choose）セクション
     defineField({
@@ -108,6 +134,15 @@ export default defineType({
           ],
         }),
       ],
+    }),
+    // ユーザーID
+    defineField({
+      name: 'userId',
+      title: 'ユーザーID',
+      type: 'string',
+      readOnly: true,
+      hidden: true,
+      validation: Rule => Rule.required().error('ユーザーIDは必須です'),
     }),
   ],
 });

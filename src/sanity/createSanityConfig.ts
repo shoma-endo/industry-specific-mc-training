@@ -28,7 +28,8 @@ export function createSanityConfig(projectId: string, dataset: string) {
                   .options({
                     url: (doc: any) => {
                       const slug = doc.slug?.current;
-                      return slug ? `${previewUrl}/landingPage/${slug}` : previewUrl;
+                      const userId = doc.userId;
+                      return slug && userId ? `${previewUrl}/landingPage/${slug}?userId=${userId}` : previewUrl;
                     },
                     reload: { button: true },
                   })

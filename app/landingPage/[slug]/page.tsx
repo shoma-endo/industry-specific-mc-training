@@ -1,9 +1,10 @@
-import { landingPageBySlugQuery } from '@/lib/queries';
+import { landingPageByUserAndSlugQuery } from '@/lib/queries';
 import { cookies } from 'next/headers';
 import { getSanityClient } from '@/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { UserService } from '@/server/services/userService';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,21 +23,49 @@ type LandingPageData = {
   footerLinks: { label: string; url: string }[] | null;
 };
 
-async function getSanityClientFromCookie() {
-  const cookieStore = await cookies();
-  const lineAccessToken = cookieStore.get('line_access_token')?.value;
-  if (!lineAccessToken) notFound();
-  return getSanityClient(lineAccessToken);
-}
+export default async function LandingPage({ params, searchParams }: { params: Promise<{ slug: string }>, searchParams: Promise<{ userId?: string }> }) {
+  const slug = (await params).slug;
 
-export default async function LandingPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
   if (!slug) notFound();
 
-  const userSanityClient = await getSanityClientFromCookie();
-  const data = await userSanityClient.fetch<LandingPageData>(landingPageBySlugQuery, { slug });
+  // 公開サイトはLINEログイン情報からuserIdを取得する
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get('line_access_token')?.value;
 
-  if (!data || !data.hero) return <p>コンテンツが見つかりません</p>;
+  if (!accessToken) {
+    redirect('/login');
+  }
+
+  // Sanityプレビュー用のuserId
+  const previewUserId = (await searchParams).userId;
+
+  let userId: string | null = null;
+
+  // プレビューなら userId をそのまま使う
+  if (previewUserId) {
+    userId = previewUserId;
+  } else {
+
+    const userService = new UserService();
+    const user = await userService.getUserFromLiffToken(accessToken);
+
+    if (!user) {
+      redirect('/login');
+    }
+
+    userId = user.id;
+  }
+
+  const sanityClient = await getSanityClient(accessToken);
+
+  const data = await sanityClient.fetch<LandingPageData>(landingPageByUserAndSlugQuery, {
+    slug,
+    userId,
+  });
+
+  if (!data || !data.hero) {
+    notFound();
+  }
 
   return (
     <main className="container mx-auto px-4 py-12 space-y-16">
@@ -94,7 +123,7 @@ export default async function LandingPage({ params }: { params: Promise<{ slug: 
         </div>
       </section>
 
-      {/* CTA Form */}
+      {/* CTA */}
       {data.ctaForm && (
         <section className="bg-gray-100 p-8 rounded">
           <h2 className="text-2xl font-bold mb-2">{data.ctaForm.heading}</h2>
