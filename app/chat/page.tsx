@@ -20,7 +20,7 @@ import { getUserSubscription } from '@/server/handler/actions/subscription.actio
 // 使用可能なモデル一覧
 const AVAILABLE_MODELS = {
   'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': 'キーワードカテゴライズ',
-  'google_search': 'Google検索',
+  // 'google_search': 'Google検索', 一旦使わなくなったのでコメントアウト
 };
 
 import {
