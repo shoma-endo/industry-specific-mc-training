@@ -9,13 +9,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const accessToken = request.cookies.get('line_access_token')?.value;
-
-  // 未ログインかつ/login以外はリダイレクト
-  if (!accessToken && pathname !== '/login') {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
   return NextResponse.next();
 }
 
