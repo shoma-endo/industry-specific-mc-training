@@ -22,7 +22,7 @@ export const openAiService = {
    * @param model 使用するモデル
    * @returns AIからの応答
    */
-  async sendMessage(messages: ChatMessage[], model: string = 'gpt-4o'): Promise<ChatResponse> {
+  async sendMessage(messages: ChatMessage[], model: string = 'gpt-4o-mini-2024-07-18'): Promise<ChatResponse> {
     try {
       const completion = await openai.chat.completions.create({
         model: model,
@@ -57,7 +57,7 @@ export const openAiService = {
   async startChat(
     systemPrompt: string,
     userMessage: string,
-    model: string = 'gpt-4o'
+    model: string = 'gpt-4o-mini-2024-07-18'
   ): Promise<ChatResponse> {
     const messages: ChatMessage[] = [
       {
@@ -84,7 +84,7 @@ export const openAiService = {
     messages: ChatMessage[],
     userMessage: string,
     systemPrompt: string,
-    model: string = 'gpt-4o'
+    model: string = 'gpt-4o-mini-2024-07-18'
   ): Promise<ChatResponse> {
     const updatedMessages: ChatMessage[] = [
       {
