@@ -66,6 +66,7 @@ export class SemrushService {
         columns: true,
         skip_empty_lines: true,
         delimiter: ';',
+        relax_quotes: true,
       });
 
       return records
@@ -84,37 +85,43 @@ export class SemrushService {
   public async fetchAds(
     keyword: string
   ): Promise<{ domain: string; title: string; description: string }[]> {
-    const advertisers = await this.getAdvertisersByKeyword(keyword);
-    if (advertisers.length === 0) {
+    const keywords = keyword
+      .split('\n')
+      .map(kw => kw.trim())
+      .filter(kw => kw.length > 0);
+    if (keywords.length === 0) {
+      return [];
+    }
+
+    const advertiserPromises = keywords.map(kw => this.getAdvertisersByKeyword(kw));
+    const advertiserResults = await Promise.all(advertiserPromises);
+
+    const uniqueAdvertisers = Array.from(new Set(advertiserResults.flat()));
+
+    if (uniqueAdvertisers.length === 0) {
       return [];
     }
 
     const allAds: { domain: string; title: string; description: string }[] = [];
 
+    const adPromises = uniqueAdvertisers.map(domain => this.getAdCopiesByDomain(domain));
     // Promise.allを使用して並列処理
-    const adPromises = advertisers.map((domain) => this.getAdCopiesByDomain(domain));
-    
     const results = await Promise.all(adPromises);
 
     // 結果をフラット化してallAdsに追加
-    for (let i = 0; i < advertisers.length; i++) {
-      const domain = advertisers[i];
+    for (let i = 0; i < uniqueAdvertisers.length; i++) {
+      const domain = uniqueAdvertisers[i];
       const ads = results[i];
       if (!ads) continue;
       for (const ad of ads) {
-        if (allAds.length < 30) {
-          allAds.push({
-            domain: domain || '',
-            ...ad,
-          });
-        } else {
-          break; // 30件に達したらループを抜ける
-        }
+        allAds.push({
+          domain: domain || '',
+          ...ad,
+        });
       }
-      if (allAds.length >= 30) break; // 外側のループも抜ける
     }
 
-    return allAds; // 既に30件以下になっているはず
+    return allAds;
   }
 }
 
