@@ -192,10 +192,11 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
     ) {
       return { message: searchResult, error: '', requiresSubscription: false };
     }
+    const adItems = parseAdItems(searchResult.replace(/^ドメイン：.*\r?\n?/gm, ''));
     return await chatService.startChat(
       userId,
       SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT,
-      searchResult.replace(/^ドメイン：.*\r?\n?/gm, ''),
+      JSON.stringify(adItems),
       'gpt-4.1-nano-2025-04-14',
       userMessage,
       searchResult
