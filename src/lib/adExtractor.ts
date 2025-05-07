@@ -1,7 +1,13 @@
 export type RawItem = {
-    link:    string
-    title:   string
-    snippet: string
+	link:    string
+	title:   string
+	snippet: string
+}
+
+export type SemrushAd = {
+	domain: string;
+	title: string;
+	description: string;
 }
 
 /**
@@ -25,4 +31,26 @@ return items
     return `${link}\n${title}\n${cleaned}`
     })
     .join('\n\n') // アイテム間に空行
+}
+
+/**
+ * Semrush広告データの配列を受け取り、
+ * 各広告を
+ *   domain
+ *   見出し：title
+ *   説明文：description
+ * の形式に変換し、
+ * 各アイテム間を空行で区切った文字列を返す
+ */
+export function formatSemrushAds(ads: SemrushAd[]): string {
+  return ads
+    .map(({ domain, title, description }) => {
+      const desc = description || '';
+      return [
+        'ドメイン：' + domain,
+        '見出し：' + title,
+        '説明文：' + desc,
+      ].join('\n');
+    })
+    .join('\n\n'); // アイテム間に空行
 }

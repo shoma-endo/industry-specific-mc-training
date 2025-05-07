@@ -19,7 +19,8 @@ import { cn } from '@/lib/utils';
 import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
 // 使用可能なモデル一覧
 const AVAILABLE_MODELS = {
-  'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': 'キーワードカテゴライズ',
+  'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': 'キーワード選定',
+  'semrush_search': '広告文作成',
   // 'google_search': 'Google検索', 一旦使わなくなったのでコメントアウト
 };
 
