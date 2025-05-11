@@ -20,7 +20,8 @@ import { getUserSubscription } from '@/server/handler/actions/subscription.actio
 // 使用可能なモデル一覧
 const AVAILABLE_MODELS = {
   'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': 'キーワード選定',
-  'semrush_search': '広告文作成',
+  'semrush_search': 'リサーチ→広告文作成',
+  'gpt-4.1-nano-2025-04-14': '広告文仕上げ'
   // 'google_search': 'Google検索', 一旦使わなくなったのでコメントアウト
 };
 

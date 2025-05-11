@@ -27,7 +27,7 @@ export class SemrushService {
           `SEMrush API error (getAdvertisersByKeyword): ${res.status} ${res.statusText} - ${text}`
         );
       }
-      console.log('text', text);
+
       if (/^ERROR 50 ::/.test(text)) {
         // 「該当するデータが見つからない」ことを示すコード :contentReference[oaicite:0]{index=0}
         return [];

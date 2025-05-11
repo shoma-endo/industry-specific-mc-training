@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { chatService } from '@/server/services/chatService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { SYSTEM_PROMPT, KEYWORD_CATEGORIZATION_PROMPT, AD_COPY_PROMPT } from '@/lib/prompts';
+import { SYSTEM_PROMPT, KEYWORD_CATEGORIZATION_PROMPT, AD_COPY_PROMPT, AD_COPY_FINISHING_PROMPT } from '@/lib/prompts';
 import { googleSearchAction } from '@/server/handler/actions/googleSearch.actions';
 import { ChatResponse } from '@/types/chat';
 import { formatAdItems, formatSemrushAds } from '@/lib/adExtractor';
@@ -31,6 +31,7 @@ const continueChatSchema = z.object({
 const SYSTEM_PROMPTS: Record<string, string> = {
   'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': KEYWORD_CATEGORIZATION_PROMPT,
   'semrush_search': AD_COPY_PROMPT,
+  'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
   // TODO: AIモデルは追加時にここに追加
 };
 
