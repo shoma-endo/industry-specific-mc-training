@@ -1,0 +1,45 @@
+name: Deploy to Vercel and Notify Lark
+
+on:
+  push:
+    branches:
+      - main  # ← main ブランチへの push をトリガーにする
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.ORG_ID }}
+          vercel-project-id: ${{ secrets.PROJECT_ID }}
+          vercel-args: '--prod'
+
+      - name: Notify Lark on Success
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.LARK_WEBHOOK_URL }} \
+            -H "Content-Type: application/json" \
+            -d '{
+              "msg_type": "text",
+              "content": {
+                "text": "✅ Vercel デプロイ成功 (main ブランチ)"
+              }
+            }'
+
+      - name: Notify Lark on Failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.LARK_WEBHOOK_URL }} \
+            -H "Content-Type: application/json" \
+            -d '{
+              "msg_type": "text",
+              "content": {
+                "text": "❌ Vercel デプロイ失敗 (main ブランチ)"
+              }
+            }'
