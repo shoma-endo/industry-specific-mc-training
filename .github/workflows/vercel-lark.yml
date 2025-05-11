@@ -38,4 +38,9 @@ jobs:
         run: |
           curl -X POST ${{ secrets.LARK_WEBHOOK_URL }} \
             -H "Content-Type: application/json" \
-            -d "$(jq -n --arg msg \"❌ Vercel デプロイ失敗 (develop ブランチ)\\nエラー: ${{ steps.vercel.outputs.error-message || '不明なエラー' }}\" '{msg_type: "text", content: {text: $msg}}')"
+            -d '{
+              "msg_type": "text",
+              "content": {
+                "text": "❌ Vercel デプロイ失敗 (develop ブランチ)\nGitHub Actions のログを確認してください"
+              }
+            }'
