@@ -73,8 +73,8 @@ export const useLiff = (): UseLiffResult => {
         }
       }
     } catch (initError) {
-      console.error('LIFF initialization failed:', initError);
-      setError(initError instanceof Error ? initError : new Error('Failed to initialize LIFF'));
+      console.error('LIFF initialization failed (raw error object):', initError);
+      setError(initError instanceof Error ? initError : new Error(String(initError)));
     } finally {
       setIsLoading(false);
     }
