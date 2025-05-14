@@ -53,7 +53,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz'); // デフォルトはGPT-4o-miniのキーワードカテゴライズモデル
+  const [selectedModel, setSelectedModel] = useState<string>('ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz');
   const [error, setError] = useState<string | null>(null);
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
@@ -82,38 +82,71 @@ export default function ChatPage() {
 
       try {
         const liffAccessToken = await getAccessToken();
+        if (!liffAccessToken) {
+          setError('LINE認証情報の取得に失敗しました。再ログインをお試しください。');
+          setRequiresSubscription(true);
+          return;
+        }
+
         const subscriptionResult = await getUserSubscription(liffAccessToken);
 
         if (!subscriptionResult.success) {
-          setError(subscriptionResult.error || 'サブスクリプション情報の取得に失敗しました');
-          setRequiresSubscription(!!subscriptionResult.requiresSubscription);
+          setError(subscriptionResult.error || 'サブスクリプション情報の取得に失敗しました。');
+          // サーバーがエラーを返した場合、または明示的に requiresSubscription が true の場合はアクセスを制限
+          setRequiresSubscription(!!subscriptionResult.requiresSubscription || true);
           return;
         }
 
         if (!subscriptionResult.hasActiveSubscription) {
+          setError('チャット機能を利用するには有効なサブスクリプションが必要です。');
           setRequiresSubscription(true);
-          setError('チャット機能を利用するにはサブスクリプションが必要です');
           return;
         }
 
-        // サブスクリプションが存在するが有効でない場合
+        // hasActiveSubscription が true でも、詳細なステータスと cancelAtPeriodEnd を確認
         if (subscriptionResult.subscription) {
           const status = subscriptionResult.subscription.status;
+          const cancelAtPeriodEnd = subscriptionResult.subscription.cancelAtPeriodEnd;
 
-          // 条件を修正: 論理演算順序を調整
-          const isInactiveSubscription = status !== 'active' && status !== 'trialing';
-          const isCancelledPastDue =
-            subscriptionResult.subscription.cancelAtPeriodEnd && status === 'past_due';
+          const isActiveOrTrialing = status === 'active' || status === 'trialing';
 
-          if (isInactiveSubscription || isCancelledPastDue) {
+          // 有効でないステータス、または有効なステータスでもキャンセル予定の場合はチャット不可
+          if (!isActiveOrTrialing || cancelAtPeriodEnd) {
             setRequiresSubscription(true);
-            setError(
-              'サブスクリプションが有効ではありません。新しいサブスクリプションにご登録ください。'
-            );
+            let detailedError = 'チャット機能のご利用には、有効なサブスクリプションが必要です。';
+
+            if (cancelAtPeriodEnd && isActiveOrTrialing) {
+              detailedError =
+                'サブスクリプションは解約手続き済みです。現在の請求期間終了後にチャット機能はご利用いただけなくなります。';
+            } else if (status === 'canceled') {
+              detailedError =
+                'サブスクリプションはキャンセル済みです。新しいサブスクリプションにご登録ください。';
+            } else if (status === 'past_due') {
+              detailedError =
+                'お支払いが確認できませんでした。お支払い情報を更新するか、新しいサブスクリプションにご登録ください。';
+            } else if (!isActiveOrTrialing) {
+              detailedError = `現在のサブスクリプションステータス (${status}) ではチャット機能をご利用いただけません。`;
+            }
+            setError(detailedError);
+            return;
           }
+
+          // 上記の条件に合致せず、チャット利用可能な場合
+          setError(null);
+          setRequiresSubscription(false);
+        } else {
+          // hasActiveSubscription: true なのに subscription オブジェクトがない場合
+          // (通常はサーバー側のロジックで発生しないはずだが、念のため)
+          setError('サブスクリプション情報が不完全です。サポートにお問い合わせください。');
+          setRequiresSubscription(true);
+          return;
         }
-      } catch (error) {
-        console.error('サブスクリプションチェックエラー:', error);
+      } catch (err) {
+        console.error('サブスクリプションチェックエラー:', err);
+        setError(
+          'サブスクリプション情報の確認中に予期せぬエラーが発生しました。しばらくしてから再度お試しください。'
+        );
+        setRequiresSubscription(true);
       }
     };
 
