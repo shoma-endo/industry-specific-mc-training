@@ -1,14 +1,14 @@
 export type RawItem = {
-	link:    string
-	title:   string
-	snippet: string
-}
+  link: string;
+  title: string;
+  snippet: string;
+};
 
 export type SemrushAd = {
-	domain: string;
-	title: string;
-	description: string;
-}
+  domain: string;
+  title: string;
+  description: string;
+};
 
 /**
  * items 配列から link, title, snippet を抽出し、
@@ -18,19 +18,26 @@ export type SemrushAd = {
  *    各アイテム間を空行で区切った文字列を返す
  */
 export function formatAdItems(items: RawItem[]): string {
-return items
+  return items
     .map(({ link, title, snippet }) => {
-    // 1) 日付行を取り除く
-    const cleaned = snippet
+      // 1) 日付行を取り除く
+      const cleaned = snippet
         .split('\n')
         .filter(line => !/^[A-Za-z]{3}\s+\d{1,2},\s*\d{4}/.test(line.trim()))
         .join(' ')
-        .trim()
+        .trim();
 
-    // 2) 切り詰めはせず、そのまま全文を返す
-    return `${link}\n${title}\n${cleaned}`
+      // 2) 切り詰めはせず、そのまま全文を返す
+      return `${link}\n${title}\n${cleaned}`;
     })
-    .join('\n\n') // アイテム間に空行
+    .join('\n\n'); // アイテム間に空行
+}
+
+/**
+ * items 配列から title を抽出し、改行区切りで結合した文字列を返す
+ */
+export function formatAdTitles(items: RawItem[]): string {
+  return items.map(({ title }) => title).join('\n');
 }
 
 /**
@@ -46,11 +53,7 @@ export function formatSemrushAds(ads: SemrushAd[]): string {
   return ads
     .map(({ domain, title, description }) => {
       const desc = description || '';
-      return [
-        'ドメイン：' + domain,
-        '見出し：' + title,
-        '説明文：' + desc,
-      ].join('\n');
+      return ['ドメイン：' + domain, '見出し：' + title, '説明文：' + desc].join('\n');
     })
     .join('\n\n'); // アイテム間に空行
 }

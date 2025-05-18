@@ -2,17 +2,20 @@
 
 import { z } from 'zod';
 import { chatService } from '@/server/services/chatService';
+import { openAiService, ChatMessage } from '@/server/services/openAiService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { SYSTEM_PROMPT, KEYWORD_CATEGORIZATION_PROMPT, AD_COPY_PROMPT, AD_COPY_FINISHING_PROMPT } from '@/lib/prompts';
+import {
+  SYSTEM_PROMPT,
+  KEYWORD_CATEGORIZATION_PROMPT,
+  AD_COPY_PROMPT,
+  AD_COPY_FINISHING_PROMPT,
+  GOOGLE_SEARCH_TITLE_CATEGORIZATION_PROMPT,
+} from '@/lib/prompts';
 import { googleSearchAction } from '@/server/handler/actions/googleSearch.actions';
 import { ChatResponse } from '@/types/chat';
-import { formatAdItems, formatSemrushAds } from '@/lib/adExtractor';
-import { SupabaseService } from '@/server/services/supabaseService';
+import { formatAdTitles, formatSemrushAds } from '@/lib/adExtractor';
 import { semrushService } from '@/server/services/semrushService';
 import { ERROR_MESSAGES } from '@/lib/constants';
-import { randomUUID } from 'crypto';
-
-const supabaseService = new SupabaseService();
 
 const startChatSchema = z.object({
   userMessage: z.string(),
@@ -48,6 +51,115 @@ async function checkAuth(liffAccessToken: string) {
   return { isError: false as const, userId: authResult.userId! };
 }
 
+function extractKeywordSections(text: string): { immediate: string[]; later: string[] } {
+  const extractSection = (source: string | undefined): string[] =>
+    source
+      ?.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0) ?? [];
+
+  const matchBetween = text.match(/【今すぐ客キーワード】([\s\S]*?)【後から客キーワード】/);
+  const matchImmediateOnly = text.match(/【今すぐ客キーワード】([\s\S]*)/);
+  const matchLater = text.match(/【後から客キーワード】([\s\S]*)$/);
+
+  let immediate: string[] = [];
+  let later: string[] = [];
+
+  if (matchBetween) {
+    immediate = extractSection(matchBetween[1]);
+    later = extractSection(matchLater?.[1]); // 後から客も一応再チェック
+  } else if (matchImmediateOnly) {
+    immediate = extractSection(matchImmediateOnly[1]);
+  } else if (matchLater) {
+    later = extractSection(matchLater[1]);
+  } else {
+    // キーワードだけが渡されているケース（ラベルなし）
+    immediate = extractSection(text);
+  }
+
+  return { immediate, later };
+}
+
+
+function filterByTitleMissingQuery(
+  results: { query: string; titles: string }[]
+): { query: string; titles: string }[] {
+  return results.filter(({ query, titles }) => !titles.includes(query));
+}
+
+async function generateAIResponsesFromTitles(
+  input: { query: string; titles: string }[]
+): Promise<{ query: string; aiMessage: string }[]> {
+  const tasks = input.map(async ({ query, titles }) => {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: GOOGLE_SEARCH_TITLE_CATEGORIZATION_PROMPT,
+      },
+      {
+        role: 'user',
+        content: titles,
+      },
+    ];
+
+    const response = await openAiService.sendMessage(
+      messages,
+      'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz',
+      0,
+      1
+    );
+    return {
+      query,
+      aiMessage: response.message,
+    };
+  });
+
+  return await Promise.all(tasks);
+}
+
+function extractFalseQueries(
+  responses: { query: string; aiMessage: string }[]
+): string {
+  return responses
+    .filter(res => res.aiMessage.trim().toLowerCase() === 'false')
+    .map(res => res.query)
+    .join('\n');
+}
+
+function subtractMultilineStrings(
+  beforeKeywords: string,
+  afterKeywords: string
+): { remaining: string; removed: string } {
+  const beforeList = beforeKeywords
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  const afterSet = new Set(
+    afterKeywords
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+  );
+
+  const remaining: string[] = [];
+  const removed: string[] = [];
+
+  for (const keyword of beforeList) {
+    if (afterSet.has(keyword)) {
+      remaining.push(keyword);
+    } else {
+      removed.push(keyword);
+    }
+  }
+
+  return {
+    remaining: remaining.join('\n'),
+    removed: removed.join('\n'),
+  };
+}
+
+
 /**
  * 改行区切りの「見出し：…」「説明文：…」テキストを
  * JSON 配列にパースする
@@ -57,92 +169,56 @@ async function checkAuth(liffAccessToken: string) {
 function parseAdItems(input: string): { headline: string; description: string }[] {
   // 空行（1つ以上の改行）でアイテムを分割
   const blocks = input
-    .split(/\r?\n\s*\r?\n/)     // 空行をブロック区切りとみなす
-    .map(b => b.trim())         // 前後の空白を除去
+    .split(/\r?\n\s*\r?\n/) // 空行をブロック区切りとみなす
+    .map(b => b.trim()) // 前後の空白を除去
     .filter(b => b.length > 0); // 空要素は除外
 
-  return blocks.map(block => {
-    // 「見出し：〜」をキャプチャ
-    const headlineMatch = block.match(/見出し：(.+)/);
-    // 「説明文：〜」をキャプチャ
-    const descriptionMatch = block.match(/説明文：(.+)/);
-    if (!headlineMatch?.[1] || !descriptionMatch?.[1]) {
-      return null;
-    }
+  return (
+    blocks
+      .map(block => {
+        // 「見出し：〜」をキャプチャ
+        const headlineMatch = block.match(/見出し：(.+)/);
+        // 「説明文：〜」をキャプチャ
+        const descriptionMatch = block.match(/説明文：(.+)/);
+        if (!headlineMatch?.[1] || !descriptionMatch?.[1]) {
+          return null;
+        }
 
-    return {
-      headline: headlineMatch[1].trim(),
-      description: descriptionMatch[1].trim(),
-    };
-  })
-  // 見出し／説明文いずれかが取得できなかったブロックは除外
-  .filter((item): item is { headline: string; description: string } => item !== null);
+        return {
+          headline: headlineMatch[1].trim(),
+          description: descriptionMatch[1].trim(),
+        };
+      })
+      // 見出し／説明文いずれかが取得できなかったブロックは除外
+      .filter((item): item is { headline: string; description: string } => item !== null)
+  );
 }
 
-// google_search モデルの処理
 async function handleGoogleSearch(
-  userId: string,
-  userMessage: string,
-  liffAccessToken: string,
-  sessionId?: string
-): Promise<ChatResponse> {
-  // 1) 検索実行
-  const { items, error } = await googleSearchAction({ liffAccessToken, query: userMessage });
-  if (error) {
-    return { message: '', error, requiresSubscription: false };
-  }
+  userMessages: string[],
+  liffAccessToken: string
+): Promise<{ query: string; titles: string }[]> {
+  const searchPromises = userMessages.map(async (query) => {
+    try {
+      const result = await googleSearchAction({ liffAccessToken, query });
 
-  let currentSessionId = sessionId;
+      if (result.error) {
+        console.error(`Error searching for "${query}": ${result.error}`);
+        return { query, titles: '' }; // エラー時は空文字列
+      }
 
-  // 2) セッションIDがない場合は新規作成 (startChatのケース)
-  if (!currentSessionId) {
-    currentSessionId = await supabaseService.createChatSession({
-      id: randomUUID(),
-      user_id: userId,
-      title: `Google: ${userMessage.substring(0, 50)}`, // タイトルを変更
-      system_prompt: undefined, // google_searchには system_prompt は不要
-      last_message_at: Date.now(),
-      created_at: Date.now(),
-    });
-  }
-
-  // 3) ユーザー入力をチャットメッセージとして保存
-  await supabaseService.createChatMessage({
-    id: randomUUID(),
-    user_id: userId,
-    session_id: currentSessionId,
-    role: 'user',
-    content: userMessage,
-    model: 'google_search',
-    created_at: Date.now(),
+      const titles = formatAdTitles(result.items || []);
+      return { query, titles };
+    } catch (error) {
+      console.error(`Critical error searching for "${query}":`, error);
+      return { query, titles: '' }; // 予期せぬエラー時も空文字列
+    }
   });
 
-  // 4) 検索結果をフォーマットしてチャットメッセージとして保存
-  const reply = formatAdItems(items);
-  await supabaseService.createChatMessage({
-    id: randomUUID(),
-    user_id: userId,
-    session_id: currentSessionId,
-    role: 'assistant',
-    content: reply,
-    model: 'google_search',
-    created_at: Date.now(),
-  });
-
-  // 5) セッションの最終メッセージ時刻を更新
-  await supabaseService.updateChatSession(currentSessionId, userId, {
-    last_message_at: Date.now(),
-    // 必要であればタイトルも更新
-    // title: `Google: ${userMessage.substring(0, 50)}`
-  });
-
-  // 6) クライアントに返却
-  return {
-    message: reply,
-    sessionId: currentSessionId,
-    requiresSubscription: false,
-  };
+  const resultsArray = await Promise.all(searchPromises);
+  return resultsArray;
 }
+
 
 // semrush_search モデルの処理
 async function handleSemrushSearch(userMessage: string): Promise<string> {
@@ -181,10 +257,27 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
     return { message: '', error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
   const userId = auth.userId;
+  // --- FTモデル／標準チャット分岐 ---
+  const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
 
   // --- モデルによる分岐 ---
-  if (model === 'google_search') {
-    return handleGoogleSearch(userId, userMessage, liffAccessToken);
+  if (model === 'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz') {
+    const result = await openAiService.startChat(systemPrompt, userMessage, model);
+    const classificationKeywords = result.message === '今すぐ客キーワード' ? userMessage : result.message;
+    const { immediate, later } = extractKeywordSections(classificationKeywords);
+    if (immediate.length === 0) {
+      return { message: result.message, error: '', requiresSubscription: false };
+    }
+    const getSearchResults = await handleGoogleSearch(immediate, liffAccessToken);
+    const keywords = filterByTitleMissingQuery(getSearchResults);
+    const aiResponses = await generateAIResponsesFromTitles(keywords);
+    const falseQueries = extractFalseQueries(aiResponses);
+    const afterKeywords = subtractMultilineStrings(immediate.join('\n'), falseQueries);
+    return await chatService.startChat(
+      userId,
+      systemPrompt,
+      [userMessage, `【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`],
+    );
   } else if (model === 'semrush_search') {
     const searchResult = await handleSemrushSearch(userMessage);
     if (
@@ -204,8 +297,6 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
     );
   }
 
-  // --- FTモデル／標準チャット分岐 ---
-  const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
   return chatService.startChat(userId, systemPrompt, userMessage, model);
 }
 
@@ -221,10 +312,40 @@ export async function continueChat(
       return { message: '', error: auth.error, requiresSubscription: auth.requiresSubscription };
     }
     const userId = auth.userId;
+    // --- FTモデル／標準チャット分岐 ---
+    const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
 
     // --- モデルによる分岐 ---
-    if (model === 'google_search') {
-      return handleGoogleSearch(userId, userMessage, liffAccessToken, sessionId);
+    if (model === 'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz') {
+      const result = await openAiService.continueChat(
+        messages.map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content,
+        })),
+        userMessage,
+        systemPrompt,
+        model
+      );
+      const classificationKeywords = result.message === '今すぐ客キーワード' ? userMessage : result.message;
+      const { immediate, later } = extractKeywordSections(classificationKeywords);
+      if (immediate.length === 0) {
+        return { message: result.message, error: '', requiresSubscription: false };
+      }
+      const getSearchResults = await handleGoogleSearch(immediate, liffAccessToken);
+      const keywords = filterByTitleMissingQuery(getSearchResults);
+      const aiResponses = await generateAIResponsesFromTitles(keywords);
+      const falseQueries = extractFalseQueries(aiResponses);
+      const afterKeywords = subtractMultilineStrings(immediate.join('\n'), falseQueries);
+      return await chatService.continueChat(
+        userId,
+        sessionId,
+        [userMessage, `【今すぐ客キーワード】\n${afterKeywords.remaining} \n\n【後から客キーワード】\n${afterKeywords.removed}\n${later.join('\n')}`],
+        systemPrompt,
+        messages.map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content,
+        })),
+      );
     } else if (model === 'semrush_search') {
       const searchResult = await handleSemrushSearch(userMessage);
       if (
@@ -238,7 +359,7 @@ export async function continueChat(
         userId,
         sessionId,
         JSON.stringify(adItems),
-        SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT,
+        systemPrompt,
         messages.map(msg => ({
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content,
@@ -249,8 +370,6 @@ export async function continueChat(
       );
     }
 
-    // --- FTモデル／標準チャット分岐 ---
-    const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
     return chatService.continueChat(
       userId,
       sessionId,

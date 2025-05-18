@@ -22,13 +22,20 @@ export const openAiService = {
    * @param model 使用するモデル
    * @returns AIからの応答
    */
-  async sendMessage(messages: ChatMessage[], model: string = 'gpt-4o-mini-2024-07-18'): Promise<ChatResponse> {
+  async sendMessage(
+    messages: ChatMessage[],
+    model: string = 'gpt-4o-mini-2024-07-18',
+    temperature: number = 0.5,
+    max_completion_tokens: number = 1000,
+    logit_bias?: Record<string, number>
+  ): Promise<ChatResponse> {
     try {
       const completion = await openai.chat.completions.create({
         model: model,
         messages: messages,
-        temperature: 0.5,
-        max_completion_tokens: 1000,
+        temperature: temperature,
+        max_completion_tokens: max_completion_tokens,
+        ...(logit_bias && { logit_bias })
       });
 
       const response = completion.choices[0]?.message?.content;

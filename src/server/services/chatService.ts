@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { openAiService } from './openAiService';
+import { openAiService, ChatResponse } from './openAiService';
 import {
   ChatMessage,
   ChatSession,
@@ -25,7 +25,7 @@ class ChatService {
   async startChat(
     userId: string,
     systemPrompt: string,
-    userMessage: string,
+    userMessage: string | string[],
     model?: string,
     semrushSearchUserMessage?: string,
     semrushSearchResult?: string
@@ -36,10 +36,18 @@ class ChatService {
     requiresSubscription?: boolean;
   }> {
     try {
-      const aiResponse = await openAiService.startChat(systemPrompt, userMessage, model);
+      let aiResponse: ChatResponse;
+      let userMessageString: string;
+      if (typeof userMessage === 'string') {
+        userMessageString = userMessage;
+        aiResponse = await openAiService.startChat(systemPrompt, userMessage, model);
 
-      if (aiResponse.error) {
-        return aiResponse;
+        if (aiResponse.error) {
+          return aiResponse;
+        }
+      } else {
+        userMessageString = userMessage[0]!;
+        aiResponse = { message: userMessage[1]!, error: '' }
       }
 
       const sessionId = uuidv4();
@@ -48,7 +56,7 @@ class ChatService {
       const session: DbChatSession = {
         id: sessionId,
         user_id: userId,
-        title: userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''),
+        title: userMessageString.substring(0, 50) + (userMessageString.length > 50 ? '...' : ''),
         created_at: now,
         last_message_at: now,
         system_prompt: systemPrompt,
@@ -61,7 +69,7 @@ class ChatService {
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.USER,
-        content: semrushSearchUserMessage ?? userMessage,
+        content: semrushSearchUserMessage ?? userMessageString,
         created_at: now,
       };
 
@@ -101,7 +109,7 @@ class ChatService {
   async continueChat(
     userId: string,
     sessionId: string,
-    userMessage: string,
+    userMessage: string | string[],
     systemPrompt: string,
     messages: OpenAIMessage[],
     model?: string,
@@ -114,15 +122,23 @@ class ChatService {
     requiresSubscription?: boolean;
   }> {
     try {
-      const aiResponse = await openAiService.continueChat(
-        messages,
-        userMessage,
-        systemPrompt,
-        model
-      );
+      let aiResponse: ChatResponse;
+      let userMessageString: string;
+      if (typeof userMessage === 'string') {
+        userMessageString = userMessage;
+        aiResponse = await openAiService.continueChat(
+          messages,
+          userMessage,
+          systemPrompt,
+          model
+        );
 
-      if (aiResponse.error) {
-        return aiResponse;
+        if (aiResponse.error) {
+          return aiResponse;
+        }
+      } else {
+        userMessageString = userMessage[0]!;
+        aiResponse = { message: userMessage[1]!, error: '' }
       }
 
       const now = Date.now();
@@ -136,7 +152,7 @@ class ChatService {
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.USER,
-        content: semrushSearchUserMessage ?? userMessage,
+        content: semrushSearchUserMessage ?? userMessageString,
         created_at: now,
       };
 
