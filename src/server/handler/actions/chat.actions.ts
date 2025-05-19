@@ -9,11 +9,11 @@ import {
   KEYWORD_CATEGORIZATION_PROMPT,
   AD_COPY_PROMPT,
   AD_COPY_FINISHING_PROMPT,
-  GOOGLE_SEARCH_TITLE_CATEGORIZATION_PROMPT,
+  GOOGLE_SEARCH_CATEGORIZATION_PROMPT,
 } from '@/lib/prompts';
 import { googleSearchAction } from '@/server/handler/actions/googleSearch.actions';
 import { ChatResponse } from '@/types/chat';
-import { formatAdTitles, formatSemrushAds } from '@/lib/adExtractor';
+import { formatSemrushAds } from '@/lib/adExtractor';
 import { semrushService } from '@/server/services/semrushService';
 import { ERROR_MESSAGES } from '@/lib/constants';
 
@@ -80,31 +80,24 @@ function extractKeywordSections(text: string): { immediate: string[]; later: str
   return { immediate, later };
 }
 
-
-function filterByTitleMissingQuery(
-  results: { query: string; titles: string }[]
-): { query: string; titles: string }[] {
-  return results.filter(({ query, titles }) => !titles.includes(query));
-}
-
 async function generateAIResponsesFromTitles(
-  input: { query: string; titles: string }[]
+  input: { query: string; searchResult: string }[]
 ): Promise<{ query: string; aiMessage: string }[]> {
-  const tasks = input.map(async ({ query, titles }) => {
+  const tasks = input.map(async ({ query, searchResult }) => {
     const messages: ChatMessage[] = [
       {
         role: 'system',
-        content: GOOGLE_SEARCH_TITLE_CATEGORIZATION_PROMPT,
+        content: GOOGLE_SEARCH_CATEGORIZATION_PROMPT,
       },
       {
         role: 'user',
-        content: titles,
+        content: `キーワード：${query}\n検索結果：${searchResult}`,
       },
     ];
 
     const response = await openAiService.sendMessage(
       messages,
-      'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz',
+      'gpt-4.1-nano-2025-04-14',
       0,
       1
     );
@@ -197,21 +190,22 @@ function parseAdItems(input: string): { headline: string; description: string }[
 async function handleGoogleSearch(
   userMessages: string[],
   liffAccessToken: string
-): Promise<{ query: string; titles: string }[]> {
+): Promise<{ query: string; searchResult: string }[]> {
   const searchPromises = userMessages.map(async (query) => {
     try {
       const result = await googleSearchAction({ liffAccessToken, query });
 
       if (result.error) {
         console.error(`Error searching for "${query}": ${result.error}`);
-        return { query, titles: '' }; // エラー時は空文字列
+        return { query, searchResult: '' }; // エラー時は空文字列
       }
 
-      const titles = formatAdTitles(result.items || []);
-      return { query, titles };
+      const searchResult = result.items.map(item => `${item.title}\n${item.link}\n${item.snippet}`).join('\n\n');
+      console.log('searchResult', searchResult);
+      return { query, searchResult };
     } catch (error) {
       console.error(`Critical error searching for "${query}":`, error);
-      return { query, titles: '' }; // 予期せぬエラー時も空文字列
+      return { query, searchResult: '' }; // 予期せぬエラー時も空文字列
     }
   });
 
@@ -269,8 +263,7 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
       return { message: result.message, error: '', requiresSubscription: false };
     }
     const getSearchResults = await handleGoogleSearch(immediate, liffAccessToken);
-    const keywords = filterByTitleMissingQuery(getSearchResults);
-    const aiResponses = await generateAIResponsesFromTitles(keywords);
+    const aiResponses = await generateAIResponsesFromTitles(getSearchResults);
     const falseQueries = extractFalseQueries(aiResponses);
     const afterKeywords = subtractMultilineStrings(immediate.join('\n'), falseQueries);
     return await chatService.startChat(
@@ -332,8 +325,7 @@ export async function continueChat(
         return { message: result.message, error: '', requiresSubscription: false };
       }
       const getSearchResults = await handleGoogleSearch(immediate, liffAccessToken);
-      const keywords = filterByTitleMissingQuery(getSearchResults);
-      const aiResponses = await generateAIResponsesFromTitles(keywords);
+      const aiResponses = await generateAIResponsesFromTitles(getSearchResults);
       const falseQueries = extractFalseQueries(aiResponses);
       const afterKeywords = subtractMultilineStrings(immediate.join('\n'), falseQueries);
       return await chatService.continueChat(

@@ -31,7 +31,7 @@ export async function googleSearchAction(
   url.searchParams.set('key', key)
   url.searchParams.set('cx', cx)
   url.searchParams.set('q', query)
-  url.searchParams.set('num', '10')    // 上位10件
+  url.searchParams.set('num', '5')    // 上位5件
   url.searchParams.set('start', '1')   // 1位〜10位
   url.searchParams.set('gl', 'jp')     // 日本の地域
   url.searchParams.set('lr', 'lang_ja')  // 日本語ページ
