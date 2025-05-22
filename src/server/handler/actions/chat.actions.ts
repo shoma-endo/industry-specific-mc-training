@@ -32,7 +32,7 @@ const continueChatSchema = z.object({
 });
 
 const SYSTEM_PROMPTS: Record<string, string> = {
-  'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': KEYWORD_CATEGORIZATION_PROMPT,
+  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
   'semrush_search': AD_COPY_PROMPT,
   'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
   // TODO: AIモデルは追加時にここに追加
@@ -91,7 +91,7 @@ async function generateAIResponsesFromTitles(
       },
       {
         role: 'user',
-        content: `キーワード：${query}\n検索結果：${searchResult}`,
+        content: `キーワード【${query}】\n検索結果【${searchResult}】`,
       },
     ];
 
@@ -200,8 +200,7 @@ async function handleGoogleSearch(
         return { query, searchResult: '' }; // エラー時は空文字列
       }
 
-      const searchResult = result.items.map(item => `${item.title}\n${item.link}\n${item.snippet}`).join('\n\n');
-      console.log('searchResult', searchResult);
+      const searchResult = result.items.map(item => `タイトル：${item.title}\nリンク：${item.link}\n説明文：${item.snippet}`).join('\n');
       return { query, searchResult };
     } catch (error) {
       console.error(`Critical error searching for "${query}":`, error);
@@ -255,7 +254,7 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
   const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
 
   // --- モデルによる分岐 ---
-  if (model === 'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz') {
+  if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
     const result = await openAiService.startChat(systemPrompt, userMessage, model);
     const classificationKeywords = result.message === '今すぐ客キーワード' ? userMessage : result.message;
     const { immediate, later } = extractKeywordSections(classificationKeywords);
@@ -309,7 +308,7 @@ export async function continueChat(
     const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
 
     // --- モデルによる分岐 ---
-    if (model === 'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz') {
+    if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
       const result = await openAiService.continueChat(
         messages.map(msg => ({
           role: msg.role as 'user' | 'assistant' | 'system',

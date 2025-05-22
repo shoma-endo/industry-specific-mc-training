@@ -17,14 +17,6 @@ import { useLiffContext } from '@/components/LiffProvider';
 import { Bot, Send, AlertCircle, PlusCircle, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
-// 使用可能なモデル一覧
-const AVAILABLE_MODELS = {
-  'ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz': 'キーワード選定',
-  'semrush_search': 'リサーチ→広告文作成',
-  'gpt-4.1-nano-2025-04-14': '広告文仕上げ'
-  // 'google_search': 'Google検索', 一旦使わなくなったのでコメントアウト
-};
-
 import {
   Select,
   SelectContent,
@@ -32,6 +24,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+// 使用可能なモデル一覧
+const AVAILABLE_MODELS = {
+  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': 'キーワード選定',
+  'semrush_search': 'リサーチ→広告文作成',
+  'gpt-4.1-nano-2025-04-14': '広告文仕上げ'
+  // 'google_search': 'Google検索', 一旦使わなくなったのでコメントアウト
+};
 
 const MAX_MESSAGES = 10;
 
@@ -53,7 +53,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('ft:gpt-4o-mini-2024-07-18:personal::BLnZBIRz');
+  const [selectedModel, setSelectedModel] = useState<string>('ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2');
   const [error, setError] = useState<string | null>(null);
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');

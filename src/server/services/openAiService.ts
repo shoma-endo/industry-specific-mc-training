@@ -65,7 +65,8 @@ export const openAiService = {
   async startChat(
     systemPrompt: string,
     userMessage: string,
-    model: string = 'gpt-4.1-nano-2025-04-14'
+    model: string = 'gpt-4.1-nano-2025-04-14',
+    temperature: number = 0.5
   ): Promise<ChatResponse> {
     const messages: ChatMessage[] = [
       {
@@ -78,7 +79,7 @@ export const openAiService = {
       },
     ];
 
-    return this.sendMessage(messages, model);
+    return this.sendMessage(messages, model, temperature);
   },
 
   /**
@@ -92,7 +93,8 @@ export const openAiService = {
     messages: ChatMessage[],
     userMessage: string,
     systemPrompt: string,
-    model: string = 'gpt-4.1-nano-2025-04-14'
+    model: string = 'gpt-4.1-nano-2025-04-14',
+    temperature: number = 0.5
   ): Promise<ChatResponse> {
     const updatedMessages: ChatMessage[] = [
       {
@@ -106,6 +108,6 @@ export const openAiService = {
       },
     ];
 
-    return this.sendMessage(updatedMessages, model);
+    return this.sendMessage(updatedMessages, model, temperature);
   },
 };
