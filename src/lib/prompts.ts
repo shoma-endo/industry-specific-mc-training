@@ -73,7 +73,7 @@ Google広告リサーチのプロフェッショナル
 - 前置き・結びの言葉は一切含めない  
 - どちらかのカテゴリに該当するキーワードがなければ、そのカテゴリは出力しない  
 - ユーザーからのキーワードは必ずどちらかのカテゴリに分類する  
-`;
+`.trim();
 
 export const GOOGLE_SEARCH_CATEGORIZATION_PROMPT = `
 # 役割
@@ -135,7 +135,7 @@ export const GOOGLE_SEARCH_CATEGORIZATION_PROMPT = `
 
 # 出力
 true または false を1語だけ出力してください。
-`;
+`.trim();
 
 export const AD_COPY_PROMPT = `
 # 役割
@@ -274,7 +274,7 @@ kw = キーワード
 2. 全国対応、補助金申請も無料でサポート。優良解体業者2,000社から最適なプランをご提案します。
 3. 30秒の簡単シミュレーションでおおよその費用を把握。しつこい営業電話は一切ありません。
 4. 9割以上の方が30万円以上のコスト削減に成功。スピーディな対応と高い満足度をお約束します。
-`;
+`.trim();
 
 export const AD_COPY_FINISHING_PROMPT = `
 # 役割
@@ -358,4 +358,4 @@ kw = キーワード
 ・【】
 ・？
 ・！
-`;
+`.trim();

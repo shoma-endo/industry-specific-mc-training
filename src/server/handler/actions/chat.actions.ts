@@ -255,7 +255,7 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
 
   // --- モデルによる分岐 ---
   if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
-    const result = await openAiService.startChat(systemPrompt, userMessage, model);
+    const result = await openAiService.startChat(systemPrompt, userMessage.trim(), model);
     const classificationKeywords = result.message === '今すぐ客キーワード' ? userMessage : result.message;
     const { immediate, later } = extractKeywordSections(classificationKeywords);
     if (immediate.length === 0) {
@@ -284,7 +284,7 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
       SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT,
       JSON.stringify(adItems),
       'gpt-4.1-nano-2025-04-14',
-      userMessage,
+      userMessage.trim(),
       searchResult
     );
   }
@@ -314,7 +314,7 @@ export async function continueChat(
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content,
         })),
-        userMessage,
+        userMessage.trim(),
         systemPrompt,
         model
       );
@@ -356,7 +356,7 @@ export async function continueChat(
           content: msg.content,
         })),
         'gpt-4.1-nano-2025-04-14',
-        userMessage,
+        userMessage.trim(),
         searchResult
       );
     }
@@ -364,7 +364,7 @@ export async function continueChat(
     return chatService.continueChat(
       userId,
       sessionId,
-      userMessage,
+      userMessage.trim(),
       systemPrompt,
       messages.map(msg => ({
         role: msg.role as 'user' | 'assistant' | 'system',
