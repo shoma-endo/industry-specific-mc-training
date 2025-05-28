@@ -1,5 +1,12 @@
 import { env } from '@/env';
 
+export class LineTokenExpiredError extends Error {
+  constructor(message?: string) {
+    super(message || 'LINE access token has expired');
+    this.name = 'LineTokenExpiredError';
+  }
+}
+
 interface LineProfile {
   userId: string;
   displayName: string;
@@ -8,6 +15,86 @@ interface LineProfile {
 }
 
 export class LineAuthService {
+  private refreshToken = async (
+    refreshToken: string
+  ): Promise<{
+    access_token: string;
+    expires_in: number;
+    refresh_token?: string;
+  }> => {
+    try {
+      const response = await fetch('https://api.line.me/oauth2/v2.1/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: env.NEXT_PUBLIC_LIFF_CHANNEL_ID,
+          client_secret: env.LINE_CHANNEL_SECRET, // 環境変数に追加が必要
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(`[LINE Token Refresh] ${data.error}: ${data.error_description}`);
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`[LINE Token Refresh] ${error.message}`);
+      }
+      throw new Error('[LINE Token Refresh] Unknown error occurred');
+    }
+  };
+
+  verifyLineTokenWithRefresh = async (
+    accessToken: string,
+    refreshTokenValue?: string
+  ): Promise<{
+    isValid: boolean;
+    newAccessToken?: string;
+    newRefreshToken?: string;
+    needsReauth?: boolean;
+  }> => {
+    try {
+      // まず現在のアクセストークンを検証
+      await this.verifyLineToken(accessToken);
+      return { isValid: true };
+    } catch (error) {
+      if (error instanceof LineTokenExpiredError && refreshTokenValue) {
+        console.log('[LINE Auth] Access token expired, attempting refresh...');
+
+        try {
+          // リフレッシュトークンを使用して新しいアクセストークンを取得
+          const refreshedTokens = await this.refreshToken(refreshTokenValue);
+
+          console.log('[LINE Auth] Token refresh successful');
+          return {
+            isValid: true,
+            newAccessToken: refreshedTokens.access_token,
+            newRefreshToken: refreshedTokens.refresh_token || refreshTokenValue, // 新しいリフレッシュトークンがない場合は既存のものを保持
+          };
+        } catch (refreshError) {
+          console.error('[LINE Auth] Token refresh failed:', refreshError);
+          return {
+            isValid: false,
+            needsReauth: true,
+          };
+        }
+      }
+
+      // アクセストークンが無効でリフレッシュトークンもない場合
+      return {
+        isValid: false,
+        needsReauth: true,
+      };
+    }
+  };
+
   verifyLineToken = async (accessToken: string): Promise<void> => {
     try {
       const channelId = env.NEXT_PUBLIC_LIFF_CHANNEL_ID;
@@ -47,6 +134,12 @@ export class LineAuthService {
         // responseDataがnull、または期待する形式でない場合も考慮
         const errorDescription = responseData?.error_description || responseText || 'Unknown error';
         const errorCode = responseData?.error || 'N/A';
+
+        // トークン期限切れの場合は専用のエラーをthrow
+        if (errorCode === 'invalid_request' && errorDescription.includes('access token expired')) {
+          throw new LineTokenExpiredError(`${errorCode}: ${errorDescription}`);
+        }
+
         throw new Error(`[LINE Token Verification] ${errorCode}: ${errorDescription}`);
       }
       // responseDataがnull、または期待する形式でない場合も考慮
@@ -61,6 +154,10 @@ export class LineAuthService {
       }
     } catch (error) {
       if (error instanceof Error) {
+        // 既に[LINE Token Verification]プレフィックスが付いている場合は重複を避ける
+        if (error.message.includes('[LINE Token Verification]')) {
+          throw error;
+        }
         throw new Error(`[LINE Token Verification] ${error.message}`);
       }
       throw new Error('[LINE Token Verification] Unknown error occurred');
