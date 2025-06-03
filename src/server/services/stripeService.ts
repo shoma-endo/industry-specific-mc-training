@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { env } from '@/env';
+import { userService } from './userService';
 
 export class StripeService {
   private stripe: Stripe;
@@ -164,5 +165,56 @@ export class StripeService {
    */
   async getCheckoutSession(sessionId: string) {
     return this.stripe.checkout.sessions.retrieve(sessionId);
+  }
+
+  /**
+   * ユーザーIDに基づいてStripeサブスクリプションの状態を確認します。
+   * @param userId アプリケーションのユーザーID
+   * @returns 有効なサブスクリプションがあればtrue、なければfalseを返します。
+   */
+  async checkSubscriptionStatus(userId: string): Promise<boolean> {
+    try {
+      // 1. userId から Stripe の顧客ID (stripeCustomerId) を取得する
+      //    userService を利用してアプリケーションのユーザーデータベースから取得
+      const user = await userService.getUserById(userId);
+      const stripeCustomerId = user?.stripeCustomerId;
+
+      if (!stripeCustomerId) {
+        console.log(`[StripeService] No Stripe Customer ID found for user: ${userId}`);
+        return false;
+      }
+
+      // 2. Stripe APIを使用して、その顧客IDに関連するサブスクリプションを取得
+      // まず 'active' なサブスクリプションを確認
+      const activeSubscriptions = await this.stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: 'active',
+        limit: 1, // 1つでもあれば十分
+      });
+
+      if (activeSubscriptions.data.length > 0) {
+        console.log(`[StripeService] Active subscription found for user: ${userId}`);
+        return true;
+      }
+
+      // 'active' がなければ 'trialing' なサブスクリプションを確認
+      const trialingSubscriptions = await this.stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: 'trialing',
+        limit: 1, // 1つでもあれば十分
+      });
+
+      if (trialingSubscriptions.data.length > 0) {
+        console.log(`[StripeService] Trialing subscription found for user: ${userId}`);
+        return true;
+      }
+
+      console.log(`[StripeService] No active or trialing subscription found for user: ${userId}`);
+      return false;
+    } catch (error) {
+      console.error('[StripeService] Error checking subscription status:', error);
+      // エラーが発生した場合、ユーザーは有効なサブスクリプションを持っていないとみなすのが安全
+      return false;
+    }
   }
 }

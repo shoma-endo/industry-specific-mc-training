@@ -108,32 +108,60 @@ export const useLiff = (): UseLiffResult => {
   };
 
   // -----------------------------
-  // アクセストークン取得
+  // アクセストークン取得（リフレッシュ対応）
   // -----------------------------
   const getAccessToken = async (): Promise<string> => {
     await liff.ready;
     const lineAccessToken = liff.getAccessToken() ?? '';
-    try {
-      // トークンの有効性をフロント側でチェック
-      const res = await fetch(
-        `https://api.line.me/oauth2/v2.1/verify?access_token=${lineAccessToken}`
-      );
-      const data = await res.json();
 
-      if (!res.ok || data.expires_in < 0) {
-        console.warn('[LIFF] トークン期限切れ、再ログインを実行');
+    try {
+      // サーバー側でトークンの検証とリフレッシュを実行
+      const response = await fetch('/api/user/current');
+      const data = await response.json();
+
+      if (data.needsReauth) {
+        console.warn('[LIFF] 再認証が必要です');
         liff.logout();
         liff.login({ redirectUri: window.location.href });
-        throw new Error('LINE access token is expired');
+        throw new Error('Re-authentication required');
       }
-    } catch (err) {
-      console.warn('[LIFF] トークン確認失敗、再ログイン', err);
-      liff.logout();
-      liff.login({ redirectUri: window.location.href });
-      throw err;
-    }
 
-    return lineAccessToken;
+      if (data.tokenRefreshed) {
+        console.log('[LIFF] トークンがリフレッシュされました');
+        // LIFFオブジェクトのトークンも更新が必要な場合があります
+        // （ただし、LIFF SDKは基本的にサーバーサイドのトークンと同期しないため、
+        //  必要に応じて別の方法でトークンを管理する必要があります）
+      }
+
+      return lineAccessToken;
+    } catch (fetchError) {
+      console.warn(
+        '[LIFF] サーバー側トークン確認失敗、フォールバックとしてクライアント側で確認',
+        fetchError
+      );
+
+      // フォールバック：クライアント側でのトークン確認
+      try {
+        const res = await fetch(
+          `https://api.line.me/oauth2/v2.1/verify?access_token=${lineAccessToken}`
+        );
+        const data = await res.json();
+
+        if (!res.ok || data.expires_in < 0) {
+          console.warn('[LIFF] トークン期限切れ、再ログインを実行');
+          liff.logout();
+          liff.login({ redirectUri: window.location.href });
+          throw new Error('LINE access token is expired');
+        }
+      } catch (err) {
+        console.warn('[LIFF] トークン確認失敗、再ログイン', err);
+        liff.logout();
+        liff.login({ redirectUri: window.location.href });
+        throw err;
+      }
+
+      return lineAccessToken;
+    }
   };
 
   // -----------------------------

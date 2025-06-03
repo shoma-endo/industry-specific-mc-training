@@ -45,22 +45,38 @@ export async function createSanityProject(
 }
 
 export async function getSanityProjectForUser(lineAccessToken: string) {
+  // 開発モードでダミートークンの場合は、固定のプロジェクト情報を返す
+  if (process.env.NODE_ENV === 'development' && lineAccessToken === 'dummy-token') {
+    console.log(
+      '[Sanity Action] Development mode: Returning fixed Sanity project info for "dummy-token".'
+    );
+    return {
+      projectId: 'booiieyk', // 提供されたプロジェクトIDに設定
+      dataset: 'development', // 提供されたデータセットに設定
+    };
+  }
+
+  // 通常の処理 (本番環境またはダミートークンでない場合)
   const user = await userService.getUserFromLiffToken(lineAccessToken);
   if (!user) {
     throw new Error('Failed to get user from LIFF token');
   }
 
   const supabaseService = new SupabaseService();
-  const sbUser = await supabaseService.getUserByLineId(user.lineUserId);
+  // user.lineUserId を使用してSupabaseのユーザーを検索
+  const sbUser = await supabaseService.getUserByLineId(user.lineUserId); // user.userId を user.lineUserId に変更
 
   if (!sbUser) {
-    throw new Error('Supabase user not found');
+    // sbUser が見つからない場合、そのLINEユーザーIDに紐づくSupabaseユーザーが存在しない
+    // このケースも開発時には問題になる可能性があるため、ログを追加
+    console.error(`[Sanity Action] Supabase user not found for LINE User ID: ${user.lineUserId}`); // user.userId を user.lineUserId に変更
+    throw new Error(`Supabase user not found for the given LINE User ID: ${user.lineUserId}`); // user.userId を user.lineUserId に変更
   }
 
   const { projectId, dataset } = await supabaseService.getSanityProjectInfoByUserId(sbUser.id);
 
   if (!projectId || !dataset) {
-    throw new Error('Sanity project not found for user');
+    throw new Error('Sanity project not found for user in Supabase');
   }
 
   return {

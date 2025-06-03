@@ -165,6 +165,22 @@ export class LineAuthService {
   };
 
   getLineProfile = async (accessToken: string): Promise<LineProfile> => {
+    // 開発モードかつアクセストークンが 'dummy-token' の場合は、ダミープロファイルを返す
+    if (
+      process.env.NODE_ENV === 'development' &&
+      accessToken === 'dummy-token' // 固定文字列 'dummy-token' と比較
+    ) {
+      console.log(
+        '[LINE Profile Fetch] Development mode: Returning dummy profile for "dummy-token".'
+      );
+      return {
+        userId: 'dummy-user-id-from-fixed-token', // 識別可能なダミーID
+        displayName: 'Dummy User (Fixed Token)',
+        pictureUrl: '',
+        statusMessage: 'This is a dummy user profile for development (fixed token).',
+      };
+    }
+
     try {
       const response = await fetch('https://api.line.me/v2/profile', {
         method: 'GET',
@@ -173,12 +189,28 @@ export class LineAuthService {
         },
       });
       if (!response.ok) {
-        const data: { error_description: string; error: string } = await response.json();
-        throw new Error(`[LINE Profile Fetch] ${data.error}: ${data.error_description}`);
+        // エラーレスポンスの形式が不明なため、text()で取得して詳細をログに出力することを検討
+        const errorText = await response.text();
+        console.error('[LINE Profile Fetch] Error response text:', errorText);
+        // error.messageがundefinedになるのを避けるため、エラーテキストを直接使うか、
+        // より堅牢なエラーハンドリングを行う
+        let errorMessage = `HTTP error ${response.status}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = `[LINE Profile Fetch] ${errorJson.error || response.status}: ${errorJson.error_description || errorText}`;
+        } catch (parseError) {
+          console.error('[LINE Profile Fetch] JSON.parse error during error handling:', parseError);
+          errorMessage = `[LINE Profile Fetch] ${response.status}: ${errorText}`;
+        }
+        throw new Error(errorMessage);
       }
       return response.json() as Promise<LineProfile>;
     } catch (error) {
       if (error instanceof Error) {
+        // 既に[LINE Profile Fetch]プレフィックスが付いている場合は重複を避ける
+        if (error.message.startsWith('[LINE Profile Fetch]')) {
+          throw error;
+        }
         throw new Error(`[LINE Profile Fetch] ${error.message}`);
       }
       throw new Error('[LINE Profile Fetch] Unknown error occurred');

@@ -32,6 +32,7 @@ export const landingPageByUserAndSlugQuery = groq`
     footerLinks[]{
       label,
       url
-    }
+    },
+    slug
   }
 `;

@@ -13,6 +13,37 @@ export class UserRepository {
   }
 
   /**
+   * アプリケーションのユーザーIDでユーザーを検索
+   * @param id アプリケーションのユーザーID (UUID)
+   * @returns ユーザーオブジェクト、見つからなければnull
+   */
+  async findById(id: string): Promise<User | null> {
+    try {
+      const { data, error } = await this.supabaseService.supabase
+        .from('users')
+        .select('*')
+        .eq('id', id) // 'id' カラムで検索
+        .single(); // IDはユニークなので single() を使用
+
+      if (error) {
+        // 'PGRST116' は該当する行が見つからなかった場合のエラーコード
+        // この場合はエラーではなく、nullを返すのが適切
+        if (error.code === 'PGRST116') {
+          console.log(`User with ID ${id} not found.`);
+          return null;
+        }
+        console.error(`Error finding user by ID (${id}):`, error);
+        return null; // その他のエラーの場合もnullを返すか、エラーをスローするか検討
+      }
+
+      return data ? toUser(data as DbUser) : null;
+    } catch (error) {
+      console.error('Repository error (findById):', error);
+      return null;
+    }
+  }
+
+  /**
    * ユーザーをLINE UserIDで検索
    */
   async findByLineUserId(lineUserId: string): Promise<User | null> {
@@ -24,13 +55,16 @@ export class UserRepository {
         .single();
 
       if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // ユーザーが見つからない場合はnullを返す
+        }
         console.error('Error finding user by LINE user ID:', error);
         return null;
       }
 
       return data ? toUser(data as DbUser) : null;
     } catch (error) {
-      console.error('Repository error:', error);
+      console.error('Repository error (findByLineUserId):', error);
       return null;
     }
   }
@@ -47,13 +81,16 @@ export class UserRepository {
         .single();
 
       if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // ユーザーが見つからない場合はnullを返す
+        }
         console.error('Error finding user by Stripe customer ID:', error);
         return null;
       }
 
       return data ? toUser(data as DbUser) : null;
     } catch (error) {
-      console.error('Repository error:', error);
+      console.error('Repository error (findByStripeCustomerId):', error);
       return null;
     }
   }
@@ -80,7 +117,7 @@ export class UserRepository {
 
       return user;
     } catch (error) {
-      console.error('Repository error:', error);
+      console.error('Repository error (create):', error);
       return null;
     }
   }
@@ -116,7 +153,7 @@ export class UserRepository {
 
       return true;
     } catch (error) {
-      console.error('Repository error:', error);
+      console.error('Repository error (update):', error);
       return false;
     }
   }
@@ -141,7 +178,7 @@ export class UserRepository {
 
       return true;
     } catch (error) {
-      console.error('Repository error:', error);
+      console.error('Repository error (updateStripeCustomerId):', error);
       return false;
     }
   }
@@ -169,7 +206,7 @@ export class UserRepository {
 
       return true;
     } catch (error) {
-      console.error('Repository error:', error);
+      console.error('Repository error (updateStripeSubscriptionId):', error);
       return false;
     }
   }

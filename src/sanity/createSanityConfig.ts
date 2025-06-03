@@ -6,10 +6,11 @@ import { structureTool } from 'sanity/structure';
 import { schema } from './schemaTypes';
 import { structure } from './structure';
 import { Iframe } from 'sanity-plugin-iframe-pane';
+import { wordpressExportPlugin } from './plugins/wordpressExport';
+import { debugTool } from './plugins/debugTools';
 
 export function createSanityConfig(projectId: string, dataset: string) {
-  const previewUrl =
-    process.env.SANITY_STUDIO_PREVIEW_URL || process.env.NEXT_PUBLIC_SITE_URL;
+  const previewUrl = process.env.SANITY_STUDIO_PREVIEW_URL || process.env.NEXT_PUBLIC_SITE_URL;
 
   return defineConfig({
     basePath: '/studio',
@@ -29,7 +30,16 @@ export function createSanityConfig(projectId: string, dataset: string) {
                     url: (doc: any) => {
                       const slug = doc.slug?.current;
                       const userId = doc.userId;
-                      return slug && userId ? `${previewUrl}/landingPage/${slug}?userId=${userId}` : previewUrl;
+
+                      if (!slug || !userId) {
+                        return `${previewUrl}`;
+                      }
+
+                      // Draft Mode を有効にしてからプレビューページにリダイレクト
+                      const webhookSecret = process.env.SANITY_WEBHOOK_SECRET || 'UUID';
+                      const targetUrl = `${previewUrl}/landingPage/${slug}?userId=${userId}`;
+
+                      return `${previewUrl}/api/draft/enable?token=${webhookSecret}&redirect=${encodeURIComponent(targetUrl)}`;
                     },
                     reload: { button: true },
                   })
@@ -39,6 +49,8 @@ export function createSanityConfig(projectId: string, dataset: string) {
             : S.document().views([S.view.form()]),
       }),
       structureTool({ structure, title: 'コンテンツ' }),
+      wordpressExportPlugin,
     ],
+    tools: [debugTool],
   });
 }

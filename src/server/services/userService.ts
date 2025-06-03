@@ -51,6 +51,21 @@ export class UserService {
   }
 
   /**
+   * アプリケーションのユーザーIDからユーザー情報を取得
+   */
+  async getUserById(id: string): Promise<User | null> {
+    try {
+      // userRepository にIDでユーザーを検索するメソッドがあると仮定
+      const user = await userRepository.findById(id);
+      return user;
+    } catch (error) {
+      console.error(`Failed to get user by ID (${id}) in userService:`, error);
+      // エラーをスローするか、nullを返すかは設計次第
+      return null; // または throw error;
+    }
+  }
+
+  /**
    * Stripeカスタマー作成時にユーザー情報を更新
    */
   async updateStripeCustomerId(lineUserId: string, stripeCustomerId: string): Promise<boolean> {

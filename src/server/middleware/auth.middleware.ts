@@ -1,12 +1,9 @@
 'use server';
 
-import { LineAuthService } from '@/server/services/lineAuthService';
+import { LineAuthService, LineTokenExpiredError } from '@/server/services/lineAuthService';
 import { userService } from '@/server/services/userService';
-import { StripeService } from '@/server/services/stripeService';
 import Stripe from 'stripe';
-
-const lineAuthService = new LineAuthService();
-const stripeService = new StripeService();
+import { StripeService } from '@/server/services/stripeService';
 
 export type AuthMiddlewareResult = {
   lineUserId: string;
@@ -16,17 +13,58 @@ export type AuthMiddlewareResult = {
   error?: string;
 };
 
+// ダミーのアクセストークンリスト
+const DUMMY_ACCESS_TOKENS = ['dummy-token', 'dummy-token-for-auth-check'];
+
 /**
  * LINE認証とサブスクリプションチェックを行うミドルウェア
  */
-export async function authMiddleware(liffAccessToken: string): Promise<AuthMiddlewareResult> {
+export const authMiddleware = async (
+  liffAccessToken?: string,
+  refreshTokenValue?: string
+): Promise<AuthMiddlewareResult> => {
+  // ★★★ 開発時：特定のダミートークンの場合は検証をスキップ ★★★
+  if (
+    process.env.NODE_ENV === 'development' &&
+    liffAccessToken &&
+    DUMMY_ACCESS_TOKENS.includes(liffAccessToken)
+  ) {
+    console.warn(
+      `[Auth Middleware] Development mode: Skipping LIFF token verification for dummy token: ${liffAccessToken}`
+    );
+    const dummyLineUserId = 'dev-dummy-line-id';
+    const dummyAppUserId = 'dev-dummy-app-user-id';
+    return {
+      lineUserId: dummyLineUserId,
+      userId: dummyAppUserId,
+      requiresSubscription: false,
+      subscription: null,
+    };
+  }
+  // ★★★ ここまで ★★★
+
+  if (!liffAccessToken) {
+    return {
+      error: 'Liff Access Token is required',
+      lineUserId: '',
+      userId: '',
+      requiresSubscription: false,
+      subscription: null,
+    };
+  }
+
+  const lineAuthService = new LineAuthService();
+  const stripeService = new StripeService();
+
   try {
-    await lineAuthService.verifyLineToken(liffAccessToken);
-    const lineProfile = await lineAuthService.getLineProfile(liffAccessToken);
-    const user = await userService.getUserFromLiffToken(liffAccessToken);
-    if (!user) {
+    const verificationResult = await lineAuthService.verifyLineTokenWithRefresh(
+      liffAccessToken,
+      refreshTokenValue
+    );
+
+    if (!verificationResult.isValid || verificationResult.needsReauth) {
       return {
-        error: 'ユーザー認証に失敗しました。再ログインしてください。',
+        error: 'Invalid or expired LINE token. Re-authentication required.',
         lineUserId: '',
         userId: '',
         requiresSubscription: true,
@@ -34,41 +72,69 @@ export async function authMiddleware(liffAccessToken: string): Promise<AuthMiddl
       };
     }
 
-    if (!user.stripeSubscriptionId) {
+    const currentAccessToken = verificationResult.newAccessToken || liffAccessToken;
+    const lineProfile = await lineAuthService.getLineProfile(currentAccessToken);
+
+    if (!lineProfile || !lineProfile.userId) {
       return {
-        error: 'サブスクリプションが存在しません。',
-        lineUserId: lineProfile.userId,
-        userId: user.id,
-        requiresSubscription: true,
+        error: 'Failed to get LINE user profile',
+        lineUserId: '',
+        userId: '',
+        requiresSubscription: false,
         subscription: null,
       };
     }
 
-    const subscription = await stripeService.getSubscription(user.stripeSubscriptionId);
-    if (!subscription) {
+    const user = await userService.getUserFromLiffToken(currentAccessToken);
+    if (!user) {
       return {
-        error: 'サブスクリプションが存在しません。',
+        error: 'Application user not found for this LINE user.',
+        lineUserId: lineProfile.userId,
+        userId: '',
+        requiresSubscription: false,
+        subscription: null,
+      };
+    }
+
+    const isSubscribed = await stripeService.checkSubscriptionStatus(user.id);
+
+    let actualSubscription: Stripe.Subscription | null = null;
+    if (user.stripeSubscriptionId) {
+      actualSubscription = await stripeService.getSubscription(user.stripeSubscriptionId);
+    }
+
+    if (!isSubscribed) {
+      return {
         lineUserId: lineProfile.userId,
         userId: user.id,
+        error: 'Subscription required',
         requiresSubscription: true,
-        subscription: null,
+        subscription: actualSubscription,
       };
     }
 
     return {
       lineUserId: lineProfile.userId,
       userId: user.id,
-      requiresSubscription: subscription.status !== 'active' && subscription.status !== 'trialing',
-      subscription,
+      requiresSubscription: false,
+      subscription: actualSubscription,
     };
   } catch (error) {
-    console.error('Authentication failed:', error);
+    console.error('[Auth Middleware] Error:', error);
+    let errorMessage = '[Auth Middleware] Unknown error occurred';
+    if (error instanceof LineTokenExpiredError) {
+      errorMessage = 'LINE token has expired. Please re-authenticate.';
+    } else if (error instanceof Error) {
+      errorMessage = error.message.startsWith('[Auth Middleware]')
+        ? error.message
+        : `[Auth Middleware] ${error.message}`;
+    }
     return {
-      error: 'ユーザー認証に失敗しました。再ログインしてください。',
+      error: errorMessage,
       lineUserId: '',
       userId: '',
       requiresSubscription: false,
       subscription: null,
     };
   }
-}
+};
