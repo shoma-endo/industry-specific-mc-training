@@ -24,20 +24,37 @@ export async function getSanityProject(liffAccessToken: string) {
 }
 
 /**
- * ユーザーのSanityプロジェクト情報をLIFFアクセストークン経由で登録する
+ * ユーザーのSanityプロジェクト情報とWordPress設定情報をLIFFアクセストークン経由で登録する
  */
 export async function createSanityProject(
   liffAccessToken: string,
   projectId: string,
-  dataset: string
+  dataset: string,
+  wpClientId: string,
+  wpClientSecret: string,
+  wpSiteId: string
 ) {
   try {
     const authResult = await authMiddleware(liffAccessToken);
-    if (authResult.error || authResult.requiresSubscription) {
-      throw new Error('LIFFユーザーの取得に失敗しました');
+    if (authResult.error || authResult.requiresSubscription || !authResult.userId) {
+      throw new Error('LIFFユーザーの認証またはユーザーIDの取得に失敗しました');
     }
-    await supabaseService.createSanityProject(authResult.userId!, projectId, dataset);
+    const userId = authResult.userId;
+
+    // 1. Sanityプロジェクト情報を保存
+    await supabaseService.createSanityProject(userId, projectId, dataset);
+
+    // 2. WordPress設定情報を保存 (SupabaseServiceに新しいメソッドが必要)
+    // このメソッドは supabaseService.createOrUpdateWordPressSettings(userId, wpClientId, wpClientSecret, wpSiteId) のようなシグネチャを想定しています。
+    // wpClientSecret の暗号化もここで検討できますが、まずはプレーンテキストで保存します。
+    await supabaseService.createOrUpdateWordPressSettings(
+      userId,
+      wpClientId,
+      wpClientSecret,
+      wpSiteId
+    ); // 仮のメソッド呼び出し
   } catch (error) {
+    console.error('[ActionError] createSanityProject:', error); // エラーログを詳細に
     throw new Error(
       error instanceof Error ? error.message : 'サーバー側で予期せぬエラーが発生しました。'
     );

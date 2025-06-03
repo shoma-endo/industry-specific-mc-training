@@ -290,4 +290,36 @@ export class SupabaseService {
       dataset: data.dataset,
     };
   }
+
+  /**
+   * wordpress_settingsテーブルにユーザーのWordPress設定を挿入または更新 (Upsert)
+   */
+  async createOrUpdateWordPressSettings(
+    userId: string,
+    wpClientId: string,
+    wpClientSecret: string,
+    wpSiteId: string
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('wordpress_settings')
+      .upsert(
+        {
+          user_id: userId,
+          wp_client_id: wpClientId,
+          wp_client_secret: wpClientSecret, // 注意: 現状は平文で保存されます
+          wp_site_id: wpSiteId,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'user_id', // user_id が重複した場合は更新
+        }
+      )
+      .select(); // .select() はコメントの意図を尊重し残す
+
+    if (error) {
+      console.error('Error upserting WordPress settings:', error);
+      throw new Error(`WordPress設定の保存または更新に失敗しました: ${error.message}`);
+    }
+    // console.log('WordPress settings saved/updated successfully for user:', userId); // data を使っていたログは修正が必要
+  }
 }
