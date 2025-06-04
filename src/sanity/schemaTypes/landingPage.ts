@@ -41,15 +41,26 @@ export default defineType({
       title: 'URL スラッグ',
       type: 'slug',
       options: { source: 'hero.title', maxLength: 96 },
-      validation: (Rule) =>
+      validation: Rule =>
         Rule.required().custom(async (slug, context) => {
           const userId = context.document?.userId;
           if (!slug || !userId) return true; // slug or userIdが無ければスキップ
-          const existing = await context.getClient({ apiVersion: '2023-01-01' }).fetch(
-            `*[_type == "landingPage" && slug.current == $slug && userId == $userId && _id != $id][0]`,
-            { slug: slug.current, userId, id: context.document?._id }
-          );
-          return existing ? 'このスラッグは既に存在します（あなたのLP内で重複しています）' : true;
+
+          // 編集中のドキュメントIDから 'drafts.' プレフィックスを除去
+          const docId = context.document?._id.replace(/^drafts\./, '');
+          const params = {
+            draft: `drafts.${docId}`,
+            published: docId,
+            slug: slug.current,
+            userId,
+          };
+          // 自分自身（draft と published の両方）を除外して重複チェックを行うクエリ
+          const query = `!defined(*[_type == "landingPage" && !(_id in [$draft, $published]) && slug.current == $slug && userId == $userId][0]._id)`;
+          const isUnique = await context
+            .getClient({ apiVersion: '2023-01-01' })
+            .fetch(query, params);
+
+          return isUnique ? true : 'このスラッグは既に存在します（あなたのLP内で重複しています）';
         }),
     }),
     // ポイント（Why Choose）セクション
