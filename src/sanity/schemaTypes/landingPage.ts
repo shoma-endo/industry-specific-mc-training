@@ -1,5 +1,6 @@
 // src/sanity/schemaTypes/landingPage.ts
 import { defineType, defineField, defineArrayMember } from 'sanity';
+import { slugify as transliterateSlugify } from 'transliteration';
 
 // ランディングページ全体を表すLiteWordのドキュメントタイプ
 export default defineType({
@@ -40,7 +41,22 @@ export default defineType({
       name: 'slug',
       title: 'URL スラッグ',
       type: 'slug',
-      options: { source: 'hero.title', maxLength: 96 },
+      options: {
+        source: (doc: { hero?: { title?: string | null }; [key: string]: unknown }) => {
+          return doc.hero?.title ?? '';
+        },
+        slugify: (input: string): string => {
+          const slugifyOptions = {
+            lowercase: true,
+            separator: '-',
+            replace: { '+': 'plus' },
+            allowedChars: 'a-zA-Z0-9-',
+          };
+          const slug = transliterateSlugify(input, slugifyOptions);
+          return slug.slice(0, 96);
+        },
+        maxLength: 96,
+      },
       validation: Rule =>
         Rule.required().custom(async (slug, context) => {
           const userId = context.document?.userId;
