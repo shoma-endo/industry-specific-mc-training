@@ -30,42 +30,23 @@ export async function GET() {
       return NextResponse.json({ userId: null });
     }
 
+    // トークンがリフレッシュされたか、または元のトークンが有効
+    const tokenToUse = authResult.newAccessToken || accessToken;
+    const user = await userService.getUserFromLiffToken(tokenToUse);
+
+    // レスポンスを一度だけ作成
+    const response = NextResponse.json({
+      userId: user?.id || null,
+      tokenRefreshed: !!authResult.newAccessToken, // newAccessToken があれば true
+    });
+
     // 新しいトークンが取得された場合、クッキーを更新
-    let currentAccessToken = accessToken;
     if (authResult.newAccessToken) {
-      currentAccessToken = authResult.newAccessToken;
-
-      const response = NextResponse.json({ userId: null }); // 一時的なレスポンス
-
-      // 新しいアクセストークンをクッキーに設定
       response.cookies.set('line_access_token', authResult.newAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 60 * 30, // 30分
-      });
-
-      // 新しいリフレッシュトークンが提供された場合
-      if (authResult.newRefreshToken) {
-        response.cookies.set('line_refresh_token', authResult.newRefreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 60 * 60 * 24 * 30, // 30日
-        });
-      }
-    }
-
-    const user = await userService.getUserFromLiffToken(currentAccessToken);
-
-    if (authResult.newAccessToken) {
-      const response = NextResponse.json({ userId: user?.id || null, tokenRefreshed: true });
-
-      // 新しいトークンでクッキーを更新
-      response.cookies.set('line_access_token', authResult.newAccessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'strict', // 'lax' から 'strict' に変更を推奨（セキュリティ向上）
+        path: '/', // path を追加
         maxAge: 60 * 30, // 30分
       });
 
@@ -73,15 +54,13 @@ export async function GET() {
         response.cookies.set('line_refresh_token', authResult.newRefreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
+          sameSite: 'strict', // 'lax' から 'strict' に変更を推奨
+          path: '/', // path を追加
           maxAge: 60 * 60 * 24 * 30, // 30日
         });
       }
-
-      return response;
     }
-
-    return NextResponse.json({ userId: user?.id || null });
+    return response;
   } catch (error) {
     console.error('[User Current API] Error:', error);
     return NextResponse.json({ userId: null });

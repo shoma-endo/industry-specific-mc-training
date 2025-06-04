@@ -22,24 +22,35 @@ export class LineAuthService {
     expires_in: number;
     refresh_token?: string;
   }> => {
+    console.log(
+      `[LINE Auth] refreshToken called with refreshToken: ${refreshToken ? refreshToken.substring(0, 5) + '...' + refreshToken.substring(refreshToken.length - 5) : 'undefined'}`
+    );
     try {
+      const bodyParams = {
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: env.NEXT_PUBLIC_LIFF_CHANNEL_ID,
+        client_secret: env.LINE_CHANNEL_SECRET,
+      };
+      console.log(
+        `[LINE Auth] Refresh token request body (client_id, refresh_token): client_id=${bodyParams.client_id}, refresh_token=${bodyParams.refresh_token ? bodyParams.refresh_token.substring(0, 5) + '...' + bodyParams.refresh_token.substring(bodyParams.refresh_token.length - 5) : 'undefined'}`
+      );
+
       const response = await fetch('https://api.line.me/oauth2/v2.1/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: refreshToken,
-          client_id: env.NEXT_PUBLIC_LIFF_CHANNEL_ID,
-          client_secret: env.LINE_CHANNEL_SECRET, // 環境変数に追加が必要
-        }),
+        body: new URLSearchParams(bodyParams),
       });
 
       const data = await response.json();
+      console.log('[LINE Auth] Token refresh response data:', data);
 
       if (!response.ok) {
-        throw new Error(`[LINE Token Refresh] ${data.error}: ${data.error_description}`);
+        throw new Error(
+          `[LINE Token Refresh] ${data.error || 'Unknown error'}: ${data.error_description || 'No description'}`
+        );
       }
 
       return data;
@@ -60,13 +71,18 @@ export class LineAuthService {
     newRefreshToken?: string;
     needsReauth?: boolean;
   }> => {
+    console.log(
+      `[LINE Auth] verifyLineTokenWithRefresh called with accessToken: ${accessToken ? accessToken.substring(0, 5) + '...' + accessToken.substring(accessToken.length - 5) : 'undefined'}, refreshTokenValue exists: ${!!refreshTokenValue}`
+    );
     try {
       // まず現在のアクセストークンを検証
       await this.verifyLineToken(accessToken);
       return { isValid: true };
     } catch (error) {
       if (error instanceof LineTokenExpiredError && refreshTokenValue) {
-        console.log('[LINE Auth] Access token expired, attempting refresh...');
+        console.log(
+          '[LINE Auth] Access token expired, attempting refresh with provided refreshTokenValue...'
+        );
 
         try {
           // リフレッシュトークンを使用して新しいアクセストークンを取得
@@ -150,9 +166,14 @@ export class LineAuthService {
         );
       }
       if (responseData.expires_in < 0) {
-        throw new Error(`Line access token is expired: ${responseData.expires_in}`);
+        throw new LineTokenExpiredError(
+          `Line access token is expired (expires_in: ${responseData.expires_in})`
+        );
       }
     } catch (error) {
+      if (error instanceof LineTokenExpiredError) {
+        throw error;
+      }
       if (error instanceof Error) {
         // 既に[LINE Token Verification]プレフィックスが付いている場合は重複を避ける
         if (error.message.includes('[LINE Token Verification]')) {

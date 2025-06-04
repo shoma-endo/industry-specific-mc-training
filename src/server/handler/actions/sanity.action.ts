@@ -1,25 +1,38 @@
 'use server';
 
 import { userService } from '@/server/services/userService';
-import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { authMiddleware, AuthMiddlewareResult } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { cookies } from 'next/headers';
 const supabaseService = new SupabaseService();
 
 /**
  * ユーザーに紐づくSanityプロジェクトをLIFFアクセストークン経由で取得する
  */
 export async function getSanityProject(liffAccessToken: string) {
-  // LIFFアクセストークンからLINEユーザー情報を取得
-  const authResult = await authMiddleware(liffAccessToken);
-  if (authResult.error || authResult.requiresSubscription) {
-    throw new Error('LIFFユーザーの取得に失敗しました');
+  const cookieStore = await cookies();
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+
+  const authResult: AuthMiddlewareResult = await authMiddleware(liffAccessToken, refreshToken);
+
+  if (authResult.error) {
+    let errorMessage = 'LIFFユーザーの認証に失敗しました';
+    errorMessage += `: ${authResult.error}`;
+    throw new Error(errorMessage);
   }
-  const user = await userService.getUserFromLiffToken(liffAccessToken);
-  if (!user) {
-    throw new Error('LIFFユーザーの取得に失敗しました');
+
+  if (!authResult.userId) {
+    throw new Error(
+      'LIFFユーザーの認証に成功しましたが、アプリケーションユーザーIDが取得できませんでした。'
+    );
   }
-  // Supabase認証ユーザーIDをLINEユーザーIDで取得
-  const project = await supabaseService.getSanityProjectByUserId(authResult.userId!);
+
+  const project = await supabaseService.getSanityProjectByUserId(authResult.userId);
+  if (!project) {
+    throw new Error(
+      `SanityプロジェクトがユーザーID ${authResult.userId} に対して見つかりませんでした。`
+    );
+  }
   return project;
 }
 
