@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json();
-    const { access_token, blog_id, blog_url, expires_in, token_type } = tokenData;
+    const { access_token, expires_in } = tokenData;
 
     if (!access_token) {
       console.error('Access token not found in response from WordPress.com', tokenData);
