@@ -15,6 +15,7 @@ const exportRequestSchema = z.object({
   userId: z.string().optional(), // ★ 追加: userId をスキーマに追加 (任意)
   publishStatus: z.enum(['draft', 'publish']).default('draft'),
   updateExisting: z.boolean().default(false),
+  exportType: z.enum(['post', 'page']).default('post'), // ★ 追加: エクスポートタイプ
 });
 
 export async function POST(request: NextRequest) {
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
       userId: requestUserId,
       publishStatus,
       updateExisting,
+      exportType, // ★ 追加: exportType を展開
     } = validatedData;
 
     // LIFF認証チェックを元に戻す
@@ -105,14 +107,22 @@ export async function POST(request: NextRequest) {
     wpExportPayload.status = publishStatus;
     wpExportPayload.updateExisting = updateExisting;
 
-    // WordPress にエクスポート
-    const exportResult = await wordpressService.exportToWordPress(wpExportPayload);
+    // WordPress にエクスポートタイプに応じて処理を分岐
+    let exportResult;
+    const exportTargetName = exportType === 'page' ? '固定ページ' : '投稿';
+
+    if (exportType === 'page') {
+      exportResult = await wordpressService.exportPageToWordPress(wpExportPayload);
+    } else {
+      exportResult = await wordpressService.exportPostToWordPress(wpExportPayload);
+    }
 
     if (!exportResult.success || !exportResult.data) {
       return NextResponse.json(
         {
           success: false,
-          error: exportResult.error || 'WordPressへのエクスポートに失敗しました。',
+          error:
+            exportResult.error || `WordPressへの${exportTargetName}エクスポートに失敗しました。`,
         },
         { status: exportResult.error?.toLowerCase().includes('token') ? 401 : 400 }
       );
@@ -122,16 +132,18 @@ export async function POST(request: NextRequest) {
       success: true,
       message:
         updateExisting && exportResult.data.status === 'publish'
-          ? `WordPressの既存投稿を更新しました（ID: ${exportResult.data.ID}）`
-          : 'WordPressに新しい投稿を作成/更新しました',
+          ? `WordPressの既存${exportTargetName}を更新しました（ID: ${exportResult.data.ID}）`
+          : `WordPressに新しい${exportTargetName}を作成/更新しました`,
       data: {
         postId: exportResult.data.ID,
-        postUrl: exportResult.data.URL,
+        postUrl: exportResult.data.link,
         title: exportResult.data.title,
         slug: exportResult.data.slug || slug,
         status: exportResult.data.status,
         action: updateExisting ? 'updated' : 'created',
+        exportType: exportType,
       },
+      postUrl: exportResult.postUrl,
     });
   } catch (error) {
     console.error('WordPress export error:', error);

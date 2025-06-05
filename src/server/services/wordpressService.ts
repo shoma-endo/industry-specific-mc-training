@@ -19,21 +19,27 @@ export class WordPressService {
   constructor(auth: WordPressComAuth) {
     this.accessToken = auth.accessToken;
     this.siteId = auth.siteId;
-    // Base URL for WordPress.com API v1.1
-    this.baseUrl = `https://public-api.wordpress.com/rest/v1.1/sites/${this.siteId}`;
+    // Base URL for WordPress.com API v2
+    this.baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${this.siteId}`;
   }
 
   /**
    * WordPress.com接続テスト (サイト情報の取得)
+   * API v2では /settings エンドポイントなどが考えられるが、v1.1のルートエンドポイントで情報が取れるか確認
    */
   async testConnection(): Promise<WordPressApiResult<WordPressSiteInfo>> {
     try {
-      const response = await fetch(`${this.baseUrl}`, {
-        // Endpoint to get site information
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-        },
-      });
+      // v2 の場合、サイトの基本情報を取得するエンドポイントは /context または /settings などになる場合がある
+      // もしくは v1.1 の /sites/{site_id} が v2 でも利用可能か確認が必要
+      // ここでは一旦、v1.1の挙動に近い / エンドポイントで試みるが、API仕様の確認が最も重要
+      const response = await fetch(
+        `https://public-api.wordpress.com/rest/v1.1/sites/${this.siteId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({ message: response.statusText }));
@@ -45,23 +51,13 @@ export class WordPressService {
 
       const siteData = await response.json();
 
-      // Map the response to WordPressSiteInfo
-      // The structure of siteData will be different from wp-json/wp/v2/settings
-      // Refer to WordPress.com API documentation for the exact structure
-      // Example mapping (adjust based on actual response):
       return {
         success: true,
         data: {
-          name: siteData.name || siteData.title, // .name is common, .title might exist
-          url: siteData.URL || siteData.url, // .URL is common
-          description: siteData.description, // .description might exist
+          name: siteData.name || siteData.title,
+          url: siteData.URL || siteData.url,
+          description: siteData.description,
         },
-        // siteInfo is deprecated or redundant in this structure, data holds the info
-        // siteInfo: {
-        //   name: siteData.name || siteData.title,
-        //   url: siteData.URL || siteData.url,
-        //   description: siteData.description,
-        // },
       };
     } catch (error) {
       console.error('Error in testConnection:', error);
@@ -73,58 +69,175 @@ export class WordPressService {
   }
 
   /**
-   * スラッグで既存投稿を検索 (WordPress.com API)
+   * スラッグで既存コンテンツ (投稿または固定ページ) を検索 (WordPress.com API v2)
    */
-  async findExistingPost(slug: string): Promise<WordPressApiResult<WordPressPostResponse | null>> {
+  async findExistingContent(
+    slug: string,
+    type: 'posts' | 'pages' = 'posts'
+  ): Promise<WordPressApiResult<WordPressPostResponse | null>> {
     try {
-      // WordPress.com API v1.1では、/posts エンドポイントで slug パラメータが利用できるか確認が必要。
-      // 利用できない場合、?search=slug や、全件取得してフィルタリングするなどの代替策を検討。
-      const response = await fetch(`${this.baseUrl}/posts?slug=${encodeURIComponent(slug)}`, {
+      const endpoint = `${this.baseUrl}/${type}?slug=${encodeURIComponent(slug)}`;
+      const response = await fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
         },
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          return { success: true, data: null }; // Not found is not an error here
+        }
         const errorBody = await response.json().catch(() => ({ message: response.statusText }));
         return {
           success: false,
-          error: `投稿検索エラー (${slug}): ${errorBody.message || response.statusText}`,
+          error: `${type === 'pages' ? '固定ページ' : '投稿'}検索エラー (${slug}): ${errorBody.message || response.statusText}`,
         };
       }
 
-      const result = await response.json();
-      // WordPress.com APIのレスポンスは { found: number, posts: array } の形式になることが多い。
-      const existingPost = result.posts && result.posts.length > 0 ? result.posts[0] : null;
+      const items: WordPressPostResponse[] = await response.json();
+      let resultData: WordPressPostResponse | null = null;
+
+      const exactMatch = items.find(item => item.slug === slug);
+
+      if (exactMatch) {
+        resultData = exactMatch;
+      } else if (items && items.length > 0 && items[0] !== undefined) {
+        resultData = items[0];
+      }
 
       return {
         success: true,
-        data: existingPost,
+        data: resultData,
       };
     } catch (error) {
-      console.error(`Error in findExistingPost for slug ${slug}:`, error);
+      console.error(`Error in findExistingContent for slug ${slug} (type: ${type}):`, error);
       return {
         success: false,
         error:
           error instanceof Error
             ? error.message
-            : `Unknown error during findExistingPost for ${slug}`,
+            : `Unknown error during findExistingContent for ${slug} (type: ${type})`,
       };
     }
   }
 
   /**
-   * WordPressにエクスポート（新規作成または更新）(WordPress.com API)
+   * WordPressに固定ページとしてエクスポート（新規作成または更新）(WordPress.com API v2)
    */
-  async exportToWordPress(
+  async exportPageToWordPress(
+    data: WordPressExportData
+  ): Promise<WordPressApiResult<WordPressPostResponse>> {
+    try {
+      let existingPage: WordPressPostResponse | null = null;
+
+      if (data.updateExisting && data.slug) {
+        const findResult = await this.findExistingContent(data.slug, 'pages');
+        if (findResult.success && findResult.data) {
+          existingPage = findResult.data;
+        }
+      }
+
+      let featuredMediaId: number | undefined;
+      if (data.featuredImageUrl) {
+        const mediaResult = await this.uploadFeaturedImage(data.featuredImageUrl);
+        if (mediaResult.success && mediaResult.data) {
+          featuredMediaId = mediaResult.data.id;
+        }
+      }
+
+      const pageData: {
+        title: string;
+        content: string;
+        status: 'draft' | 'publish';
+        excerpt?: string;
+        slug?: string;
+        featured_media?: number;
+        template?: string;
+      } = {
+        title: data.title,
+        content: data.content,
+        status: data.status,
+      };
+
+      if (data.excerpt) {
+        pageData.excerpt = data.excerpt;
+      }
+      if (data.slug) {
+        pageData.slug = data.slug;
+      }
+
+      if (featuredMediaId) {
+        pageData.featured_media = featuredMediaId;
+      }
+
+      let response: Response;
+      let actionType: string;
+      let endpoint: string;
+
+      if (existingPage && existingPage.ID) {
+        endpoint = `${this.baseUrl}/pages/${existingPage.ID}`;
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+          body: JSON.stringify(pageData),
+        });
+        actionType = '更新';
+      } else {
+        endpoint = `${this.baseUrl}/pages`;
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+          body: JSON.stringify(pageData),
+        });
+        actionType = '作成';
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        console.error(`固定ページ${actionType}エラー:`, endpoint, errorData);
+        return {
+          success: false,
+          error:
+            `固定ページ${actionType}エラー: ${errorData.message || response.statusText}` +
+            (errorData.error ? ` (${errorData.error})` : ''),
+        };
+      }
+
+      const pageResponse: WordPressPostResponse = await response.json();
+      console.log('WordPress API Response (Page):', JSON.stringify(pageResponse, null, 2));
+
+      return {
+        success: true,
+        data: pageResponse,
+        postUrl: pageResponse.link,
+      };
+    } catch (error) {
+      console.error('Error in exportPageToWordPress:', error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Unknown error during exportPageToWordPress',
+      };
+    }
+  }
+
+  /**
+   * WordPressに投稿としてエクスポート（新規作成または更新）(WordPress.com API v2)
+   */
+  async exportPostToWordPress(
     data: WordPressExportData
   ): Promise<WordPressApiResult<WordPressPostResponse>> {
     try {
       let existingPost: WordPressPostResponse | null = null;
 
       if (data.updateExisting && data.slug) {
-        // Ensure slug exists for finding
-        const findResult = await this.findExistingPost(data.slug);
+        const findResult = await this.findExistingContent(data.slug, 'posts');
         if (findResult.success && findResult.data) {
           existingPost = findResult.data;
         }
@@ -138,24 +251,26 @@ export class WordPressService {
         }
       }
 
-      // WordPress.com API用の投稿データ構造に調整が必要な場合がある
       const postData: {
         title: string;
         content: string;
-        excerpt: string;
-        slug: string;
         status: 'draft' | 'publish';
-        featured_image?: number; // featured_image をオプションプロパティとして追加
+        excerpt?: string;
+        slug?: string;
+        featured_media?: number;
       } = {
         title: data.title,
         content: data.content,
-        excerpt: data.excerpt || '',
-        slug: data.slug,
         status: data.status,
-        // featured_image は条件に応じて後から追加するため、初期値には含めない
       };
+      if (data.excerpt) {
+        postData.excerpt = data.excerpt;
+      }
+      if (data.slug) {
+        postData.slug = data.slug;
+      }
       if (featuredMediaId) {
-        postData.featured_image = featuredMediaId; // Or the correct field name for WordPress.com API
+        postData.featured_media = featuredMediaId;
       }
 
       let response: Response;
@@ -163,11 +278,9 @@ export class WordPressService {
       let endpoint: string;
 
       if (existingPost && existingPost.ID) {
-        // WordPress.com APIではIDフィールド名が 'ID' (大文字) であることが多い
-        // 既存投稿を更新
         endpoint = `${this.baseUrl}/posts/${existingPost.ID}`;
         response = await fetch(endpoint, {
-          method: 'POST', // WordPress.com API v1.1では更新もPOSTを使うことが多い
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${this.accessToken}`,
@@ -176,8 +289,7 @@ export class WordPressService {
         });
         actionType = '更新';
       } else {
-        // 新規投稿作成
-        endpoint = `${this.baseUrl}/posts/new`;
+        endpoint = `${this.baseUrl}/posts`;
         response = await fetch(endpoint, {
           method: 'POST',
           headers: {
@@ -199,28 +311,33 @@ export class WordPressService {
       }
 
       const post: WordPressPostResponse = await response.json();
+      console.log('WordPress API Response (Post):', JSON.stringify(post, null, 2));
 
       return {
         success: true,
-        data: post, // レスポンス構造を WordPressPostResponse に合わせる必要あり
-        postUrl: post.URL, // WordPress.com APIではURLフィールド名が 'URL' (大文字) であることが多い
+        data: post,
+        postUrl: post.link,
       };
     } catch (error) {
-      console.error('Error in exportToWordPress:', error);
+      console.error('Error in exportPostToWordPress:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error during exportToWordPress',
+        error:
+          error instanceof Error ? error.message : 'Unknown error during exportPostToWordPress',
       };
     }
   }
 
   /**
-   * フィーチャード画像をアップロード (WordPress.com API)
-   * WordPress.com API v1.1ではメディアアップロードに multipart/form-data を使用することが多い
+   * フィーチャード画像をアップロード (WordPress.com API v1.1)
+   * 注意: このメソッドはv1.1 APIを対象としています。
+   * v2 APIでメディアを扱う場合は仕様確認と修正が必要です。
    */
   private async uploadFeaturedImage(
     imageUrl: string
   ): Promise<WordPressApiResult<{ id: number; URL: string }>> {
+    // v1.1のメディアアップロードエンドポイントを使用
+    const v1MediaUploadUrl = `https://public-api.wordpress.com/rest/v1.1/sites/${this.siteId}/media/new`;
     try {
       const imageResponse = await fetch(imageUrl);
       if (!imageResponse.ok) {
@@ -235,21 +352,12 @@ export class WordPressService {
       const filename = `featured-image-${Date.now()}.${contentType.split('/')[1] || 'jpg'}`;
 
       const formData = new FormData();
-      // 'media[]' はWordPress.com APIの期待するフィールド名。ドキュメントで確認。
-      // または 'media[0]' のようにインデックスが必要な場合も。
-      // 複数のファイルをアップロードする場合は 'media[]' で配列として送信するのが一般的。
       formData.append('media[]', imageBlob, filename);
-      // formData.append('attrs[0][title]', 'My Awesome Image'); // オプションでタイトルなどの属性も指定可能
-      // formData.append('attrs[0][caption]', 'This is a caption.');
-      // formData.append('attrs[0][description]', 'Image description.');
 
-      const uploadResponse = await fetch(`${this.baseUrl}/media/new`, {
-        // または /media エンドポイント
+      const uploadResponse = await fetch(v1MediaUploadUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
-          // 'Content-Type': 'multipart/form-data' は通常ブラウザが自動で設定するが、明示しない方が良い場合もある。
-          // Next.jsのfetchやnode-fetchでは手動設定が必要な場合あり。Node環境ではライブラリ(form-data)が必要になることも。
         },
         body: formData,
       });
@@ -266,7 +374,6 @@ export class WordPressService {
       }
 
       const mediaData = await uploadResponse.json();
-      // WordPress.com APIのレスポンスは { media: [...] } の形式で、配列の最初の要素がアップロードされたメディアになることが多い。
       const uploadedMedia =
         mediaData.media && mediaData.media.length > 0 ? mediaData.media[0] : null;
 
@@ -280,7 +387,7 @@ export class WordPressService {
 
       return {
         success: true,
-        data: { id: uploadedMedia.ID, URL: uploadedMedia.URL }, // IDとURLを返す
+        data: { id: uploadedMedia.ID, URL: uploadedMedia.URL },
       };
     } catch (error) {
       console.error('Error in uploadFeaturedImage:', error);

@@ -25,11 +25,11 @@ export interface WordPressExportData {
  */
 export interface WordPressPostResponse {
   ID: number; // id から ID に変更
-  URL: string; // link から URL に変更
+  link: string; // ★ 変更: URL から link に変更 (実際のAPIレスポンスに合わせる)
   status: string;
-  title: string; // title.rendered から title に変更 (実際のAPIレスポンス構造に合わせて調整)
-  content: string; // content.rendered から content に変更 (実際のAPIレスポンス構造に合わせて調整)
-  excerpt?: string;
+  title: any; // title.rendered から title に変更 (実際のAPIレスポンス構造に合わせて調整)
+  content: any; // content.rendered から content に変更 (実際のAPIレスポンス構造に合わせて調整)
+  excerpt?: any;
   author?: { ID: number; login: string; name: string; URL: string; avatar_URL: string };
   date?: string;
   modified?: string;

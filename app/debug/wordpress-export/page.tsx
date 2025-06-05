@@ -23,6 +23,7 @@ interface ExportResult {
     status: string;
     action: 'created' | 'updated';
     postUrl?: string;
+    exportType?: 'post' | 'page';
   };
   needsWordPressAuth?: boolean;
 }
@@ -36,6 +37,7 @@ export default function WordPressExportDebugPage() {
     userId: '',
     publishStatus: 'draft' as 'draft' | 'publish',
     updateExisting: false,
+    exportType: 'post' as 'post' | 'page',
   });
   const [result, setResult] = useState<ExportResult | null>(null);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
@@ -138,6 +140,7 @@ export default function WordPressExportDebugPage() {
           userId: formData.userId,
           publishStatus: formData.publishStatus,
           updateExisting: formData.updateExisting,
+          exportType: formData.exportType,
         }),
         credentials: 'include',
       });
@@ -245,6 +248,14 @@ export default function WordPressExportDebugPage() {
                 同じスラッグの既存投稿があれば更新する
               </label>
             </div>
+            <select
+              value={formData.exportType}
+              onChange={e => updateFormData('exportType', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2"
+            >
+              <option value="post">投稿としてエクスポート</option>
+              <option value="page">固定ページとしてエクスポート</option>
+            </select>
           </div>
 
           {/* アクション */}
@@ -297,6 +308,9 @@ export default function WordPressExportDebugPage() {
                   <p>投稿ID: {result.data.postId}</p>
                   <p>ステータス: {result.data.status}</p>
                   <p>アクション: {result.data.action}</p>
+                  {result.data.exportType && (
+                    <p>タイプ: {result.data.exportType === 'page' ? '固定ページ' : '投稿'}</p>
+                  )}
                   {result.data.postUrl && (
                     <p>
                       投稿URL:{' '}
