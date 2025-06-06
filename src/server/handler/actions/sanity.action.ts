@@ -29,9 +29,7 @@ export async function getSanityProject(liffAccessToken: string) {
 
   const project = await supabaseService.getSanityProjectByUserId(authResult.userId);
   if (!project) {
-    throw new Error(
-      `SanityプロジェクトがユーザーID ${authResult.userId} に対して見つかりませんでした。`
-    );
+    return null;
   }
   return project;
 }
@@ -57,15 +55,15 @@ export async function createSanityProject(
     // 1. Sanityプロジェクト情報を保存
     await supabaseService.createSanityProject(userId, projectId, dataset);
 
-    // 2. WordPress設定情報を保存 (SupabaseServiceに新しいメソッドが必要)
-    // このメソッドは supabaseService.createOrUpdateWordPressSettings(userId, wpClientId, wpClientSecret, wpSiteId) のようなシグネチャを想定しています。
-    // wpClientSecret の暗号化もここで検討できますが、まずはプレーンテキストで保存します。
-    await supabaseService.createOrUpdateWordPressSettings(
-      userId,
-      wpClientId,
-      wpClientSecret,
-      wpSiteId
-    ); // 仮のメソッド呼び出し
+    // 2. WordPress設定情報が提供されている場合のみ保存
+    if (wpClientId && wpClientSecret && wpSiteId) {
+      await supabaseService.createOrUpdateWordPressSettings(
+        userId,
+        wpClientId,
+        wpClientSecret,
+        wpSiteId
+      );
+    }
   } catch (error) {
     console.error('[ActionError] createSanityProject:', error); // エラーログを詳細に
     throw new Error(

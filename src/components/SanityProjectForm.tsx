@@ -55,8 +55,8 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50 px-4">
-      <Card className="w-full max-w-3xl p-6 rounded-2xl shadow-md">
+    <div className="flex justify-center bg-gray-50 px-4 py-12 min-h-screen">
+      <Card className="w-full max-w-5xl p-6 rounded-2xl shadow-md">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center mb-4">連携サービス設定</CardTitle>
         </CardHeader>
@@ -140,7 +140,7 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
               </fieldset>
 
               <fieldset className="border p-4 rounded-md w-full md:w-1/2">
-                <legend className="text-lg font-medium px-1">WordPress.com 設定</legend>
+                <legend className="text-lg font-medium px-1">WordPress.com 設定 (任意)</legend>
 
                 <div className="mb-4 mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
                   <p className="font-semibold mb-1">WordPress.com アプリケーションの準備</p>
@@ -190,7 +190,6 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                       placeholder="WordPress.comアプリケーションのクライアントID"
                       value={wpClientId}
                       onChange={e => setWpClientId(e.target.value)}
-                      required
                       className="w-full"
                     />
                   </div>
@@ -205,7 +204,6 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                       placeholder="WordPress.comアプリケーションのクライアントシークレット"
                       value={wpClientSecret}
                       onChange={e => setWpClientSecret(e.target.value)}
-                      required
                       className="w-full"
                     />
                   </div>
@@ -220,7 +218,6 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                       placeholder="例: 123456789 または yoursite.wordpress.com"
                       value={wpSiteId}
                       onChange={e => setWpSiteId(e.target.value)}
-                      required
                       className="w-full"
                     />
                     <p className="text-xs text-gray-500 pt-1">
