@@ -14,7 +14,7 @@ interface SessionDetails {
 
 export default function SubscriptionSuccessPage() {
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get('session_id');
+  const sessionId = searchParams?.get('session_id');
   const { getAccessToken } = useLiff();
   const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export default function SubscriptionSuccessPage() {
     };
 
     fetchSessionDetails();
-  }, [sessionId]);
+  }, [sessionId, getAccessToken]);
 
   return (
     <div className="container mx-auto px-4 py-12">

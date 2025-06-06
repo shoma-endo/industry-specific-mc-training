@@ -16,7 +16,7 @@ export function Footer() {
   const pathname = usePathname();
 
   // LPプレビューページでは Footer を非表示に
-  if (pathname.startsWith('/landingPage')) {
+  if (pathname?.startsWith('/landingPage')) {
     return null;
   }
 
