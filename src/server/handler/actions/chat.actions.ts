@@ -33,7 +33,8 @@ const continueChatSchema = z.object({
 
 const SYSTEM_PROMPTS: Record<string, string> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-  'semrush_search': AD_COPY_PROMPT,
+  // 'semrush_search': AD_COPY_PROMPT, // semrushは契約してから使う
+  'ad_copy_creation': AD_COPY_PROMPT,
   'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
   // TODO: AIモデルは追加時にここに追加
 };
@@ -287,6 +288,14 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
       userMessage.trim(),
       searchResult
     );
+  } else if (model === 'ad_copy_creation') {
+    // 広告文作成モデル - AD_COPY_PROMPTを使用してgpt-4.1-nano-2025-04-14で処理
+    return await chatService.startChat(
+      userId,
+      systemPrompt,
+      userMessage.trim(),
+      'gpt-4.1-nano-2025-04-14'
+    );
   }
 
   return chatService.startChat(userId, systemPrompt, userMessage, model);
@@ -358,6 +367,19 @@ export async function continueChat(
         'gpt-4.1-nano-2025-04-14',
         userMessage.trim(),
         searchResult
+      );
+    } else if (model === 'ad_copy_creation') {
+      // 広告文作成モデル - AD_COPY_PROMPTを使用してgpt-4.1-nano-2025-04-14で処理
+      return await chatService.continueChat(
+        userId,
+        sessionId,
+        userMessage.trim(),
+        systemPrompt,
+        messages.map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content,
+        })),
+        'gpt-4.1-nano-2025-04-14'
       );
     }
 
