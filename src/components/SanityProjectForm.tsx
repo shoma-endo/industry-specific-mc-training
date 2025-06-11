@@ -12,8 +12,6 @@ interface Props {
 }
 
 export default function SanityProjectForm({ liffAccessToken }: Props) {
-  const [projectId, setProjectId] = useState('');
-  const [dataset, setDataset] = useState('');
   const [wpClientId, setWpClientId] = useState('');
   const [wpClientSecret, setWpClientSecret] = useState('');
   const [wpSiteId, setWpSiteId] = useState('');
@@ -34,21 +32,23 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
         return;
       }
 
+      // WordPress設定のみを保存（Sanityプロジェクト情報は空で保存）
       await createSanityProject(
         liffAccessToken,
-        projectId,
-        dataset,
+        '', // projectId
+        '', // dataset
         wpClientId,
         wpClientSecret,
         wpSiteId
       );
 
       setLoading(false);
-      router.refresh();
-      alert('設定を保存しました。');
+      alert('WordPress.com設定を保存しました。');
+      // ランディングページ作成画面に遷移
+      router.push('/ad-form');
     } catch (error: unknown) {
       console.error('[SanityForm] Error in handleSubmit:', error);
-      const message = error instanceof Error ? error.message : '設定の保存に失敗しました';
+      const message = error instanceof Error ? error.message : 'WordPress設定の保存に失敗しました';
       setError(message);
       setLoading(false);
     }
@@ -58,11 +58,15 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
     <div className="flex justify-center bg-gray-50 px-4 py-12 min-h-screen">
       <Card className="w-full max-w-5xl p-6 rounded-2xl shadow-md">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center mb-4">連携サービス設定</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center mb-4">WordPress.com連携設定</CardTitle>
+          <p className="text-center text-gray-600">
+            ランディングページを作成・管理するために、WordPress.comとの連携設定が必要です
+          </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex flex-col md:flex-row md:space-x-6">
+              {/*
               <fieldset className="border p-4 rounded-md w-full md:w-1/2 mb-6 md:mb-0">
                 <legend className="text-lg font-medium px-1">Sanity プロジェクト</legend>
 
@@ -115,8 +119,8 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                       id="projectId"
                       type="text"
                       placeholder="例: abc123xy"
-                      value={projectId}
-                      onChange={e => setProjectId(e.target.value)}
+                      value={''}
+                      onChange={() => {}}
                       required
                       className="w-full"
                     />
@@ -130,17 +134,18 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                       id="dataset"
                       type="text"
                       placeholder="例: production"
-                      value={dataset}
-                      onChange={e => setDataset(e.target.value)}
+                      value={''}
+                      onChange={() => {}}
                       required
                       className="w-full"
                     />
                   </div>
                 </div>
               </fieldset>
+              */}
 
-              <fieldset className="border p-4 rounded-md w-full md:w-1/2">
-                <legend className="text-lg font-medium px-1">WordPress.com 設定 (任意)</legend>
+              <fieldset className="border p-4 rounded-md w-full">
+                <legend className="text-lg font-medium px-1">WordPress.com 設定</legend>
 
                 <div className="mb-4 mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
                   <p className="font-semibold mb-1">WordPress.com アプリケーションの準備</p>
@@ -191,6 +196,7 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                       value={wpClientId}
                       onChange={e => setWpClientId(e.target.value)}
                       className="w-full"
+                      required
                     />
                   </div>
 
@@ -205,6 +211,7 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                       value={wpClientSecret}
                       onChange={e => setWpClientSecret(e.target.value)}
                       className="w-full"
+                      required
                     />
                   </div>
 
@@ -219,6 +226,7 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                       value={wpSiteId}
                       onChange={e => setWpSiteId(e.target.value)}
                       className="w-full"
+                      required
                     />
                     <p className="text-xs text-gray-500 pt-1">
                       Site IDは{' '}
@@ -245,7 +253,7 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 text-base"
                 disabled={loading}
               >
-                {loading ? '保存中...' : '設定を保存'}
+                {loading ? '保存中...' : 'WordPress.com設定を保存してランディングページ作成に進む'}
               </Button>
             </div>
           </form>

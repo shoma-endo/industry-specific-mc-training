@@ -33,8 +33,8 @@ export function Footer() {
     },
     {
       icon: <FileText className="h-6 w-6" />,
-      label: 'CMS',
-      href: '/studio',
+      label: 'ランディングページ',
+      href: '/setup',
     },
   ];
 
@@ -45,8 +45,6 @@ export function Footer() {
           <Link
             key={item.label}
             href={item.href}
-            target={item.label === 'CMS' ? '_blank' : undefined}
-            rel={item.label === 'CMS' ? 'noopener noreferrer' : undefined}
             className="flex flex-col items-center justify-center w-full h-full"
           >
             <div

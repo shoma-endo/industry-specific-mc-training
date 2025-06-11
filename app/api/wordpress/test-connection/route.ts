@@ -1,13 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-// import { z } from 'zod';
-// import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { WordPressService, WordPressComAuth } from '@/server/services/wordpressService';
 
-// リクエストボディのバリデーションスキーマは不要になるためコメントアウトまたは削除
-// const testConnectionRequestSchema = z.object({
-//   liffAccessToken: z.string(),
-// });
+// WordPress.com接続状態をGETメソッドで確認
+export async function GET(request: NextRequest) {
+  try {
+    const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
+    const accessToken = request.cookies.get(tokenCookieName)?.value;
 
+    if (!accessToken) {
+      return NextResponse.json({
+        success: false,
+        connected: false,
+        message: 'WordPress.comとの連携が必要です',
+      });
+    }
+
+    const siteId = process.env.WORDPRESS_COM_SITE_ID;
+    if (!siteId) {
+      return NextResponse.json({
+        success: false,
+        connected: false,
+        message: 'WordPressサイトIDが設定されていません',
+      });
+    }
+
+    const auth: WordPressComAuth = { accessToken, siteId };
+    const wordpressService = new WordPressService(auth);
+
+    const connectionTest = await wordpressService.testConnection();
+
+    if (!connectionTest.success) {
+      return NextResponse.json({
+        success: false,
+        connected: false,
+        message: 'WordPress.comとの連携が無効です',
+        error: connectionTest.error,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      connected: true,
+      message: 'WordPress.comに接続済み',
+      siteInfo: connectionTest.data,
+    });
+  } catch (error) {
+    console.error('WordPress connection check error:', error);
+    return NextResponse.json({
+      success: false,
+      connected: false,
+      message: 'WordPress.comとの連携状態を確認できませんでした',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+// POSTメソッドは既存のテスト機能として維持
 export async function POST(request: NextRequest) {
   try {
     // LIFF Access Tokenの検証処理は削除

@@ -12,7 +12,7 @@ import {
   createCustomerPortalSession,
 } from '@/server/handler/actions/subscription.actions';
 import { Button } from '@/components/ui/button';
-import Image from 'next/image'
+import Image from 'next/image';
 
 function ProfileDisplay() {
   const { profile, isLoading, isLoggedIn, logout } = useLiffContext();

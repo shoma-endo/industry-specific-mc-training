@@ -21,22 +21,20 @@ export interface WordPressExportData {
 }
 
 /**
- * WordPress API レスポンス (WordPress.com API v1.1 向け)
+ * WordPress API レスポンス (WordPress.com API v2 向け)
  */
 export interface WordPressPostResponse {
-  ID: number; // id から ID に変更
-  link: string; // ★ 変更: URL から link に変更 (実際のAPIレスポンスに合わせる)
+  ID: number;
+  link: string;
   status: string;
-  title: string; // title.rendered から title に変更 (実際のAPIレスポンス構造に合わせて調整)
-  content: string; // content.rendered から content に変更 (実際のAPIレスポンス構造に合わせて調整)
-  excerpt?: string;
+  title: { raw: string; rendered: string } | string;
+  content: { raw: string; rendered: string } | string;
+  excerpt?: { raw: string; rendered: string } | string;
   author?: { ID: number; login: string; name: string; URL: string; avatar_URL: string };
   date?: string;
   modified?: string;
   featured_image?: string;
-  slug?: string; // WordPress.com APIの投稿オブジェクトには通常slugが含まれる
-  // 他のWordPress.com APIのフィールドも必要に応じて追加
-  // 例: terms, tags, categories など
+  slug?: string;
 }
 
 /**

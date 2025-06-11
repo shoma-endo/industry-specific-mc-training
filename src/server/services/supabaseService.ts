@@ -292,6 +292,31 @@ export class SupabaseService {
   }
 
   /**
+   * wordpress_settingsテーブルからユーザーのWordPress設定を取得
+   */
+  async getWordPressSettingsByUserId(userId: string): Promise<{
+    id: string;
+    user_id: string;
+    wp_client_id: string;
+    wp_site_id: string;
+    created_at: string;
+    updated_at: string;
+  } | null> {
+    const { data, error } = await this.supabase
+      .from('wordpress_settings')
+      .select('id, user_id, wp_client_id, wp_site_id, created_at, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Failed to fetch WordPress settings:', error);
+      return null;
+    }
+    
+    return data;
+  }
+
+  /**
    * wordpress_settingsテーブルにユーザーのWordPress設定を挿入または更新 (Upsert)
    */
   async createOrUpdateWordPressSettings(

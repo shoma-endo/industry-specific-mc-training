@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SupabaseService } from '@/server/services/supabaseService';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
+
+const supabaseService = new SupabaseService();
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -15,6 +19,13 @@ export async function GET(request: NextRequest) {
   if (!clientId || !clientSecret || !redirectUri || !cookieSecret) {
     console.error('WordPress.com OAuth callback environment variables are not set.');
     return NextResponse.json({ error: 'OAuth configuration error.' }, { status: 500 });
+  }
+
+  // LIFFアクセストークンを取得
+  const liffAccessToken = request.cookies.get('line_access_token')?.value;
+  if (!liffAccessToken) {
+    console.error('LIFF access token not found in callback');
+    return NextResponse.json({ error: 'LINE認証が必要です' }, { status: 401 });
   }
 
   const storedState = request.cookies.get(stateCookieName)?.value;
@@ -65,9 +76,54 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access token not received.' }, { status: 500 });
     }
 
+    // ユーザー認証を確認
+    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const authResult = await authMiddleware(liffAccessToken, refreshToken);
+    
+    if (authResult.error || !authResult.userId) {
+      console.error('User authentication failed in OAuth callback:', authResult.error);
+      return NextResponse.json({ error: 'ユーザー認証に失敗しました' }, { status: 401 });
+    }
+
+    // WordPress.com のサイト情報を取得
+    let siteId = process.env.WORDPRESS_COM_SITE_ID || '';
+    
+    try {
+      // もしサイトIDが設定されていない場合は、WordPress.com APIからサイト一覧を取得
+      if (!siteId) {
+        const sitesResponse = await fetch('https://public-api.wordpress.com/rest/v1.1/me/sites', {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        });
+
+        if (sitesResponse.ok) {
+          const sitesData = await sitesResponse.json();
+          if (sitesData.sites && sitesData.sites.length > 0) {
+            siteId = sitesData.sites[0].ID.toString(); // 最初のサイトを使用
+            console.log('WordPress.com site ID retrieved:', siteId);
+          }
+        }
+      }
+
+      // WordPress設定をデータベースに保存
+      if (siteId && clientId && clientSecret) {
+        await supabaseService.createOrUpdateWordPressSettings(
+          authResult.userId,
+          clientId,
+          clientSecret,
+          siteId
+        );
+        console.log('WordPress settings saved to database');
+      }
+    } catch (error) {
+      console.error('Error saving WordPress settings:', error);
+      // エラーが発生してもOAuth処理は継続
+    }
+
     // Store the access token securely in an HTTP Only cookie
     // Note: For production, consider server-side session storage for tokens.
-    const response = NextResponse.redirect(new URL('/studio', request.url)); // Redirect to Sanity Studio
+    const response = NextResponse.redirect(new URL('/setup', request.url)); // Redirect to setup page
     response.cookies.set(tokenCookieName, access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -79,11 +135,7 @@ export async function GET(request: NextRequest) {
     // Also clear the state cookie on the final response
     response.cookies.delete(stateCookieName); // Ensure state cookie is cleared
 
-    // Optionally, store blog_id and blog_url if needed for multi-site support or verification
-    // response.cookies.set('wp_blog_id', blog_id, { httpOnly: true, secure: process.env.NODE_ENV === 'production', path: '/' });
-    // response.cookies.set('wp_blog_url', blog_url, { httpOnly: true, secure: process.env.NODE_ENV === 'production', path: '/' });
-
-    console.log('WordPress.com OAuth successful. Token stored.');
+    console.log('WordPress.com OAuth successful. Redirecting to ad-form.');
     return response;
   } catch (error) {
     console.error('Error during OAuth callback:', error);

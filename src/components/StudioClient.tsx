@@ -13,6 +13,10 @@ type Props = {
 };
 
 export function StudioClient({ projectId, dataset }: Props) {
-  const config = createSanityConfig(projectId, dataset);
+  // projectIdが空文字やundefinedの場合はダミー値を使用
+  const safeProjectId = projectId || 'dummy-project';
+  const safeDataset = dataset || 'production';
+  
+  const config = createSanityConfig(safeProjectId, safeDataset);
   return <DynamicStudio config={config} />;
 }

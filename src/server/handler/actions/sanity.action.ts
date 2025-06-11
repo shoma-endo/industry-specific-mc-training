@@ -52,8 +52,8 @@ export async function createSanityProject(
     }
     const userId = authResult.userId;
 
-    // 1. Sanityプロジェクト情報を保存
-    await supabaseService.createSanityProject(userId, projectId, dataset);
+    // 1. Sanityプロジェクト情報を保存（projectIdとdatasetが空でも保存）
+    await supabaseService.createSanityProject(userId, projectId || '', dataset || '');
 
     // 2. WordPress設定情報が提供されている場合のみ保存
     if (wpClientId && wpClientSecret && wpSiteId) {
@@ -70,6 +70,31 @@ export async function createSanityProject(
       error instanceof Error ? error.message : 'サーバー側で予期せぬエラーが発生しました。'
     );
   }
+}
+
+/**
+ * ユーザーに紐づくWordPress設定をLIFFアクセストークン経由で取得する
+ */
+export async function getWordPressSettings(liffAccessToken: string) {
+  const cookieStore = await cookies();
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+
+  const authResult: AuthMiddlewareResult = await authMiddleware(liffAccessToken, refreshToken);
+
+  if (authResult.error) {
+    let errorMessage = 'LIFFユーザーの認証に失敗しました';
+    errorMessage += `: ${authResult.error}`;
+    throw new Error(errorMessage);
+  }
+
+  if (!authResult.userId) {
+    throw new Error(
+      'LIFFユーザーの認証に成功しましたが、アプリケーションユーザーIDが取得できませんでした。'
+    );
+  }
+
+  const wordpressSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
+  return wordpressSettings;
 }
 
 export async function getSanityProjectForUser(lineAccessToken: string) {

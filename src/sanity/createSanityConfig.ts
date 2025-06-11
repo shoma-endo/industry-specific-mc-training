@@ -12,10 +12,14 @@ import { debugTool } from './plugins/debugTools';
 export function createSanityConfig(projectId: string, dataset: string) {
   const previewUrl = process.env.SANITY_STUDIO_PREVIEW_URL || process.env.NEXT_PUBLIC_SITE_URL;
 
+  // projectIdが空の場合はデフォルト値を使用
+  const safeProjectId = projectId || 'dummy-project';
+  const safeDataset = dataset || 'production';
+
   return defineConfig({
     basePath: '/studio',
-    projectId,
-    dataset,
+    projectId: safeProjectId,
+    dataset: safeDataset,
     title: 'LP 管理画面',
     schema,
     plugins: [
