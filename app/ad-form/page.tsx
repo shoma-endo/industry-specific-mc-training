@@ -49,9 +49,6 @@ export default function AdFormPage() {
   const [formData, setFormData] = useState({
     headline: '',
     description: '',
-    keywords: '',
-    businessType: '',
-    targetArea: '',
     updateExisting: false,
   });
 
@@ -181,9 +178,6 @@ export default function AdFormPage() {
           liffAccessToken: liffAccessToken,
           headline: formData.headline,
           description: formData.description,
-          keywords: formData.keywords,
-          businessType: formData.businessType,
-          targetArea: formData.targetArea,
           updateExisting: formData.updateExisting,
         }),
         credentials: 'include',
