@@ -304,36 +304,6 @@ export default function AdFormPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">キーワード</label>
-                <Input
-                  placeholder="メインキーワードを入力してください（例: 解体工事、不用品回収）"
-                  value={formData.keywords}
-                  onChange={e => updateFormData('keywords', e.target.value)}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">事業タイプ</label>
-                <Input
-                  placeholder="事業の種類を入力してください（例: 建設業、便利屋）"
-                  value={formData.businessType}
-                  onChange={e => updateFormData('businessType', e.target.value)}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">対象地域</label>
-                <Input
-                  placeholder="対象地域を入力してください（例: 東京都、大阪府）"
-                  value={formData.targetArea}
-                  onChange={e => updateFormData('targetArea', e.target.value)}
-                  className="w-full"
-                />
-              </div>
-
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="updateExisting"
