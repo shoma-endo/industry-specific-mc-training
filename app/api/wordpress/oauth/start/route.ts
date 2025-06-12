@@ -6,9 +6,19 @@ export async function GET() {
   const redirectUri = process.env.WORDPRESS_COM_REDIRECT_URI;
   const stateCookieName = process.env.OAUTH_STATE_COOKIE_NAME || 'wpcom_oauth_state';
 
+  console.log('OAuth環境変数確認:', {
+    clientId: clientId ? '設定あり' : '未設定',
+    redirectUri: redirectUri ? '設定あり' : '未設定',
+    NODE_ENV: process.env.NODE_ENV
+  });
+
   if (!clientId || !redirectUri) {
     console.error('WordPress.com OAuth environment variables are not set.');
-    return NextResponse.json({ error: 'OAuth configuration error.' }, { status: 500 });
+    console.error('Missing variables:', {
+      WORDPRESS_COM_CLIENT_ID: !clientId,
+      WORDPRESS_COM_REDIRECT_URI: !redirectUri
+    });
+    return NextResponse.json({ error: 'OAuth 構成エラーです。' }, { status: 500 });
   }
 
   const state = randomBytes(16).toString('hex');

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WordPressService, WordPressComAuth } from '@/server/services/wordpressService';
+import { SupabaseService } from '@/server/services/supabaseService';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
 
 // WordPress.com接続状態をGETメソッドで確認
 export async function GET(request: NextRequest) {
@@ -15,7 +17,30 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const siteId = process.env.WORDPRESS_COM_SITE_ID;
+    let siteId = process.env.WORDPRESS_COM_SITE_ID;
+
+    if (!siteId) {
+      try {
+        const liffAccessToken = request.cookies.get('line_access_token')?.value;
+        const refreshToken = request.cookies.get('line_refresh_token')?.value;
+
+        if (liffAccessToken) {
+          const authResult = await authMiddleware(liffAccessToken, refreshToken);
+          if (!authResult.error && authResult.userId) {
+            const supabaseService = new SupabaseService();
+            const wpSettings = await supabaseService.getWordPressSettingsByUserId(
+              authResult.userId
+            );
+            if (wpSettings?.wp_site_id) {
+              siteId = wpSettings.wp_site_id;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to resolve user specific WordPress site ID:', error);
+      }
+    }
+
     if (!siteId) {
       return NextResponse.json({
         success: false,
@@ -75,9 +100,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const siteId = process.env.WORDPRESS_COM_SITE_ID;
+    let siteId = process.env.WORDPRESS_COM_SITE_ID;
+
     if (!siteId) {
-      console.error('WORDPRESS_COM_SITE_ID is not set in environment variables.');
+      try {
+        const liffAccessToken = request.cookies.get('line_access_token')?.value;
+        const refreshToken = request.cookies.get('line_refresh_token')?.value;
+        if (liffAccessToken) {
+          const authResult = await authMiddleware(liffAccessToken, refreshToken);
+          if (!authResult.error && authResult.userId) {
+            const supabaseService = new SupabaseService();
+            const wpSettings = await supabaseService.getWordPressSettingsByUserId(
+              authResult.userId
+            );
+            if (wpSettings?.wp_site_id) {
+              siteId = wpSettings.wp_site_id;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to resolve user specific WordPress site ID (POST):', error);
+      }
+    }
+
+    if (!siteId) {
+      console.error('WORDPRESS_COM_SITE_ID not found for current user.');
       return NextResponse.json(
         { success: false, error: 'WordPressサイトIDが設定されていません。' },
         { status: 500 }

@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { WordPressService, WordPressComAuth } from '@/server/services/wordpressService';
+import { SupabaseService } from '@/server/services/supabaseService';
 
 // WordPressレスポンスからテキストを安全に抽出するヘルパー関数
-function extractWordPressText(field: { raw: string; rendered: string } | string | undefined): string {
+function extractWordPressText(
+  field: { raw: string; rendered: string } | string | undefined
+): string {
   if (!field) return '';
   if (typeof field === 'string') return field;
   return field.rendered || field.raw || '';
@@ -60,18 +63,19 @@ interface LandingPageData {
 
 async function generateLandingPageContent(
   headline: string,
-  description: string,
+  description: string
 ): Promise<LandingPageData> {
   // AIは使わず、見出しと説明文から直接シンプルなランディングページを生成
   console.log('シンプルなランディングページコンテンツを生成中...');
-  
+
   // スラッグを生成（日本語を英数字に変換）
-  const slug = headline
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .substring(0, 50) || 'landing-page';
-  
+  const slug =
+    headline
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 50) || 'landing-page';
+
   return {
     hero: {
       title: headline,
@@ -94,16 +98,20 @@ async function generateLandingPageContent(
 }
 
 // ランディングページデータを WordPress形式のHTMLに変換
-function convertToWordPressHTML(data: LandingPageData): { title: string; content: string; slug: string } {
-//   const sections: string[] = [];
+function convertToWordPressHTML(data: LandingPageData): {
+  title: string;
+  content: string;
+  slug: string;
+} {
+  //   const sections: string[] = [];
 
-//   // Hero セクション
-//   sections.push(`
-// <div class="hero-section" style="text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-//   <div class="hero-content" style="max-width: 800px; margin: 0 auto;">
-//     <p style="font-size: 1.2rem; margin-bottom: 30px; opacity: 0.9;">${data.hero.subtitle}</p>
-//   </div>
-// </div>`.trim());
+  //   // Hero セクション
+  //   sections.push(`
+  // <div class="hero-section" style="text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+  //   <div class="hero-content" style="max-width: 800px; margin: 0 auto;">
+  //     <p style="font-size: 1.2rem; margin-bottom: 30px; opacity: 0.9;">${data.hero.subtitle}</p>
+  //   </div>
+  // </div>`.trim());
 
   // 空の配列やオブジェクトをスキップ
 
@@ -119,12 +127,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createLandingPageSchema.parse(body);
 
-    const {
-      liffAccessToken,
-      headline,
-      description,
-      updateExisting,
-    } = validatedData;
+    const { liffAccessToken, headline, description, updateExisting } = validatedData;
 
     // LIFF認証チェック
     const authResult = await authMiddleware(liffAccessToken);
@@ -153,9 +156,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const siteId = process.env.WORDPRESS_COM_SITE_ID;
+    // --- マルチテナント対応: ユーザーごとのサイトIDを取得 ---
+    let siteId = process.env.WORDPRESS_COM_SITE_ID || '';
+
     if (!siteId) {
-      console.error('WORDPRESS_COM_SITE_ID is not set in environment variables.');
+      try {
+        const refreshToken = request.cookies.get('line_refresh_token')?.value;
+        const authResult = await authMiddleware(liffAccessToken, refreshToken);
+        if (!authResult.error && authResult.userId) {
+          const supabaseService = new SupabaseService();
+          const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
+          if (wpSettings?.wp_site_id) {
+            siteId = wpSettings.wp_site_id;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to retrieve user specific WordPress site ID:', error);
+      }
+    }
+
+    if (!siteId) {
+      console.error('WordPressサイトIDが取得できませんでした。');
       return NextResponse.json(
         { success: false, error: 'WordPressサイトIDが設定されていません。' },
         { status: 500 }
@@ -163,10 +184,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. AIを使ってランディングページコンテンツを生成
-    const landingPageData = await generateLandingPageContent(
-      headline,
-      description,
-    );
+    const landingPageData = await generateLandingPageContent(headline, description);
 
     // 2. WordPress形式のHTMLに変換
     const wordpressContent = convertToWordPressHTML(landingPageData);
@@ -198,9 +216,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: updateExisting && exportResult.data.status === 'publish'
-        ? `WordPressの既存ページを更新しました（ID: ${exportResult.data.ID}）`
-        : 'WordPressに新しいランディングページを作成しました',
+      message:
+        updateExisting && exportResult.data.status === 'publish'
+          ? `WordPressの既存ページを更新しました（ID: ${exportResult.data.ID}）`
+          : 'WordPressに新しいランディングページを作成しました',
       data: {
         postId: exportResult.data.ID,
         postUrl: exportResult.data.link,
