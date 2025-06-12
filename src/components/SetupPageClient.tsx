@@ -18,7 +18,7 @@ export default function SetupPageClient({ liffAccessToken, hasWordPressSettings 
       console.log('[Setup] WordPress設定が見つかりました。/ad-form にリダイレクト中...');
       setIsRedirecting(true);
       
-      // リダイレクト実行
+      // 同じタブでリダイレクト実行
       const performRedirect = () => {
         try {
           router.push('/ad-form');
@@ -47,7 +47,7 @@ export default function SetupPageClient({ liffAccessToken, hasWordPressSettings 
           <p className="text-gray-600 mb-6">ランディングページ作成画面にリダイレクト中...</p>
           
           <button
-            onClick={() => window.location.href = '/ad-form'}
+            onClick={() => router.push('/ad-form')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md"
           >
             手動でランディングページ作成画面へ

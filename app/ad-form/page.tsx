@@ -402,7 +402,6 @@ export default function AdFormPage() {
             <CardContent>
               <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
                 <li>広告の見出しと説明文を入力してください（必須）</li>
-                <li>キーワード、事業タイプ、対象地域を入力してください（任意）</li>
                 <li>既存ページの更新が必要な場合はチェックボックスを有効にしてください</li>
                 <li>「ランディングページを作成してWordPressに保存」ボタンをクリックしてください</li>
                 <li>AIが自動でランディングページを生成し、WordPressに下書きとして保存します</li>
