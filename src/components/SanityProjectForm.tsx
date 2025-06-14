@@ -354,18 +354,52 @@ export default function SanityProjectForm({ liffAccessToken, isEditMode = false 
                   <legend className="text-lg font-medium px-1">セルフホストWordPress 設定</legend>
 
                   <div className="mb-4 mt-2 p-3 bg-green-50 border border-green-200 rounded-md text-sm text-green-700">
-                    <p className="font-semibold mb-1">Application Passwordの設定方法</p>
-                    <ol className="list-decimal list-inside space-y-1 mt-2">
-                      <li>WordPressの管理画面にログインします</li>
-                      <li>「ユーザー」→「プロフィール」に移動します</li>
-                      <li>「アプリケーションパスワード」セクションを見つけます</li>
-                      <li>新しいアプリケーション名（例：「ランディングページ作成ツール」）を入力</li>
-                      <li>「新しいアプリケーションパスワードを追加」をクリックします</li>
-                      <li>生成されたパスワードをコピーして、下記の「Application Password」フィールドに貼り付けます</li>
-                    </ol>
-                    <p className="mt-2 text-xs">
-                      ※ Application Passwordは WordPress 5.6 以降で利用可能です。古いバージョンをお使いの場合は、プラグインでの対応が必要です。
-                    </p>
+                    <p className="font-semibold mb-2">セルフホストWordPress設定の確認方法</p>
+                    
+                    <div className="mb-3">
+                      <p className="font-medium mb-1">📍 サイトURL（基本URL）の確認方法：</p>
+                      <ul className="list-disc list-inside ml-2 space-y-0.5">
+                        <li>WordPressの管理画面にログイン</li>
+                        <li>「設定」→「一般設定」をクリック</li>
+                        <li>「WordPressアドレス（URL）」の値をコピー</li>
+                        <li>例：<code className="bg-gray-100 px-1 rounded">https://example.com</code></li>
+                      </ul>
+                    </div>
+
+                    <div className="mb-3">
+                      <p className="font-medium mb-1">👤 ユーザー名の確認方法：</p>
+                      <ul className="list-disc list-inside ml-2 space-y-0.5">
+                        <li>WordPressの管理画面で「ユーザー」→「プロフィール」をクリック</li>
+                        <li>「ユーザー名」の項目で確認（通常は変更不可）</li>
+                        <li>または管理画面右上の「こんにちは、○○さん」の○○部分</li>
+                      </ul>
+                    </div>
+
+                    <div className="mb-3">
+                      <p className="font-medium mb-1">🔑 Application Passwordの設定方法：</p>
+                      <ol className="list-decimal list-inside ml-2 space-y-0.5">
+                        <li>「ユーザー」→「プロフィール」に移動</li>
+                        <li>ページ下部の「アプリケーションパスワード」セクションを探す</li>
+                        <li>新しいアプリケーション名（例：「ランディングページ作成ツール」）を入力</li>
+                        <li>「新しいアプリケーションパスワードを追加」をクリック</li>
+                        <li>表示されたパスワードをコピー（画面を閉じると二度と確認できません）</li>
+                      </ol>
+                    </div>
+
+                    <div className="text-xs mt-2 space-y-1">
+                      <p>💡 Application Passwordは WordPress 5.6 以降で利用可能です。</p>
+                      <p>📖 詳細は 
+                        <a 
+                          href="https://support.itmc.i.moneyforward.com/l/ja/article/l8rsks1rlt-wordpress-selfhost-api" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline ml-1"
+                        >
+                          こちら
+                        </a> 
+                        をご確認ください。
+                      </p>
+                    </div>
                   </div>
 
                   <div className="space-y-4 mt-2">
@@ -383,7 +417,7 @@ export default function SanityProjectForm({ liffAccessToken, isEditMode = false 
                         required
                       />
                       <p className="text-xs text-gray-500 pt-1">
-                        WordPressサイトのURL（例: https://example.com）
+                        WordPressの管理画面「設定」→「一般設定」の「WordPressアドレス（URL）」をコピー
                       </p>
                     </div>
 
@@ -394,12 +428,15 @@ export default function SanityProjectForm({ liffAccessToken, isEditMode = false 
                       <Input
                         id="wpUsername"
                         type="text"
-                        placeholder="WordPressのユーザー名"
+                        placeholder="admin など（管理画面ログイン時のユーザー名）"
                         value={wpUsername}
                         onChange={e => setWpUsername(e.target.value)}
                         className="w-full"
                         required
                       />
+                      <p className="text-xs text-gray-500 pt-1">
+                        WordPressの管理画面にログインする際に使用するユーザー名
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -416,7 +453,7 @@ export default function SanityProjectForm({ liffAccessToken, isEditMode = false 
                         required
                       />
                       <p className="text-xs text-gray-500 pt-1">
-                        WordPressの管理画面で生成したApplication Passwordを入力してください
+                        ⚠️ 通常のログインパスワードではありません。「ユーザー」→「プロフィール」で生成したApplication Passwordを入力
                       </p>
                     </div>
                   </div>
