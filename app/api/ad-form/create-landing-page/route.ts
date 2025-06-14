@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { WordPressService, WordPressComAuth } from '@/server/services/wordpressService';
+import {
+  WordPressService,
+  WordPressAuth,
+} from '@/server/services/wordpressService';
 import { SupabaseService } from '@/server/services/supabaseService';
 
 // WordPressレスポンスからテキストを安全に抽出するヘルパー関数
@@ -141,57 +144,78 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // WordPress.com OAuthトークン取得
-    const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
-    const accessToken = request.cookies.get(tokenCookieName)?.value;
-
-    if (!accessToken) {
+    // WordPress設定を取得
+    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const userAuthResult = await authMiddleware(liffAccessToken, refreshToken);
+    if (userAuthResult.error || !userAuthResult.userId) {
       return NextResponse.json(
         {
           success: false,
-          error: 'WordPress.comのアクセストークンが見つかりません。連携を行ってください。',
-          needsWordPressAuth: true,
+          error: 'ユーザー認証に失敗しました',
         },
         { status: 401 }
       );
     }
 
-    // --- マルチテナント対応: ユーザーごとのサイトIDを取得 ---
-    let siteId = process.env.WORDPRESS_COM_SITE_ID || '';
+    const supabaseService = new SupabaseService();
+    const wpSettings = await supabaseService.getWordPressSettingsByUserId(userAuthResult.userId);
 
-    if (!siteId) {
-      try {
-        const refreshToken = request.cookies.get('line_refresh_token')?.value;
-        const authResult = await authMiddleware(liffAccessToken, refreshToken);
-        if (!authResult.error && authResult.userId) {
-          const supabaseService = new SupabaseService();
-          const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
-          if (wpSettings?.wp_site_id) {
-            siteId = wpSettings.wp_site_id;
-          }
-        }
-      } catch (error) {
-        console.error('Failed to retrieve user specific WordPress site ID:', error);
-      }
-    }
-
-    if (!siteId) {
-      console.error('WordPressサイトIDが取得できませんでした。');
+    if (!wpSettings) {
       return NextResponse.json(
-        { success: false, error: 'WordPressサイトIDが設定されていません。' },
-        { status: 500 }
+        {
+          success: false,
+          error: 'WordPress設定が登録されていません。設定画面で WordPress 連携を行ってください。',
+          needsWordPressAuth: true,
+        },
+        { status: 400 }
       );
     }
 
-    // 1. AIを使ってランディングページコンテンツを生成
+    // 1. ランディングページコンテンツを生成
     const landingPageData = await generateLandingPageContent(headline, description);
 
     // 2. WordPress形式のHTMLに変換
     const wordpressContent = convertToWordPressHTML(landingPageData);
 
-    // 3. WordPressサービスでページを作成/更新
-    const wpAuth: WordPressComAuth = { accessToken, siteId };
-    const wordpressService = new WordPressService(wpAuth);
+    // 3. WordPress認証情報の準備
+    let wordpressService: WordPressService;
+
+    if (wpSettings.wpType === 'wordpress_com') {
+      // WordPress.com用
+      const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
+      const accessToken = request.cookies.get(tokenCookieName)?.value;
+
+      if (!accessToken) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'WordPress.comのアクセストークンが見つかりません。連携を行ってください。',
+            needsWordPressAuth: true,
+          },
+          { status: 401 }
+        );
+      }
+
+      const auth: WordPressAuth = {
+        type: 'wordpress_com',
+        wpComAuth: {
+          accessToken,
+          siteId: wpSettings.wpSiteId || '',
+        },
+      };
+      wordpressService = new WordPressService(auth);
+    } else {
+      // セルフホスト用
+      const auth: WordPressAuth = {
+        type: 'self_hosted',
+        selfHostedAuth: {
+          siteUrl: wpSettings.wpSiteUrl || '',
+          username: wpSettings.wpUsername || '',
+          applicationPassword: wpSettings.wpApplicationPassword || '',
+        },
+      };
+      wordpressService = new WordPressService(auth);
+    }
 
     const wpExportPayload = {
       title: wordpressContent.title,
@@ -218,8 +242,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message:
         updateExisting && exportResult.data.status === 'publish'
-          ? `WordPressの既存ページを更新しました（ID: ${exportResult.data.ID}）`
-          : 'WordPressに新しいランディングページを作成しました',
+          ? `${wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'}の既存ページを更新しました（ID: ${exportResult.data.ID}）`
+          : `${wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'}に新しいランディングページを作成しました`,
       data: {
         postId: exportResult.data.ID,
         postUrl: exportResult.data.link,
@@ -228,6 +252,7 @@ export async function POST(request: NextRequest) {
         status: exportResult.data.status,
         action: updateExisting ? 'updated' : 'created',
         exportType: 'page',
+        wordpressType: wpSettings.wpType,
       },
       postUrl: exportResult.postUrl,
     });

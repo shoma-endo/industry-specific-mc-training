@@ -3,43 +3,108 @@ import {
   WordPressPostResponse,
   WordPressSiteInfo,
   WordPressApiResult,
+  WordPressType,
 } from '@/types/wordpress';
 
-// Add new interface for constructor arguments
+// WordPress.com認証情報
 export interface WordPressComAuth {
   accessToken: string;
   siteId: string; // This can be the site domain or the numeric site ID
 }
 
+// セルフホストWordPress認証情報
+export interface SelfHostedAuth {
+  siteUrl: string;
+  username: string;
+  applicationPassword: string;
+}
+
+// 統合認証情報
+export interface WordPressAuth {
+  type: WordPressType;
+  wpComAuth?: WordPressComAuth;
+  selfHostedAuth?: SelfHostedAuth;
+}
+
 export class WordPressService {
-  private accessToken: string;
-  private siteId: string;
+  private type: WordPressType;
+  private accessToken?: string;
+  private siteId?: string;
+  private siteUrl?: string;
+  private username?: string;
+  private applicationPassword?: string;
   private baseUrl: string;
 
-  constructor(auth: WordPressComAuth) {
-    this.accessToken = auth.accessToken;
-    this.siteId = auth.siteId;
-    // Base URL for WordPress.com API v2
-    this.baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${this.siteId}`;
+  // 後方互換性のため、既存のWordPress.com用コンストラクタを維持
+  constructor(auth: WordPressComAuth);
+  // 新しい統合認証用コンストラクタ
+  constructor(auth: WordPressAuth);
+  constructor(auth: WordPressComAuth | WordPressAuth) {
+    if ('type' in auth) {
+      // 新しい統合認証
+      this.type = auth.type;
+      if (auth.type === 'wordpress_com' && auth.wpComAuth) {
+        this.accessToken = auth.wpComAuth.accessToken;
+        this.siteId = auth.wpComAuth.siteId;
+        this.baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${this.siteId}`;
+      } else if (auth.type === 'self_hosted' && auth.selfHostedAuth) {
+        this.siteUrl = auth.selfHostedAuth.siteUrl;
+        this.username = auth.selfHostedAuth.username;
+        this.applicationPassword = auth.selfHostedAuth.applicationPassword;
+        this.baseUrl = `${this.siteUrl.replace(/\/$/, '')}/wp-json/wp/v2`;
+      } else {
+        throw new Error('Invalid authentication configuration');
+      }
+    } else {
+      // 既存のWordPress.com用認証（後方互換性）
+      this.type = 'wordpress_com';
+      this.accessToken = auth.accessToken;
+      this.siteId = auth.siteId;
+      this.baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${this.siteId}`;
+    }
   }
 
   /**
-   * WordPress.com接続テスト (サイト情報の取得)
-   * API v2では /settings エンドポイントなどが考えられるが、v1.1のルートエンドポイントで情報が取れるか確認
+   * 認証ヘッダーを取得
+   */
+  private getAuthHeaders(): Record<string, string> {
+    if (this.type === 'wordpress_com') {
+      return {
+        Authorization: `Bearer ${this.accessToken}`,
+      };
+    } else {
+      // セルフホスト版：Basic認証
+      const credentials = btoa(`${this.username}:${this.applicationPassword}`);
+      return {
+        Authorization: `Basic ${credentials}`,
+      };
+    }
+  }
+
+  /**
+   * 統合接続テスト（WordPress.comとセルフホスト両対応）
    */
   async testConnection(): Promise<WordPressApiResult<WordPressSiteInfo>> {
     try {
-      // v2 の場合、サイトの基本情報を取得するエンドポイントは /context または /settings などになる場合がある
-      // もしくは v1.1 の /sites/{site_id} が v2 でも利用可能か確認が必要
-      // ここでは一旦、v1.1の挙動に近い / エンドポイントで試みるが、API仕様の確認が最も重要
-      const response = await fetch(
-        `https://public-api.wordpress.com/rest/v1.1/sites/${this.siteId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.accessToken}`,
-          },
-        }
-      );
+      let response: Response;
+      
+      if (this.type === 'wordpress_com') {
+        // WordPress.com用：v1.1 APIを使用
+        response = await fetch(
+          `https://public-api.wordpress.com/rest/v1.1/sites/${this.siteId}`,
+          {
+            headers: this.getAuthHeaders(),
+          }
+        );
+      } else {
+        // セルフホスト用：設定エンドポイントまたはルートエンドポイントをテスト
+        response = await fetch(
+          `${this.baseUrl}/settings`,
+          {
+            headers: this.getAuthHeaders(),
+          }
+        );
+      }
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({ message: response.statusText }));
@@ -51,14 +116,26 @@ export class WordPressService {
 
       const siteData = await response.json();
 
-      return {
-        success: true,
-        data: {
-          name: siteData.name || siteData.title,
-          url: siteData.URL || siteData.url,
-          description: siteData.description,
-        },
-      };
+      if (this.type === 'wordpress_com') {
+        return {
+          success: true,
+          data: {
+            name: siteData.name || siteData.title,
+            url: siteData.URL || siteData.url,
+            description: siteData.description,
+          },
+        };
+      } else {
+        // セルフホスト版の場合、設定からサイト情報を取得
+        return {
+          success: true,
+          data: {
+            name: siteData.title || 'WordPress Site',
+            url: this.siteUrl || '',
+            description: siteData.description || '',
+          },
+        };
+      }
     } catch (error) {
       console.error('Error in testConnection:', error);
       return {
@@ -69,7 +146,7 @@ export class WordPressService {
   }
 
   /**
-   * スラッグで既存コンテンツ (投稿または固定ページ) を検索 (WordPress.com API v2)
+   * スラッグで既存コンテンツ (投稿または固定ページ) を検索（WordPress.comとセルフホスト両対応）
    */
   async findExistingContent(
     slug: string,
@@ -78,9 +155,7 @@ export class WordPressService {
     try {
       const endpoint = `${this.baseUrl}/${type}?slug=${encodeURIComponent(slug)}`;
       const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-        },
+        headers: this.getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -180,7 +255,7 @@ export class WordPressService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.accessToken}`,
+            ...this.getAuthHeaders(),
           },
           body: JSON.stringify(pageData),
         });
@@ -191,7 +266,7 @@ export class WordPressService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.accessToken}`,
+            ...this.getAuthHeaders(),
           },
           body: JSON.stringify(pageData),
         });
@@ -257,9 +332,7 @@ export class WordPressService {
 
       const uploadResponse = await fetch(v1MediaUploadUrl, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-        },
+        headers: this.getAuthHeaders(),
         body: formData,
       });
 

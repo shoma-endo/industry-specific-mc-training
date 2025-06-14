@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { env } from '@/env';
 import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
+import { WordPressSettings, WordPressType } from '@/types/wordpress';
 
 /**
  * SupabaseServiceクラス: サーバーサイドでSupabaseを操作するためのサービス
@@ -292,19 +293,12 @@ export class SupabaseService {
   }
 
   /**
-   * wordpress_settingsテーブルからユーザーのWordPress設定を取得
+   * wordpress_settingsテーブルからユーザーのWordPress設定を取得（セルフホスト対応版）
    */
-  async getWordPressSettingsByUserId(userId: string): Promise<{
-    id: string;
-    user_id: string;
-    wp_client_id: string;
-    wp_site_id: string;
-    created_at: string;
-    updated_at: string;
-  } | null> {
+  async getWordPressSettingsByUserId(userId: string): Promise<WordPressSettings | null> {
     const { data, error } = await this.supabase
       .from('wordpress_settings')
-      .select('id, user_id, wp_client_id, wp_site_id, created_at, updated_at')
+      .select('*')
       .eq('user_id', userId)
       .maybeSingle();
     
@@ -313,11 +307,28 @@ export class SupabaseService {
       return null;
     }
     
-    return data;
+    if (!data) return null;
+
+    return {
+      id: data.id,
+      userId: data.user_id,
+      wpType: data.wp_type as WordPressType,
+      wpClientId: data.wp_client_id,
+      wpClientSecret: data.wp_client_secret,
+      wpSiteId: data.wp_site_id,
+      wpAccessToken: data.wp_access_token,
+      wpRefreshToken: data.wp_refresh_token,
+      wpTokenExpiresAt: data.wp_token_expires_at,
+      wpSiteUrl: data.wp_site_url,
+      wpUsername: data.wp_username,
+      wpApplicationPassword: data.wp_application_password,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
   }
 
   /**
-   * wordpress_settingsテーブルにユーザーのWordPress設定を挿入または更新 (Upsert)
+   * wordpress_settingsテーブルにユーザーのWordPress設定を挿入または更新 (Upsert) - WordPress.com用
    */
   async createOrUpdateWordPressSettings(
     userId: string,
@@ -330,6 +341,7 @@ export class SupabaseService {
       .upsert(
         {
           user_id: userId,
+          wp_type: 'wordpress_com',
           wp_client_id: wpClientId,
           wp_client_secret: wpClientSecret, // 注意: 現状は平文で保存されます
           wp_site_id: wpSiteId,
@@ -342,9 +354,40 @@ export class SupabaseService {
       .select(); // .select() はコメントの意図を尊重し残す
 
     if (error) {
-      console.error('Error upserting WordPress settings:', error);
-      throw new Error(`WordPress設定の保存または更新に失敗しました: ${error.message}`);
+      console.error('Error upserting WordPress.com settings:', error);
+      throw new Error(`WordPress.com設定の保存または更新に失敗しました: ${error.message}`);
     }
-    // console.log('WordPress settings saved/updated successfully for user:', userId); // data を使っていたログは修正が必要
+  }
+
+  /**
+   * wordpress_settingsテーブルにユーザーのセルフホストWordPress設定を挿入または更新 (Upsert)
+   */
+  async createOrUpdateSelfHostedWordPressSettings(
+    userId: string,
+    wpSiteUrl: string,
+    wpUsername: string,
+    wpApplicationPassword: string
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('wordpress_settings')
+      .upsert(
+        {
+          user_id: userId,
+          wp_type: 'self_hosted',
+          wp_site_url: wpSiteUrl,
+          wp_username: wpUsername,
+          wp_application_password: wpApplicationPassword, // 注意: 現状は平文で保存されます
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'user_id', // user_id が重複した場合は更新
+        }
+      )
+      .select();
+
+    if (error) {
+      console.error('Error upserting self-hosted WordPress settings:', error);
+      throw new Error(`セルフホストWordPress設定の保存または更新に失敗しました: ${error.message}`);
+    }
   }
 }

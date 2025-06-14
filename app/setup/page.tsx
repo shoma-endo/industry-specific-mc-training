@@ -16,7 +16,7 @@ export default async function SetupPage() {
   let hasWordPressSettings = false;
   try {
     const wordpressSettings = await getWordPressSettings(liffAccessToken);
-    hasWordPressSettings = !!(wordpressSettings && wordpressSettings.wp_site_id);
+    hasWordPressSettings = !!(wordpressSettings && wordpressSettings.wpSiteId);
   } catch (error) {
     // エラーの場合はhasWordPressSettingsはfalseのまま
     console.log('WordPress設定の取得でエラー:', error);

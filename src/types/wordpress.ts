@@ -1,10 +1,45 @@
 /**
- * WordPress認証情報 (OAuth移行後はaccessTokenとsiteIdが主になるため、これは旧定義)
+ * WordPress認証情報 - セルフホスト用
  */
 export interface WordPressCredentials {
   siteUrl: string;
   username: string;
   applicationPassword: string;
+}
+
+/**
+ * WordPress.com認証情報 - WordPress.com用
+ */
+export interface WordPressComCredentials {
+  accessToken: string;
+  siteId: string;
+}
+
+/**
+ * WordPress設定の種類
+ */
+export type WordPressType = 'wordpress_com' | 'self_hosted';
+
+/**
+ * WordPress設定（統合型）
+ */
+export interface WordPressSettings {
+  id?: string;
+  userId: string;
+  wpType: WordPressType;
+  // WordPress.com用
+  wpClientId?: string;
+  wpClientSecret?: string;
+  wpSiteId?: string;
+  wpAccessToken?: string;
+  wpRefreshToken?: string;
+  wpTokenExpiresAt?: string;
+  // セルフホスト用
+  wpSiteUrl?: string;
+  wpUsername?: string;
+  wpApplicationPassword?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /**

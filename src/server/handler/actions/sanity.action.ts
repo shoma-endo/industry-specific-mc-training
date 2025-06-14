@@ -97,6 +97,40 @@ export async function getWordPressSettings(liffAccessToken: string) {
   return wordpressSettings;
 }
 
+/**
+ * セルフホストWordPress設定をLIFFアクセストークン経由で登録する
+ */
+export async function createSelfHostedWordPressSettings(
+  liffAccessToken: string,
+  wpSiteUrl: string,
+  wpUsername: string,
+  wpApplicationPassword: string
+) {
+  try {
+    const authResult = await authMiddleware(liffAccessToken);
+    if (authResult.error || authResult.requiresSubscription || !authResult.userId) {
+      throw new Error('LIFFユーザーの認証またはユーザーIDの取得に失敗しました');
+    }
+    const userId = authResult.userId;
+
+    // 1. 空のSanityプロジェクト情報を保存（セルフホストの場合はSanityは使用しない）
+    await supabaseService.createSanityProject(userId, '', '');
+
+    // 2. セルフホストWordPress設定情報を保存
+    await supabaseService.createOrUpdateSelfHostedWordPressSettings(
+      userId,
+      wpSiteUrl,
+      wpUsername,
+      wpApplicationPassword
+    );
+  } catch (error) {
+    console.error('[ActionError] createSelfHostedWordPressSettings:', error);
+    throw new Error(
+      error instanceof Error ? error.message : 'サーバー側で予期せぬエラーが発生しました。'
+    );
+  }
+}
+
 export async function getSanityProjectForUser(lineAccessToken: string) {
   // 開発モードでダミートークンの場合は、固定のプロジェクト情報を返す
   if (process.env.NODE_ENV === 'development' && lineAccessToken === 'dummy-token') {
