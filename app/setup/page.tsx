@@ -12,21 +12,27 @@ export default async function SetupPage() {
     return <div>ログインしてください</div>;
   }
 
-  // WordPress設定をチェック
+  // WordPress設定をチェック（WordPress.comとセルフホスト両対応）
   let hasWordPressSettings = false;
+  let wordpressSettings = null;
   try {
-    const wordpressSettings = await getWordPressSettings(liffAccessToken);
-    hasWordPressSettings = !!(wordpressSettings && wordpressSettings.wpSiteId);
+    wordpressSettings = await getWordPressSettings(liffAccessToken);
+    hasWordPressSettings = !!(
+      wordpressSettings &&
+      (wordpressSettings.wpSiteId || // WordPress.com
+       wordpressSettings.wpSiteUrl)  // セルフホスト
+    );
   } catch (error) {
     // エラーの場合はhasWordPressSettingsはfalseのまま
     console.log('WordPress設定の取得でエラー:', error);
   }
 
-  // クライアントサイドコンポーネントにWordPress設定の有無を渡す
+  // クライアントサイドコンポーネントにWordPress設定の有無と種類を渡す
   return (
     <SetupPageClient 
       liffAccessToken={liffAccessToken}
       hasWordPressSettings={hasWordPressSettings}
+      {...(wordpressSettings?.wpType && { wordpressType: wordpressSettings.wpType })}
     />
   );
 }

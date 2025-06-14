@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SanityProjectForm from '@/components/SanityProjectForm';
+import { WordPressType } from '@/types/wordpress';
 
 interface Props {
   liffAccessToken: string;
   hasWordPressSettings: boolean;
+  wordpressType?: WordPressType | undefined;
 }
 
-export default function SetupPageClient({ liffAccessToken, hasWordPressSettings }: Props) {
+export default function SetupPageClient({ liffAccessToken, hasWordPressSettings, wordpressType }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isEditMode = searchParams.get('edit') === 'true';
@@ -18,7 +20,12 @@ export default function SetupPageClient({ liffAccessToken, hasWordPressSettings 
   useEffect(() => {
     // 編集モードでない場合のみリダイレクト
     if (hasWordPressSettings && !isEditMode) {
-      console.log('[Setup] WordPress設定が見つかりました。/ad-form にリダイレクト中...');
+      const wordpressLabel = wordpressType === 'self_hosted' 
+        ? 'セルフホストWordPress' 
+        : wordpressType === 'wordpress_com' 
+        ? 'WordPress.com' 
+        : 'WordPress';
+      console.log(`[Setup] ${wordpressLabel}設定が見つかりました。/ad-form にリダイレクト中...`);
       setIsRedirecting(true);
       
       // 同じタブでリダイレクト実行
@@ -42,10 +49,16 @@ export default function SetupPageClient({ liffAccessToken, hasWordPressSettings 
 
   // リダイレクト中の表示
   if (isRedirecting) {
+    const wordpressLabel = wordpressType === 'self_hosted' 
+      ? 'セルフホストWordPress' 
+      : wordpressType === 'wordpress_com' 
+      ? 'WordPress.com' 
+      : 'WordPress';
+      
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-lg mb-4">WordPress.com設定が見つかりました</p>
+          <p className="text-lg mb-4">{wordpressLabel}設定が見つかりました</p>
           <p className="text-gray-600 mb-6">ランディングページ作成画面にリダイレクト中...</p>
           
           <button
