@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import SanityProjectForm from '@/components/SanityProjectForm';
 
 interface Props {
@@ -11,10 +11,13 @@ interface Props {
 
 export default function SetupPageClient({ liffAccessToken, hasWordPressSettings }: Props) {
   const router = useRouter();
-  const [isRedirecting, setIsRedirecting] = useState(hasWordPressSettings);
+  const searchParams = useSearchParams();
+  const isEditMode = searchParams.get('edit') === 'true';
+  const [isRedirecting, setIsRedirecting] = useState(hasWordPressSettings && !isEditMode);
 
   useEffect(() => {
-    if (hasWordPressSettings) {
+    // 編集モードでない場合のみリダイレクト
+    if (hasWordPressSettings && !isEditMode) {
       console.log('[Setup] WordPress設定が見つかりました。/ad-form にリダイレクト中...');
       setIsRedirecting(true);
       
@@ -34,9 +37,8 @@ export default function SetupPageClient({ liffAccessToken, hasWordPressSettings 
       return () => clearTimeout(timeoutId);
     }
     
-    // hasWordPressSettingsがfalseの場合は何もしない
     return undefined;
-  }, [hasWordPressSettings, router]);
+  }, [hasWordPressSettings, isEditMode, router]);
 
   // リダイレクト中の表示
   if (isRedirecting) {
@@ -57,6 +59,6 @@ export default function SetupPageClient({ liffAccessToken, hasWordPressSettings 
     );
   }
 
-  // WordPress設定がない場合はSanityProjectFormを表示
-  return <SanityProjectForm liffAccessToken={liffAccessToken} />;
+  // WordPress設定がない場合または編集モードの場合はSanityProjectFormを表示
+  return <SanityProjectForm liffAccessToken={liffAccessToken} isEditMode={isEditMode} />;
 }

@@ -1,19 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createSanityProject, createSelfHostedWordPressSettings } from '@/server/handler/actions/sanity.action';
+import { createSanityProject, createSelfHostedWordPressSettings, getWordPressSettings } from '@/server/handler/actions/sanity.action';
 import { WordPressType } from '@/types/wordpress';
 
 interface Props {
   liffAccessToken: string;
+  isEditMode?: boolean;
 }
 
-export default function SanityProjectForm({ liffAccessToken }: Props) {
+export default function SanityProjectForm({ liffAccessToken, isEditMode = false }: Props) {
   const [wpType, setWpType] = useState<WordPressType>('wordpress_com');
   // WordPress.com用
   const [wpClientId, setWpClientId] = useState('');
@@ -26,7 +27,41 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(isEditMode);
   const router = useRouter();
+
+  // 編集モード時に既存設定を読み込み
+  useEffect(() => {
+    if (isEditMode && liffAccessToken) {
+      const loadExistingSettings = async () => {
+        try {
+          setIsLoadingSettings(true);
+          const settings = await getWordPressSettings(liffAccessToken);
+          
+          if (settings) {
+            setWpType(settings.wpType);
+            
+            if (settings.wpType === 'wordpress_com') {
+              setWpClientId(settings.wpClientId || '');
+              setWpClientSecret(settings.wpClientSecret || '');
+              setWpSiteId(settings.wpSiteId || '');
+            } else {
+              setWpSiteUrl(settings.wpSiteUrl || '');
+              setWpUsername(settings.wpUsername || '');
+              setWpApplicationPassword(settings.wpApplicationPassword || '');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load existing WordPress settings:', error);
+          setError('既存の設定の読み込みに失敗しました。');
+        } finally {
+          setIsLoadingSettings(false);
+        }
+      };
+
+      loadExistingSettings();
+    }
+  }, [isEditMode, liffAccessToken]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -51,7 +86,7 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
           wpClientSecret,
           wpSiteId
         );
-        alert('WordPress.com設定を保存しました。');
+        alert(`WordPress.com設定を${isEditMode ? '更新' : '保存'}しました。`);
       } else {
         // セルフホストWordPress設定を保存
         await createSelfHostedWordPressSettings(
@@ -60,7 +95,7 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
           wpUsername,
           wpApplicationPassword
         );
-        alert('セルフホストWordPress設定を保存しました。');
+        alert(`セルフホストWordPress設定を${isEditMode ? '更新' : '保存'}しました。`);
       }
 
       setLoading(false);
@@ -74,13 +109,34 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
     }
   };
 
+  // 設定読み込み中の表示
+  if (isLoadingSettings) {
+    return (
+      <div className="flex justify-center bg-gray-50 px-4 py-12 min-h-screen">
+        <Card className="w-full max-w-5xl p-6 rounded-2xl shadow-md">
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <p className="text-lg mb-4">WordPress設定を読み込み中...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex justify-center bg-gray-50 px-4 py-12 min-h-screen">
       <Card className="w-full max-w-5xl p-6 rounded-2xl shadow-md">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center mb-4">WordPress連携設定</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center mb-4">
+            {isEditMode ? 'WordPress連携設定の編集' : 'WordPress連携設定'}
+          </CardTitle>
           <p className="text-center text-gray-600">
-            ランディングページを作成・管理するために、WordPressとの連携設定が必要です
+            {isEditMode 
+              ? 'WordPress連携設定を変更できます' 
+              : 'ランディングページを作成・管理するために、WordPressとの連携設定が必要です'
+            }
           </p>
         </CardHeader>
         <CardContent>
@@ -369,13 +425,27 @@ export default function SanityProjectForm({ liffAccessToken }: Props) {
             </div>
 
             {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-            <div className="flex justify-end pt-2">
+            <div className={`flex pt-2 ${isEditMode ? 'justify-between' : 'justify-end'}`}>
+              {isEditMode && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push('/ad-form')}
+                  disabled={loading}
+                  className="px-6 py-2 text-base"
+                >
+                  キャンセル
+                </Button>
+              )}
               <Button
                 type="submit"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 text-base"
                 disabled={loading}
               >
-                {loading ? '保存中...' : `${wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'}設定を保存してランディングページ作成に進む`}
+                {loading 
+                  ? `${isEditMode ? '更新' : '保存'}中...` 
+                  : `${wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'}設定を${isEditMode ? '更新' : '保存'}して${isEditMode ? 'ランディングページ画面に戻る' : 'ランディングページ作成に進む'}`
+                }
               </Button>
             </div>
           </form>

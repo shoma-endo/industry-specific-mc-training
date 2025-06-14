@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Bot, AlertCircle, CheckCircle } from 'lucide-react';
+import { Bot, AlertCircle, CheckCircle, Settings } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 // API レスポンスの型定義
 interface TestConnectionResult {
@@ -42,6 +43,7 @@ interface LandingPageCreateResult {
 
 export default function AdFormPage() {
   const { isLoggedIn, login, getAccessToken } = useLiffContext();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticatedWithWordPress, setIsAuthenticatedWithWordPress] = useState(false);
@@ -256,9 +258,20 @@ export default function AdFormPage() {
         <div className="space-y-6">
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center gap-3 text-green-600 mb-4">
-                <CheckCircle size={24} />
-                <p className="font-semibold">WordPress.com と連携済みです</p>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3 text-green-600">
+                  <CheckCircle size={24} />
+                  <p className="font-semibold">WordPressと連携済みです</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/setup?edit=true')}
+                  className="flex items-center gap-2"
+                >
+                  <Settings size={16} />
+                  設定を編集
+                </Button>
               </div>
               {testResult && testResult.siteInfo && (
                 <div className="text-sm text-gray-600">
