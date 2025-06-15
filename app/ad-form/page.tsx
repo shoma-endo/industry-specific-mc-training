@@ -145,6 +145,9 @@ export default function AdFormPage() {
       });
       const data: TestConnectionResult = await response.json();
       setTestResult(data);
+      if (data.success) {
+        setIsAuthenticatedWithWordPress(true);
+      }
       if (data.needsWordPressAuth) setIsAuthenticatedWithWordPress(false);
     } catch (error) {
       setTestResult({
