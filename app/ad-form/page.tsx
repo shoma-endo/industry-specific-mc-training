@@ -47,6 +47,7 @@ export default function AdFormPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticatedWithWordPress, setIsAuthenticatedWithWordPress] = useState(false);
+  const [isSynced, setIsSynced] = useState(false);
 
   const [formData, setFormData] = useState({
     headline: '',
@@ -114,13 +115,40 @@ export default function AdFormPage() {
     }
   };
 
+  // LINEトークンをサーバーと同期
   useEffect(() => {
-    if (isLoggedIn) {
+    const syncLineToken = async () => {
+      if (isLoggedIn && !isSynced) {
+        try {
+          console.log('[ad-form] LINEトークンのサーバー同期を開始');
+          const token = await getAccessToken();
+          
+          // verifyLineTokenServerを呼び出してCookieをセット
+          const { verifyLineTokenServer } = await import('@/server/handler/actions/login.actions');
+          await verifyLineTokenServer(token);
+          
+          setIsSynced(true);
+          console.log('[ad-form] LINEトークンのサーバー同期が完了');
+        } catch (error) {
+          console.error('[ad-form] LINEトークン同期エラー:', error);
+          setIsCheckingAuth(false);
+        }
+      } else if (!isLoggedIn) {
+        setIsCheckingAuth(false);
+        setIsSynced(false);
+      }
+    };
+    
+    syncLineToken();
+  }, [isLoggedIn, isSynced, getAccessToken]);
+
+  // WordPress認証チェックはLINE同期完了後に実行
+  useEffect(() => {
+    if (isSynced) {
+      console.log('[ad-form] LINE同期完了、WordPress認証チェックを開始');
       checkWordPressAuth();
-    } else {
-      setIsCheckingAuth(false);
     }
-  }, [isLoggedIn]);
+  }, [isSynced]);
 
   const redirectToWordPressOAuth = () => {
     window.location.href = '/api/wordpress/oauth/start';
