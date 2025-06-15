@@ -7,9 +7,14 @@ const lineAuthService = new LineAuthService()
 export const verifyLineTokenServer = async (
   accessToken: string
 ): Promise<void> => {
+  // 1. トークン検証
   await lineAuthService.verifyLineToken(accessToken)
 
-  // verify成功したら、クッキーに保存する
+  // 2. ユーザー情報を取得またはDBに作成・更新
+  const { userService } = await import('@/server/services/userService');
+  await userService.getUserFromLiffToken(accessToken);
+
+  // 3. verify成功したら、クッキーに保存する
   const cookieStore = await cookies();
   cookieStore.set('line_access_token', accessToken, {
     httpOnly: true,
@@ -17,6 +22,19 @@ export const verifyLineTokenServer = async (
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24, // 1日
+  });
+
+  console.log('[verifyLineTokenServer] Cookie設定完了とユーザー情報同期完了');
+}
+
+export const setRefreshTokenCookie = async (refreshToken: string): Promise<void> => {
+  const cookieStore = await cookies();
+  cookieStore.set('line_refresh_token', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30, // 30日
   });
 }
 
