@@ -21,7 +21,7 @@ export const verifyLineTokenServer = async (
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24, // 1日
+    maxAge: 60 * 60 * 24 * 3, // 3日
   });
 
   console.log('[verifyLineTokenServer] Cookie設定完了とユーザー情報同期完了');

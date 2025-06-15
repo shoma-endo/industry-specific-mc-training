@@ -47,7 +47,7 @@ export async function GET() {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict', // 'lax' から 'strict' に変更を推奨（セキュリティ向上）
         path: '/', // path を追加
-        maxAge: 60 * 30, // 30分
+        maxAge: 60 * 60 * 24 * 3, // 3日
       });
 
       if (authResult.newRefreshToken) {
