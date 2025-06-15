@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
         success: false,
         connected: false,
         message: 'WordPress設定が登録されていません',
+        wpType: 'wordpress_com', // デフォルト値
       });
     }
 
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
           success: false,
           connected: false,
           message: 'WordPress.comとの連携が必要です',
+          wpType: wpSettings.wpType,
         });
       }
 
@@ -84,6 +86,7 @@ export async function GET(request: NextRequest) {
         connected: false,
         message: `${wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'}との連携が無効です`,
         error: connectionTest.error,
+        wpType: wpSettings.wpType,
       });
     }
 
@@ -92,6 +95,7 @@ export async function GET(request: NextRequest) {
       connected: true,
       message: `${wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'}に接続済み`,
       siteInfo: connectionTest.data,
+      wpType: wpSettings.wpType,
     });
   } catch (error) {
     console.error('WordPress connection check error:', error);
@@ -100,6 +104,7 @@ export async function GET(request: NextRequest) {
       connected: false,
       message: 'WordPressとの連携状態を確認できませんでした',
       error: error instanceof Error ? error.message : 'Unknown error',
+      wpType: 'wordpress_com', // エラー時のデフォルト値
     });
   }
 }

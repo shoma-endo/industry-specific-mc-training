@@ -23,6 +23,7 @@ interface TestConnectionResult {
       }
     | undefined;
   needsWordPressAuth?: boolean;
+  wpType?: 'wordpress_com' | 'self_hosted';
 }
 
 interface LandingPageCreateResult {
@@ -48,6 +49,7 @@ export default function AdFormPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticatedWithWordPress, setIsAuthenticatedWithWordPress] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
+  const [wpType, setWpType] = useState<'wordpress_com' | 'self_hosted'>('wordpress_com');
 
   const [formData, setFormData] = useState({
     headline: '',
@@ -89,19 +91,26 @@ export default function AdFormPage() {
         throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
       }
 
+      // WordPress種別をセット
+      if (data.wpType) {
+        setWpType(data.wpType);
+      }
+
       if (data.success && data.connected) {
         setIsAuthenticatedWithWordPress(true);
         setTestResult({
           success: true,
           message: data.message,
           siteInfo: data.siteInfo,
+          ...(data.wpType && { wpType: data.wpType }),
         });
       } else {
         setIsAuthenticatedWithWordPress(false);
         setTestResult({
           success: false,
-          error: data.message || data.error || 'WordPress.comとの連携が必要です。',
+          error: data.message || data.error || `${data.wpType === 'self_hosted' ? 'セルフホストWordPress' : 'WordPress.com'}との連携が必要です。`,
           needsWordPressAuth: true,
+          ...(data.wpType && { wpType: data.wpType }),
         });
       }
     } catch (error) {
@@ -251,7 +260,7 @@ export default function AdFormPage() {
   if (isCheckingAuth) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-2xl text-center">
-        <p className="text-lg">WordPress.com 認証状態を確認中...</p>
+        <p className="text-lg">WordPress 認証状態を確認中...</p>
       </div>
     );
   }
@@ -269,13 +278,23 @@ export default function AdFormPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-3 text-yellow-600">
                 <AlertCircle size={24} />
-                <h2 className="text-xl font-semibold">WordPress.com 未連携</h2>
+                <h2 className="text-xl font-semibold">
+                  {wpType === 'self_hosted' ? 'セルフホストWordPress 未連携' : 'WordPress.com 未連携'}
+                </h2>
               </div>
               <p className="text-gray-600">
-                ランディングページをWordPressに保存するには、まずWordPress.comアカウントとの連携が必要です。
+                {wpType === 'self_hosted'
+                  ? 'ランディングページをWordPressに保存するには、まずセルフホスト版WordPressの設定が必要です。'
+                  : 'ランディングページをWordPressに保存するには、まずWordPress.comアカウントとの連携が必要です。'}
               </p>
-              <Button onClick={redirectToWordPressOAuth} className="w-full" disabled={isLoading}>
-                WordPress.comと連携する
+              <Button 
+                onClick={wpType === 'self_hosted'
+                  ? () => router.push('/setup?edit=true')
+                  : redirectToWordPressOAuth} 
+                className="w-full" 
+                disabled={isLoading}
+              >
+                {wpType === 'self_hosted' ? 'WordPress設定を編集' : 'WordPress.comと連携する'}
               </Button>
               {testResult && !testResult.success && (
                 <div className="p-3 rounded-lg border bg-yellow-50 border-yellow-200">
