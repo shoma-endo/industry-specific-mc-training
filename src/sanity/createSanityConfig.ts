@@ -6,19 +6,21 @@ import { structureTool } from 'sanity/structure';
 import { schema } from './schemaTypes';
 import { structure } from './structure';
 import { Iframe } from 'sanity-plugin-iframe-pane';
-import { wordpressExportPlugin } from './plugins/wordpressExport';
 import { debugTool } from './plugins/debugTools';
 
 export function createSanityConfig(projectId: string, dataset: string) {
   const previewUrl = process.env.SANITY_STUDIO_PREVIEW_URL || process.env.NEXT_PUBLIC_SITE_URL;
 
-  // projectIdが空の場合はデフォルト値を使用
-  const safeProjectId = projectId || 'dummy-project';
+  // projectIdは必須であることを確認
+  if (!projectId || projectId.trim() === '') {
+    throw new Error('有効なSanity Project IDが必要です');
+  }
+
   const safeDataset = dataset || 'production';
 
   return defineConfig({
     basePath: '/studio',
-    projectId: safeProjectId,
+    projectId: projectId,
     dataset: safeDataset,
     title: 'LP 管理画面',
     schema,
@@ -53,7 +55,6 @@ export function createSanityConfig(projectId: string, dataset: string) {
             : S.document().views([S.view.form()]),
       }),
       structureTool({ structure, title: 'コンテンツ' }),
-      wordpressExportPlugin,
     ],
     tools: [debugTool],
   });

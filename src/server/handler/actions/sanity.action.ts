@@ -52,8 +52,10 @@ export async function createSanityProject(
     }
     const userId = authResult.userId;
 
-    // 1. Sanityプロジェクト情報を保存（projectIdとdatasetが空でも保存）
-    await supabaseService.createSanityProject(userId, projectId || '', dataset || '');
+    // 1. Sanityプロジェクト情報を保存（有効な値がある場合のみ）
+    if (projectId && projectId.trim() !== '' && dataset && dataset.trim() !== '') {
+      await supabaseService.createSanityProject(userId, projectId.trim(), dataset.trim());
+    }
 
     // 2. WordPress設定情報が提供されている場合のみ保存
     if (wpClientId && wpClientSecret && wpSiteId) {
@@ -113,10 +115,8 @@ export async function createSelfHostedWordPressSettings(
     }
     const userId = authResult.userId;
 
-    // 1. 空のSanityプロジェクト情報を保存（セルフホストの場合はSanityは使用しない）
-    await supabaseService.createSanityProject(userId, '', '');
-
-    // 2. セルフホストWordPress設定情報を保存
+    // セルフホストWordPress設定情報を保存
+    // 注意: セルフホスト版ではSanityは使用しないため、Sanityプロジェクト情報は保存しない
     await supabaseService.createOrUpdateSelfHostedWordPressSettings(
       userId,
       wpSiteUrl,
