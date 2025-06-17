@@ -11,6 +11,7 @@ import {
   OpenAIMessage,
 } from '@/types/chat';
 import { SupabaseService } from './supabaseService';
+import { MODEL_CONFIGS } from '@/lib/constants';
 
 class ChatService {
   private supabaseService: SupabaseService;
@@ -40,14 +41,25 @@ class ChatService {
       let userMessageString: string;
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
-        aiResponse = await openAiService.startChat(systemPrompt, userMessage, model);
+        const config = model ? MODEL_CONFIGS[model] : null;
+        const actualModel = config ? config.actualModel : model || 'gpt-4.1-nano-2025-04-14';
+        const temperature = config ? config.temperature : 0.5;
+        const maxTokens = config ? config.maxTokens : 1000;
+
+        aiResponse = await openAiService.startChat(
+          systemPrompt,
+          userMessage,
+          actualModel,
+          temperature,
+          maxTokens
+        );
 
         if (aiResponse.error) {
           return aiResponse;
         }
       } else {
         userMessageString = userMessage[0]!;
-        aiResponse = { message: userMessage[1]!, error: '' }
+        aiResponse = { message: userMessage[1]!, error: '' };
       }
 
       const sessionId = uuidv4();
@@ -126,11 +138,18 @@ class ChatService {
       let userMessageString: string;
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
+        const config = model ? MODEL_CONFIGS[model] : null;
+        const actualModel = config ? config.actualModel : model || 'gpt-4.1-nano-2025-04-14';
+        const temperature = config ? config.temperature : 0.5;
+        const maxTokens = config ? config.maxTokens : 1000;
+
         aiResponse = await openAiService.continueChat(
           messages,
           userMessage,
           systemPrompt,
-          model
+          actualModel,
+          temperature,
+          maxTokens
         );
 
         if (aiResponse.error) {
@@ -138,7 +157,7 @@ class ChatService {
         }
       } else {
         userMessageString = userMessage[0]!;
-        aiResponse = { message: userMessage[1]!, error: '' }
+        aiResponse = { message: userMessage[1]!, error: '' };
       }
 
       const now = Date.now();

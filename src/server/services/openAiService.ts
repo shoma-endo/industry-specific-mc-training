@@ -26,7 +26,7 @@ export const openAiService = {
     messages: ChatMessage[],
     model: string = 'gpt-4o-mini-2024-07-18',
     temperature: number = 0.5,
-    max_completion_tokens: number = 1000,
+    max_tokens: number = 1000,
     logit_bias?: Record<string, number>
   ): Promise<ChatResponse> {
     try {
@@ -34,8 +34,8 @@ export const openAiService = {
         model: model,
         messages: messages,
         temperature: temperature,
-        max_completion_tokens: max_completion_tokens,
-        ...(logit_bias && { logit_bias })
+        max_tokens: max_tokens,
+        ...(logit_bias && { logit_bias }),
       });
 
       const response = completion.choices[0]?.message?.content;
@@ -66,7 +66,8 @@ export const openAiService = {
     systemPrompt: string,
     userMessage: string,
     model: string = 'gpt-4.1-nano-2025-04-14',
-    temperature: number = 0.5
+    temperature: number = 0.5,
+    maxTokens: number = 1000
   ): Promise<ChatResponse> {
     const messages: ChatMessage[] = [
       {
@@ -79,7 +80,7 @@ export const openAiService = {
       },
     ];
 
-    return this.sendMessage(messages, model, temperature);
+    return this.sendMessage(messages, model, temperature, maxTokens);
   },
 
   /**
@@ -94,7 +95,8 @@ export const openAiService = {
     userMessage: string,
     systemPrompt: string,
     model: string = 'gpt-4.1-nano-2025-04-14',
-    temperature: number = 0.5
+    temperature: number = 0.5,
+    maxTokens: number = 1000
   ): Promise<ChatResponse> {
     const updatedMessages: ChatMessage[] = [
       {
@@ -108,6 +110,6 @@ export const openAiService = {
       },
     ];
 
-    return this.sendMessage(updatedMessages, model, temperature);
+    return this.sendMessage(updatedMessages, model, temperature, maxTokens);
   },
 };

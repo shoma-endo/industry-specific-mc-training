@@ -10,12 +10,13 @@ import {
   AD_COPY_PROMPT,
   AD_COPY_FINISHING_PROMPT,
   GOOGLE_SEARCH_CATEGORIZATION_PROMPT,
+  LP_DRAFT_PROMPT,
 } from '@/lib/prompts';
 import { googleSearchAction } from '@/server/handler/actions/googleSearch.actions';
 import { ChatResponse } from '@/types/chat';
 import { formatSemrushAds } from '@/lib/adExtractor';
 import { semrushService } from '@/server/services/semrushService';
-import { ERROR_MESSAGES } from '@/lib/constants';
+import { ERROR_MESSAGES, MODEL_CONFIGS } from '@/lib/constants';
 
 const startChatSchema = z.object({
   userMessage: z.string(),
@@ -34,8 +35,9 @@ const continueChatSchema = z.object({
 const SYSTEM_PROMPTS: Record<string, string> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
   // 'semrush_search': AD_COPY_PROMPT, // semrushは契約してから使う
-  'ad_copy_creation': AD_COPY_PROMPT,
+  ad_copy_creation: AD_COPY_PROMPT,
   'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
+  lp_draft_creation: LP_DRAFT_PROMPT,
   // TODO: AIモデルは追加時にここに追加
 };
 
@@ -96,12 +98,7 @@ async function generateAIResponsesFromTitles(
       },
     ];
 
-    const response = await openAiService.sendMessage(
-      messages,
-      'gpt-4.1-nano-2025-04-14',
-      0,
-      1
-    );
+    const response = await openAiService.sendMessage(messages, 'gpt-4.1-nano-2025-04-14', 0, 1);
     return {
       query,
       aiMessage: response.message,
@@ -111,9 +108,7 @@ async function generateAIResponsesFromTitles(
   return await Promise.all(tasks);
 }
 
-function extractFalseQueries(
-  responses: { query: string; aiMessage: string }[]
-): string {
+function extractFalseQueries(responses: { query: string; aiMessage: string }[]): string {
   return responses
     .filter(res => res.aiMessage.trim().toLowerCase() === 'false')
     .map(res => res.query)
@@ -153,7 +148,6 @@ function subtractMultilineStrings(
   };
 }
 
-
 /**
  * 改行区切りの「見出し：…」「説明文：…」テキストを
  * JSON 配列にパースする
@@ -192,7 +186,7 @@ async function handleGoogleSearch(
   userMessages: string[],
   liffAccessToken: string
 ): Promise<{ query: string; searchResult: string }[]> {
-  const searchPromises = userMessages.map(async (query) => {
+  const searchPromises = userMessages.map(async query => {
     try {
       const result = await googleSearchAction({ liffAccessToken, query });
 
@@ -201,7 +195,9 @@ async function handleGoogleSearch(
         return { query, searchResult: '' }; // エラー時は空文字列
       }
 
-      const searchResult = result.items.map(item => `タイトル：${item.title}\nリンク：${item.link}\n説明文：${item.snippet}`).join('\n');
+      const searchResult = result.items
+        .map(item => `タイトル：${item.title}\nリンク：${item.link}\n説明文：${item.snippet}`)
+        .join('\n');
       return { query, searchResult };
     } catch (error) {
       console.error(`Critical error searching for "${query}":`, error);
@@ -212,7 +208,6 @@ async function handleGoogleSearch(
   const resultsArray = await Promise.all(searchPromises);
   return resultsArray;
 }
-
 
 // semrush_search モデルの処理
 async function handleSemrushSearch(userMessage: string): Promise<string> {
@@ -256,8 +251,19 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
 
   // --- モデルによる分岐 ---
   if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
-    const result = await openAiService.startChat(systemPrompt, userMessage.trim(), model);
-    const classificationKeywords = result.message === '今すぐ客キーワード' ? userMessage : result.message;
+    const config = MODEL_CONFIGS[model];
+    const maxTokens = config ? config.maxTokens : 1000;
+    const temperature = config ? config.temperature : 0.5;
+
+    const result = await openAiService.startChat(
+      systemPrompt,
+      userMessage.trim(),
+      model,
+      temperature,
+      maxTokens
+    );
+    const classificationKeywords =
+      result.message === '今すぐ客キーワード' ? userMessage : result.message;
     const { immediate, later } = extractKeywordSections(classificationKeywords);
     if (immediate.length === 0) {
       return { message: result.message, error: '', requiresSubscription: false };
@@ -266,11 +272,10 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
     const aiResponses = await generateAIResponsesFromTitles(getSearchResults);
     const falseQueries = extractFalseQueries(aiResponses);
     const afterKeywords = subtractMultilineStrings(immediate.join('\n'), falseQueries);
-    return await chatService.startChat(
-      userId,
-      systemPrompt,
-      [userMessage, `【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`],
-    );
+    return await chatService.startChat(userId, systemPrompt, [
+      userMessage,
+      `【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`,
+    ]);
   } else if (model === 'semrush_search') {
     const searchResult = await handleSemrushSearch(userMessage);
     if (
@@ -294,11 +299,25 @@ export async function startChat(data: z.infer<typeof startChatSchema>): Promise<
       userId,
       systemPrompt,
       userMessage.trim(),
-      'gpt-4.1-nano-2025-04-14'
+      model // 元のモデルキーを渡してMODEL_CONFIGSを正しく参照できるようにする
+    );
+  } else if (model === 'lp_draft_creation') {
+    // LP作成モデル - LP_DRAFT_PROMPTを使用してgpt-4.1-nano-2025-04-14で処理
+    return await chatService.startChat(
+      userId,
+      systemPrompt,
+      userMessage.trim(),
+      model // 元のモデルキーを渡してMODEL_CONFIGSを正しく参照できるようにする
     );
   }
 
-  return chatService.startChat(userId, systemPrompt, userMessage, model);
+  // その他のモデルのデフォルト処理
+  return chatService.startChat(
+    userId,
+    systemPrompt,
+    userMessage,
+    model
+  );
 }
 
 export async function continueChat(
@@ -318,6 +337,10 @@ export async function continueChat(
 
     // --- モデルによる分岐 ---
     if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
+      const config = MODEL_CONFIGS[model];
+      const maxTokens = config ? config.maxTokens : 1000;
+      const temperature = config ? config.temperature : 0.5;
+
       const result = await openAiService.continueChat(
         messages.map(msg => ({
           role: msg.role as 'user' | 'assistant' | 'system',
@@ -325,9 +348,12 @@ export async function continueChat(
         })),
         userMessage.trim(),
         systemPrompt,
-        model
+        model,
+        temperature,
+        maxTokens
       );
-      const classificationKeywords = result.message === '今すぐ客キーワード' ? userMessage : result.message;
+      const classificationKeywords =
+        result.message === '今すぐ客キーワード' ? userMessage : result.message;
       const { immediate, later } = extractKeywordSections(classificationKeywords);
       if (immediate.length === 0) {
         return { message: result.message, error: '', requiresSubscription: false };
@@ -339,12 +365,15 @@ export async function continueChat(
       return await chatService.continueChat(
         userId,
         sessionId,
-        [userMessage, `【今すぐ客キーワード】\n${afterKeywords.remaining} \n\n【後から客キーワード】\n${afterKeywords.removed}\n${later.join('\n')}`],
+        [
+          userMessage,
+          `【今すぐ客キーワード】\n${afterKeywords.remaining} \n\n【後から客キーワード】\n${afterKeywords.removed}\n${later.join('\n')}`,
+        ],
         systemPrompt,
         messages.map(msg => ({
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content,
-        })),
+        }))
       );
     } else if (model === 'semrush_search') {
       const searchResult = await handleSemrushSearch(userMessage);
@@ -379,10 +408,24 @@ export async function continueChat(
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content,
         })),
-        'gpt-4.1-nano-2025-04-14'
+        model // 元のモデルキーを渡してMODEL_CONFIGSを正しく参照できるようにする
+      );
+    } else if (model === 'lp_draft_creation') {
+      // LP作成モデル - LP_DRAFT_PROMPTを使用してgpt-4.1-nano-2025-04-14で処理
+      return await chatService.continueChat(
+        userId,
+        sessionId,
+        userMessage.trim(),
+        systemPrompt,
+        messages.map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content,
+        })),
+        model // 元のモデルキーを渡してMODEL_CONFIGSを正しく参照できるようにする
       );
     }
 
+    // その他のモデルのデフォルト処理
     return chatService.continueChat(
       userId,
       sessionId,

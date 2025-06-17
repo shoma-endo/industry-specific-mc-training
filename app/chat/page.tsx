@@ -31,6 +31,7 @@ const AVAILABLE_MODELS = {
   // 'semrush_search': 'リサーチ→広告文作成', // semrushは契約してから使う
   'ad_copy_creation': '広告文作成',
   'gpt-4.1-nano-2025-04-14': '広告文仕上げ',
+  'lp_draft_creation': 'LPドラフト作成',
   // 'google_search': 'Google検索', 一旦使わなくなったのでコメントアウト
 };
 

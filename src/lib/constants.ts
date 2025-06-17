@@ -1,4 +1,32 @@
 export const ERROR_MESSAGES = {
-  ad_acquisition: '広告データの取得中にエラーが発生しました。',
-  ad_not_found: '該当する広告が見つかりませんでした。',
+  ad_acquisition:
+    'SEMrushから広告情報の取得に失敗しました。しばらく時間をおいてから再度お試しください。',
+  ad_not_found: 'この検索キーワードでは広告情報が見つかりませんでした。',
+};
+
+// AI モデル設定
+export const MODEL_CONFIGS: Record<
+  string,
+  { maxTokens: number; temperature: number; actualModel: string }
+> = {
+  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': {
+    maxTokens: 1000,
+    temperature: 0.5,
+    actualModel: 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2',
+  },
+  ad_copy_creation: {
+    maxTokens: 1500,
+    temperature: 0.6,
+    actualModel: 'gpt-4.1-nano-2025-04-14',
+  },
+  'gpt-4.1-nano-2025-04-14': {
+    maxTokens: 1200,
+    temperature: 0.6,
+    actualModel: 'gpt-4.1-nano-2025-04-14',
+  },
+  lp_draft_creation: {
+    maxTokens: 3000,
+    temperature: 0.7,
+    actualModel: 'gpt-4.1-nano-2025-04-14',
+  },
 };
