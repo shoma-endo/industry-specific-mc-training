@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, AlertCircle, Settings, Database, Plug } from 'lucide-react';
+import { CheckCircle, AlertCircle, Settings, Database, Plug, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -32,9 +32,7 @@ export default function SetupDashboard({ sanitySettings, wordpressSettings }: Pr
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-4">設定ダッシュボード</h1>
-        <p className="text-gray-600">
-          ランディングページ作成に必要な設定を管理します
-        </p>
+        <p className="text-gray-600">ランディングページ作成に必要な設定を管理します</p>
       </div>
 
       {/* 全体のステータス */}
@@ -58,16 +56,63 @@ export default function SetupDashboard({ sanitySettings, wordpressSettings }: Pr
               ? 'すべての設定が完了しています。ランディングページ作成機能をご利用いただけます。'
               : '一部の設定が未完了です。下記の設定項目を確認してください。'}
           </p>
-          {isSetupComplete && (
-            <div className="flex gap-4">
-              <Button onClick={() => router.push('/studio')} variant="outline" className="text-blue-500 flex-1">
-                Sanity Studio を開く
-              </Button>
-              <Button onClick={() => router.push('/ad-form')} variant="outline" className="text-purple-500 flex-1">
-                ランディングページ作成へ
-              </Button>
-            </div>
-          )}
+
+          {/* 利用可能な機能 */}
+          <div className="space-y-3">
+            {sanitySettings.hasSettings && (
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-3">
+                  <Database className="text-blue-500" size={20} />
+                  <div>
+                    <span className="font-medium text-blue-800">Sanity Studio</span>
+                    <p className="text-sm text-blue-600">コンテンツ管理システムが利用可能</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => router.push('/studio')}
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                >
+                  開く
+                  <ArrowRight size={16} className="ml-1" />
+                </Button>
+              </div>
+            )}
+
+            {wordpressSettings.hasSettings && (
+              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="flex items-center gap-3">
+                  <Plug className="text-purple-500" size={20} />
+                  <div>
+                    <span className="font-medium text-purple-800">ランディングページ作成</span>
+                    <p className="text-sm text-purple-600">WordPress公開機能が利用可能</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => router.push('/ad-form')}
+                  size="sm"
+                  variant="outline"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                >
+                  開始
+                  <ArrowRight size={16} className="ml-1" />
+                </Button>
+              </div>
+            )}
+
+            {isSetupComplete && (
+              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="text-green-500" size={20} />
+                  <div>
+                    <span className="font-medium text-green-800">フル機能</span>
+                    <p className="text-sm text-green-600">すべての機能が利用可能です</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -96,25 +141,38 @@ export default function SetupDashboard({ sanitySettings, wordpressSettings }: Pr
                   </>
                 )}
               </div>
-              
+
               {sanitySettings.hasSettings && sanitySettings.projectId && (
                 <div className="text-sm text-gray-600">
                   <p>プロジェクトID: {sanitySettings.projectId}</p>
                 </div>
               )}
-              
+
               <p className="text-sm text-gray-600">
                 ランディングページのコンテンツ管理システムです。
                 プロジェクトIDとAPIトークンの設定が必要です。
               </p>
-              
+
               <div className="flex gap-2">
                 <Link href="/setup/sanity" className="flex-1">
-                  <Button variant={sanitySettings.hasSettings ? "outline" : "default"} className="w-full">
+                  <Button
+                    variant={sanitySettings.hasSettings ? 'outline' : 'default'}
+                    className="w-full"
+                  >
                     <Settings size={16} className="mr-2" />
                     {sanitySettings.hasSettings ? '設定を編集' : '設定を開始'}
                   </Button>
                 </Link>
+                {sanitySettings.hasSettings && (
+                  <Button
+                    onClick={() => router.push('/studio')}
+                    variant="outline"
+                    size="sm"
+                    className="px-3"
+                  >
+                    <ArrowRight size={16} />
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -143,26 +201,44 @@ export default function SetupDashboard({ sanitySettings, wordpressSettings }: Pr
                   </>
                 )}
               </div>
-              
+
               {wordpressSettings.hasSettings && (
                 <div className="text-sm text-gray-600">
-                  <p>タイプ: {wordpressSettings.type === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'}</p>
+                  <p>
+                    タイプ:{' '}
+                    {wordpressSettings.type === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'}
+                  </p>
                   {wordpressSettings.siteId && <p>サイトID: {wordpressSettings.siteId}</p>}
                   {wordpressSettings.siteUrl && <p>サイトURL: {wordpressSettings.siteUrl}</p>}
                 </div>
               )}
-              
+
               <p className="text-sm text-gray-600">
-                ランディングページの公開先です。
-                WordPress.com または セルフホスト版の設定が必要です。
+                ランディングページの公開先です。 WordPress.com または
+                セルフホスト版の設定が必要です。
               </p>
-              
-              <Link href="/setup/wordpress" className="block">
-                <Button variant={wordpressSettings.hasSettings ? "outline" : "default"} className="w-full">
-                  <Settings size={16} className="mr-2" />
-                  {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
-                </Button>
-              </Link>
+
+              <div className="flex gap-2">
+                <Link href="/setup/wordpress" className="flex-1">
+                  <Button
+                    variant={wordpressSettings.hasSettings ? 'outline' : 'default'}
+                    className="w-full"
+                  >
+                    <Settings size={16} className="mr-2" />
+                    {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
+                  </Button>
+                </Link>
+                {wordpressSettings.hasSettings && (
+                  <Button
+                    onClick={() => router.push('/ad-form')}
+                    variant="outline"
+                    size="sm"
+                    className="px-3"
+                  >
+                    <ArrowRight size={16} />
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -190,13 +266,11 @@ export default function SetupDashboard({ sanitySettings, wordpressSettings }: Pr
                   <strong>ランディングページ作成</strong> - AIによる自動生成とWordPress公開
                 </li>
               </ol>
-              
+
               {!sanitySettings.hasSettings && (
                 <div className="pt-4">
                   <Link href="/setup/sanity">
-                    <Button>
-                      Sanity設定から開始する
-                    </Button>
+                    <Button>Sanity設定から開始する</Button>
                   </Link>
                 </div>
               )}

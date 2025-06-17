@@ -301,12 +301,12 @@ export class SupabaseService {
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
-    
+
     if (error) {
       console.error('Failed to fetch WordPress settings:', error);
       return null;
     }
-    
+
     if (!data) return null;
 
     return {
@@ -389,5 +389,35 @@ export class SupabaseService {
       console.error('Error upserting self-hosted WordPress settings:', error);
       throw new Error(`セルフホストWordPress設定の保存または更新に失敗しました: ${error.message}`);
     }
+  }
+
+  async updateSanityProject(userId: string, projectId: string, dataset: string) {
+    const { data, error } = await this.supabase
+      .from('sanity_projects')
+      .update({
+        project_id: projectId,
+        dataset: dataset,
+      })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[SupabaseService] Error updating sanity project:', error);
+      throw new Error(`Failed to update sanity project: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  async getAllSanityProjects() {
+    const { data, error } = await this.supabase.from('sanity_projects').select('*');
+
+    if (error) {
+      console.error('[SupabaseService] Error fetching all sanity projects:', error);
+      throw new Error(`Failed to fetch sanity projects: ${error.message}`);
+    }
+
+    return data;
   }
 }

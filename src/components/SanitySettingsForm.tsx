@@ -25,16 +25,20 @@ interface Props {
 export default function SanitySettingsForm({ liffAccessToken, existingProject }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  } | null>(null);
 
   // フォームの状態
   const [sanityProjectId, setSanityProjectId] = useState(existingProject?.project_id || '');
-  const [sanityDataset, setSanityDataset] = useState(existingProject?.dataset || 'production');
+  const [sanityDataset, setSanityDataset] = useState(existingProject?.dataset || '');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sanityProjectId) {
-      setResult({ success: false, error: 'Sanity Project IDは必須です' });
+    if (!sanityProjectId || !sanityDataset) {
+      setResult({ success: false, error: 'Project IDとDatasetは必須です' });
       return;
     }
 
@@ -55,7 +59,7 @@ export default function SanitySettingsForm({ liffAccessToken, existingProject }:
         }),
         credentials: 'include',
       });
-      
+
       const data = await response.json();
 
       if (data.success) {
@@ -63,7 +67,7 @@ export default function SanitySettingsForm({ liffAccessToken, existingProject }:
           success: true,
           message: existingProject ? 'Sanity設定を更新しました' : 'Sanity設定を保存しました',
         });
-        
+
         // 少し遅延してからダッシュボードに戻る
         setTimeout(() => {
           router.push('/setup');
@@ -88,7 +92,10 @@ export default function SanitySettingsForm({ liffAccessToken, existingProject }:
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       {/* ヘッダー */}
       <div className="mb-8">
-        <Link href="/setup" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4">
+        <Link
+          href="/setup"
+          className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4"
+        >
           <ArrowLeft size={20} className="mr-2" />
           設定ダッシュボードに戻る
         </Link>
@@ -104,9 +111,7 @@ export default function SanitySettingsForm({ liffAccessToken, existingProject }:
       {/* メインフォーム */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            {existingProject ? 'Sanity設定を編集' : 'Sanity設定を追加'}
-          </CardTitle>
+          <CardTitle>{existingProject ? 'Sanity設定を編集' : 'Sanity設定を追加'}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -118,7 +123,7 @@ export default function SanitySettingsForm({ liffAccessToken, existingProject }:
               <Input
                 placeholder="例: abc123def"
                 value={sanityProjectId}
-                onChange={(e) => setSanityProjectId(e.target.value)}
+                onChange={e => setSanityProjectId(e.target.value)}
                 className="w-full"
                 required
               />
@@ -127,26 +132,26 @@ export default function SanitySettingsForm({ liffAccessToken, existingProject }:
               </p>
             </div>
 
-
             {/* Dataset */}
             <div className="space-y-2">
               <label className="block text-sm font-medium">
-                Dataset
+                Dataset <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="production"
+                placeholder="例: development, production"
                 value={sanityDataset}
-                onChange={(e) => setSanityDataset(e.target.value)}
+                onChange={e => setSanityDataset(e.target.value)}
                 className="w-full"
+                required
               />
-              <p className="text-xs text-gray-500">
-                通常は「production」を使用します
-              </p>
+              <p className="text-xs text-gray-500">使用するデータセット名を入力してください</p>
             </div>
 
             {/* 結果表示 */}
             {result && (
-              <div className={`p-4 rounded-lg ${result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+              <div
+                className={`p-4 rounded-lg ${result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+              >
                 <div className="flex items-center gap-2">
                   {result.success ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
                   <p>{result.success ? result.message : result.error}</p>
@@ -162,11 +167,7 @@ export default function SanitySettingsForm({ liffAccessToken, existingProject }:
                 </Button>
               </Link>
               <Button type="submit" disabled={isLoading} className="flex-1">
-                {isLoading
-                  ? '保存中...'
-                  : existingProject
-                  ? '設定を更新'
-                  : '設定を保存'}
+                {isLoading ? '保存中...' : existingProject ? '設定を更新' : '設定を保存'}
               </Button>
             </div>
           </form>

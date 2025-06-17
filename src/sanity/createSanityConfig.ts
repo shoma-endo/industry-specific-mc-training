@@ -11,17 +11,19 @@ import { debugTool } from './plugins/debugTools';
 export function createSanityConfig(projectId: string, dataset: string) {
   const previewUrl = process.env.SANITY_STUDIO_PREVIEW_URL || process.env.NEXT_PUBLIC_SITE_URL;
 
-  // projectIdは必須であることを確認
+  // projectIdとdatasetは必須であることを確認
   if (!projectId || projectId.trim() === '') {
     throw new Error('有効なSanity Project IDが必要です');
   }
 
-  const safeDataset = dataset || 'production';
+  if (!dataset || dataset.trim() === '') {
+    throw new Error('有効なSanity Datasetが必要です');
+  }
 
   return defineConfig({
     basePath: '/studio',
     projectId: projectId,
-    dataset: safeDataset,
+    dataset: dataset,
     title: 'LP 管理画面',
     schema,
     plugins: [
