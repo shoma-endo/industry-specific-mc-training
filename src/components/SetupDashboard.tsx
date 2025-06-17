@@ -150,7 +150,7 @@ export default function SetupDashboard({ sanitySettings, wordpressSettings }: Pr
 
               <p className="text-sm text-gray-600">
                 ランディングページのコンテンツ管理システムです。
-                プロジェクトIDとAPIトークンの設定が必要です。
+                プロジェクトIDとDatasetの設定が必要です。
               </p>
 
               <div className="flex gap-2">
