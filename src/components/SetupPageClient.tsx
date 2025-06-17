@@ -45,7 +45,7 @@ export default function SetupPageClient({ liffAccessToken, hasWordPressSettings,
     }
     
     return undefined;
-  }, [hasWordPressSettings, isEditMode, router]);
+  }, [hasWordPressSettings, isEditMode, router, wordpressType]);
 
   // リダイレクト中の表示
   if (isRedirecting) {

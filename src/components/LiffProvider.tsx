@@ -76,7 +76,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     };
 
     syncUserIdWithServer();
-  }, [initialize, isLoggedIn, profile, syncedWithServer, getAccessToken]);
+  }, [initialize, isLoggedIn, profile, syncedWithServer]);
 
   // 自動ログイン：LIFF初期化後にログインしていなければ遷移
   useEffect(() => {

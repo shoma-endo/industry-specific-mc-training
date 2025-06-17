@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLiffContext } from '@/components/LiffProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,7 +61,7 @@ export default function AdFormPage() {
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   // WordPress認証状態を確認する関数
-  const checkWordPressAuth = async () => {
+  const checkWordPressAuth = useCallback(async () => {
     if (!isLoggedIn) {
       setIsCheckingAuth(false);
       return;
@@ -122,7 +122,7 @@ export default function AdFormPage() {
     } finally {
       setIsCheckingAuth(false);
     }
-  };
+  }, [isLoggedIn]);
 
   // LINEトークンをサーバーと同期
   useEffect(() => {
@@ -157,7 +157,7 @@ export default function AdFormPage() {
       console.log('[ad-form] LINE同期完了、WordPress認証チェックを開始');
       checkWordPressAuth();
     }
-  }, [isSynced]);
+  }, [isSynced, checkWordPressAuth]);
 
   const redirectToWordPressOAuth = () => {
     window.location.href = '/api/wordpress/oauth/start';

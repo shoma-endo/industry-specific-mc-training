@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { Card, Stack, Text, Button } from '@sanity/ui';
 import { BugIcon, ControlsIcon } from '@sanity/icons';

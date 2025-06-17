@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { WordPressType } from '@/types/wordpress';
 
 const supabaseService = new SupabaseService();
 

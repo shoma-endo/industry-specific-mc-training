@@ -93,7 +93,7 @@ export default function Home() {
       }
     };
     fetchSubscription();
-  }, [profile]);
+  }, [profile, getAccessToken]);
 
   // サブスクリプション登録
   const handleSubscribe = async () => {
