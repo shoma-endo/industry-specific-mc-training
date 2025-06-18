@@ -230,6 +230,18 @@ class ChatService {
       return [];
     }
   }
+
+  /**
+   * チャットセッションを削除
+   */
+  async deleteChatSession(sessionId: string, userId: string): Promise<void> {
+    try {
+      await this.supabaseService.deleteChatSession(sessionId, userId);
+    } catch (error) {
+      console.error('Failed to delete chat session:', error);
+      throw new Error('チャットセッションの削除に失敗しました');
+    }
+  }
 }
 
 export const chatService = new ChatService();

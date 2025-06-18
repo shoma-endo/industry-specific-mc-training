@@ -12,9 +12,11 @@ import {
   continueChat,
   getChatSessions,
   getSessionMessages,
+  deleteChatSession,
 } from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
-import { Bot, Send, AlertCircle, PlusCircle, Menu } from 'lucide-react';
+import { Bot, Send, AlertCircle, PlusCircle, Menu, Trash2 } from 'lucide-react';
+import { DeleteChatDialog } from '@/components/DeleteChatDialog';
 import { cn } from '@/lib/utils';
 import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
 import {
@@ -64,6 +66,10 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
+  const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
 
   // モバイル画面の検出
   useEffect(() => {
@@ -241,6 +247,49 @@ export default function ChatPage() {
     // モバイル表示の場合は新規チャット開始後にシートを閉じる
     if (isMobile) {
       setSheetOpen(false);
+    }
+  };
+
+  // 削除ダイアログを開く
+  const handleDeleteClick = (session: Session, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessionToDelete(session);
+    setDeleteDialogOpen(true);
+  };
+
+  // セッション削除を実行
+  const handleDeleteConfirm = async () => {
+    if (!sessionToDelete || !isLoggedIn) return;
+
+    setIsDeletingSession(true);
+    
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        console.error('LINEアクセストークンが取得できません');
+        return;
+      }
+
+      const result = await deleteChatSession(sessionToDelete.id, accessToken);
+      
+      if (result.success) {
+        // セッション一覧から削除
+        setSessions(prev => prev.filter(s => s.id !== sessionToDelete.id));
+        
+        // 削除したセッションが現在表示中の場合は新しいチャットに切り替え
+        if (sessionId === sessionToDelete.id) {
+          startNewChat();
+        }
+      } else {
+        console.error('削除に失敗しました:', result.error);
+        setError(result.error || 'セッションの削除に失敗しました');
+      }
+    } catch (error) {
+      console.error('Delete session error:', error);
+      setError('セッションの削除中にエラーが発生しました');
+    } finally {
+      setIsDeletingSession(false);
+      setSessionToDelete(null);
     }
   };
 
@@ -530,23 +579,41 @@ export default function ChatPage() {
           ) : (
             <div className="space-y-2">
               {sessions.map(session => (
-                <button
+                <div
                   key={session.id}
-                  onClick={() => loadSession(session.id)}
                   className={cn(
-                    'w-full text-left px-3 py-3 rounded-lg hover:bg-gray-100 transition',
+                    'group relative rounded-lg transition',
                     sessionId === session.id
                       ? 'bg-[#e6f9ef] text-[#06c755] font-medium'
-                      : 'bg-white'
+                      : 'bg-white hover:bg-gray-100'
                   )}
+                  onMouseEnter={() => setHoveredSessionId(session.id)}
+                  onMouseLeave={() => setHoveredSessionId(null)}
                 >
-                  <div className="flex flex-col">
-                    <span className="truncate text-sm">{session.title}</span>
-                    <span className="text-xs text-gray-500 mt-1">
-                      {formatDate(session.updatedAt)}
-                    </span>
-                  </div>
-                </button>
+                  <button
+                    onClick={() => loadSession(session.id)}
+                    className="w-full text-left px-3 py-3 pr-10"
+                  >
+                    <div className="flex flex-col">
+                      <span className="truncate text-sm">{session.title}</span>
+                      <span className="text-xs text-gray-500 mt-1">
+                        {formatDate(session.updatedAt)}
+                      </span>
+                    </div>
+                  </button>
+                  
+                  {/* 削除ボタン - ホバー時に表示 */}
+                  {hoveredSessionId === session.id && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 opacity-70 hover:opacity-100 hover:bg-red-100 hover:text-red-600"
+                      onClick={(e) => handleDeleteClick(session, e)}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -824,6 +891,15 @@ export default function ChatPage() {
           </form>
         </div>
       </div>
+
+      {/* 削除確認ダイアログ */}
+      <DeleteChatDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        chatTitle={sessionToDelete?.title || ''}
+        isDeleting={isDeletingSession}
+      />
     </div>
   );
 }

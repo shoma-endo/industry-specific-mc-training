@@ -465,3 +465,21 @@ export async function getSessionMessages(sessionId: string, liffAccessToken: str
   const messages = await chatService.getSessionMessages(sessionId, auth.userId);
   return { messages, error: null };
 }
+
+export async function deleteChatSession(sessionId: string, liffAccessToken: string) {
+  const auth = await checkAuth(liffAccessToken);
+  if (auth.isError) {
+    return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
+  }
+  
+  try {
+    await chatService.deleteChatSession(sessionId, auth.userId);
+    return { success: true, error: null };
+  } catch (error) {
+    console.error('Failed to delete chat session:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'チャットセッションの削除に失敗しました' 
+    };
+  }
+}
