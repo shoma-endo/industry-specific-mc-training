@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -73,10 +72,25 @@ export default function ChatPage() {
   const [isDeletingSession, setIsDeletingSession] = useState(false);
   const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
   const sessionListRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [shouldPreserveScroll, setShouldPreserveScroll] = useState(false);
   const [preservedScrollTop, setPreservedScrollTop] = useState(0);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // メッセージが追加されたときに自動スクロール
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // コンポーネントアンマウント時のクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // モバイル画面の検出
   useEffect(() => {
@@ -251,7 +265,7 @@ export default function ChatPage() {
 
     try {
       setIsLoading(true);
-      const accessToken = await liff.getAccessToken();
+      const accessToken = await getAccessToken();
       if (!accessToken) {
         console.error('LINEアクセストークンが取得できません');
         setIsLoading(false);
@@ -344,7 +358,7 @@ export default function ChatPage() {
 
       try {
         setIsLoading(true);
-        const accessToken = await liff.getAccessToken();
+        const accessToken = await getAccessToken();
         if (!accessToken) {
           console.error('LINEアクセストークンが取得できません');
           setIsLoading(false);
@@ -653,7 +667,7 @@ export default function ChatPage() {
             {/* アクションメニュー */}
             <div className="flex items-center space-x-2">
               <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger className="w-[120px] md:w-[180px] h-9 text-xs md:text-sm border-gray-200">
+                <SelectTrigger className="w-[120px] md:w-[180px] min-w-[120px] h-9 text-xs md:text-sm border-gray-200">
                   <SelectValue placeholder="モデルを選択" />
                 </SelectTrigger>
                 <SelectContent>
@@ -740,10 +754,10 @@ export default function ChatPage() {
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
               <Bot size={48} className="text-gray-300 mb-3" />
               <h3 className="text-lg font-medium mb-1">AIアシスタントへようこそ</h3>
-              <p className="text-sm text-gray-500 max-w-xs">
+              <p className="text-sm text-gray-500 max-w-xs whitespace-nowrap">
                 {requiresSubscription
                   ? 'チャット機能を利用するにはサブスクリプションが必要です。'
-                  : '何か質問や相談があれば、お気軽にメッセージを送ってください。'}
+                  : 'Google広告の効果を最大化するお手伝いをします。'}
               </p>
               {requiresSubscription && (
                 <div className="mt-4">
@@ -761,7 +775,7 @@ export default function ChatPage() {
           ) : (
             <>
               {messages.map((message, index) => (
-                <div key={index} className="mb-4 last:mb-2">
+                <div key={message.timestamp ? message.timestamp.getTime() + index : index} className="mb-4 last:mb-2">
                   <div
                     className={cn(
                       'flex items-start gap-2',
@@ -805,6 +819,9 @@ export default function ChatPage() {
                   )}
                 </div>
               ))}
+              
+              {/* メッセージの最下部にスクロール用のアンカー */}
+              <div ref={messagesEndRef} />
 
               {/* AIの入力中表示 */}
               {isLoading && (
@@ -839,9 +856,9 @@ export default function ChatPage() {
 
         {/* 入力エリア */}
         <div className="border-t p-3 bg-white">
-          <form onSubmit={e => e.preventDefault()} className="relative">
+          <form onSubmit={handleSubmit} className="relative">
             <div className="flex flex-col gap-2">
-              <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30">
+              <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30 transition-all duration-150">
                 <Textarea
                   ref={textareaRef}
                   value={input}
@@ -849,7 +866,7 @@ export default function ChatPage() {
                   placeholder="メッセージを入力..."
                   disabled={isLoading}
                   className={cn(
-                    'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto',
+                    'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
                     isMobile ? 'min-h-8' : 'min-h-10',
                     input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
                   )}
@@ -857,7 +874,7 @@ export default function ChatPage() {
                 />
 
                 <Button
-                  onClick={handleSubmit}
+                  type="submit"
                   size="icon"
                   disabled={isLoading || !input.trim()}
                   className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
