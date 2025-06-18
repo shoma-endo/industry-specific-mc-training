@@ -15,8 +15,9 @@ import {
   deleteChatSession,
 } from '@/server/handler/actions/chat.actions';
 import { useLiffContext } from '@/components/LiffProvider';
-import { Bot, Send, AlertCircle, PlusCircle, Menu, Trash2 } from 'lucide-react';
+import { Bot, Send, AlertCircle, Menu } from 'lucide-react';
 import { DeleteChatDialog } from '@/components/DeleteChatDialog';
+import SessionListContent from '@/components/SessionListContent';
 import { cn } from '@/lib/utils';
 import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
 import {
@@ -31,9 +32,9 @@ import {
 const AVAILABLE_MODELS = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': 'キーワード選定',
   // 'semrush_search': 'リサーチ→広告文作成', // semrushは契約してから使う
-  'ad_copy_creation': '広告文作成',
+  ad_copy_creation: '広告文作成',
   'gpt-4.1-nano-2025-04-14': '広告文仕上げ',
-  'lp_draft_creation': 'LPドラフト作成',
+  lp_draft_creation: 'LPドラフト作成',
   // 'google_search': 'Google検索', 一旦使わなくなったのでコメントアウト
 };
 
@@ -57,11 +58,12 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2');
+  const [selectedModel, setSelectedModel] = useState<string>(
+    'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
+  );
   const [error, setError] = useState<string | null>(null);
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -70,6 +72,11 @@ export default function ChatPage() {
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
   const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
+  const sessionListRef = useRef<HTMLDivElement>(null);
+  const [shouldPreserveScroll, setShouldPreserveScroll] = useState(false);
+  const [preservedScrollTop, setPreservedScrollTop] = useState(0);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // モバイル画面の検出
   useEffect(() => {
@@ -194,11 +201,49 @@ export default function ChatPage() {
     }
   }, [isLoggedIn, getAccessToken]);
 
+  // ユーザーのスクロール操作を検出
+  const handleUserScroll = useCallback(() => {
+    setIsUserScrolling(true);
+    setShouldPreserveScroll(false); // ユーザーがスクロールした場合は自動復元を無効化
+
+    // 既存のタイマーをクリア
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    // スクロール停止を検出するためのタイマー
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 150);
+  }, []);
+
+  // セッションリストにスクロールイベントを追加
+  useEffect(() => {
+    const element = sessionListRef.current;
+    if (element) {
+      element.addEventListener('scroll', handleUserScroll);
+    }
+
+    return () => {
+      if (element) {
+        element.removeEventListener('scroll', handleUserScroll);
+      }
+    };
+  }, [handleUserScroll]);
+
+  // セッション更新後にスクロール位置を復元（ユーザーがスクロール中でない場合のみ）
+  useEffect(() => {
+    if (shouldPreserveScroll && !isUserScrolling && sessionListRef.current) {
+      sessionListRef.current.scrollTop = preservedScrollTop;
+      setShouldPreserveScroll(false);
+    }
+  }, [sessions, shouldPreserveScroll, preservedScrollTop, isUserScrolling]);
+
   useEffect(() => {
     if (isLoggedIn) {
       fetchSessions();
     }
-  }, [isLoggedIn, getAccessToken, fetchSessions]);
+  }, [isLoggedIn, fetchSessions]);
 
   // 特定のセッションのメッセージを読み込む
   const loadSession = async (sessionId: string) => {
@@ -262,7 +307,7 @@ export default function ChatPage() {
     if (!sessionToDelete || !isLoggedIn) return;
 
     setIsDeletingSession(true);
-    
+
     try {
       const accessToken = await getAccessToken();
       if (!accessToken) {
@@ -271,11 +316,11 @@ export default function ChatPage() {
       }
 
       const result = await deleteChatSession(sessionToDelete.id, accessToken);
-      
+
       if (result.success) {
         // セッション一覧から削除
         setSessions(prev => prev.filter(s => s.id !== sessionToDelete.id));
-        
+
         // 削除したセッションが現在表示中の場合は新しいチャットに切り替え
         if (sessionId === sessionToDelete.id) {
           startNewChat();
@@ -339,11 +384,6 @@ export default function ChatPage() {
 
     loadLatestSession();
   }, [isLoggedIn]);
-
-  // メッセージが追加されたら自動スクロール
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   // テキストエリアの高さを自動調整する関数
   const adjustTextareaHeight = useCallback(() => {
@@ -416,7 +456,11 @@ export default function ChatPage() {
 
       if (response.sessionId && !sessionId) {
         setSessionId(response.sessionId);
-        // 新しいセッションが作成されたら、セッション一覧を更新
+        // 新しいセッションが作成されたら、スクロール位置を保存してセッション一覧を更新
+        if (sessionListRef.current) {
+          setPreservedScrollTop(sessionListRef.current.scrollTop);
+          setShouldPreserveScroll(true);
+        }
         fetchSessions();
       }
 
@@ -453,20 +497,6 @@ export default function ChatPage() {
   const formatTime = (date?: Date) => {
     if (!date) return '';
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatDate = (date: Date) => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return '今日';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return '昨日';
-    } else {
-      return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
-    }
   };
 
   // 複数のメッセージをまとめて表示するのに使う補助関数
@@ -554,80 +584,21 @@ export default function ChatPage() {
     );
   }
 
-  // サイドバーの内容
-  const SessionListContent = () => (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b">
-        <h2 className="font-medium text-lg flex items-center gap-2">
-          <Bot size={20} className="text-[#06c755]" />
-          チャット履歴
-        </h2>
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-3">
-          <Button
-            variant="outline"
-            onClick={startNewChat}
-            className="w-full mb-4 flex items-center gap-2 bg-white border-gray-200 hover:bg-gray-50"
-          >
-            <PlusCircle size={16} className="text-[#06c755]" />
-          </Button>
-
-          {sessions.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-sm">履歴がありません</div>
-          ) : (
-            <div className="space-y-2">
-              {sessions.map(session => (
-                <div
-                  key={session.id}
-                  className={cn(
-                    'group relative rounded-lg transition',
-                    sessionId === session.id
-                      ? 'bg-[#e6f9ef] text-[#06c755] font-medium'
-                      : 'bg-white hover:bg-gray-100'
-                  )}
-                  onMouseEnter={() => setHoveredSessionId(session.id)}
-                  onMouseLeave={() => setHoveredSessionId(null)}
-                >
-                  <button
-                    onClick={() => loadSession(session.id)}
-                    className="w-full text-left px-3 py-3 pr-10"
-                  >
-                    <div className="flex flex-col">
-                      <span className="truncate text-sm">{session.title}</span>
-                      <span className="text-xs text-gray-500 mt-1">
-                        {formatDate(session.updatedAt)}
-                      </span>
-                    </div>
-                  </button>
-                  
-                  {/* 削除ボタン - ホバー時に表示 */}
-                  {hoveredSessionId === session.id && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 opacity-70 hover:opacity-100 hover:bg-red-100 hover:text-red-600"
-                      onClick={(e) => handleDeleteClick(session, e)}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex h-[calc(100vh-3rem)]">
       {/* デスクトップ用サイドバー */}
       {!isMobile && (
         <div className="bg-slate-50 border-r flex-shrink-0 flex flex-col w-80 relative h-full">
-          <SessionListContent />
+          <SessionListContent
+            sessions={sessions}
+            sessionId={sessionId}
+            hoveredSessionId={hoveredSessionId}
+            onLoadSession={loadSession}
+            onDeleteClick={handleDeleteClick}
+            onStartNewChat={startNewChat}
+            onHoverSession={setHoveredSessionId}
+            sessionListRef={sessionListRef}
+          />
         </div>
       )}
 
@@ -640,7 +611,16 @@ export default function ChatPage() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 max-w-[280px] sm:max-w-[280px]">
-            <SessionListContent />
+            <SessionListContent
+              sessions={sessions}
+              sessionId={sessionId}
+              hoveredSessionId={hoveredSessionId}
+              onLoadSession={loadSession}
+              onDeleteClick={handleDeleteClick}
+              onStartNewChat={startNewChat}
+              onHoverSession={setHoveredSessionId}
+              sessionListRef={sessionListRef}
+            />
           </SheetContent>
         </Sheet>
       )}
@@ -855,8 +835,6 @@ export default function ChatPage() {
               )}
             </>
           )}
-
-          <div ref={messagesEndRef} />
         </div>
 
         {/* 入力エリア */}
