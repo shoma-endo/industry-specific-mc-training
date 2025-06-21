@@ -14,7 +14,7 @@ interface Props {
 export default function SetupPageClient({ liffAccessToken, hasWordPressSettings, wordpressType }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isEditMode = searchParams.get('edit') === 'true';
+  const isEditMode = searchParams?.get('edit') === 'true';
   const [isRedirecting, setIsRedirecting] = useState(hasWordPressSettings && !isEditMode);
 
   useEffect(() => {

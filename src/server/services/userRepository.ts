@@ -140,6 +140,8 @@ export class UserRepository {
         dbUpdates.stripe_customer_id = updates.stripeCustomerId;
       if (updates.stripeSubscriptionId !== undefined)
         dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
+      if (updates.googleSearchCount !== undefined)
+        dbUpdates.google_search_count = updates.googleSearchCount;
 
       const { error } = await this.supabaseService.supabase
         .from('users')
@@ -207,6 +209,27 @@ export class UserRepository {
       return true;
     } catch (error) {
       console.error('Repository error (updateStripeSubscriptionId):', error);
+      return false;
+    }
+  }
+
+  /**
+   * Google Search API利用回数をインクリメント
+   */
+  async incrementGoogleSearchCount(userId: string): Promise<boolean> {
+    try {
+      const { error } = await this.supabaseService.supabase.rpc('increment_google_search_count', {
+        user_id: userId
+      });
+
+      if (error) {
+        console.error('Error incrementing Google search count:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Repository error (incrementGoogleSearchCount):', error);
       return false;
     }
   }

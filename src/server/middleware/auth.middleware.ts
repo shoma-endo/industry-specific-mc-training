@@ -10,6 +10,7 @@ export type AuthMiddlewareResult = {
   userId: string;
   requiresSubscription: boolean;
   subscription: Stripe.Subscription | null;
+  user?: { id: string; googleSearchCount: number };
   error?: string;
 };
 
@@ -39,6 +40,7 @@ export const authMiddleware = async (
       userId: dummyAppUserId,
       requiresSubscription: false,
       subscription: null,
+      user: { id: dummyAppUserId, googleSearchCount: 0 },
     };
   }
   // ★★★ ここまで ★★★
@@ -118,6 +120,7 @@ export const authMiddleware = async (
       userId: user.id,
       requiresSubscription: false,
       subscription: actualSubscription,
+      user: { id: user.id, googleSearchCount: user.googleSearchCount },
     };
   } catch (error) {
     console.error('[Auth Middleware] Error:', error);

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { userService } from '@/server/services/userService';
 
 export const googleSearchSchema = z.object({
   liffAccessToken: z.string(),
@@ -47,6 +48,11 @@ export async function googleSearchAction(
     snippet: i.snippet,
     link:    i.link,
   }))
+
+  // Google Search API利用回数をインクリメント
+  if (auth.user) {
+    await userService.incrementGoogleSearchCount(auth.user.id)
+  }
 
   return { items }
 }

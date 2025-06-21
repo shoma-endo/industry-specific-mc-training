@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,13 +50,13 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   const [syncedWithServer, setSyncedWithServer] = useState(false);
 
   // コンテキストに値を設定して子コンポーネントにLIFF状態を提供
-  const getAccessToken = async (): Promise<string> => {
+  const getAccessToken = useCallback(async (): Promise<string> => {
     if (liffObject && isLoggedIn) {
       const token = await liffObject.getAccessToken();
       if (token) return token;
     }
     throw new Error('LIFF is not initialized or user is not logged in');
-  };
+  }, [liffObject, isLoggedIn]);
 
   // 🧠 サーバーとの同期処理をuseEffectで適切に管理
   useEffect(() => {
@@ -76,7 +76,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     };
 
     syncUserIdWithServer();
-  }, [initialize, isLoggedIn, profile, syncedWithServer]);
+  }, [initialize, isLoggedIn, profile, syncedWithServer, getAccessToken]);
 
   // 自動ログイン：LIFF初期化後にログインしていなければ遷移
   useEffect(() => {

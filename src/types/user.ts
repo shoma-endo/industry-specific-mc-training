@@ -17,6 +17,9 @@ export interface User {
   // Stripe関連情報
   stripeCustomerId?: string | undefined; // StripeカスタマーID
   stripeSubscriptionId?: string | undefined; // Stripeサブスクリプション ID
+
+  // Google Search API利用回数
+  googleSearchCount: number; // 月間Google Search API利用回数
 }
 
 /**
@@ -47,6 +50,7 @@ export interface DbUser {
   line_status_message?: string | undefined;
   stripe_customer_id?: string | undefined;
   stripe_subscription_id?: string | undefined;
+  google_search_count: number;
 }
 
 /**
@@ -63,6 +67,7 @@ export function toDbUser(user: User): DbUser {
     line_status_message: user.lineStatusMessage,
     stripe_customer_id: user.stripeCustomerId,
     stripe_subscription_id: user.stripeSubscriptionId,
+    google_search_count: user.googleSearchCount,
   };
 }
 
@@ -77,5 +82,6 @@ export function toUser(dbUser: DbUser): User {
     lineStatusMessage: dbUser.line_status_message,
     stripeCustomerId: dbUser.stripe_customer_id,
     stripeSubscriptionId: dbUser.stripe_subscription_id,
+    googleSearchCount: dbUser.google_search_count,
   };
 }

@@ -30,6 +30,7 @@ export class UserService {
           lineDisplayName: lineProfile.displayName,
           linePictureUrl: lineProfile.pictureUrl,
           lineStatusMessage: lineProfile.statusMessage,
+          googleSearchCount: 0,
         });
 
         if (!user) {
@@ -80,6 +81,13 @@ export class UserService {
     stripeSubscriptionId: string
   ): Promise<boolean> {
     return userRepository.updateStripeSubscriptionId(lineUserId, stripeSubscriptionId);
+  }
+
+  /**
+   * Google Search API利用回数をインクリメント
+   */
+  async incrementGoogleSearchCount(userId: string): Promise<boolean> {
+    return userRepository.incrementGoogleSearchCount(userId);
   }
 }
 
