@@ -1,45 +1,12 @@
 'use server';
 
-import { z } from 'zod';
-import { chatService } from '@/server/services/chatService';
-import { openAiService, ChatMessage } from '@/server/services/openAiService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import {
-  SYSTEM_PROMPT,
-  KEYWORD_CATEGORIZATION_PROMPT,
-  AD_COPY_PROMPT,
-  AD_COPY_FINISHING_PROMPT,
-  GOOGLE_SEARCH_CATEGORIZATION_PROMPT,
-  LP_DRAFT_PROMPT,
-} from '@/lib/prompts';
-import { googleSearchAction } from '@/server/handler/actions/googleSearch.actions';
+import { chatService } from '@/server/services/chatService';
 import { ChatResponse } from '@/types/chat';
-import { formatSemrushAds } from '@/lib/adExtractor';
-import { semrushService } from '@/server/services/semrushService';
-import { ERROR_MESSAGES, MODEL_CONFIGS } from '@/lib/constants';
+import { ModelHandlerService } from './chat/modelHandlers';
+import { startChatSchema, continueChatSchema, type StartChatInput, type ContinueChatInput } from './shared/validators';
 
-const startChatSchema = z.object({
-  userMessage: z.string(),
-  model: z.string(),
-  liffAccessToken: z.string(),
-});
-
-const continueChatSchema = z.object({
-  sessionId: z.string(),
-  messages: z.array(z.object({ role: z.string(), content: z.string() })),
-  userMessage: z.string(),
-  model: z.string(),
-  liffAccessToken: z.string(),
-});
-
-const SYSTEM_PROMPTS: Record<string, string> = {
-  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-  // 'semrush_search': AD_COPY_PROMPT, // semrushは契約してから使う
-  ad_copy_creation: AD_COPY_PROMPT,
-  'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
-  lp_draft_creation: LP_DRAFT_PROMPT,
-  // TODO: AIモデルは追加時にここに追加
-};
+const modelHandler = new ModelHandlerService();
 
 // 認証チェックを共通化
 async function checkAuth(liffAccessToken: string) {
@@ -54,392 +21,50 @@ async function checkAuth(liffAccessToken: string) {
   return { isError: false as const, userId: authResult.userId! };
 }
 
-function extractKeywordSections(text: string): { immediate: string[]; later: string[] } {
-  const extractSection = (source: string | undefined): string[] =>
-    source
-      ?.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0) ?? [];
-
-  const matchBetween = text.match(/【今すぐ客キーワード】([\s\S]*?)【後から客キーワード】/);
-  const matchImmediateOnly = text.match(/【今すぐ客キーワード】([\s\S]*)/);
-  const matchLater = text.match(/【後から客キーワード】([\s\S]*)$/);
-
-  let immediate: string[] = [];
-  let later: string[] = [];
-
-  if (matchBetween) {
-    immediate = extractSection(matchBetween[1]);
-    later = extractSection(matchLater?.[1]); // 後から客も一応再チェック
-  } else if (matchImmediateOnly) {
-    immediate = extractSection(matchImmediateOnly[1]);
-  } else if (matchLater) {
-    later = extractSection(matchLater[1]);
-  } else {
-    // キーワードだけが渡されているケース（ラベルなし）
-    immediate = extractSection(text);
-  }
-
-  return { immediate, later };
-}
-
-async function generateAIResponsesFromTitles(
-  input: { query: string; searchResult: string }[]
-): Promise<{ query: string; aiMessage: string }[]> {
-  const tasks = input.map(async ({ query, searchResult }) => {
-    const messages: ChatMessage[] = [
-      {
-        role: 'system',
-        content: GOOGLE_SEARCH_CATEGORIZATION_PROMPT,
-      },
-      {
-        role: 'user',
-        content: `キーワード【${query}】\n検索結果【${searchResult}】`,
-      },
-    ];
-
-    const response = await openAiService.sendMessage(messages, 'gpt-4.1-nano-2025-04-14', 0, 1);
-    return {
-      query,
-      aiMessage: response.message,
-    };
-  });
-
-  return await Promise.all(tasks);
-}
-
-function extractFalseQueries(responses: { query: string; aiMessage: string }[]): string {
-  return responses
-    .filter(res => res.aiMessage.trim().toLowerCase() === 'false')
-    .map(res => res.query)
-    .join('\n');
-}
-
-function subtractMultilineStrings(
-  beforeKeywords: string,
-  afterKeywords: string
-): { remaining: string; removed: string } {
-  const beforeList = beforeKeywords
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
-
-  const afterSet = new Set(
-    afterKeywords
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-  );
-
-  const remaining: string[] = [];
-  const removed: string[] = [];
-
-  for (const keyword of beforeList) {
-    if (afterSet.has(keyword)) {
-      remaining.push(keyword);
-    } else {
-      removed.push(keyword);
-    }
-  }
-
-  return {
-    remaining: remaining.join('\n'),
-    removed: removed.join('\n'),
-  };
-}
-
-/**
- * 改行区切りの「見出し：…」「説明文：…」テキストを
- * JSON 配列にパースする
- *
- * @param input - 改行＋空行で区切られた広告文セット
- */
-function parseAdItems(input: string): { headline: string; description: string }[] {
-  // 空行（1つ以上の改行）でアイテムを分割
-  const blocks = input
-    .split(/\r?\n\s*\r?\n/) // 空行をブロック区切りとみなす
-    .map(b => b.trim()) // 前後の空白を除去
-    .filter(b => b.length > 0); // 空要素は除外
-
-  return (
-    blocks
-      .map(block => {
-        // 「見出し：〜」をキャプチャ
-        const headlineMatch = block.match(/見出し：(.+)/);
-        // 「説明文：〜」をキャプチャ
-        const descriptionMatch = block.match(/説明文：(.+)/);
-        if (!headlineMatch?.[1] || !descriptionMatch?.[1]) {
-          return null;
-        }
-
-        return {
-          headline: headlineMatch[1].trim(),
-          description: descriptionMatch[1].trim(),
-        };
-      })
-      // 見出し／説明文いずれかが取得できなかったブロックは除外
-      .filter((item): item is { headline: string; description: string } => item !== null)
-  );
-}
-
-async function handleGoogleSearch(
-  userMessages: string[],
-  liffAccessToken: string
-): Promise<{ query: string; searchResult: string }[]> {
-  const searchPromises = userMessages.map(async query => {
-    try {
-      const result = await googleSearchAction({ liffAccessToken, query });
-
-      if (result.error) {
-        console.error(`Error searching for "${query}": ${result.error}`);
-        return { query, searchResult: '' }; // エラー時は空文字列
-      }
-
-      const searchResult = result.items
-        .map(item => `タイトル：${item.title}\nリンク：${item.link}\n説明文：${item.snippet}`)
-        .join('\n');
-      return { query, searchResult };
-    } catch (error) {
-      console.error(`Critical error searching for "${query}":`, error);
-      return { query, searchResult: '' }; // 予期せぬエラー時も空文字列
-    }
-  });
-
-  const resultsArray = await Promise.all(searchPromises);
-  return resultsArray;
-}
-
-// semrush_search モデルの処理
-async function handleSemrushSearch(userMessage: string): Promise<string> {
-  let reply: string; // reply を try の外で宣言
-  let fetchError: string | undefined = undefined; // エラーメッセージを保持する変数
-
+export async function startChat(data: StartChatInput): Promise<ChatResponse> {
   try {
-    // 1) Semrushから広告を取得
-    const ads = await semrushService.fetchAds(userMessage);
-    // fetchAds はエラー時に空配列を返す想定だったが、内部でエラーがスローされるケースがある
-    reply = formatSemrushAds(ads); // エラーがない場合に reply を設定
-    if (ads.length === 0) {
-      reply = ERROR_MESSAGES['ad_not_found'] ?? '';
-    }
-  } catch (error: unknown) {
-    console.error('Error fetching ads from Semrush:', error);
-    if (error instanceof Error && error.message === '該当する広告主が見つかりませんでした') {
-      // 特定のエラーメッセージをユーザーフレンドリーなメッセージに変換
-      reply = ERROR_MESSAGES['ad_not_found'] ?? '';
-    } else {
-      // その他の予期せぬエラー
-      fetchError = ERROR_MESSAGES['ad_acquisition'] ?? '';
-      // エラーが発生した場合も、ユーザーには空の応答ではなくエラーメッセージを返す
-      reply = fetchError;
-    }
-  }
-  return reply;
-}
-
-export async function startChat(data: z.infer<typeof startChatSchema>): Promise<ChatResponse> {
-  const { liffAccessToken, userMessage, model } = startChatSchema.parse(data);
-
-  // --- 共通: 認証 ---
-  const auth = await checkAuth(liffAccessToken);
-  if (auth.isError) {
-    return { message: '', error: auth.error, requiresSubscription: auth.requiresSubscription };
-  }
-  const userId = auth.userId;
-  // --- FTモデル／標準チャット分岐 ---
-  const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
-
-  // --- モデルによる分岐 ---
-  if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
-    const config = MODEL_CONFIGS[model];
-    const maxTokens = config ? config.maxTokens : 1000;
-    const temperature = config ? config.temperature : 0.5;
-
-    const result = await openAiService.startChat(
-      systemPrompt,
-      userMessage.trim(),
-      model,
-      temperature,
-      maxTokens
-    );
-    const classificationKeywords =
-      result.message === '今すぐ客キーワード' ? userMessage : result.message;
-    const { immediate, later } = extractKeywordSections(classificationKeywords);
-    if (immediate.length === 0) {
-      return { message: result.message, error: '', requiresSubscription: false };
-    }
-    const getSearchResults = await handleGoogleSearch(immediate, liffAccessToken);
-    const aiResponses = await generateAIResponsesFromTitles(getSearchResults);
-    const falseQueries = extractFalseQueries(aiResponses);
-    const afterKeywords = subtractMultilineStrings(immediate.join('\n'), falseQueries);
-    return await chatService.startChat(userId, systemPrompt, [
-      userMessage,
-      `【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`,
-    ]);
-  } else if (model === 'semrush_search') {
-    const searchResult = await handleSemrushSearch(userMessage);
-    if (
-      searchResult === ERROR_MESSAGES['ad_not_found'] ||
-      searchResult === ERROR_MESSAGES['ad_acquisition']
-    ) {
-      return { message: searchResult, error: '', requiresSubscription: false };
-    }
-    const adItems = parseAdItems(searchResult.replace(/^ドメイン：.*\r?\n?/gm, ''));
-    return await chatService.startChat(
-      userId,
-      systemPrompt,
-      JSON.stringify(adItems),
-      'gpt-4.1-nano-2025-04-14',
-      userMessage.trim(),
-      searchResult
-    );
-  } else if (model === 'ad_copy_creation') {
-    // 広告文作成モデル - AD_COPY_PROMPTを使用してgpt-4.1-nano-2025-04-14で処理
-    return await chatService.startChat(
-      userId,
-      systemPrompt,
-      userMessage.trim(),
-      model // 元のモデルキーを渡してMODEL_CONFIGSを正しく参照できるようにする
-    );
-  } else if (model === 'lp_draft_creation') {
-    // LP作成モデル - LP_DRAFT_PROMPTを使用してgpt-4.1-nano-2025-04-14で処理
-    return await chatService.startChat(
-      userId,
-      systemPrompt,
-      userMessage.trim(),
-      model // 元のモデルキーを渡してMODEL_CONFIGSを正しく参照できるようにする
-    );
-  }
-
-  // その他のモデルのデフォルト処理
-  return chatService.startChat(
-    userId,
-    systemPrompt,
-    userMessage,
-    model
-  );
-}
-
-export async function continueChat(
-  data: z.infer<typeof continueChatSchema>
-): Promise<ChatResponse> {
-  const { liffAccessToken, sessionId, messages, userMessage, model } =
-    continueChatSchema.parse(data);
-  try {
-    // --- 共通: 認証 ---
-    const auth = await checkAuth(liffAccessToken);
+    const validatedData = startChatSchema.parse(data);
+    
+    // 認証チェック
+    const auth = await checkAuth(validatedData.liffAccessToken);
     if (auth.isError) {
-      return { message: '', error: auth.error, requiresSubscription: auth.requiresSubscription };
-    }
-    const userId = auth.userId;
-    // --- FTモデル／標準チャット分岐 ---
-    const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
-
-    // --- モデルによる分岐 ---
-    if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
-      const config = MODEL_CONFIGS[model];
-      const maxTokens = config ? config.maxTokens : 1000;
-      const temperature = config ? config.temperature : 0.5;
-
-      const result = await openAiService.continueChat(
-        messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content,
-        })),
-        userMessage.trim(),
-        systemPrompt,
-        model,
-        temperature,
-        maxTokens
-      );
-      const classificationKeywords =
-        result.message === '今すぐ客キーワード' ? userMessage : result.message;
-      const { immediate, later } = extractKeywordSections(classificationKeywords);
-      if (immediate.length === 0) {
-        return { message: result.message, error: '', requiresSubscription: false };
-      }
-      const getSearchResults = await handleGoogleSearch(immediate, liffAccessToken);
-      const aiResponses = await generateAIResponsesFromTitles(getSearchResults);
-      const falseQueries = extractFalseQueries(aiResponses);
-      const afterKeywords = subtractMultilineStrings(immediate.join('\n'), falseQueries);
-      return await chatService.continueChat(
-        userId,
-        sessionId,
-        [
-          userMessage,
-          `【今すぐ客キーワード】\n${afterKeywords.remaining} \n\n【後から客キーワード】\n${afterKeywords.removed}\n${later.join('\n')}`,
-        ],
-        systemPrompt,
-        messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content,
-        }))
-      );
-    } else if (model === 'semrush_search') {
-      const searchResult = await handleSemrushSearch(userMessage);
-      if (
-        searchResult === ERROR_MESSAGES['ad_not_found'] ||
-        searchResult === ERROR_MESSAGES['ad_acquisition']
-      ) {
-        return { message: searchResult, error: '', requiresSubscription: false };
-      }
-      const adItems = parseAdItems(searchResult.replace(/^ドメイン：.*\r?\n?/gm, ''));
-      return await chatService.continueChat(
-        userId,
-        sessionId,
-        JSON.stringify(adItems),
-        systemPrompt,
-        messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content,
-        })),
-        'gpt-4.1-nano-2025-04-14',
-        userMessage.trim(),
-        searchResult
-      );
-    } else if (model === 'ad_copy_creation') {
-      // 広告文作成モデル - AD_COPY_PROMPTを使用してgpt-4.1-nano-2025-04-14で処理
-      return await chatService.continueChat(
-        userId,
-        sessionId,
-        userMessage.trim(),
-        systemPrompt,
-        messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content,
-        })),
-        model // 元のモデルキーを渡してMODEL_CONFIGSを正しく参照できるようにする
-      );
-    } else if (model === 'lp_draft_creation') {
-      // LP作成モデル - LP_DRAFT_PROMPTを使用してgpt-4.1-nano-2025-04-14で処理
-      return await chatService.continueChat(
-        userId,
-        sessionId,
-        userMessage.trim(),
-        systemPrompt,
-        messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content,
-        })),
-        model // 元のモデルキーを渡してMODEL_CONFIGSを正しく参照できるようにする
-      );
+      return { 
+        message: '', 
+        error: auth.error, 
+        requiresSubscription: auth.requiresSubscription 
+      };
     }
 
-    // その他のモデルのデフォルト処理
-    return chatService.continueChat(
-      userId,
-      sessionId,
-      userMessage.trim(),
-      systemPrompt,
-      messages.map(msg => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content: msg.content,
-      })),
-      model
-    );
+    // モデル処理に委譲
+    return await modelHandler.handleStart(auth.userId, validatedData);
+  } catch (e: unknown) {
+    console.error('startChat failed:', e);
+    return {
+      message: '',
+      error: (e as Error).message || '予期せぬエラーが発生しました',
+      requiresSubscription: false,
+    };
+  }
+}
+
+export async function continueChat(data: ContinueChatInput): Promise<ChatResponse> {
+  try {
+    const validatedData = continueChatSchema.parse(data);
+    
+    // 認証チェック
+    const auth = await checkAuth(validatedData.liffAccessToken);
+    if (auth.isError) {
+      return { 
+        message: '', 
+        error: auth.error, 
+        requiresSubscription: auth.requiresSubscription 
+      };
+    }
+
+    // モデル処理に委譲
+    return await modelHandler.handleContinue(auth.userId, validatedData);
   } catch (e: unknown) {
     console.error('continueChat failed:', e);
-    // ここでユーザー向けにわかりやすい文言を返却する
     return {
       message: '',
       error: (e as Error).message || '予期せぬエラーが発生しました',
