@@ -23,8 +23,7 @@ export default async function SanitySetupPage() {
   } | null = null;
   try {
     existingSanityProject = await getSanityProject(liffAccessToken);
-  } catch (error) {
-    console.log('Sanity設定の取得でエラー:', error);
+  } catch {
   }
 
   return (

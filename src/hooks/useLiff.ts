@@ -68,7 +68,6 @@ export const useLiff = (): UseLiffResult => {
         }
       } else {
         if (!liff.isInClient()) {
-          console.log('自動ログインを実行します');
           liff.login({ redirectUri: window.location.href });
         }
       }
@@ -127,7 +126,6 @@ export const useLiff = (): UseLiffResult => {
       }
 
       if (data.tokenRefreshed) {
-        console.log('[LIFF] トークンがリフレッシュされました');
         // LIFFオブジェクトのトークンも更新が必要な場合があります
         // （ただし、LIFF SDKは基本的にサーバーサイドのトークンと同期しないため、
         //  必要に応じて別の方法でトークンを管理する必要があります）

@@ -46,12 +46,6 @@ export async function GET(request: NextRequest) {
     // ここでリフレッシュトークンとアクセストークンを安全に保存します。
     // 例: データベースにユーザー情報と紐付けて保存、セッションストアに保存など。
     // Cookie に保存する場合、httpOnly, secure, sameSite 属性を適切に設定してください。
-    console.log('LINE Tokens Received:', {
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      expiresIn: tokenData.expires_in,
-      idToken: tokenData.id_token, // openid スコープを要求した場合
-    });
 
     // ユーザーを認証後のページ（例: ホーム画面）にリダイレクト
     const redirectUrl = new URL('/', env.NEXT_PUBLIC_SITE_URL);

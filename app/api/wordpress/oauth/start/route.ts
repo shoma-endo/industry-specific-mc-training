@@ -6,11 +6,6 @@ export async function GET() {
   const redirectUri = process.env.WORDPRESS_COM_REDIRECT_URI;
   const stateCookieName = process.env.OAUTH_STATE_COOKIE_NAME || 'wpcom_oauth_state';
 
-  console.log('OAuth環境変数確認:', {
-    clientId: clientId ? '設定あり' : '未設定',
-    redirectUri: redirectUri ? '設定あり' : '未設定',
-    NODE_ENV: process.env.NODE_ENV
-  });
 
   if (!clientId || !redirectUri) {
     console.error('WordPress.com OAuth environment variables are not set.');

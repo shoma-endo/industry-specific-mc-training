@@ -134,9 +134,6 @@ export async function createSelfHostedWordPressSettings(
 export async function getSanityProjectForUser(lineAccessToken: string) {
   // 開発モードでダミートークンの場合は、固定のプロジェクト情報を返す
   if (process.env.NODE_ENV === 'development' && lineAccessToken === 'dummy-token') {
-    console.log(
-      '[Sanity Action] Development mode: Returning fixed Sanity project info for "dummy-token".'
-    );
     return {
       projectId: 'booiieyk', // 提供されたプロジェクトIDに設定
       dataset: 'development', // 提供されたデータセットに設定

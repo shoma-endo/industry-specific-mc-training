@@ -20,12 +20,6 @@ export default function SetupPageClient({ liffAccessToken, hasWordPressSettings,
   useEffect(() => {
     // 編集モードでない場合のみリダイレクト
     if (hasWordPressSettings && !isEditMode) {
-      const wordpressLabel = wordpressType === 'self_hosted' 
-        ? 'セルフホストWordPress' 
-        : wordpressType === 'wordpress_com' 
-        ? 'WordPress.com' 
-        : 'WordPress';
-      console.log(`[Setup] ${wordpressLabel}設定が見つかりました。/ad-form にリダイレクト中...`);
       setIsRedirecting(true);
       
       // 同じタブでリダイレクト実行

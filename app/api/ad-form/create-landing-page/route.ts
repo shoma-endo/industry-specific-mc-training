@@ -69,7 +69,6 @@ async function generateLandingPageContent(
   description: string
 ): Promise<LandingPageData> {
   // AIは使わず、見出しと説明文から直接シンプルなランディングページを生成
-  console.log('シンプルなランディングページコンテンツを生成中...');
 
   // スラッグを生成（日本語を英数字に変換）
   const slug =

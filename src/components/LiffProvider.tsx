@@ -63,12 +63,10 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     const syncUserIdWithServer = async () => {
       if (initialize && isLoggedIn && profile && !syncedWithServer) {
         try {
-          console.log('LiffProvider: サーバーとの同期を開始');
           // 🔁 サーバーとの同期処理があればここに記述
           const token = await getAccessToken(); // LIFFからアクセストークン取得
           await verifyLineTokenServer(token);   // サーバーに送ってHttpOnly Cookie保存！！
           setSyncedWithServer(true);
-          console.log('LiffProvider: サーバーとの同期が完了');
         } catch (error) {
           console.error('Failed to sync user ID with server:', error);
         }
@@ -81,7 +79,6 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   // 自動ログイン：LIFF初期化後にログインしていなければ遷移
   useEffect(() => {
     if (!isLoading && liffObject && !isLoggedIn) {
-      console.log('LiffProvider: 未ログイン検出、自動ログイン実行');
       login();
     }
   }, [isLoading, liffObject, isLoggedIn, login]);

@@ -49,11 +49,6 @@ export async function POST() {
       );
     }
 
-    console.log('LINE Token Refreshed:', {
-      accessToken: refreshData.access_token,
-      refreshToken: refreshData.refresh_token,
-      expiresIn: refreshData.expires_in,
-    });
 
     // 新しいトークンをCookieに保存
     const res = NextResponse.json({ message: 'Token refreshed successfully' });

@@ -129,7 +129,6 @@ export default function AdFormPage() {
     const syncLineToken = async () => {
       if (isLoggedIn && !isSynced) {
         try {
-          console.log('[ad-form] LINEトークンのサーバー同期を開始');
           const token = await getAccessToken();
           
           // verifyLineTokenServerを呼び出してCookieをセット
@@ -137,7 +136,6 @@ export default function AdFormPage() {
           await verifyLineTokenServer(token);
           
           setIsSynced(true);
-          console.log('[ad-form] LINEトークンのサーバー同期が完了');
         } catch (error) {
           console.error('[ad-form] LINEトークン同期エラー:', error);
           setIsCheckingAuth(false);
@@ -154,7 +152,6 @@ export default function AdFormPage() {
   // WordPress認証チェックはLINE同期完了後に実行
   useEffect(() => {
     if (isSynced) {
-      console.log('[ad-form] LINE同期完了、WordPress認証チェックを開始');
       checkWordPressAuth();
     }
   }, [isSynced, checkWordPressAuth]);

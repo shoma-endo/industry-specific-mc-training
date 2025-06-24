@@ -29,7 +29,6 @@ export class UserRepository {
         // 'PGRST116' は該当する行が見つからなかった場合のエラーコード
         // この場合はエラーではなく、nullを返すのが適切
         if (error.code === 'PGRST116') {
-          console.log(`User with ID ${id} not found.`);
           return null;
         }
         console.error(`Error finding user by ID (${id}):`, error);

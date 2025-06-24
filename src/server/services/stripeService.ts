@@ -180,7 +180,6 @@ export class StripeService {
       const stripeCustomerId = user?.stripeCustomerId;
 
       if (!stripeCustomerId) {
-        console.log(`[StripeService] No Stripe Customer ID found for user: ${userId}`);
         return false;
       }
 
@@ -193,7 +192,6 @@ export class StripeService {
       });
 
       if (activeSubscriptions.data.length > 0) {
-        console.log(`[StripeService] Active subscription found for user: ${userId}`);
         return true;
       }
 
@@ -205,11 +203,9 @@ export class StripeService {
       });
 
       if (trialingSubscriptions.data.length > 0) {
-        console.log(`[StripeService] Trialing subscription found for user: ${userId}`);
         return true;
       }
 
-      console.log(`[StripeService] No active or trialing subscription found for user: ${userId}`);
       return false;
     } catch (error) {
       console.error('[StripeService] Error checking subscription status:', error);

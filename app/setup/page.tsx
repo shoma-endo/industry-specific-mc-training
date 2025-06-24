@@ -26,8 +26,7 @@ export default async function SetupPage() {
       sanityProject.project_id.trim() !== ''
     );
     sanityProjectId = sanityProject?.project_id || null;
-  } catch (error) {
-    console.log('Sanity設定の取得でエラー:', error);
+  } catch {
   }
 
   // WordPress設定をチェック（WordPress.comとセルフホスト両対応）
@@ -42,8 +41,7 @@ export default async function SetupPage() {
           wordpressSettings.wpSiteUrl)
       ) // セルフホスト
     );
-  } catch (error) {
-    console.log('WordPress設定の取得でエラー:', error);
+  } catch {
   }
 
   return (

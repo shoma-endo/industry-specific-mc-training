@@ -24,7 +24,6 @@ export const verifyLineTokenServer = async (
     maxAge: 60 * 60 * 24 * 3, // 3日
   });
 
-  console.log('[verifyLineTokenServer] Cookie設定完了とユーザー情報同期完了');
 }
 
 export const setRefreshTokenCookie = async (refreshToken: string): Promise<void> => {
@@ -49,6 +48,5 @@ export const getLineProfileServer = async (
   accessToken: string
 ): Promise<getLineProfileServerResponse> => {
   const profile = await lineAuthService.getLineProfile(accessToken)
-  console.log("profile.back", profile)
   return profile
 }

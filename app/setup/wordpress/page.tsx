@@ -17,8 +17,7 @@ export default async function WordPressSetupPage() {
   let existingWordPressSettings = null;
   try {
     existingWordPressSettings = await getWordPressSettings(liffAccessToken);
-  } catch (error) {
-    console.log('WordPress設定の取得でエラー:', error);
+  } catch {
   }
 
   return (

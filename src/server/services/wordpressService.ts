@@ -285,7 +285,6 @@ export class WordPressService {
       }
 
       const pageResponse: WordPressPostResponse = await response.json();
-      console.log('WordPress API Response (Page):', JSON.stringify(pageResponse, null, 2));
 
       return {
         success: true,

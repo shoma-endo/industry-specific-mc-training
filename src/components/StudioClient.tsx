@@ -13,7 +13,6 @@ type Props = {
 };
 
 export function StudioClient({ projectId, dataset }: Props) {
-  console.log('[StudioClient] Received props:', { projectId, dataset });
 
   // projectIdが空文字やundefinedの場合はエラー表示
   if (!projectId || projectId.trim() === '') {

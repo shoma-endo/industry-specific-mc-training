@@ -208,7 +208,6 @@ export class SupabaseService {
     if (error) {
       // テーブルが存在しない場合は無視する（42P01: relation does not exist）
       if (error.code === '42P01') {
-        console.log('search_results table does not exist, skipping deletion');
         return;
       }
       console.error('Failed to delete search results:', error);

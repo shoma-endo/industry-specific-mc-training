@@ -101,7 +101,6 @@ export async function GET(request: NextRequest) {
           const sitesData = await sitesResponse.json();
           if (sitesData.sites && sitesData.sites.length > 0) {
             siteId = sitesData.sites[0].ID.toString(); // 最初のサイトを使用
-            console.log('WordPress.com site ID retrieved:', siteId);
           }
         }
       }
@@ -114,7 +113,6 @@ export async function GET(request: NextRequest) {
           clientSecret,
           siteId
         );
-        console.log('WordPress settings saved to database');
       }
     } catch (error) {
       console.error('Error saving WordPress settings:', error);
@@ -135,7 +133,6 @@ export async function GET(request: NextRequest) {
     // Also clear the state cookie on the final response
     response.cookies.delete(stateCookieName); // Ensure state cookie is cleared
 
-    console.log('WordPress.com OAuth successful. Redirecting to ad-form.');
     return response;
   } catch (error) {
     console.error('Error during OAuth callback:', error);
