@@ -13,9 +13,11 @@ import {
 } from '@/lib/prompts';
 import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '../shared/validators';
+import { RAGKeywordClassifier } from '@/lib/rag-keyword-classifier';
 
 const SYSTEM_PROMPTS: Record<string, string> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
+  'rag_keyword_classifier': KEYWORD_CATEGORIZATION_PROMPT,
   ad_copy_creation: AD_COPY_PROMPT,
   'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
   lp_draft_creation: LP_DRAFT_PROMPT,
@@ -23,6 +25,7 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 
 export class ModelHandlerService {
   private processor = new ChatProcessorService();
+  private ragClassifier = new RAGKeywordClassifier();
 
   async handleStart(userId: string, data: StartChatInput): Promise<ChatResponse> {
     const { userMessage, model, liffAccessToken } = data;
@@ -31,6 +34,8 @@ export class ModelHandlerService {
     switch (model) {
       case 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2':
         return this.handleFTModel(userId, systemPrompt, userMessage, model, liffAccessToken);
+      case 'rag_keyword_classifier':
+        return this.handleRAGModel(userId, systemPrompt, userMessage, liffAccessToken);
       case 'semrush_search':
         return this.handleSemrushModel(userId, systemPrompt, userMessage);
       case 'ad_copy_creation':
@@ -74,6 +79,32 @@ export class ModelHandlerService {
 
       if (immediate.length === 0) {
         return { message: result.message, error: '', requiresSubscription: false };
+      }
+
+      const getSearchResults = await this.processor.handleGoogleSearch(immediate, liffAccessToken);
+      const aiResponses = await this.processor.generateAIResponsesFromTitles(getSearchResults);
+      const falseQueries = this.extractFalseQueries(aiResponses);
+      const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
+
+      return await chatService.continueChat(
+        userId,
+        sessionId,
+        `【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`,
+        systemPrompt,
+        [],
+        model
+      );
+    } else if (model === 'rag_keyword_classifier') {
+      // RAGシステムでの分類処理
+      const keywords = this.extractKeywordsFromUserMessage(userMessage);
+      const result = await this.ragClassifier.classifyKeywords(keywords, { includeEvidence: false });
+      
+      const immediate = result.results.immediate_customer.map(k => k.keyword);
+      const later = result.results.later_customer.map(k => k.keyword);
+
+      if (immediate.length === 0) {
+        const responseMessage = `【今すぐ客キーワード】\n（該当なし）\n\n【後から客キーワード】\n${later.join('\n')}`;
+        return await chatService.continueChat(userId, sessionId, responseMessage, systemPrompt, [], model);
       }
 
       const getSearchResults = await this.processor.handleGoogleSearch(immediate, liffAccessToken);
@@ -275,5 +306,86 @@ export class ModelHandlerService {
       remaining: remaining.join('\n'),
       removed: removed.length > 0 ? removed.join('\n') + '\n' : '',
     };
+  }
+
+  /**
+   * RAGモデルの処理（新機能）
+   */
+  private async handleRAGModel(
+    userId: string,
+    systemPrompt: string,
+    userMessage: string,
+    liffAccessToken: string
+  ): Promise<ChatResponse> {
+    try {
+      // ユーザーメッセージからキーワードを抽出
+      const keywords = this.extractKeywordsFromUserMessage(userMessage);
+      
+      if (keywords.length === 0) {
+        return { 
+          message: 'キーワードが見つかりませんでした。分類するキーワードを入力してください。', 
+          error: '', 
+          requiresSubscription: false 
+        };
+      }
+
+      // RAGシステムで分類実行
+      const result = await this.ragClassifier.classifyKeywords(keywords, { 
+        includeEvidence: false 
+      });
+
+      const immediate = result.results.immediate_customer.map(k => k.keyword);
+      const later = result.results.later_customer.map(k => k.keyword);
+
+      if (immediate.length === 0) {
+        const responseMessage = `【今すぐ客キーワード】\n（該当なし）\n\n【後から客キーワード】\n${later.join('\n')}`;
+        return await chatService.startChat(userId, systemPrompt, responseMessage);
+      }
+
+      // Google検索による検証（既存の処理と同様）
+      const getSearchResults = await this.processor.handleGoogleSearch(immediate, liffAccessToken);
+      const aiResponses = await this.processor.generateAIResponsesFromTitles(getSearchResults);
+      const falseQueries = this.extractFalseQueries(aiResponses);
+      const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
+
+      return await chatService.startChat(
+        userId, 
+        systemPrompt, 
+        `${userMessage}\n\n【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`
+      );
+
+    } catch (error) {
+      console.error('RAGモデル処理エラー:', error);
+      return { 
+        message: 'RAGキーワード分類中にエラーが発生しました。しばらく時間をおいて再度お試しください。', 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        requiresSubscription: false 
+      };
+    }
+  }
+
+  /**
+   * ユーザーメッセージからキーワードを抽出
+   */
+  private extractKeywordsFromUserMessage(userMessage: string): string[] {
+    // 複数の形式に対応したキーワード抽出
+    const patterns = [
+      /キーワード[:：]\s*(.+)/i,
+      /対象キーワード[:：]\s*(.+)/i,
+      /分類[:：]\s*(.+)/i,
+      /(.+)/, // フォールバック：全体をキーワードとして扱う
+    ];
+
+    for (const pattern of patterns) {
+      const match = userMessage.match(pattern);
+      if (match && match[1]) {
+        return match[1]
+          .split(/[,、\n]/)
+          .map(k => k.trim())
+          .filter(k => k.length > 0);
+      }
+    }
+
+    return [];
   }
 }
