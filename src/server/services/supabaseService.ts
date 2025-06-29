@@ -1,27 +1,19 @@
-import { createClient } from '@supabase/supabase-js';
-import { env } from '@/env';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClientManager } from '@/lib/supabase/client-manager';
 import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 
 /**
  * SupabaseServiceクラス: サーバーサイドでSupabaseを操作するためのサービス
  * SERVICE_ROLEを使用して特権操作を提供
+ * 最適化：シングルトンクライアントで接続プールを効率化
  */
 export class SupabaseService {
-  supabase;
+  protected readonly supabase: SupabaseClient;
 
   constructor() {
-    // 環境変数からSupabase URLとサービスロールキーを取得
-    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceRole = env.SUPABASE_SERVICE_ROLE;
-
-    // 管理者権限を持つSupabaseクライアントの初期化
-    this.supabase = createClient(supabaseUrl, supabaseServiceRole, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    // シングルトンの最適化されたSupabaseクライアントを取得
+    this.supabase = SupabaseClientManager.getInstance().getClient();
   }
 
   /**
@@ -407,6 +399,21 @@ export class SupabaseService {
     if (error) {
       console.error('[SupabaseService] Error fetching all sanity projects:', error);
       throw new Error(`Failed to fetch sanity projects: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  async updateSanityProjectDatasets(fromDataset: string, toDataset: string) {
+    const { data, error } = await this.supabase
+      .from('sanity_projects')
+      .update({ dataset: toDataset })
+      .eq('dataset', fromDataset)
+      .select();
+
+    if (error) {
+      console.error('[SupabaseService] Error updating sanity project datasets:', error);
+      throw new Error(`Failed to update sanity project datasets: ${error.message}`);
     }
 
     return data;

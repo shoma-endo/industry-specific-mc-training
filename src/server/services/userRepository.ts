@@ -4,12 +4,11 @@ import { User, DbUser, toUser, toDbUser } from '@/types/user';
 
 /**
  * ユーザーリポジトリ: ユーザーデータのCRUD操作を提供
+ * SupabaseServiceを継承して最適化されたクライアントを利用
  */
-export class UserRepository {
-  private supabaseService: SupabaseService;
-
+export class UserRepository extends SupabaseService {
   constructor() {
-    this.supabaseService = new SupabaseService();
+    super();
   }
 
   /**
@@ -19,7 +18,7 @@ export class UserRepository {
    */
   async findById(id: string): Promise<User | null> {
     try {
-      const { data, error } = await this.supabaseService.supabase
+      const { data, error } = await this.supabase
         .from('users')
         .select('*')
         .eq('id', id) // 'id' カラムで検索
@@ -47,7 +46,7 @@ export class UserRepository {
    */
   async findByLineUserId(lineUserId: string): Promise<User | null> {
     try {
-      const { data, error } = await this.supabaseService.supabase
+      const { data, error } = await this.supabase
         .from('users')
         .select('*')
         .eq('line_user_id', lineUserId)
@@ -73,7 +72,7 @@ export class UserRepository {
    */
   async findByStripeCustomerId(stripeCustomerId: string): Promise<User | null> {
     try {
-      const { data, error } = await this.supabaseService.supabase
+      const { data, error } = await this.supabase
         .from('users')
         .select('*')
         .eq('stripe_customer_id', stripeCustomerId)
@@ -107,7 +106,7 @@ export class UserRepository {
         ...userData,
       };
 
-      const { error } = await this.supabaseService.supabase.from('users').insert(toDbUser(user));
+      const { error } = await this.supabase.from('users').insert(toDbUser(user));
 
       if (error) {
         console.error('Error creating user:', error);
@@ -142,7 +141,7 @@ export class UserRepository {
       if (updates.googleSearchCount !== undefined)
         dbUpdates.google_search_count = updates.googleSearchCount;
 
-      const { error } = await this.supabaseService.supabase
+      const { error } = await this.supabase
         .from('users')
         .update(dbUpdates)
         .eq('id', userId);
@@ -164,7 +163,7 @@ export class UserRepository {
    */
   async updateStripeCustomerId(lineUserId: string, stripeCustomerId: string): Promise<boolean> {
     try {
-      const { error } = await this.supabaseService.supabase
+      const { error } = await this.supabase
         .from('users')
         .update({
           stripe_customer_id: stripeCustomerId,
@@ -192,7 +191,7 @@ export class UserRepository {
     stripeSubscriptionId: string
   ): Promise<boolean> {
     try {
-      const { error } = await this.supabaseService.supabase
+      const { error } = await this.supabase
         .from('users')
         .update({
           stripe_subscription_id: stripeSubscriptionId,
@@ -217,7 +216,7 @@ export class UserRepository {
    */
   async incrementGoogleSearchCount(userId: string): Promise<boolean> {
     try {
-      const { error } = await this.supabaseService.supabase.rpc('increment_google_search_count', {
+      const { error } = await this.supabase.rpc('increment_google_search_count', {
         user_id: userId
       });
 
