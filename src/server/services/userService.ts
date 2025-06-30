@@ -31,6 +31,7 @@ export class UserService {
           linePictureUrl: lineProfile.pictureUrl,
           lineStatusMessage: lineProfile.statusMessage,
           googleSearchCount: 0,
+          role: 'user',
         });
 
         if (!user) {

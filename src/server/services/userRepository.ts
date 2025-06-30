@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { SupabaseService } from './supabaseService';
-import { User, DbUser, toUser, toDbUser } from '@/types/user';
+import { User, DbUser, UserRole, toUser, toDbUser } from '@/types/user';
 
 /**
  * ユーザーリポジトリ: ユーザーデータのCRUD操作を提供
@@ -140,6 +140,8 @@ export class UserRepository extends SupabaseService {
         dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
       if (updates.googleSearchCount !== undefined)
         dbUpdates.google_search_count = updates.googleSearchCount;
+      if (updates.role !== undefined)
+        dbUpdates.role = updates.role;
 
       const { error } = await this.supabase
         .from('users')
@@ -228,6 +230,31 @@ export class UserRepository extends SupabaseService {
       return true;
     } catch (error) {
       console.error('Repository error (incrementGoogleSearchCount):', error);
+      return false;
+    }
+  }
+
+  /**
+   * 管理者権限でユーザーロールを更新するメソッド
+   */
+  async updateUserRole(userId: string, newRole: UserRole): Promise<boolean> {
+    try {
+      const { error } = await this.supabase
+        .from('users')
+        .update({
+          role: newRole,
+          updated_at: Date.now(),
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error updating user role:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Repository error (updateUserRole):', error);
       return false;
     }
   }
