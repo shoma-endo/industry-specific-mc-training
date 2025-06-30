@@ -51,7 +51,6 @@ export async function middleware(request: NextRequest) {
 
     // 🔍 3. アクセストークンの取得
     const accessToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
     
     if (!accessToken) {
       logMiddleware(pathname, 'NO_ACCESS_TOKEN', Date.now() - startTime);
@@ -59,7 +58,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // 🔍 4. ユーザーロールの取得（キャッシュ考慮）
-    const userRole = await getUserRoleWithCache(accessToken, refreshToken);
+    const userRole = await getUserRoleWithCache(accessToken);
     
     if (!userRole) {
       logMiddleware(pathname, 'INVALID_TOKEN', Date.now() - startTime);
@@ -113,7 +112,7 @@ function requiresAdminAccess(pathname: string): boolean {
 const roleCache = new Map<string, { role: string; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5分キャッシュ
 
-async function getUserRoleWithCache(accessToken: string, refreshToken?: string) {
+async function getUserRoleWithCache(accessToken: string) {
   const cacheKey = accessToken.substring(0, 20); // セキュリティのため一部のみ使用
   const cached = roleCache.get(cacheKey);
   
