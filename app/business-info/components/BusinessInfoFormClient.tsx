@@ -154,15 +154,6 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
     [form, getAccessToken, isLoggedIn]
   );
 
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-        handleSubmit(event);
-      }
-    },
-    [handleSubmit]
-  );
-
   // 早期リターン - LIFF未ログイン状態
   if (!isLoggedIn) {
     return (
@@ -182,7 +173,7 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
   }
 
   return (
-    <div className="space-y-8" onKeyDown={handleKeyDown} tabIndex={0}>
+    <div className="space-y-8">
       {error && (
         <div
           className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
@@ -351,7 +342,9 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
               <Building2 className="h-5 w-5" />
               サービス内容（5W2H）
             </CardTitle>
-            <CardDescription>サービス内容を5W2Hの形式で入力してください</CardDescription>
+            <CardDescription>
+              サービス内容を5W2Hの形式で入力してください。カンマ（,）または句点（、）区切りで複数入力可能です。
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input

@@ -5,7 +5,6 @@ import { getUserRole, isAdmin } from '@/lib/auth-utils';
 // 管理者権限が必要なパスの定義
 const ADMIN_REQUIRED_PATHS = [
   '/setup',
-  '/business-info', 
   '/debug',
   '/studio'
 ] as const;
