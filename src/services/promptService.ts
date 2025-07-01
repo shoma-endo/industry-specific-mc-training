@@ -189,10 +189,12 @@ export class PromptService extends SupabaseService {
       }
 
       // メインテーブルを更新
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { change_summary, ...updateData } = data;
       const { data: result, error } = await service.serviceRoleSupabase
         .from('prompt_templates')
         .update({
-          ...data,
+          ...updateData,
           version: newVersion,
           updated_at: new Date().toISOString()
         })

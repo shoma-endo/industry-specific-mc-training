@@ -74,6 +74,7 @@ export default function PromptsPage() {
         const updatedTemplate = { ...selectedTemplate, content: editedContent };
         setSelectedTemplate(updatedTemplate);
         setError(null);
+        alert('プロンプトを保存しました');
       } else {
         setError(result.error || '保存に失敗しました');
       }
@@ -143,6 +144,17 @@ export default function PromptsPage() {
           プロンプトテンプレートを選択して内容を編集します
         </p>
       </div>
+
+      {/* エラーメッセージ */}
+      {error && (
+        <div
+          className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
+          role="alert"
+          aria-live="polite"
+        >
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
 
       {/* プロンプトテンプレート選択 */}
       <Card>
@@ -236,6 +248,7 @@ export default function PromptsPage() {
           </CardContent>
         </Card>
       )}
+
     </div>
   );
 }
