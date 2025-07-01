@@ -33,7 +33,7 @@ CREATE POLICY "管理者のみアクセス可能_prompt_templates" ON prompt_tem
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM users 
-      WHERE users.id = auth.uid() 
+      WHERE users.id = (select auth.uid())
       AND users.role = 'admin'
     )
   );
@@ -42,7 +42,7 @@ CREATE POLICY "管理者のみアクセス可能_prompt_versions" ON prompt_vers
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM users 
-      WHERE users.id = auth.uid() 
+      WHERE users.id = (select auth.uid())
       AND users.role = 'admin'
     )
   );
