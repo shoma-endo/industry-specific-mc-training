@@ -8,6 +8,9 @@ const LiffProvider = dynamic(
   { ssr: false }
 )
 
+// useLiffContextを再エクスポート
+export { useLiffContext } from '@/components/LiffProvider';
+
 export function ClientLiffProvider({
   initialize,
   children,

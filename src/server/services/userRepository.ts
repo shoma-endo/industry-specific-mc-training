@@ -140,13 +140,9 @@ export class UserRepository extends SupabaseService {
         dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
       if (updates.googleSearchCount !== undefined)
         dbUpdates.google_search_count = updates.googleSearchCount;
-      if (updates.role !== undefined)
-        dbUpdates.role = updates.role;
+      if (updates.role !== undefined) dbUpdates.role = updates.role;
 
-      const { error } = await this.supabase
-        .from('users')
-        .update(dbUpdates)
-        .eq('id', userId);
+      const { error } = await this.supabase.from('users').update(dbUpdates).eq('id', userId);
 
       if (error) {
         console.error('Error updating user:', error);
@@ -219,7 +215,7 @@ export class UserRepository extends SupabaseService {
   async incrementGoogleSearchCount(userId: string): Promise<boolean> {
     try {
       const { error } = await this.supabase.rpc('increment_google_search_count', {
-        user_id: userId
+        user_id: userId,
       });
 
       if (error) {

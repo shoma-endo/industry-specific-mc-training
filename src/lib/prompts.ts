@@ -337,6 +337,7 @@ kw = キーワード
 import { cache } from 'react';
 import { getBrief } from '@/server/handler/actions/brief.actions';
 import type { BriefInput } from '@/server/handler/actions/brief.schema';
+import { PromptService } from '@/services/promptService';
 
 /**
  * 事業者情報取得のキャッシュ化
@@ -732,8 +733,15 @@ export const generateAdCopyPrompt = cache(async (liffAccessToken: string): Promi
 export const generateAdCopyFinishingPrompt = cache(
   async (liffAccessToken: string): Promise<string> => {
     try {
+      // DBからプロンプトテンプレートを取得
+      const template = await PromptService.getTemplateByName('ad_copy_finishing');
+      if (!template) {
+        console.warn('ad_copy_finishing プロンプトテンプレートが見つかりません');
+        return AD_COPY_FINISHING_PROMPT_TEMPLATE;
+      }
+
       const businessInfo = await getCachedBrief(liffAccessToken);
-      return replaceTemplateVariables(AD_COPY_FINISHING_PROMPT_TEMPLATE, businessInfo);
+      return replaceTemplateVariables(template.content, businessInfo);
     } catch (error) {
       console.error('広告コピー仕上げプロンプト生成エラー:', error);
       // フォールバック: 元のテンプレートを返す

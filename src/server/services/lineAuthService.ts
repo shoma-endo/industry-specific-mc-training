@@ -70,7 +70,6 @@ export class LineAuthService {
       return { isValid: true };
     } catch (error) {
       if (error instanceof LineTokenExpiredError && refreshTokenValue) {
-
         try {
           // リフレッシュトークンを使用して新しいアクセストークンを取得
           const refreshedTokens = await this.refreshToken(refreshTokenValue);

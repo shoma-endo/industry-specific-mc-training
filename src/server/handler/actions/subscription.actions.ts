@@ -276,3 +276,32 @@ export async function getCheckoutSessionDetails(sessionId: string, liffAccessTok
     };
   }
 }
+
+/**
+ * ユーザーの権限を確認するサーバーアクション
+ */
+export const checkUserRole = async (liffAccessToken: string) => {
+  try {
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    
+    if (!user) {
+      return {
+        success: false,
+        error: 'ユーザー情報が見つかりません',
+        role: 'user'
+      };
+    }
+
+    return {
+      success: true,
+      role: user.role || 'user'
+    };
+  } catch (error) {
+    console.error('権限チェックエラー:', error);
+    return {
+      success: false,
+      error: '権限の確認に失敗しました',
+      role: 'user'
+    };
+  }
+};

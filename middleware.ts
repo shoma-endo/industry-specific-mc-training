@@ -6,7 +6,8 @@ import { getUserRole, isAdmin } from '@/lib/auth-utils';
 const ADMIN_REQUIRED_PATHS = [
   '/setup',
   '/debug',
-  '/studio'
+  '/studio',
+  '/admin'
 ] as const;
 
 // 認証不要なパスの定義
