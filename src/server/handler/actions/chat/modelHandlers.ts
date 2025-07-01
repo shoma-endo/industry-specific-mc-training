@@ -10,23 +10,50 @@ import {
   AD_COPY_PROMPT,
   AD_COPY_FINISHING_PROMPT,
   LP_DRAFT_PROMPT,
+  // 新しいキャッシュ戦略対応プロンプト生成関数
+  generateAdCopyPrompt,
+  generateAdCopyFinishingPrompt,
+  generateLpDraftPrompt,
 } from '@/lib/prompts';
 import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '../shared/validators';
 
 const SYSTEM_PROMPTS: Record<string, string> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-  ad_copy_creation: AD_COPY_PROMPT,
-  'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
-  lp_draft_creation: LP_DRAFT_PROMPT,
+  ad_copy_creation: AD_COPY_PROMPT, // 後方互換性のため保持
+  'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT, // 後方互換性のため保持
+  lp_draft_creation: LP_DRAFT_PROMPT, // 後方互換性のため保持
 };
+
+/**
+ * モデルに応じた動的プロンプト取得（React Cache活用）
+ */
+async function getSystemPrompt(model: string, liffAccessToken?: string): Promise<string> {
+  // liffAccessTokenがある場合はキャッシュ戦略を使用
+  if (liffAccessToken) {
+    switch (model) {
+      case 'ad_copy_creation':
+        return await generateAdCopyPrompt(liffAccessToken);
+      case 'gpt-4.1-nano-2025-04-14':
+        return await generateAdCopyFinishingPrompt(liffAccessToken);
+      case 'lp_draft_creation':
+        return await generateLpDraftPrompt(liffAccessToken);
+      default:
+        return SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+    }
+  }
+  
+  // フォールバック: 従来の静的プロンプト
+  return SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+}
 
 export class ModelHandlerService {
   private processor = new ChatProcessorService();
 
   async handleStart(userId: string, data: StartChatInput): Promise<ChatResponse> {
     const { userMessage, model, liffAccessToken } = data;
-    const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+    // キャッシュ戦略を活用した動的プロンプト取得
+    const systemPrompt = await getSystemPrompt(model, liffAccessToken);
 
     switch (model) {
       case 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2':
@@ -46,7 +73,8 @@ export class ModelHandlerService {
 
   async handleContinue(userId: string, data: ContinueChatInput): Promise<ChatResponse> {
     const { sessionId, messages, userMessage, model, liffAccessToken } = data;
-    const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+    // キャッシュ戦略を活用した動的プロンプト取得
+    const systemPrompt = await getSystemPrompt(model, liffAccessToken);
 
     if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
       const config = MODEL_CONFIGS[model];
