@@ -19,7 +19,6 @@ import { DeleteChatDialog } from '@/components/DeleteChatDialog';
 import SessionListContent from '@/components/SessionListContent';
 import { cn } from '@/lib/utils';
 import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
-import { getUserSearchCountAction } from '@/server/handler/actions/user-search-count.actions';
 import {
   Select,
   SelectContent,
@@ -55,8 +54,6 @@ type Session = {
 export default function ChatPage() {
   const router = useRouter();
   const { isLoggedIn, login, getAccessToken } = useLiffContext();
-  const [googleSearchCount, setGoogleSearchCount] = useState<number>(0);
-  const [searchCountLoading, setSearchCountLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -218,31 +215,6 @@ export default function ChatPage() {
     }
   }, [isLoggedIn, getAccessToken]);
 
-  // 検索回数取得（Server Action使用）
-  const fetchSearchCount = useCallback(async () => {
-    if (!isLoggedIn) return;
-
-    try {
-      setSearchCountLoading(true);
-      const liffAccessToken = await getAccessToken();
-      if (!liffAccessToken) return;
-
-      const result = await getUserSearchCountAction({ liffAccessToken });
-      
-      // 早期リターン: エラーチェック
-      if (result.error) {
-        console.error('Search count load error:', result.error);
-        return;
-      }
-
-      setGoogleSearchCount(result.googleSearchCount);
-    } catch (error) {
-      console.error('Failed to fetch search count:', error);
-    } finally {
-      setSearchCountLoading(false);
-    }
-  }, [isLoggedIn, getAccessToken]);
-
   // ユーザーのスクロール操作を検出
   const handleUserScroll = useCallback(() => {
     setIsUserScrolling(true);
@@ -284,9 +256,8 @@ export default function ChatPage() {
   useEffect(() => {
     if (isLoggedIn) {
       fetchSessions();
-      fetchSearchCount(); // 検索回数も同時に取得
     }
-  }, [isLoggedIn, fetchSessions, fetchSearchCount]);
+  }, [isLoggedIn, fetchSessions]);
 
   // 特定のセッションのメッセージを読み込む
   const loadSession = async (sessionId: string) => {
@@ -695,11 +666,6 @@ export default function ChatPage() {
 
             {/* アクションメニュー */}
             <div className="flex items-center space-x-2">
-              {/* Google Search API利用回数表示 */}
-              <div className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded-md hidden sm:block">
-                {searchCountLoading ? '...' : `検索: ${googleSearchCount}回`}
-              </div>
-              
               <Select value={selectedModel} onValueChange={setSelectedModel}>
                 <SelectTrigger className="w-[120px] md:w-[180px] min-w-[120px] h-9 text-xs md:text-sm border-gray-200">
                   <SelectValue placeholder="モデルを選択" />
@@ -809,7 +775,10 @@ export default function ChatPage() {
           ) : (
             <>
               {messages.map((message, index) => (
-                <div key={message.timestamp ? message.timestamp.getTime() + index : index} className="mb-4 last:mb-2">
+                <div
+                  key={message.timestamp ? message.timestamp.getTime() + index : index}
+                  className="mb-4 last:mb-2"
+                >
                   <div
                     className={cn(
                       'flex items-start gap-2',
@@ -853,7 +822,7 @@ export default function ChatPage() {
                   )}
                 </div>
               ))}
-              
+
               {/* メッセージの最下部にスクロール用のアンカー */}
               <div ref={messagesEndRef} />
 
