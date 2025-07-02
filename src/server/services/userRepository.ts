@@ -21,17 +21,18 @@ export class UserRepository extends SupabaseService {
       const { data, error } = await this.supabase
         .from('users')
         .select('*')
-        .eq('id', id) // 'id' カラムで検索
-        .single(); // IDはユニークなので single() を使用
+        .eq('id', id)
+        .single();
 
+      // 早期リターン: ユーザーが見つからない場合
+      if (error?.code === 'PGRST116') {
+        return null;
+      }
+
+      // 早期リターン: その他のエラー
       if (error) {
-        // 'PGRST116' は該当する行が見つからなかった場合のエラーコード
-        // この場合はエラーではなく、nullを返すのが適切
-        if (error.code === 'PGRST116') {
-          return null;
-        }
         console.error(`Error finding user by ID (${id}):`, error);
-        return null; // その他のエラーの場合もnullを返すか、エラーをスローするか検討
+        return null;
       }
 
       return data ? toUser(data as DbUser) : null;
@@ -52,10 +53,13 @@ export class UserRepository extends SupabaseService {
         .eq('line_user_id', lineUserId)
         .single();
 
+      // 早期リターン: ユーザーが見つからない場合
+      if (error?.code === 'PGRST116') {
+        return null;
+      }
+
+      // 早期リターン: その他のエラー
       if (error) {
-        if (error.code === 'PGRST116') {
-          return null; // ユーザーが見つからない場合はnullを返す
-        }
         console.error('Error finding user by LINE user ID:', error);
         return null;
       }
@@ -218,6 +222,7 @@ export class UserRepository extends SupabaseService {
         user_id: userId,
       });
 
+      // 早期リターン: エラーチェック
       if (error) {
         console.error('Error incrementing Google search count:', error);
         return false;
@@ -226,6 +231,50 @@ export class UserRepository extends SupabaseService {
       return true;
     } catch (error) {
       console.error('Repository error (incrementGoogleSearchCount):', error);
+      return false;
+    }
+  }
+
+  /**
+   * LINE UserIDからGoogle検索回数を取得
+   */
+  async getUserSearchCount(lineUserId: string): Promise<number> {
+    try {
+      const { data, error } = await this.supabase.rpc('get_user_google_search_count', {
+        p_line_user_id: lineUserId,
+      });
+
+      // 早期リターン: エラーチェック
+      if (error) {
+        console.error('Error getting user search count:', error);
+        return 0;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Repository error (getUserSearchCount):', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Google検索回数をインクリメント（LINE UserID経由）
+   */
+  async incrementGoogleSearchCountByLineId(lineUserId: string): Promise<boolean> {
+    try {
+      const { error } = await this.supabase.rpc('increment_google_search_count_by_line_id', {
+        p_line_user_id: lineUserId,
+      });
+
+      // 早期リターン: エラーチェック
+      if (error) {
+        console.error('Error incrementing Google search count by LINE ID:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Repository error (incrementGoogleSearchCountByLineId):', error);
       return false;
     }
   }
