@@ -715,15 +715,30 @@ export const LP_DRAFT_PROMPT = LP_DRAFT_PROMPT_TEMPLATE;
 
 /**
  * 広告コピー作成用プロンプト生成（キャッシュ付き）
+ * DBからprompt_templatesテーブルを取得するように変更
  */
 export const generateAdCopyPrompt = cache(async (liffAccessToken: string): Promise<string> => {
   try {
+    // DBからプロンプトテンプレートを取得
+    const template = await PromptService.getTemplateByName('ad_copy_creation');
+    if (!template) {
+      console.warn('ad_copy_creation プロンプトテンプレートが見つかりません - 静的テンプレートを使用');
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(AD_COPY_PROMPT_TEMPLATE, businessInfo);
+    }
+
     const businessInfo = await getCachedBrief(liffAccessToken);
-    return replaceTemplateVariables(AD_COPY_PROMPT_TEMPLATE, businessInfo);
+    return replaceTemplateVariables(template.content, businessInfo);
   } catch (error) {
     console.error('広告コピープロンプト生成エラー:', error);
-    // フォールバック: 元のテンプレートを返す
-    return AD_COPY_PROMPT_TEMPLATE;
+    // フォールバック: 静的テンプレートを返す
+    try {
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(AD_COPY_PROMPT_TEMPLATE, businessInfo);
+    } catch (fallbackError) {
+      console.error('フォールバックプロンプト生成エラー:', fallbackError);
+      return AD_COPY_PROMPT_TEMPLATE;
+    }
   }
 });
 
@@ -752,14 +767,29 @@ export const generateAdCopyFinishingPrompt = cache(
 
 /**
  * LP下書き作成用プロンプト生成（キャッシュ付き）
+ * DBからprompt_templatesテーブルを取得するように変更
  */
 export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Promise<string> => {
   try {
+    // DBからプロンプトテンプレートを取得
+    const template = await PromptService.getTemplateByName('lp_draft_creation');
+    if (!template) {
+      console.warn('lp_draft_creation プロンプトテンプレートが見つかりません - 静的テンプレートを使用');
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(LP_DRAFT_PROMPT_TEMPLATE, businessInfo);
+    }
+
     const businessInfo = await getCachedBrief(liffAccessToken);
-    return replaceTemplateVariables(LP_DRAFT_PROMPT_TEMPLATE, businessInfo);
+    return replaceTemplateVariables(template.content, businessInfo);
   } catch (error) {
     console.error('LP下書きプロンプト生成エラー:', error);
-    // フォールバック: 元のテンプレートを返す
-    return LP_DRAFT_PROMPT_TEMPLATE;
+    // フォールバック: 静的テンプレートを返す
+    try {
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(LP_DRAFT_PROMPT_TEMPLATE, businessInfo);
+    } catch (fallbackError) {
+      console.error('フォールバックプロンプト生成エラー:', fallbackError);
+      return LP_DRAFT_PROMPT_TEMPLATE;
+    }
   }
 });
