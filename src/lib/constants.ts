@@ -25,8 +25,8 @@ export const MODEL_CONFIGS: Record<
     actualModel: 'gpt-4.1-nano-2025-04-14',
   },
   lp_draft_creation: {
-    maxTokens: 6000,
-    temperature: 0.7,
+    maxTokens: 5000,
+    temperature: 0.6,
     actualModel: 'gpt-4.1-nano-2025-04-14',
   },
 };

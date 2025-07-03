@@ -42,7 +42,7 @@ async function getSystemPrompt(model: string, liffAccessToken?: string): Promise
         return SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
     }
   }
-  
+
   // フォールバック: 従来の静的プロンプト
   return SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
 }
@@ -126,7 +126,9 @@ export class ModelHandlerService {
         return { message: searchResult, error: '', requiresSubscription: false };
       }
 
-      const adItems = this.processor.parseAdItems(searchResult.replace(/^ドメイン：.*\r?\n?/gm, ''));
+      const adItems = this.processor.parseAdItems(
+        searchResult.replace(/^ドメイン：.*\r?\n?/gm, '')
+      );
       return await chatService.continueChat(
         userId,
         sessionId,
@@ -138,7 +140,14 @@ export class ModelHandlerService {
         searchResult
       );
     } else {
-      return await chatService.continueChat(userId, sessionId, userMessage, systemPrompt, [], model);
+      return await chatService.continueChat(
+        userId,
+        sessionId,
+        userMessage,
+        systemPrompt,
+        [],
+        model
+      );
     }
   }
 
@@ -175,8 +184,8 @@ export class ModelHandlerService {
     const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
 
     return await chatService.startChat(
-      userId, 
-      systemPrompt, 
+      userId,
+      systemPrompt,
       `${userMessage}\n\n【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`
     );
   }
@@ -240,7 +249,7 @@ export class ModelHandlerService {
       userId,
       systemPrompt,
       userMessage.trim(),
-      'gpt-4.1-nano-2025-04-14'
+      'lp_draft_creation'
     );
   }
 
@@ -285,7 +294,10 @@ export class ModelHandlerService {
   }
 
   private subtractMultilineStrings(original: string, toRemove: string[]) {
-    const originalLines = original.split('\n').map(line => line.trim()).filter(line => line);
+    const originalLines = original
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line);
     const toRemoveSet = new Set(toRemove.map(item => item.trim()));
 
     const remaining: string[] = [];
