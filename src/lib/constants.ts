@@ -10,8 +10,8 @@ export const MODEL_CONFIGS: Record<
   { maxTokens: number; temperature: number; actualModel: string }
 > = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': {
-    maxTokens: 1000,
-    temperature: 0.5,
+    maxTokens: 1500,
+    temperature: 0.4,
     actualModel: 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2',
   },
   ad_copy_creation: {
@@ -20,12 +20,12 @@ export const MODEL_CONFIGS: Record<
     actualModel: 'gpt-4.1-nano-2025-04-14',
   },
   'gpt-4.1-nano-2025-04-14': {
-    maxTokens: 1200,
+    maxTokens: 1500,
     temperature: 0.6,
     actualModel: 'gpt-4.1-nano-2025-04-14',
   },
   lp_draft_creation: {
-    maxTokens: 3000,
+    maxTokens: 6000,
     temperature: 0.7,
     actualModel: 'gpt-4.1-nano-2025-04-14',
   },
