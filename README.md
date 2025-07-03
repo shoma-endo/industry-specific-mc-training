@@ -1,30 +1,41 @@
 # Industry-Specific MC Training Platform
 
-LINE認証をベースとした業界特化型マーケティング支援プラットフォーム。AI駆動のチャット機能、動的ランディングページ作成、WordPress連携、サブスクリプション決済を統合したSaaSアプリケーションです。
+LINE認証をベースとした業界特化型AI マーケティング支援プラットフォーム。Fine-tuned AIモデル、SEMrush API連携、プロンプト管理機能、動的ランディングページ作成、WordPress連携、サブスクリプション決済を統合した包括的なSaaSアプリケーションです。
 
 ## 🚀 主要機能
 
 ### 📱 LINE LIFF認証
 - LINE Loginによるシームレスな認証
-- アクセストークンの自動リフレッシュ
-- マルチテナント対応のユーザー管理
+- アクセストークンの自動リフレッシュ・メモリキャッシュ
+- 管理者権限による階層化ユーザー管理
+- Row Level Security（RLS）による厳格なデータ分離
 
-### 🤖 AIチャット機能
-- OpenAI API連携（複数モデル対応）
-- 広告文作成専用AIモデル
-- チャット履歴の永続化
-- Google検索API連携
+### 🤖 高度なAIチャット機能
+- **Fine-tuned AIモデル**：`ft:gpt-4.1-nano-2025-04-14` によるキーワード分類
+- **複数AIモデル連携**：段階的処理による高精度な広告文生成
+- **SEMrush API統合**：競合広告分析・キーワードリサーチ
+- **Google Custom Search API**：リアルタイム検索データ連携
+- チャット履歴の永続化・検索機能
 
-### 🎨 ランディングページ作成
-- 見出し・説明文からの自動生成
-- WordPress.com / セルフホストWordPress両対応
-- リアルタイムプレビュー機能
-- 設定編集・管理機能
+### 🎯 AI プロンプト管理システム
+- **管理者専用プロンプト管理**：リアルタイム編集・バージョン履歴
+- **動的変数システム**：事業者情報17項目の自動置換
+- **3つの専門プロンプト**：
+  - 広告文作成（Google広告対応）
+  - ランディングページドラフト作成（16パート構成）
+  - 広告文仕上げ・改善
 
-### 💳 サブスクリプション管理
-- Stripe Checkout連携
-- 自動課金・解約処理
-- プラン変更対応
+### 🎨 ランディングページ作成・WordPress連携
+- **Sanity CMS**：ヘッドレスCMS による柔軟なコンテンツ管理
+- **WordPress.com / セルフホスト WordPress**：両方式対応
+- **プレビュー機能**：リアルタイムプレビュー・下書きモード
+- **OAuth認証**：WordPress.com 連携
+- **Application Password**：セルフホスト WordPress 対応
+
+### 💳 サブスクリプション・権限管理
+- **Stripe Checkout**：サブスクリプション管理
+- **使用量制限**：Google検索回数制限・プラン別機能制御
+- **管理者ダッシュボード**：ユーザー・プロンプト管理
 
 ## 🏗️ システムアーキテクチャ
 
@@ -53,10 +64,12 @@ graph TB
     end
     
     subgraph "External APIs"
-        K[OpenAI API]
+        K[OpenAI API / Fine-tuned Model]
         L[Stripe API]
         M[WordPress APIs]
         N[Google Search API]
+        O[SEMrush API]
+        P[LINE Platform API]
     end
     
     A --> D
@@ -71,6 +84,8 @@ graph TB
     G --> L
     G --> M
     G --> N
+    G --> O
+    G --> P
 ```
 
 ## 🔄 認証フロー
@@ -101,29 +116,31 @@ sequenceDiagram
 ## 🛠️ 技術スタック
 
 ### **フロントエンド**
-- **Next.js 15.3.1** - React フレームワーク（App Router）
-- **React 19.0.0** - UIライブラリ
-- **TypeScript** - 型安全性
-- **Tailwind CSS** - スタイリング
-- **Radix UI** - UIコンポーネント
+- **Next.js 15.3.1** - React フレームワーク（App Router + Turbopack）
+- **React 19.0.0** - UIライブラリ（Server Components対応）
+- **TypeScript 5.x** - strict mode による型安全性
+- **Tailwind CSS 4.x** - PostCSS統合スタイリング
+- **Radix UI** - アクセシビリティ対応UIコンポーネント
 
 ### **バックエンド・データベース**
-- **Supabase** - PostgreSQL + 認証・リアルタイム機能
-- **Sanity CMS** - ヘッドレスCMS
+- **Supabase** - PostgreSQL + RLS + リアルタイム機能
+- **Sanity CMS 3.86** - ヘッドレスCMS + プレビュー機能
+- **@t3-oss/env-nextjs** - 型安全な環境変数管理
 
-### **認証・決済**
-- **LINE LIFF** - LINE認証プラットフォーム
-- **Stripe** - 決済・サブスクリプション管理
+### **AI・API統合**
+- **OpenAI API 4.90** - GPT-4 + Fine-tuned モデル
+- **SEMrush API** - 競合分析・広告データ
+- **Google Custom Search API** - リアルタイム検索
+- **LINE LIFF 2.25** - LINE認証プラットフォーム
 
-### **外部API**
-- **OpenAI API** - AI機能
-- **Google Custom Search API** - 検索機能
-- **WordPress REST API** - WordPress連携
+### **決済・認証**
+- **Stripe 17.7** - サブスクリプション・決済管理
+- **JWT Token管理** - 自動リフレッシュ + メモリキャッシュ
 
 ### **開発・デプロイ**
-- **Vercel** - ホスティング・デプロイ
-- **Turbopack** - 高速バンドラ
-- **ESLint + Prettier** - コード品質管理
+- **Vercel** - ホスティング・自動デプロイ
+- **Husky + lint-staged** - Git hooks によるコード品質管理
+- **ESLint 9 + Prettier** - 統合リンター・フォーマッター
 
 ## 📊 データベーススキーマ
 
@@ -134,8 +151,12 @@ erDiagram
         text line_user_id UK
         text line_display_name
         text line_picture_url
+        text email
         text stripe_customer_id
         text stripe_subscription_id
+        text role
+        integer google_search_count
+        timestamp google_search_reset_at
         bigint created_at
         bigint updated_at
     }
@@ -181,11 +202,40 @@ erDiagram
         timestamp created_at
     }
     
+    prompt_templates {
+        uuid id PK
+        text name UK
+        text description
+        text content
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    prompt_versions {
+        uuid id PK
+        uuid template_id FK
+        text content
+        text change_description
+        timestamp created_at
+    }
+    
+    briefs {
+        uuid id PK
+        uuid user_id FK
+        text name
+        jsonb content
+        timestamp created_at
+        timestamp updated_at
+    }
+    
     users ||--o{ chat_sessions : has
     users ||--o{ chat_messages : owns
+    users ||--o{ briefs : creates
     users ||--o| wordpress_settings : configures
     users ||--o| sanity_projects : manages
     chat_sessions ||--o{ chat_messages : contains
+    prompt_templates ||--o{ prompt_versions : has
 ```
 
 ## 🚀 環境構築手順
@@ -236,6 +286,19 @@ STRIPE_PRICE_ID=your_price_id
 # OpenAI API
 OPENAI_API_KEY=your_openai_api_key
 
+# Google検索API
+GOOGLE_CUSTOM_SEARCH_KEY=your_google_search_key
+GOOGLE_CSE_ID=your_custom_search_engine_id
+
+# SEMrush API（オプション）
+SEMRUSH_API_KEY=your_semrush_api_key
+
+# Sanity CMS
+NEXT_PUBLIC_SANITY_PROJECT_ID=your_sanity_project_id
+NEXT_PUBLIC_SANITY_DATASET=production
+SANITY_STUDIO_READ_TOKEN=your_sanity_read_token
+SANITY_WEBHOOK_SECRET=your_webhook_secret
+
 # サイトURL
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
@@ -258,11 +321,8 @@ npm run dev
 LINE LIFFの開発には HTTPS が必要です：
 
 ```bash
-# ngrokインストール
-npm install -g ngrok
-
-# トンネル作成
-ngrok http --region=jp --subdomain=industry-specific-mc-training 3000
+# トンネル作成（プロジェクトに含まれているコマンド）
+npm run ngrok
 ```
 
 ## 📝 WordPress連携設定
@@ -281,19 +341,26 @@ ngrok http --region=jp --subdomain=industry-specific-mc-training 3000
 
 | エンドポイント | 機能 |
 |---|---|
-| `/api/callback` | LINE認証コールバック |
+| `/api/line/callback` | LINE認証コールバック |
 | `/api/refresh` | トークンリフレッシュ |
-| `/api/user/current` | 現在のユーザー情報 |
+| `/api/user/current` | 現在のユーザー情報・権限 |
+| `/api/user/search-count` | Google検索使用量確認 |
 | `/api/wordpress/test-connection` | WordPress接続テスト |
-| `/api/ad-form/create-landing-page` | ランディングページ作成 |
 | `/api/wordpress/oauth/start` | WordPress.com OAuth開始 |
+| `/api/wordpress/oauth/callback` | WordPress.com OAuth コールバック |
+| `/api/ad-form/create-landing-page` | ランディングページ作成 |
+| `/api/sanity/settings` | Sanity CMS 設定管理 |
+| `/api/draft/enable` | プレビューモード有効化 |
+| `/api/draft/disable` | プレビューモード無効化 |
 
 ## 🛡️ セキュリティ機能
 
 - **Row Level Security (RLS)** - データベースレベルでのマルチテナント分離
-- **JWT Token管理** - 自動リフレッシュ機能付き
-- **CSRF保護** -状態トークンによる保護
-- **環境変数管理** - 機密情報の安全な管理
+- **管理者権限制御** - `/admin`, `/setup`, `/debug`, `/studio` への階層化アクセス
+- **JWT Token管理** - 自動リフレッシュ + 5分TTLメモリキャッシュ
+- **CSRF保護** - 状態トークンによる保護
+- **環境変数管理** - @t3-oss/env-nextjs による型安全な機密情報管理
+- **使用量制限** - Google検索API制限・プラン別機能ゲート
 
 ## 📱 デプロイメント
 
@@ -308,11 +375,27 @@ ngrok http --region=jp --subdomain=industry-specific-mc-training 3000
 - **ステージング**: Vercel プレビュー環境
 - **本番環境**: Vercel 本番デプロイ
 
+## 🏗️ 開発・デバッグ機能
+
+### デバッグページ
+- `/debug/draft-mode` - Sanityプレビューモード管理
+- `/debug/wordpress-export` - WordPress出力テスト
+
+### 管理者機能
+- `/admin` - 管理者ダッシュボード
+- `/admin/prompts` - AIプロンプト管理
+- `/studio` - Sanity CMS スタジオ
+
+### セットアップ機能
+- `/setup` - 初期設定ウィザード
+- `/setup/sanity` - Sanity CMS 設定
+- `/setup/wordpress` - WordPress連携設定
+
 ## 🤝 コントリビューション
 
 1. フィーチャーブランチ作成
-2. 変更実装
-3. テスト実行
+2. 変更実装・TypeScript型チェック
+3. Husky pre-commit hooks による自動テスト
 4. プルリクエスト作成
 
 ## 📄 ライセンス
