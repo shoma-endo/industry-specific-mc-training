@@ -10,13 +10,25 @@ import {
   cancelUserSubscription,
   resumeUserSubscription,
   createCustomerPortalSession,
+  checkUserRole,
 } from '@/server/handler/actions/subscription.actions';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { Settings, Shield } from 'lucide-react';
+import Link from 'next/link';
 
-function ProfileDisplay() {
+interface SubscriptionInfo {
+  id: string;
+  status: string;
+  currentPeriodEnd: number;
+  nextBillingDate: string;
+  cancelAtPeriodEnd: boolean;
+}
+
+const ProfileDisplay = () => {
   const { profile, isLoading, isLoggedIn, logout } = useLiffContext();
 
+  // Early return pattern (CLAUDE.mdルール)
   if (isLoading) {
     return <p className="text-center my-4">プロフィール読み込み中...</p>;
   }
@@ -41,61 +53,133 @@ function ProfileDisplay() {
         <button
           onClick={logout}
           className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm"
+          aria-label="ログアウト"
+          tabIndex={0}
         >
           ログアウト
         </button>
       </CardContent>
     </Card>
   );
-}
+};
+
+// 管理者向けカードコンポーネント（constパターン使用）
+const AdminAccessCard = () => {
+  const { getAccessToken } = useLiffContext();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAdminRole = async () => {
+      try {
+        const token = await getAccessToken();
+        const result = await checkUserRole(token);
+
+        if (result.success && result.role === 'admin') {
+          setIsAdmin(true);
+        }
+      } catch (error) {
+        console.error('管理者権限チェックエラー:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAdminRole();
+  }, [getAccessToken]);
+
+  // Early return pattern
+  if (loading || !isAdmin) {
+    return null;
+  }
+
+  return (
+    <Card className="w-full max-w-md mb-6 border-blue-200 bg-blue-50">
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
+          <Shield className="h-6 w-6 text-blue-600" />
+          管理者機能
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 text-center mb-4">管理者権限でログインしています</p>
+
+          <Link href="/admin" className="block">
+            <Button 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              aria-label="管理者ダッシュボードへ移動"
+              tabIndex={0}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              管理者ダッシュボード
+            </Button>
+          </Link>
+
+          <Link href="/admin/prompts" className="block">
+            <Button
+              variant="outline"
+              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
+              aria-label="プロンプト管理へ移動"
+              tabIndex={0}
+            >
+              プロンプト管理
+            </Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 export default function Home() {
   const { profile, getAccessToken } = useLiffContext();
-  // サブスク関連ステート
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  interface SubscriptionInfo {
-    id: string;
-    status: string;
-    currentPeriodEnd: number;
-    nextBillingDate: string;
-    cancelAtPeriodEnd: boolean;
-  }
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  
+  // サブスク関連ステート（descriptive naming）
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [subscriptionData, setSubscriptionData] = useState<SubscriptionInfo | null>(null);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
 
-  // 日付フォーマット
+  // 日付フォーマット関数（constパターン）
   const formatDate = (dateString: string) =>
-    new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }).format(
-      new Date(dateString)
-    );
+    new Intl.DateTimeFormat('ja-JP', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }).format(new Date(dateString));
 
   // サブスク情報取得
   useEffect(() => {
-    const fetchSubscription = async () => {
+    const fetchSubscriptionData = async () => {
       if (!profile) return;
+      
       try {
         const token = await getAccessToken();
         const result = await getUserSubscription(token);
+        
         if (result.success) {
           setHasActiveSubscription(result.hasActiveSubscription || false);
-          if (result.subscription) setSubscription(result.subscription as SubscriptionInfo);
+          if (result.subscription) {
+            setSubscriptionData(result.subscription as SubscriptionInfo);
+          }
         } else {
-          setError(result.error || 'サブスク取得エラー');
+          setSubscriptionError(result.error || 'サブスク取得エラー');
         }
       } catch {
-        setError('サブスク取得中にエラー');
+        setSubscriptionError('サブスク取得中にエラー');
       } finally {
-        setLoading(false);
+        setSubscriptionLoading(false);
       }
     };
-    fetchSubscription();
+    
+    fetchSubscriptionData();
   }, [profile, getAccessToken]);
 
-  // サブスクリプション登録
+  // イベントハンドラー（handleプレフィックス）
   const handleSubscribe = async () => {
     setActionLoading(true);
     try {
@@ -103,13 +187,12 @@ export default function Home() {
       const { url } = await createSubscriptionSession(token, window.location.origin);
       if (url) window.location.href = url;
     } catch {
-      setError('登録処理中にエラー');
+      setSubscriptionError('登録処理中にエラー');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // 支払い方法変更
   const handleUpdatePayment = async () => {
     setActionLoading(true);
     try {
@@ -117,54 +200,81 @@ export default function Home() {
       const { url } = await createCustomerPortalSession(window.location.origin + '/', token);
       if (url) window.location.href = url;
     } catch {
-      setError('支払方法変更エラー');
+      setSubscriptionError('支払方法変更エラー');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // サブスク解約
   const handleCancelSubscription = async () => {
-    if (!subscription) return;
+    if (!subscriptionData) return;
     if (!confirm('サブスクリプションを解約してもよろしいですか？')) return;
+    
     setCancelLoading(true);
     try {
       const token = await getAccessToken();
-      const result = await cancelUserSubscription(subscription.id, false, token);
+      const result = await cancelUserSubscription(subscriptionData.id, false, token);
+      
       if (result.success) {
         const res = await getUserSubscription(token);
         setHasActiveSubscription(res.hasActiveSubscription || false);
-        if (res.subscription) setSubscription(res.subscription as SubscriptionInfo);
+        if (res.subscription) {
+          setSubscriptionData(res.subscription as SubscriptionInfo);
+        }
       } else {
-        setError(result.error || '解約に失敗しました');
+        setSubscriptionError(result.error || '解約に失敗しました');
       }
     } catch {
-      setError('解約処理中にエラー');
+      setSubscriptionError('解約処理中にエラー');
     } finally {
       setCancelLoading(false);
     }
   };
 
-  // サブスク継続
   const handleResumeSubscription = async () => {
-    if (!subscription) return;
+    if (!subscriptionData) return;
     if (!confirm('サブスクリプションの継続手続きを行いますか？')) return;
+    
     setResumeLoading(true);
     try {
       const token = await getAccessToken();
-      const result = await resumeUserSubscription(subscription.id, token);
+      const result = await resumeUserSubscription(subscriptionData.id, token);
+      
       if (result.success) {
         const res = await getUserSubscription(token);
         setHasActiveSubscription(res.hasActiveSubscription || false);
-        if (res.subscription) setSubscription(res.subscription as SubscriptionInfo);
+        if (res.subscription) {
+          setSubscriptionData(res.subscription as SubscriptionInfo);
+        }
       } else {
-        setError(result.error || '継続に失敗しました');
+        setSubscriptionError(result.error || '継続に失敗しました');
       }
     } catch {
-      setError('継続処理中にエラー');
+      setSubscriptionError('継続処理中にエラー');
     } finally {
       setResumeLoading(false);
     }
+  };
+
+  const renderSubscriptionStatus = () => {
+    if (!subscriptionData) return null;
+
+    const status = subscriptionData.status;
+    const statusConfig = {
+      active: { label: 'アクティブ', className: 'px-2 py-1 bg-green-100 text-green-800 rounded' },
+      trialing: { label: 'トライアル中', className: 'px-2 py-1 bg-blue-100 text-blue-800 rounded' },
+      past_due: { label: '支払い期限切れ', className: 'px-2 py-1 bg-red-100 text-red-800 rounded' },
+      unpaid: { label: '未払い', className: 'px-2 py-1 bg-red-100 text-red-800 rounded' },
+      canceled: { label: 'キャンセル済み', className: 'px-2 py-1 bg-gray-100 text-gray-800 rounded' },
+      incomplete: { label: '処理中', className: 'px-2 py-1 bg-yellow-100 text-yellow-800 rounded' },
+      incomplete_expired: { label: '処理失敗', className: 'px-2 py-1 bg-gray-100 text-gray-800 rounded' },
+      paused: { label: '一時停止中', className: 'px-2 py-1 bg-purple-100 text-purple-800 rounded' },
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || 
+                   { label: '不明', className: 'px-2 py-1 bg-gray-100 text-gray-800 rounded' };
+
+    return <span className={config.className}>{config.label}</span>;
   };
 
   return (
@@ -172,8 +282,9 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-8">業界特化MC養成講座</h1>
 
       <ProfileDisplay />
+      <AdminAccessCard />
 
-      {/* --- サブスクリプション情報カード --- */}
+      {/* サブスクリプション情報カード */}
       <Card className="w-full max-w-md mb-6 mt-4">
         <CardHeader>
           <CardTitle className="text-xl font-semibold text-center">
@@ -181,144 +292,106 @@ export default function Home() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {subscriptionLoading ? (
             <div className="text-center py-4">読み込み中...</div>
-          ) : error ? (
-            <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">{error}</div>
+          ) : subscriptionError ? (
+            <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">
+              {subscriptionError}
+            </div>
           ) : !hasActiveSubscription ? (
             <div className="p-4 bg-gray-100 rounded">
               <p className="text-gray-600">有効なサブスクリプションがありません。</p>
-              <Button className="mt-4 w-full" onClick={handleSubscribe} disabled={actionLoading}>
+              <Button 
+                className="mt-4 w-full" 
+                onClick={handleSubscribe} 
+                disabled={actionLoading}
+                aria-label="サブスクリプション登録"
+                tabIndex={0}
+              >
                 {actionLoading ? '処理中...' : 'サブスクリプション登録'}
               </Button>
             </div>
-          ) : subscription ? (
+          ) : subscriptionData ? (
             <>
               {/* ステータス表示 */}
               <div className="p-4 bg-gray-100 rounded mb-4">
                 <div className="mb-2 flex items-center gap-2">
                   <span className="font-semibold">ステータス：</span>
-                  {(() => {
-                    const status = subscription.status;
-                    switch (status) {
-                      case 'active':
-                        return (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
-                            アクティブ
-                          </span>
-                        );
-                      case 'trialing':
-                        return (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                            トライアル中
-                          </span>
-                        );
-                      case 'past_due':
-                        return (
-                          <span className="px-2 py-1 bg-red-100 text-red-800 rounded">
-                            支払い期限切れ
-                          </span>
-                        );
-                      case 'unpaid':
-                        return (
-                          <span className="px-2 py-1 bg-red-100 text-red-800 rounded">未払い</span>
-                        );
-                      case 'canceled':
-                        return (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded">
-                            キャンセル済み
-                          </span>
-                        );
-                      case 'incomplete':
-                        return (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
-                            処理中
-                          </span>
-                        );
-                      case 'incomplete_expired':
-                        return (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded">
-                            処理失敗
-                          </span>
-                        );
-                      case 'paused':
-                        return (
-                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded">
-                            一時停止中
-                          </span>
-                        );
-                      default:
-                        return (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded">不明</span>
-                        );
-                    }
-                  })()}
+                  {renderSubscriptionStatus()}
                 </div>
-                {/* 次回請求日 */}
                 <div className="mt-2">
                   <span className="font-semibold">次回請求日：</span>
                   <span className="ml-2">
-                    {subscription.nextBillingDate
-                      ? formatDate(subscription.nextBillingDate)
+                    {subscriptionData.nextBillingDate
+                      ? formatDate(subscriptionData.nextBillingDate)
                       : '情報なし'}
                   </span>
                 </div>
               </div>
+
               {/* 操作ボタン */}
               <div className="space-y-3">
-                {/* 支払い方法変更 */}
-                <Button className="w-full" onClick={handleUpdatePayment} disabled={actionLoading}>
+                <Button 
+                  className="w-full" 
+                  onClick={handleUpdatePayment} 
+                  disabled={actionLoading}
+                  aria-label="支払い方法変更"
+                  tabIndex={0}
+                >
                   {actionLoading ? '処理中...' : '支払い方法変更'}
                 </Button>
-                {/* 解約／継続ボタン */}
-                {subscription.cancelAtPeriodEnd ? (
+
+                {subscriptionData.cancelAtPeriodEnd ? (
                   <Button
                     variant="outline"
                     className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
                     onClick={handleResumeSubscription}
                     disabled={resumeLoading}
+                    aria-label="サブスクリプション継続"
+                    tabIndex={0}
                   >
                     {resumeLoading ? '処理中...' : 'サブスクリプションを継続する'}
                   </Button>
                 ) : (
-                  // 解約はアクティブまたはトライアル中にのみ表示
-                  (subscription.status === 'active' || subscription.status === 'trialing') && (
+                  (subscriptionData.status === 'active' || subscriptionData.status === 'trialing') && (
                     <Button
                       variant="outline"
                       className="w-full border-red-300 text-red-600 hover:bg-red-50"
                       onClick={handleCancelSubscription}
                       disabled={cancelLoading}
+                      aria-label="サブスクリプション解約"
+                      tabIndex={0}
                     >
                       {cancelLoading ? '処理中...' : 'サブスクリプションを解約する'}
                     </Button>
                   )
                 )}
-                {/* 無効ステータス時は再登録 */}
+
                 {!(
-                  subscription.status === 'active' ||
-                  subscription.status === 'trialing' ||
-                  (subscription.status === 'past_due' && !subscription.cancelAtPeriodEnd)
+                  subscriptionData.status === 'active' ||
+                  subscriptionData.status === 'trialing' ||
+                  (subscriptionData.status === 'past_due' && !subscriptionData.cancelAtPeriodEnd)
                 ) && (
                   <div className="p-3 bg-gray-100 rounded text-sm text-gray-700 text-center">
                     {(() => {
-                      const st = subscription.status;
-                      switch (st) {
-                        case 'canceled':
-                        case 'incomplete_expired':
-                          return 'このサブスクリプションは既に終了しています。';
-                        case 'past_due':
-                          return 'お支払いが遅延しています。新規登録してください。';
-                        case 'unpaid':
-                          return '未払いです。新規登録してください。';
-                        case 'incomplete':
-                          return 'サブスクリプション設定中です。';
-                        case 'paused':
-                          return '一時停止中です。';
-                        default:
-                          return 'サブスクリプションに問題があります。';
-                      }
+                      const statusMessages = {
+                        canceled: 'このサブスクリプションは既に終了しています。',
+                        incomplete_expired: 'このサブスクリプションは既に終了しています。',
+                        past_due: 'お支払いが遅延しています。新規登録してください。',
+                        unpaid: '未払いです。新規登録してください。',
+                        incomplete: 'サブスクリプション設定中です。',
+                        paused: '一時停止中です。',
+                      };
+                      
+                      return statusMessages[subscriptionData.status as keyof typeof statusMessages] || 
+                             'サブスクリプションに問題があります。';
                     })()}
-                    <Button className="mt-3 w-full" onClick={handleSubscribe}>
+                    <Button 
+                      className="mt-3 w-full" 
+                      onClick={handleSubscribe}
+                      aria-label="新規サブスクリプション登録"
+                      tabIndex={0}
+                    >
                       新規サブスクリプション登録
                     </Button>
                   </div>

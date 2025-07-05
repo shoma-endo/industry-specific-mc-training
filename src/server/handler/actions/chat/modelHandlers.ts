@@ -10,18 +10,47 @@ import {
   AD_COPY_PROMPT,
   AD_COPY_FINISHING_PROMPT,
   LP_DRAFT_PROMPT,
+  // 新しいキャッシュ戦略対応プロンプト生成関数
+  generateAdCopyPrompt,
+  generateAdCopyFinishingPrompt,
+  generateLpDraftPrompt,
 } from '@/lib/prompts';
 import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '../shared/validators';
 import { RAGKeywordClassifier } from '@/lib/rag-keyword-classifier';
+import { PromptRetrievalService } from '@/server/services/promptRetrievalService';
+import { BriefService } from '@/server/services/briefService';
+import { PromptService } from '@/services/promptService';
 
 const SYSTEM_PROMPTS: Record<string, string> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-  'rag_keyword_classifier': KEYWORD_CATEGORIZATION_PROMPT,
+  rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,
   ad_copy_creation: AD_COPY_PROMPT,
   'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
   lp_draft_creation: LP_DRAFT_PROMPT,
 };
+
+/**
+ * モデルに応じた動的プロンプト取得（React Cache活用）
+ */
+async function getSystemPrompt(model: string, liffAccessToken?: string): Promise<string> {
+  // liffAccessTokenがある場合はキャッシュ戦略を使用
+  if (liffAccessToken) {
+    switch (model) {
+      case 'ad_copy_creation':
+        return await generateAdCopyPrompt(liffAccessToken);
+      case 'gpt-4.1-nano-2025-04-14':
+        return await generateAdCopyFinishingPrompt(liffAccessToken);
+      case 'lp_draft_creation':
+        return await generateLpDraftPrompt(liffAccessToken);
+      default:
+        return SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+    }
+  }
+
+  // フォールバック: 従来の静的プロンプト
+  return SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+}
 
 export class ModelHandlerService {
   private processor = new ChatProcessorService();
@@ -29,7 +58,8 @@ export class ModelHandlerService {
 
   async handleStart(userId: string, data: StartChatInput): Promise<ChatResponse> {
     const { userMessage, model, liffAccessToken } = data;
-    const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+    // キャッシュ戦略を活用した動的プロンプト取得
+    const systemPrompt = await getSystemPrompt(model, liffAccessToken);
 
     switch (model) {
       case 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2':
@@ -51,7 +81,8 @@ export class ModelHandlerService {
 
   async handleContinue(userId: string, data: ContinueChatInput): Promise<ChatResponse> {
     const { sessionId, messages, userMessage, model, liffAccessToken } = data;
-    const systemPrompt = SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
+    // キャッシュ戦略を活用した動的プロンプト取得
+    const systemPrompt = await getSystemPrompt(model, liffAccessToken);
 
     if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
       const config = MODEL_CONFIGS[model];
@@ -97,14 +128,23 @@ export class ModelHandlerService {
     } else if (model === 'rag_keyword_classifier') {
       // RAGシステムでの分類処理
       const keywords = this.extractKeywordsFromUserMessage(userMessage);
-      const result = await this.ragClassifier.classifyKeywords(keywords, { includeEvidence: false });
-      
+      const result = await this.ragClassifier.classifyKeywords(keywords, {
+        includeEvidence: false,
+      });
+
       const immediate = result.results.immediate_customer.map(k => k.keyword);
       const later = result.results.later_customer.map(k => k.keyword);
 
       if (immediate.length === 0) {
         const responseMessage = `【今すぐ客キーワード】\n（該当なし）\n\n【後から客キーワード】\n${later.join('\n')}`;
-        return await chatService.continueChat(userId, sessionId, responseMessage, systemPrompt, [], model);
+        return await chatService.continueChat(
+          userId,
+          sessionId,
+          responseMessage,
+          systemPrompt,
+          [],
+          model
+        );
       }
 
       const getSearchResults = await this.processor.handleGoogleSearch(immediate, liffAccessToken);
@@ -129,7 +169,9 @@ export class ModelHandlerService {
         return { message: searchResult, error: '', requiresSubscription: false };
       }
 
-      const adItems = this.processor.parseAdItems(searchResult.replace(/^ドメイン：.*\r?\n?/gm, ''));
+      const adItems = this.processor.parseAdItems(
+        searchResult.replace(/^ドメイン：.*\r?\n?/gm, '')
+      );
       return await chatService.continueChat(
         userId,
         sessionId,
@@ -140,8 +182,80 @@ export class ModelHandlerService {
         userMessage.trim(),
         searchResult
       );
+    } else if (model === 'lp_draft_creation') {
+      // RAG対応: LP継続生成でもRAG機能を使用
+      try {
+        const ragSystemPrompt = await PromptRetrievalService.buildRagSystemMessage(
+          'lp_draft_creation',
+          userMessage.trim()
+        );
+
+        // 事業者情報による変数置換
+        const variables = await BriefService.getVariablesByUserId(userId);
+        const finalSystemPrompt = PromptService.replaceVariables(ragSystemPrompt, variables);
+
+        const validMessages = messages.map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content,
+        }));
+
+        return await chatService.continueChat(
+          userId,
+          sessionId,
+          userMessage,
+          finalSystemPrompt,
+          validMessages,
+          'lp_draft_creation'
+        );
+      } catch (error) {
+        console.error('RAG LP継続生成エラー:', error);
+
+        // フォールバック: 従来のシステムプロンプトを使用
+        try {
+          const variables = await BriefService.getVariablesByUserId(userId);
+          const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
+
+          const validMessages = messages.map(msg => ({
+            role: msg.role as 'user' | 'assistant' | 'system',
+            content: msg.content,
+          }));
+
+          return await chatService.continueChat(
+            userId,
+            sessionId,
+            userMessage,
+            finalSystemPrompt,
+            validMessages,
+            'lp_draft_creation'
+          );
+        } catch (fallbackError) {
+          console.error('継続フォールバック処理エラー:', fallbackError);
+
+          // 最終フォールバック: 変数置換なし
+          const validMessages = messages.map(msg => ({
+            role: msg.role as 'user' | 'assistant' | 'system',
+            content: msg.content,
+          }));
+
+          return await chatService.continueChat(
+            userId,
+            sessionId,
+            userMessage,
+            systemPrompt,
+            validMessages,
+            'lp_draft_creation'
+          );
+        }
+      }
     } else {
-      return await chatService.continueChat(userId, sessionId, userMessage, systemPrompt, [], model);
+      return await chatService.continueChat(
+        userId,
+        sessionId,
+        userMessage,
+        systemPrompt,
+        [],
+        model
+      );
     }
   }
 
@@ -178,8 +292,8 @@ export class ModelHandlerService {
     const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
 
     return await chatService.startChat(
-      userId, 
-      systemPrompt, 
+      userId,
+      systemPrompt,
       `${userMessage}\n\n【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`
     );
   }
@@ -239,12 +353,52 @@ export class ModelHandlerService {
     systemPrompt: string,
     userMessage: string
   ): Promise<ChatResponse> {
-    return await chatService.startChat(
-      userId,
-      systemPrompt,
-      userMessage.trim(),
-      'gpt-4.1-nano-2025-04-14'
-    );
+    try {
+      // RAG対応: プロンプトチャンクから関連情報を取得してシステムメッセージを構築
+      const ragSystemPrompt = await PromptRetrievalService.buildRagSystemMessage(
+        'lp_draft_creation',
+        userMessage.trim()
+      );
+
+      // 事業者情報による変数置換
+      const variables = await BriefService.getVariablesByUserId(userId);
+      const finalSystemPrompt = PromptService.replaceVariables(ragSystemPrompt, variables);
+
+      // チャットサービス経由でセッション保存とRAG版生成
+      // 論理キー "lp_draft_creation" を渡すことで maxTokens=5000 が適用される
+      return await chatService.startChat(
+        userId,
+        finalSystemPrompt,
+        userMessage.trim(),
+        'lp_draft_creation'
+      );
+    } catch (error) {
+      console.error('RAG LP生成エラー:', error);
+
+      // フォールバック: 従来のシステムプロンプトを使用
+      try {
+        const variables = await BriefService.getVariablesByUserId(userId);
+        const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
+
+        const config = MODEL_CONFIGS['lp_draft_creation'];
+        const actualModel = config ? config.actualModel : 'gpt-4.1-nano-2025-04-14';
+
+        return await chatService.startChat(
+          userId,
+          finalSystemPrompt,
+          userMessage.trim(),
+          actualModel
+        );
+      } catch (fallbackError) {
+        console.error('フォールバック処理エラー:', fallbackError);
+
+        // 最終フォールバック: 変数置換なし
+        const config = MODEL_CONFIGS['lp_draft_creation'];
+        const actualModel = config ? config.actualModel : 'gpt-4.1-nano-2025-04-14';
+
+        return await chatService.startChat(userId, systemPrompt, userMessage.trim(), actualModel);
+      }
+    }
   }
 
   private async handleDefaultModel(
@@ -288,7 +442,10 @@ export class ModelHandlerService {
   }
 
   private subtractMultilineStrings(original: string, toRemove: string[]) {
-    const originalLines = original.split('\n').map(line => line.trim()).filter(line => line);
+    const originalLines = original
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line);
     const toRemoveSet = new Set(toRemove.map(item => item.trim()));
 
     const remaining: string[] = [];
@@ -320,18 +477,18 @@ export class ModelHandlerService {
     try {
       // ユーザーメッセージからキーワードを抽出
       const keywords = this.extractKeywordsFromUserMessage(userMessage);
-      
+
       if (keywords.length === 0) {
-        return { 
-          message: 'キーワードが見つかりませんでした。分類するキーワードを入力してください。', 
-          error: '', 
-          requiresSubscription: false 
+        return {
+          message: 'キーワードが見つかりませんでした。分類するキーワードを入力してください。',
+          error: '',
+          requiresSubscription: false,
         };
       }
 
       // RAGシステムで分類実行
-      const result = await this.ragClassifier.classifyKeywords(keywords, { 
-        includeEvidence: false 
+      const result = await this.ragClassifier.classifyKeywords(keywords, {
+        includeEvidence: false,
       });
 
       const immediate = result.results.immediate_customer.map(k => k.keyword);
@@ -349,17 +506,17 @@ export class ModelHandlerService {
       const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
 
       return await chatService.startChat(
-        userId, 
-        systemPrompt, 
+        userId,
+        systemPrompt,
         `${userMessage}\n\n【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`
       );
-
     } catch (error) {
       console.error('RAGモデル処理エラー:', error);
-      return { 
-        message: 'RAGキーワード分類中にエラーが発生しました。しばらく時間をおいて再度お試しください。', 
-        error: error instanceof Error ? error.message : 'Unknown error', 
-        requiresSubscription: false 
+      return {
+        message:
+          'RAGキーワード分類中にエラーが発生しました。しばらく時間をおいて再度お試しください。',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        requiresSubscription: false,
       };
     }
   }

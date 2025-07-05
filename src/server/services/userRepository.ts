@@ -1,15 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import { SupabaseService } from './supabaseService';
-import { User, DbUser, toUser, toDbUser } from '@/types/user';
+import { User, DbUser, UserRole, toUser, toDbUser } from '@/types/user';
 
 /**
  * ユーザーリポジトリ: ユーザーデータのCRUD操作を提供
+ * SupabaseServiceを継承して最適化されたクライアントを利用
  */
-export class UserRepository {
-  private supabaseService: SupabaseService;
-
+export class UserRepository extends SupabaseService {
   constructor() {
-    this.supabaseService = new SupabaseService();
+    super();
   }
 
   /**
@@ -19,20 +18,21 @@ export class UserRepository {
    */
   async findById(id: string): Promise<User | null> {
     try {
-      const { data, error } = await this.supabaseService.supabase
+      const { data, error } = await this.supabase
         .from('users')
         .select('*')
-        .eq('id', id) // 'id' カラムで検索
-        .single(); // IDはユニークなので single() を使用
+        .eq('id', id)
+        .single();
 
+      // 早期リターン: ユーザーが見つからない場合
+      if (error?.code === 'PGRST116') {
+        return null;
+      }
+
+      // 早期リターン: その他のエラー
       if (error) {
-        // 'PGRST116' は該当する行が見つからなかった場合のエラーコード
-        // この場合はエラーではなく、nullを返すのが適切
-        if (error.code === 'PGRST116') {
-          return null;
-        }
         console.error(`Error finding user by ID (${id}):`, error);
-        return null; // その他のエラーの場合もnullを返すか、エラーをスローするか検討
+        return null;
       }
 
       return data ? toUser(data as DbUser) : null;
@@ -47,16 +47,19 @@ export class UserRepository {
    */
   async findByLineUserId(lineUserId: string): Promise<User | null> {
     try {
-      const { data, error } = await this.supabaseService.supabase
+      const { data, error } = await this.supabase
         .from('users')
         .select('*')
         .eq('line_user_id', lineUserId)
         .single();
 
+      // 早期リターン: ユーザーが見つからない場合
+      if (error?.code === 'PGRST116') {
+        return null;
+      }
+
+      // 早期リターン: その他のエラー
       if (error) {
-        if (error.code === 'PGRST116') {
-          return null; // ユーザーが見つからない場合はnullを返す
-        }
         console.error('Error finding user by LINE user ID:', error);
         return null;
       }
@@ -73,7 +76,7 @@ export class UserRepository {
    */
   async findByStripeCustomerId(stripeCustomerId: string): Promise<User | null> {
     try {
-      const { data, error } = await this.supabaseService.supabase
+      const { data, error } = await this.supabase
         .from('users')
         .select('*')
         .eq('stripe_customer_id', stripeCustomerId)
@@ -107,7 +110,7 @@ export class UserRepository {
         ...userData,
       };
 
-      const { error } = await this.supabaseService.supabase.from('users').insert(toDbUser(user));
+      const { error } = await this.supabase.from('users').insert(toDbUser(user));
 
       if (error) {
         console.error('Error creating user:', error);
@@ -141,11 +144,9 @@ export class UserRepository {
         dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
       if (updates.googleSearchCount !== undefined)
         dbUpdates.google_search_count = updates.googleSearchCount;
+      if (updates.role !== undefined) dbUpdates.role = updates.role;
 
-      const { error } = await this.supabaseService.supabase
-        .from('users')
-        .update(dbUpdates)
-        .eq('id', userId);
+      const { error } = await this.supabase.from('users').update(dbUpdates).eq('id', userId);
 
       if (error) {
         console.error('Error updating user:', error);
@@ -164,7 +165,7 @@ export class UserRepository {
    */
   async updateStripeCustomerId(lineUserId: string, stripeCustomerId: string): Promise<boolean> {
     try {
-      const { error } = await this.supabaseService.supabase
+      const { error } = await this.supabase
         .from('users')
         .update({
           stripe_customer_id: stripeCustomerId,
@@ -192,7 +193,7 @@ export class UserRepository {
     stripeSubscriptionId: string
   ): Promise<boolean> {
     try {
-      const { error } = await this.supabaseService.supabase
+      const { error } = await this.supabase
         .from('users')
         .update({
           stripe_subscription_id: stripeSubscriptionId,
@@ -217,10 +218,11 @@ export class UserRepository {
    */
   async incrementGoogleSearchCount(userId: string): Promise<boolean> {
     try {
-      const { error } = await this.supabaseService.supabase.rpc('increment_google_search_count', {
-        user_id: userId
+      const { error } = await this.supabase.rpc('increment_google_search_count', {
+        user_id: userId,
       });
 
+      // 早期リターン: エラーチェック
       if (error) {
         console.error('Error incrementing Google search count:', error);
         return false;
@@ -229,6 +231,75 @@ export class UserRepository {
       return true;
     } catch (error) {
       console.error('Repository error (incrementGoogleSearchCount):', error);
+      return false;
+    }
+  }
+
+  /**
+   * LINE UserIDからGoogle検索回数を取得
+   */
+  async getUserSearchCount(lineUserId: string): Promise<number> {
+    try {
+      const { data, error } = await this.supabase.rpc('get_user_google_search_count', {
+        p_line_user_id: lineUserId,
+      });
+
+      // 早期リターン: エラーチェック
+      if (error) {
+        console.error('Error getting user search count:', error);
+        return 0;
+      }
+
+      return data || 0;
+    } catch (error) {
+      console.error('Repository error (getUserSearchCount):', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Google検索回数をインクリメント（LINE UserID経由）
+   */
+  async incrementGoogleSearchCountByLineId(lineUserId: string): Promise<boolean> {
+    try {
+      const { error } = await this.supabase.rpc('increment_google_search_count_by_line_id', {
+        p_line_user_id: lineUserId,
+      });
+
+      // 早期リターン: エラーチェック
+      if (error) {
+        console.error('Error incrementing Google search count by LINE ID:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Repository error (incrementGoogleSearchCountByLineId):', error);
+      return false;
+    }
+  }
+
+  /**
+   * 管理者権限でユーザーロールを更新するメソッド
+   */
+  async updateUserRole(userId: string, newRole: UserRole): Promise<boolean> {
+    try {
+      const { error } = await this.supabase
+        .from('users')
+        .update({
+          role: newRole,
+          updated_at: Date.now(),
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error updating user role:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Repository error (updateUserRole):', error);
       return false;
     }
   }

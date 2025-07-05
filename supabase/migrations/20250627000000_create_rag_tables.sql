@@ -91,10 +91,10 @@ CREATE INDEX rag_individual_service_type_idx ON rag_individual_keywords (service
 
 -- フルテキスト検索インデックス
 CREATE INDEX rag_training_fts_idx ON rag_training_data 
-USING GIN (to_tsvector('japanese', combined_content));
+USING GIN (to_tsvector('simple', combined_content));
 
 CREATE INDEX rag_individual_fts_idx ON rag_individual_keywords 
-USING GIN (to_tsvector('japanese', keyword));
+USING GIN (to_tsvector('simple', keyword));
 
 -- 更新日時の自動更新トリガー
 CREATE OR REPLACE FUNCTION update_updated_at_column()

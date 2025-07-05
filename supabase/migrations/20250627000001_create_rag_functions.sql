@@ -1,3 +1,7 @@
+-- キーワードテーブルに is_active 列が無い場合は追加
+ALTER TABLE rag_individual_keywords
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+
 -- ベクトル類似度検索関数
 CREATE OR REPLACE FUNCTION search_similar_keywords(
     query_embedding VECTOR(1536),
@@ -59,11 +63,11 @@ AS $$
             keyword,
             classification,
             0.0 as similarity,
-            ts_rank(to_tsvector('japanese', keyword), plainto_tsquery('japanese', search_text)) AS text_rank
+            ts_rank(to_tsvector('simple', keyword), plainto_tsquery('simple', search_text)) AS text_rank
         FROM rag_individual_keywords
         WHERE 
             is_active = TRUE 
-            AND to_tsvector('japanese', keyword) @@ plainto_tsquery('japanese', search_text)
+            AND to_tsvector('simple', keyword) @@ plainto_tsquery('simple', search_text)
         ORDER BY text_rank DESC
         LIMIT result_limit * 2
     ),

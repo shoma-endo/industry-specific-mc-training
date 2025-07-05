@@ -18,7 +18,7 @@ alter table public.sanity_projects enable row level security;
 create policy "ユーザー自身のみ参照可能"
   on public.sanity_projects
   for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- ユーザー自身のみデータ登録可能
 create policy "ユーザー自身のみ登録可能"

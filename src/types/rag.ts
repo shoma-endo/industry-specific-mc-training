@@ -23,6 +23,15 @@ export interface ClassifyKeywordsResponse {
     totalProcessed: number;
     processingTime: number;
     confidence: number;
+    performance?: {
+      totalRequests: number;
+      embeddingApiCalls: number;
+      cacheHitRate: number;
+      averageResponseTime: number;
+      errorRate: number;
+      uptimeMs: number;
+      cacheSize: number;
+    } | undefined;
   };
 }
 
@@ -110,6 +119,13 @@ export interface ClassificationOptions {
   includeEvidence?: boolean;
   confidenceThreshold?: number;
   maxSimilarExamples?: number;
+  includeDiversity?: boolean;
+  userContext?: {
+    preferred_region?: string;
+    service_type?: string;
+    user_type?: string;
+  };
+  searchStrategy?: 'standard' | 'diversity' | 'contextual';
 }
 
 export interface SearchResultByKeyword {

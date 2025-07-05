@@ -87,23 +87,17 @@ export class WordPressService {
   async testConnection(): Promise<WordPressApiResult<WordPressSiteInfo>> {
     try {
       let response: Response;
-      
+
       if (this.type === 'wordpress_com') {
         // WordPress.com用：v1.1 APIを使用
-        response = await fetch(
-          `https://public-api.wordpress.com/rest/v1.1/sites/${this.siteId}`,
-          {
-            headers: this.getAuthHeaders(),
-          }
-        );
+        response = await fetch(`https://public-api.wordpress.com/rest/v1.1/sites/${this.siteId}`, {
+          headers: this.getAuthHeaders(),
+        });
       } else {
         // セルフホスト用：設定エンドポイントまたはルートエンドポイントをテスト
-        response = await fetch(
-          `${this.baseUrl}/settings`,
-          {
-            headers: this.getAuthHeaders(),
-          }
-        );
+        response = await fetch(`${this.baseUrl}/settings`, {
+          headers: this.getAuthHeaders(),
+        });
       }
 
       if (!response.ok) {

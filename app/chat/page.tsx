@@ -19,7 +19,6 @@ import { DeleteChatDialog } from '@/components/DeleteChatDialog';
 import SessionListContent from '@/components/SessionListContent';
 import { cn } from '@/lib/utils';
 import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
-// import { useGoogleSearchCount } from '@/hooks/useGoogleSearchCount';
 import {
   Select,
   SelectContent,
@@ -55,7 +54,6 @@ type Session = {
 export default function ChatPage() {
   const router = useRouter();
   const { isLoggedIn, login, getAccessToken } = useLiffContext();
-  // const { googleSearchCount, loading: searchCountLoading } = useGoogleSearchCount();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -668,11 +666,6 @@ export default function ChatPage() {
 
             {/* アクションメニュー */}
             <div className="flex items-center space-x-2">
-              {/* Google Search API利用回数表示（必要であれば出す） */}
-              {/* <div className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded-md hidden sm:block">
-                {searchCountLoading ? '...' : `検索: ${googleSearchCount}回`}
-              </div> */}
-              
               <Select value={selectedModel} onValueChange={setSelectedModel}>
                 <SelectTrigger className="w-[120px] md:w-[180px] min-w-[120px] h-9 text-xs md:text-sm border-gray-200">
                   <SelectValue placeholder="モデルを選択" />
@@ -782,7 +775,10 @@ export default function ChatPage() {
           ) : (
             <>
               {messages.map((message, index) => (
-                <div key={message.timestamp ? message.timestamp.getTime() + index : index} className="mb-4 last:mb-2">
+                <div
+                  key={message.timestamp ? message.timestamp.getTime() + index : index}
+                  className="mb-4 last:mb-2"
+                >
                   <div
                     className={cn(
                       'flex items-start gap-2',
@@ -826,7 +822,7 @@ export default function ChatPage() {
                   )}
                 </div>
               ))}
-              
+
               {/* メッセージの最下部にスクロール用のアンカー */}
               <div ref={messagesEndRef} />
 

@@ -1,27 +1,19 @@
-import { createClient } from '@supabase/supabase-js';
-import { env } from '@/env';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClientManager } from '@/lib/supabase/client-manager';
 import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 
 /**
  * SupabaseServiceクラス: サーバーサイドでSupabaseを操作するためのサービス
  * SERVICE_ROLEを使用して特権操作を提供
+ * 最適化：シングルトンクライアントで接続プールを効率化
  */
 export class SupabaseService {
-  supabase;
+  protected readonly supabase: SupabaseClient;
 
   constructor() {
-    // 環境変数からSupabase URLとサービスロールキーを取得
-    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceRole = env.SUPABASE_SERVICE_ROLE;
-
-    // 管理者権限を持つSupabaseクライアントの初期化
-    this.supabase = createClient(supabaseUrl, supabaseServiceRole, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    // シングルトンの最適化されたSupabaseクライアントを取得
+    this.supabase = SupabaseClientManager.getInstance().getClient();
   }
 
   /**
@@ -412,6 +404,21 @@ export class SupabaseService {
     return data;
   }
 
+  async updateSanityProjectDatasets(fromDataset: string, toDataset: string) {
+    const { data, error } = await this.supabase
+      .from('sanity_projects')
+      .update({ dataset: toDataset })
+      .eq('dataset', fromDataset)
+      .select();
+
+    if (error) {
+      console.error('[SupabaseService] Error updating sanity project datasets:', error);
+      throw new Error(`Failed to update sanity project datasets: ${error.message}`);
+    }
+
+    return data;
+  }
+
   /**
    * チャットセッションとそれに紐づくすべてのメッセージを削除
    */
@@ -435,7 +442,10 @@ export class SupabaseService {
         await this.deleteSearchResultsBySessionId(sessionId, userId);
       } catch (searchError) {
         // 検索結果の削除に失敗してもチャットセッション削除は継続する
-        console.warn('Failed to delete search results, but continuing with session deletion:', searchError);
+        console.warn(
+          'Failed to delete search results, but continuing with session deletion:',
+          searchError
+        );
       }
 
       // 3. セッション自体を削除
@@ -453,5 +463,41 @@ export class SupabaseService {
       console.error('Error deleting chat session:', error);
       throw error;
     }
+  }
+
+  /* === 要件定義 (briefs) ===================================== */
+
+  /**
+   * 事業者情報を保存
+   */
+  async saveBrief(userId: string, data: Record<string, unknown>): Promise<void> {
+    const now = Date.now();
+    const { error } = await this.supabase
+      .from('briefs')
+      .upsert(
+        { user_id: userId, data, created_at: now, updated_at: now },
+        { onConflict: 'user_id' }
+      );
+
+    if (error) {
+      throw new Error(`事業者情報の保存に失敗しました: ${error.message}`);
+    }
+  }
+
+  /**
+   * 事業者情報を取得
+   */
+  async getBrief(userId: string): Promise<Record<string, unknown> | null> {
+    const { data, error } = await this.supabase
+      .from('briefs')
+      .select('data')
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(`事業者情報の取得に失敗しました: ${error.message}`);
+    }
+
+    return data?.data || null;
   }
 }

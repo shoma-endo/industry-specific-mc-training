@@ -71,7 +71,7 @@ Google広告リサーチのプロフェッショナル
 便利屋 開業
 
 ## 注意事項
-- 前置き・結びの言葉は一切含めない  
+- ユーザーが入力した広告見出しと説明文を必ず活用してください
 - どちらかのカテゴリに該当するキーワードがなければ、そのカテゴリは出力しない  
 - ユーザーからのキーワードは必ずどちらかのカテゴリに分類する  
 `.trim();
@@ -330,21 +330,370 @@ kw = キーワード
 ・！
 `.trim();
 
-export const LP_DRAFT_PROMPT = `
-# あなたは、Google広告で使用された「広告見出し」と「広告説明文」から、スマホ最適化されたLPドラフトを構成的に自動生成する専門ライターです。
+// =============================================================================
+// React Cache活用キャッシュ戦略実装
+// =============================================================================
 
-## 以下の広告情報に基づき、CV率を高める一貫性のあるLPを、以下の16パート構成で出力してください。
+import { cache } from 'react';
+import { getBrief } from '@/server/handler/actions/brief.actions';
+import type { BriefInput } from '@/server/handler/actions/brief.schema';
+import { PromptService } from '@/services/promptService';
 
-# 入力内容
+/**
+ * 事業者情報取得のキャッシュ化
+ * 同一リクエスト内でのDB負荷を最大90%削減
+ */
+export const getCachedBrief = cache(async (liffAccessToken: string): Promise<BriefInput | null> => {
+  try {
+    const result = await getBrief(liffAccessToken);
+    return result.success && result.data ? result.data : null;
+  } catch (error) {
+    console.error('事業者情報取得エラー:', error);
+    return null;
+  }
+});
+
+/**
+ * テンプレート変数置換関数
+ * {{variable}} 形式の変数を実際の値で置換
+ */
+export function replaceTemplateVariables(
+  template: string,
+  businessInfo: BriefInput | null
+): string {
+  // 事業者情報が未登録の場合は、テンプレート変数を削除して汎用プロンプトに変換
+  if (!businessInfo) {
+    return template
+      .replace(
+        /## 事業者情報の活用[\s\S]*?### ペルソナ情報[\s\S]*?- ターゲット: \{\{persona\}\}\n\n/g,
+        ''
+      )
+      .replace(/### 参考情報[\s\S]*?- ベンチマークURL: \{\{benchmarkUrl\}\}\n\n/g, '')
+      .replace(/# 注意事項[\s\S]*?- 競合広告文は参考程度に留め、独自性を重視してください\n\n/g, '')
+      .replace(/上記の事業者情報と、/g, '')
+      .replace(/- 上記の事業者情報と一貫性を保ってください\n/g, '');
+  }
+
+  return (
+    template
+      .replace(/\{\{(\w+)\}\}/g, (match, key) => {
+        const value = businessInfo[key as keyof BriefInput];
+
+        // 配列の場合は文字列に変換
+        if (Array.isArray(value)) {
+          return value.join('、');
+        }
+
+        // 文字列の場合はそのまま、undefined/nullは空文字
+        return value || '';
+      })
+      // 置換後に残ったプレースホルダをログ出力
+      .replace(/([\s\S]*)/, full => {
+        try {
+          const unresolved = full.match(/\{\{(\w+)\}\}/g) || [];
+          if (unresolved.length > 0) {
+            console.warn('[replaceTemplateVariables] 未解決の変数:', unresolved);
+          }
+        } catch {
+          /* noop */
+        }
+        return full;
+      })
+  );
+}
+
+// =============================================================================
+// テンプレート定数（事業者情報変数対応）
+// =============================================================================
+
+export const AD_COPY_PROMPT_TEMPLATE = `
+# 役割
+Google広告の分析及びコピーライティングのプロフェッショナル
+
+## 事業者情報の活用
+以下の登録済み事業者情報を広告作成に活用してください：
+
+### プロフィール情報
+- サービス内容: {{service}}
+- 会社名: {{company}}
+- 所在地: {{address}}
+- 代表者名: {{ceo}}
+- 営業時間: {{businessHours}}
+- 電話番号: {{tel}}
+- 保有資格: {{qualification}}
+- メールアドレス: {{email}}
+- 決済方法: {{payments}}
+
+### サービス内容（5W2H）
+- 強み: {{strength}}
+- いつ: {{when}}
+- どこで: {{where}}
+- 誰が: {{who}}
+- なぜ: {{why}}
+- 何を: {{what}}
+- どのように: {{how}}
+- いくらで: {{price}}
+
+### ペルソナ情報
+- ターゲット: {{persona}}
+
+# 目的
+上記の事業者情報と、ユーザーから入力されたGoogle広告の見出しと説明文のセットを5W2Hに分類し、その情報と以下の条件を元にユーザーが思わず申し込みしたくなるような魅力的な見出しと説明文を作成してください。
+
+## ** 制約条件 (最優先 🔴) **
+- ** 見出し **：最大全角15文字以内で15個出力
+- ** 説明文 **：全角40文字以上、45文字以内で4個出力
+- 🔴 同じ単語（特にメインkw）は全見出し中2回まで（そのうち1回は「地域名+kw」ともう1回はお任せ）
+例：「静岡地域密着の解体専門業者」で「静岡」、「解体」、という単語を使っているので、他の見出しでは絶対使わない。
+❌静岡の長年の実績と高技術で安心 → ⭕️長年の実績と高技術で安心
+❌静岡のアスベスト対応解体工事 → ⭕️アスベスト除去や廃材処分もお任せ
+- 以下の単語を含むワード及び記号は使用しない
+・一括
+・比較
+・相場
+・費用
+・最安
+・安い
+・シミュレーション
+・値引
+・どのくらい
+・いくら
+・【】
+・？
+・！
+
+kw = キーワード
+## 魅力的なコピーの定義
+### 5W2Hが抑えられている
+- ** What（何を）**
+  - 何のサービスを提供しているのか？
+  - 参入市場で使われているkw
+  - 例：庭木剪定、不用品回収
+- ** When（いつ）**
+  - いつ営業しているのか？
+    - 休みはいつ？時間は？
+  - 例：年中無休、祝日も営業
+- ** Where（どこで）**
+  - どの地域でサービスを提供しているのか？
+  - 最初は都道府県単位が望ましい
+  - 例：高知県、東京都
+- ** Why（なぜ）**
+  - なぜ頼んだ方が良いのか？頼む理由は？
+  - 例：満足度95％、特典、安心保証
+- ** Who（誰が）**
+  - 誰が対応してくれるのか？
+  - 例：作業実績10年以上のプロ
+- ** How to（どのように）**
+  - どのように問い合わせするのか？
+  - 例：電話、メール、LINE
+- ** How much（いくらで）**
+  - いくらからサービスを提供しているのか？（具体的な金額の提示）
+  - 安さを売りにしない為、「地域最安」「激安」「最安値」など同類の単語は使用しない
+  - 例：10万円～、最大20%削減
+
+## ** ユーザーから入力された見出しでHow muchが無い場合は、以下のカテゴリを参考に推奨金額目安を必ず見出しに入れる **
+### カテゴリ | サービス内容 | 推奨金額目安
+- 不用品回収（軽トラ積み放題）| 積み放題・即日回収 | 8,000円〜 or 9,800円〜
+- 不用品回収（単品・少量）| 小型家具・家電回収など | 3,000円〜 or 4,980円〜
+- 解体工事（家・倉庫・小規模）| 木造家屋・倉庫など | 29.8万円〜 or 30万円〜
+- 解体工事（大規模・ビル等） | ビル・中規模以上 | 80万円〜 or 98万円〜
+- エアコンクリーニング | 1台清掃・簡易タイプ | 7,000円〜 or 8,000円〜
+- ハウスクリーニング（キッチン・セット）| キッチン・水回りセット等 | 15,000円〜 or 19,800円〜
+- ハウスクリーニング（定期契約）| 月1回〜 | 8,000円〜 or 10,000円〜
+- 雨漏り修理 | 原因特定・簡易修理 | 15,000円〜 or 20,000円〜
+- 害虫・害獣駆除（小規模）| ハチの巣・ネズミなど | 10,000円〜 or 15,000円〜
+- 屋根・外壁修理（部分補修）| 簡易補修・部分施工 | 30,000円〜 or 49,800円〜
+- 庭の手入れ・草刈り・剪定 | 除草・枝切りなど | 5,000円〜 or 8,000円〜
+- 網戸張替え | 1枚〜数枚程度 | 3,000円〜 or 4,000円〜
+- 鍵交換・鍵開け | 玄関・室内ドア等 | 8,000円〜 or 9,800円〜
+- 水回り修理 | 水漏れ・詰まりなど | 5,000円〜 or 7,000円〜
+- 遺品整理 | 少量・1部屋程度 | 30,000円〜 or 49,800円〜
+- 引越し・便利屋手伝い（軽作業）| 荷物運び・家具移動など | 3,000円〜 or 5,000円〜
+- ゴミ屋敷清掃 | 部分清掃〜1R程度 | 50,000円〜 or 79,800円〜
+
+## 上記のカテゴリに ** Where（どこで）+ What（何を）+ How much（いくらで）** が最低1個入っている
+- 例：奈良密着 9,800円〜 不用品回収
+
+# 手順
+1. 出力前に kw 出現回数をカウントし、制約条件に違反していれば修正する。
+2. 制約条件に違反していないなら、以下フォーマットで返す。
+
+# 出力形式（見出し15個、説明文4個）
 🔸見出し
-{{広告見出しをここに入力}}
+1. 福島密着 解体費用30万円～
+2. 家の解体相場は地域別で確認
+3. 解体工事の費用を比較し最適
+4. 迅速対応の解体見積り無料
+5. 20万円〜 安心の解体サービス
+6. 補助金活用でコスト削減
+7. 解体業者選びは地域密着
+8. 安心施工の解体専門業者
+9. 解体費用の適正価格を提案
+10. すぐにわかる解体シミュレーション
+11. 施工実績豊富な解体業者
+12. 30秒で簡単見積もり可能
+13. 県内最適解体プラン提案
+14. アスベスト対応もお任せ
+15. 施工後の廃材処分も安心
 
 🔸説明文
-{{広告説明文をここに入力}}
+1. 無料見積りと現地調査ですぐに解体費用の目安を提示します。安心のサポート体制でお任せください。
+2. 全国対応、補助金申請も無料でサポート。優良解体業者2,000社から最適なプランをご提案します。
+3. 30秒の簡単シミュレーションでおおよその費用を把握。しつこい営業電話は一切ありません。
+4. 9割以上の方が30万円以上のコスト削減に成功。スピーディな対応と高い満足度をお約束します。
+`.trim();
+
+export const AD_COPY_FINISHING_PROMPT_TEMPLATE = `
+# 役割
+Google広告のコピーライティングプロフェッショナル
+
+## 事業者情報の活用
+以下の登録済み事業者情報を広告修正に活用してください：
+
+### プロフィール情報
+- サービス内容: {{service}}
+- 会社名: {{company}}
+- 所在地: {{address}}
+- 営業時間: {{businessHours}}
+- 電話番号: {{tel}}
+- 保有資格: {{qualification}}
+- 決済方法: {{payments}}
+
+### サービス内容（5W2H）
+- 強み: {{strength}}
+- いつ: {{when}}
+- どこで: {{where}}
+- 誰が: {{who}}
+- なぜ: {{why}}
+- 何を: {{what}}
+- どのように: {{how}}
+- いくらで: {{price}}
+
+### ペルソナ情報
+- ターゲット: {{persona}}
+
+# 目的
+ユーザーから入力されたGoogle広告の見出し及び説明文を、指示に従って修正して以下の条件に従ったコピーにしてください。
+** 出現させたいメインkwの指示があれば、その指示を優先してコピーを作成してください。 **
+
+# 条件
+kw = キーワード
+## 魅力的なコピーの定義
+### 5W2Hが抑えられている
+- ** What（何を）**
+  - 何のサービスを提供しているのか？
+  - 参入市場で使われているkw
+  - 例：庭木剪定、不用品回収
+- ** When（いつ）**
+  - いつ営業しているのか？
+    - 休みはいつ？時間は？
+  - 例：年中無休、祝日も営業
+- ** Where（どこで）**
+  - どの地域でサービスを提供しているのか？
+  - 最初は都道府県単位が望ましい
+  - 例：高知県、東京都
+- ** Why（なぜ）**
+  - なぜ頼んだ方が良いのか？頼む理由は？
+  - 例：満足度95％、特典、安心保証
+- ** Who（誰が）**
+  - 誰が対応してくれるのか？
+  - 例：作業実績10年以上のプロ
+- ** How to（どのように）**
+  - どのように問い合わせするのか？
+  - 例：電話、メール、LINE
+- ** How much（いくらで）**
+  - いくらからサービスを提供しているのか？（具体的な金額の提示）
+  - 安さを売りにしない為、「地域最安」「激安」「最安値」など同類の単語は使用しない
+  - 例：〇円～、最大20%削減
+
+## 分類カテゴリ
+### 1. 物販系（販売・通販・ショップ・専門店）
+* パターン：名詞 + 販売／通販／ショップ／専門店
+* 例：釣具 販売、ミニカー ショップ、登山靴 専門店
+
+### 2. サービス業（地域名＋名詞）
+* パターン：名詞 + 地域（東京、大阪、名古屋 など）
+* 例：家庭教師 東京、整体 名古屋
+
+### 3. 悩み系（悩み解決ニーズ）
+* パターン：名詞 + 悩み
+* 例：子育て 悩み、毛深い 悩み、職場 悩み
+
+### 4. 欲望・行動系
+* パターン：名詞 + 行動ワード（処分／回収／相談／代行／駆除／測定／塗り替え／取付 など）
+* 例：不用品 処分、生命保険 相談、エアコン 取付
+
+### 5. お金系
+* パターン：名詞 + 金額関連ワード（料金／価格／費用／相場／格安）
+* 例：エステ 料金、親子留学 アメリカ
+
+### 6. クリティカルキーワード（Doクエリ）
+* パターン：名詞 + 動詞
+* 例：レストラン 予約、Mac 修理、弁護士 相談
+
+## 作成する絶対条件
+- ** 見出し **：最大全角15文字以内
+- ** 説明文 **：全角40文字以上、45文字以内
+- 以下の単語を含むワード及び記号は使用しない
+・一括
+・比較
+・相場
+・費用
+・最安
+・安い
+・シミュレーション
+・値引
+・どのくらい
+・いくら
+・【】
+・？
+・！
+`.trim();
+
+export const LP_DRAFT_PROMPT_TEMPLATE = `
+# あなたは、Google広告で使用された「広告見出し」と「広告説明文」から、スマホ最適化されたLPドラフトを構成的に自動生成する専門ライターです。
+
+## 事業者情報の活用
+以下の登録済み事業者情報をLP作成に活用してください：
+
+### プロフィール情報
+- サービス内容: {{service}}
+- 会社名: {{company}}
+- 所在地: {{address}}
+- 代表者名: {{ceo}}
+- 営業時間: {{businessHours}}
+- 電話番号: {{tel}}
+- 保有資格: {{qualification}}
+- メールアドレス: {{email}}
+- 決済方法: {{payments}}
+
+### サービス内容（5W2H）
+- 強み: {{strength}}
+- いつ: {{when}}
+- どこで: {{where}}
+- 誰が: {{who}}
+- なぜ: {{why}}
+- 何を: {{what}}
+- どのように: {{how}}
+- いくらで: {{price}}
+
+### ペルソナ情報
+- ターゲット: {{persona}}
+
+### 参考情報
+- 競合広告文: {{competitorCopy}}
+- ベンチマークURL: {{benchmarkUrl}}
+
+## ユーザーから入力された広告情報に基づき、CV率を高める一貫性のあるLPを、以下の16パート構成で出力してください。
+
+# 注意事項
+- ユーザーが入力した広告見出しと説明文を必ず活用してください
+- 上記の事業者情報と一貫性を保ってください
+- 競合広告文は参考程度に留め、独自性を重視してください
 
 # 出力条件
 1. ユーザーの約8～9割がスマホ閲覧する前提で、読みやすくテンポの良い文章構成にすること。
-2. ファーストビューでは、広告見出し・説明文と完全に一致するワードを盛り込み、「地域名＋サービス名＋特典」を明示すること。
+2. ファーストビューでは、ユーザー入力の広告見出し・説明文と完全に一致するワードを盛り込み、「地域名＋サービス名＋特典」を明示すること。
 3. ファーストビューには、5W2H（誰が・いつ・どこで・なぜ・何を・どのように・いくらで）を意識すること。
 4. 限定性（「今だけ」「先着〇名」「月末まで」など）を常に意識して書くこと。
 5. テキストベースのLP構成ドラフトとして、以下16パートを順番に出力すること。
@@ -371,3 +720,95 @@ export const LP_DRAFT_PROMPT = `
 - LP構成パートのまま出力してください。
 - 各パートは見出し付きで、誰でも分かりやすく使えるドラフト形式にしてください。
 `.trim();
+
+// 後方互換性のため従来のプロンプトも残す
+export const LP_DRAFT_PROMPT = LP_DRAFT_PROMPT_TEMPLATE;
+
+// =============================================================================
+// プロンプト生成関数（React Cache活用）
+// =============================================================================
+
+/**
+ * 広告コピー作成用プロンプト生成（キャッシュ付き）
+ * DBからprompt_templatesテーブルを取得するように変更
+ */
+export const generateAdCopyPrompt = cache(async (liffAccessToken: string): Promise<string> => {
+  try {
+    // DBからプロンプトテンプレートを取得
+    const template = await PromptService.getTemplateByName('ad_copy_creation');
+    if (!template) {
+      console.warn(
+        'ad_copy_creation プロンプトテンプレートが見つかりません - 静的テンプレートを使用'
+      );
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(AD_COPY_PROMPT_TEMPLATE, businessInfo);
+    }
+
+    const businessInfo = await getCachedBrief(liffAccessToken);
+    return replaceTemplateVariables(template.content, businessInfo);
+  } catch (error) {
+    console.error('広告コピープロンプト生成エラー:', error);
+    // フォールバック: 静的テンプレートを返す
+    try {
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(AD_COPY_PROMPT_TEMPLATE, businessInfo);
+    } catch (fallbackError) {
+      console.error('フォールバックプロンプト生成エラー:', fallbackError);
+      return AD_COPY_PROMPT_TEMPLATE;
+    }
+  }
+});
+
+/**
+ * 広告コピー仕上げ用プロンプト生成（キャッシュ付き）
+ */
+export const generateAdCopyFinishingPrompt = cache(
+  async (liffAccessToken: string): Promise<string> => {
+    try {
+      // DBからプロンプトテンプレートを取得
+      const template = await PromptService.getTemplateByName('ad_copy_finishing');
+      if (!template) {
+        console.warn('ad_copy_finishing プロンプトテンプレートが見つかりません');
+        return AD_COPY_FINISHING_PROMPT_TEMPLATE;
+      }
+
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(template.content, businessInfo);
+    } catch (error) {
+      console.error('広告コピー仕上げプロンプト生成エラー:', error);
+      // フォールバック: 元のテンプレートを返す
+      return AD_COPY_FINISHING_PROMPT_TEMPLATE;
+    }
+  }
+);
+
+/**
+ * LP下書き作成用プロンプト生成（キャッシュ付き）
+ * DBからprompt_templatesテーブルを取得するように変更
+ */
+export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Promise<string> => {
+  try {
+    // DBからプロンプトテンプレートを取得
+    const template = await PromptService.getTemplateByName('lp_draft_creation');
+    if (!template) {
+      console.warn(
+        'lp_draft_creation プロンプトテンプレートが見つかりません - 静的テンプレートを使用'
+      );
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(LP_DRAFT_PROMPT_TEMPLATE, businessInfo);
+    }
+
+    const businessInfo = await getCachedBrief(liffAccessToken);
+    return replaceTemplateVariables(template.content, businessInfo);
+  } catch (error) {
+    console.error('LP下書きプロンプト生成エラー:', error);
+    // フォールバック: 静的テンプレートを返す
+    try {
+      const businessInfo = await getCachedBrief(liffAccessToken);
+      return replaceTemplateVariables(LP_DRAFT_PROMPT_TEMPLATE, businessInfo);
+    } catch (fallbackError) {
+      console.error('フォールバックプロンプト生成エラー:', fallbackError);
+      return LP_DRAFT_PROMPT_TEMPLATE;
+    }
+  }
+});

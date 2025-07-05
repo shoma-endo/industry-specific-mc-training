@@ -23,14 +23,14 @@ alter table public.wordpress_settings enable row level security;
 create policy "ユーザー自身のみ参照可能（注意喚起）"
   on public.wordpress_settings
   for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- ユーザー自身のみデータ登録/更新可能
 create policy "ユーザー自身のみ登録・更新可能"
   on public.wordpress_settings
   for all -- insert, update, delete をまとめても良いし、個別でも良い
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 -- 注意: wp_client_secret は非常にセンシティブな情報です。
 -- RLSポリシーで select を許可する場合でも、アプリケーションロジックでクライアントに直接渡さないようにする、

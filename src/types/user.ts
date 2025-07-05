@@ -1,4 +1,9 @@
 /**
+ * ユーザーロールの型定義
+ */
+export type UserRole = 'user' | 'admin';
+
+/**
  * ユーザー情報の型定義
  */
 export interface User {
@@ -20,6 +25,9 @@ export interface User {
 
   // Google Search API利用回数
   googleSearchCount: number; // 月間Google Search API利用回数
+
+  // 権限管理
+  role: UserRole; // ユーザーロール（user: 一般ユーザー, admin: 管理者）
 }
 
 /**
@@ -51,6 +59,7 @@ export interface DbUser {
   stripe_customer_id?: string | undefined;
   stripe_subscription_id?: string | undefined;
   google_search_count: number;
+  role: UserRole;
 }
 
 /**
@@ -68,6 +77,7 @@ export function toDbUser(user: User): DbUser {
     stripe_customer_id: user.stripeCustomerId,
     stripe_subscription_id: user.stripeSubscriptionId,
     google_search_count: user.googleSearchCount,
+    role: user.role,
   };
 }
 
@@ -83,5 +93,6 @@ export function toUser(dbUser: DbUser): User {
     stripeCustomerId: dbUser.stripe_customer_id,
     stripeSubscriptionId: dbUser.stripe_subscription_id,
     googleSearchCount: dbUser.google_search_count,
+    role: dbUser.role,
   };
 }

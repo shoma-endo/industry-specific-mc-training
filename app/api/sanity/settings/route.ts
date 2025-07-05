@@ -49,16 +49,7 @@ export async function PUT() {
     }
 
     // 'production' データセットを 'development' に一括更新
-    const { data, error } = await supabaseService.supabase
-      .from('sanity_projects')
-      .update({ dataset: 'development' })
-      .eq('dataset', 'production')
-      .select();
-
-    if (error) {
-      console.error('[Sanity Settings PUT] Error updating datasets:', error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
+    const data = await supabaseService.updateSanityProjectDatasets('production', 'development');
 
     return NextResponse.json({
       success: true,
