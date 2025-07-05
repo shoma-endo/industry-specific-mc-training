@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { PromptService } from '@/services/promptService';
+import { PromptChunkService } from '@/server/services/promptChunkService';
 import { 
   CreatePromptTemplateInput, 
   UpdatePromptTemplateInput, 
@@ -39,13 +40,18 @@ async function checkAdminPermission(liffAccessToken: string) {
   }
 
   // 管理者権限チェック（roleがadminかどうか）
-  const service = new PromptService();
-  const user = await service.getUserByLineId(auth.lineUserId);
-  if (!user || user.role !== 'admin') {
-    return { success: false, error: '管理者権限が必要です' };
-  }
+  try {
+    const service = new PromptService();
+    const user = await service.getUserByLineId(auth.lineUserId);
+    if (!user || user.role !== 'admin') {
+      return { success: false, error: '管理者権限が必要です' };
+    }
 
-  return { success: true, userId: auth.userId, user };
+    return { success: true, userId: auth.userId, user };
+  } catch (error) {
+    console.error('管理者権限チェックエラー:', error);
+    return { success: false, error: '権限確認中にエラーが発生しました' };
+  }
 }
 
 /**
@@ -78,6 +84,17 @@ export async function createPromptTemplate(
     };
 
     const result = await PromptService.createTemplate(createInput);
+
+    // RAG対応: lp_draft_creationの場合はチャンクを作成
+    if (validatedData.name === 'lp_draft_creation') {
+      try {
+        await PromptChunkService.updatePromptChunks(result.id, validatedData.content);
+        console.log('RAGチャンク作成完了:', result.id);
+      } catch (chunkError) {
+        console.error('RAGチャンク作成エラー:', chunkError);
+        // チャンク作成失敗は非致命的エラーとして扱う
+      }
+    }
 
     // キャッシュ無効化
     revalidatePath('/admin/prompts');
@@ -136,6 +153,17 @@ export async function updatePromptTemplate(
     };
 
     const result = await PromptService.updateTemplate(id, updateInput);
+
+    // RAG対応: lp_draft_creationの場合はチャンクを更新
+    if (validatedData.name === 'lp_draft_creation') {
+      try {
+        await PromptChunkService.updatePromptChunks(id, validatedData.content);
+        console.log('RAGチャンク更新完了:', id);
+      } catch (chunkError) {
+        console.error('RAGチャンク更新エラー:', chunkError);
+        // チャンク更新失敗は非致命的エラーとして扱う
+      }
+    }
 
     // 全プロンプトキャッシュを無効化（即座反映）
     await PromptService.invalidateAllCaches();

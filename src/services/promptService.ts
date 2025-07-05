@@ -2,11 +2,11 @@ import { cache } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { SupabaseClientManager } from '@/lib/supabase/client-manager';
-import { 
-  PromptTemplate, 
-  CreatePromptTemplateInput, 
+import {
+  PromptTemplate,
+  CreatePromptTemplateInput,
   UpdatePromptTemplateInput,
-  PromptTemplateWithVersions 
+  PromptTemplateWithVersions,
 } from '@/types/prompt';
 
 /**
@@ -28,7 +28,8 @@ export class PromptService extends SupabaseService {
   static getTemplateByName = cache(async (name: string): Promise<PromptTemplate | null> => {
     try {
       const service = new PromptService();
-      const { data, error } = await service.supabase
+      // RLSをバイパスして確実に取得するため serviceRoleSupabase を使用
+      const { data, error } = await service.serviceRoleSupabase
         .from('prompt_templates')
         .select('*')
         .eq('name', name)
@@ -98,7 +99,7 @@ export class PromptService extends SupabaseService {
   static async getTemplateWithVersions(id: string): Promise<PromptTemplateWithVersions | null> {
     try {
       const service = new PromptService();
-      
+
       // メインテンプレートを取得
       const template = await this.getTemplateById(id);
       if (!template) return null;
@@ -117,7 +118,7 @@ export class PromptService extends SupabaseService {
 
       return {
         ...template,
-        versions: versions || []
+        versions: versions || [],
       };
     } catch (error) {
       console.error('プロンプト詳細取得エラー:', error);
@@ -132,13 +133,13 @@ export class PromptService extends SupabaseService {
     try {
       const service = new PromptService();
       const now = new Date().toISOString();
-      
+
       const { data: result, error } = await service.serviceRoleSupabase
         .from('prompt_templates')
         .insert({
           ...data,
           created_at: now,
-          updated_at: now
+          updated_at: now,
         })
         .select()
         .single();
@@ -161,12 +162,12 @@ export class PromptService extends SupabaseService {
    * プロンプトテンプレートを更新
    */
   static async updateTemplate(
-    id: string, 
+    id: string,
     data: UpdatePromptTemplateInput
   ): Promise<PromptTemplate> {
     try {
       const service = new PromptService();
-      
+
       // 現在のバージョンを取得
       const current = await this.getTemplateById(id);
       if (!current) {
@@ -180,10 +181,10 @@ export class PromptService extends SupabaseService {
       // バージョン履歴を保存（内容が変更された場合のみ）
       if (hasContentChange && data.content) {
         await this.saveVersion(
-          id, 
-          current.content, 
-          current.version, 
-          data.updated_by, 
+          id,
+          current.content,
+          current.version,
+          data.updated_by,
           data.change_summary || '内容を更新'
         );
       }
@@ -196,7 +197,7 @@ export class PromptService extends SupabaseService {
         .update({
           ...updateData,
           version: newVersion,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         .select()
@@ -219,13 +220,13 @@ export class PromptService extends SupabaseService {
   static async deleteTemplate(id: string, updatedBy: string): Promise<void> {
     try {
       const service = new PromptService();
-      
+
       const { error } = await service.serviceRoleSupabase
         .from('prompt_templates')
         .update({
           is_active: false,
           updated_by: updatedBy,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', id);
 
@@ -250,17 +251,15 @@ export class PromptService extends SupabaseService {
   ): Promise<void> {
     try {
       const service = new PromptService();
-      
-      const { error } = await service.serviceRoleSupabase
-        .from('prompt_versions')
-        .insert({
-          template_id: templateId,
-          version,
-          content,
-          change_summary: changeSummary,
-          created_by: createdBy,
-          created_at: new Date().toISOString()
-        });
+
+      const { error } = await service.serviceRoleSupabase.from('prompt_versions').insert({
+        template_id: templateId,
+        version,
+        content,
+        change_summary: changeSummary,
+        created_by: createdBy,
+        created_at: new Date().toISOString(),
+      });
 
       if (error) {
         throw new Error(`バージョン履歴保存エラー: ${error.message}`);
@@ -281,9 +280,7 @@ export class PromptService extends SupabaseService {
       try {
         const service = new PromptService();
         const users = await service.getAllActiveUsers();
-        const promises = users.map(user => 
-          service.regenerateUserPrompts(user.id)
-        );
+        const promises = users.map(user => service.regenerateUserPrompts(user.id));
         await Promise.allSettled(promises);
         console.log('プロンプトキャッシュ無効化完了');
       } catch (error) {
@@ -331,12 +328,31 @@ export class PromptService extends SupabaseService {
    */
   static replaceVariables(template: string, variables: Record<string, string>): string {
     let result = template;
-    
+
+    // 置換状況を追跡
+    const replacedKeys: string[] = [];
+
     for (const [key, value] of Object.entries(variables)) {
       const regex = new RegExp(`{{${key}}}`, 'g');
+      if (regex.test(result)) {
+        replacedKeys.push(key);
+      }
       result = result.replace(regex, value || '');
     }
-    
+
+    // 置換後に残っているプレースホルダも確認
+    const unresolved = (result.match(/{{(\w+)}}/g) || []).map(v => v.replace(/[{}]/g, ''));
+
+    // デバッグログ（try-catch でログ失敗時の影響を最小化）
+    try {
+      console.log('[PromptService.replaceVariables] 変数置換', {
+        replaced: replacedKeys,
+        unresolved,
+      });
+    } catch {
+      /* noop */
+    }
+
     return result;
   }
 
@@ -362,7 +378,7 @@ export class PromptService extends SupabaseService {
     if (template.variables && template.variables.length > 0) {
       const contentVariables = template.content.match(/{{(\w+)}}/g) || [];
       const definedVariables = template.variables.map(v => `{{${v.name}}}`);
-      
+
       const undefinedVariables = contentVariables.filter(v => !definedVariables.includes(v));
       if (undefinedVariables.length > 0) {
         errors.push(`未定義の変数があります: ${undefinedVariables.join(', ')}`);
@@ -371,7 +387,7 @@ export class PromptService extends SupabaseService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 }

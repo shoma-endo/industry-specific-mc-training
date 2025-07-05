@@ -71,7 +71,7 @@ Google広告リサーチのプロフェッショナル
 便利屋 開業
 
 ## 注意事項
-- 前置き・結びの言葉は一切含めない  
+- ユーザーが入力した広告見出しと説明文を必ず活用してください
 - どちらかのカテゴリに該当するキーワードがなければ、そのカテゴリは出力しない  
 - ユーザーからのキーワードは必ずどちらかのカテゴリに分類する  
 `.trim();
@@ -374,17 +374,32 @@ export function replaceTemplateVariables(
       .replace(/- 上記の事業者情報と一貫性を保ってください\n/g, '');
   }
 
-  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-    const value = businessInfo[key as keyof BriefInput];
+  return (
+    template
+      .replace(/\{\{(\w+)\}\}/g, (match, key) => {
+        const value = businessInfo[key as keyof BriefInput];
 
-    // 配列の場合は文字列に変換
-    if (Array.isArray(value)) {
-      return value.join('、');
-    }
+        // 配列の場合は文字列に変換
+        if (Array.isArray(value)) {
+          return value.join('、');
+        }
 
-    // 文字列の場合はそのまま、undefined/nullは空文字
-    return value || '';
-  });
+        // 文字列の場合はそのまま、undefined/nullは空文字
+        return value || '';
+      })
+      // 置換後に残ったプレースホルダをログ出力
+      .replace(/([\s\S]*)/, full => {
+        try {
+          const unresolved = full.match(/\{\{(\w+)\}\}/g) || [];
+          if (unresolved.length > 0) {
+            console.warn('[replaceTemplateVariables] 未解決の変数:', unresolved);
+          }
+        } catch {
+          /* noop */
+        }
+        return full;
+      })
+  );
 }
 
 // =============================================================================
@@ -722,7 +737,9 @@ export const generateAdCopyPrompt = cache(async (liffAccessToken: string): Promi
     // DBからプロンプトテンプレートを取得
     const template = await PromptService.getTemplateByName('ad_copy_creation');
     if (!template) {
-      console.warn('ad_copy_creation プロンプトテンプレートが見つかりません - 静的テンプレートを使用');
+      console.warn(
+        'ad_copy_creation プロンプトテンプレートが見つかりません - 静的テンプレートを使用'
+      );
       const businessInfo = await getCachedBrief(liffAccessToken);
       return replaceTemplateVariables(AD_COPY_PROMPT_TEMPLATE, businessInfo);
     }
@@ -774,7 +791,9 @@ export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Prom
     // DBからプロンプトテンプレートを取得
     const template = await PromptService.getTemplateByName('lp_draft_creation');
     if (!template) {
-      console.warn('lp_draft_creation プロンプトテンプレートが見つかりません - 静的テンプレートを使用');
+      console.warn(
+        'lp_draft_creation プロンプトテンプレートが見つかりません - 静的テンプレートを使用'
+      );
       const businessInfo = await getCachedBrief(liffAccessToken);
       return replaceTemplateVariables(LP_DRAFT_PROMPT_TEMPLATE, businessInfo);
     }

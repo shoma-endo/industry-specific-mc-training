@@ -25,6 +25,12 @@ export default function PromptsPage() {
       const token = await getAccessToken();
       const result = await getPromptTemplates(token);
 
+      // undefinedガード追加
+      if (!result) {
+        setError('サーバーエラーが発生しました');
+        return;
+      }
+
       if (result.success && result.data) {
         setTemplates(result.data);
         setError(null);
