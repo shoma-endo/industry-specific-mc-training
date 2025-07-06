@@ -47,8 +47,37 @@ export class PromptRetrievalService {
         );
 
         if (isGeneric) {
-          retrievalQuery =
-            'LPの構成要素、特に「特徴・選ばれる理由」と、全体の「出力形式」や「最優先指示」に関する詳細な指示';
+          try {
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+            if (!siteUrl) {
+              throw new Error('環境変数 NEXT_PUBLIC_SITE_URL が設定されていません。');
+            }
+            const response = await fetch(`${siteUrl}/api/rag/v5-query-generator`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userQuery,
+                templateName,
+              }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              retrievalQuery = data.optimizedQuery;
+            } else {
+              console.warn(
+                `クエリ生成APIが正常なレスポンスを返しませんでした (ステータス: ${response.status})。フォールバッククエリを使用します。`
+              );
+              retrievalQuery =
+                'LPの構成要素、特に「特徴・選ばれる理由」と、全体の「出力形式」や「最優先指示」に関する詳細な指示';
+            }
+          } catch (error) {
+            console.error('クエリ生成APIの呼び出し中にエラーが発生しました:', error);
+            retrievalQuery =
+              'LPの構成要素、特に「特徴・選ばれる理由」と、全体の「出力形式」や「最優先指示」に関する詳細な指示';
+          }
         }
       }
 

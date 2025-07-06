@@ -41,12 +41,5 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     actualModel: 'gpt-4.1-mini',
     seed: 42,
     top_p: 0.95,
-  },
-  brief_creation: {
-    maxTokens: 1000,
-    temperature: 0.4,  // 創造性と一貫性のバランス
-    actualModel: 'gpt-4.1-nano-2025-04-14',
-    seed: 42,
-    top_p: 0.95,
-  },
+  }
 };
