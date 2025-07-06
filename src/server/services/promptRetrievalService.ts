@@ -3,6 +3,7 @@ import { PromptService } from '@/services/promptService';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { env } from '@/env';
+import { OpenAIReranker } from '@/lib/reranker'; // リランカーをインポート
 
 const openaiProvider = createOpenAI({
   apiKey: env.OPENAI_API_KEY,
@@ -10,14 +11,17 @@ const openaiProvider = createOpenAI({
 
 export class PromptRetrievalService {
   /**
-   * 指定されたプロンプトテンプレートから関連チャンクを取得
+   * 指定されたプロンプトテンプレートから関連チャンクを取得（リランキング対応）
    */
   static async getChunks(
     templateName: string,
     queryText: string,
-    limit: number = 4
+    limit: number = 8 // 最終的に必要なチャンク数
   ): Promise<string[]> {
     try {
+      const reranker = new OpenAIReranker();
+      const initialRetrieveCount = 20; // 初期検索で多めに取得
+
       // テンプレートIDを取得
       const template = await PromptService.getTemplateByName(templateName);
       if (!template) {
@@ -25,13 +29,39 @@ export class PromptRetrievalService {
         return [];
       }
 
-      // 関連チャンクを検索
-      const chunks = await PromptChunkService.searchSimilarChunks(template.id, queryText, limit);
+      // 1. 初期検索で関連性が高そうなチャンクを多めに取得
+      const initialChunks = await PromptChunkService.searchSimilarChunks(
+        template.id,
+        queryText,
+        initialRetrieveCount
+      );
 
-      // チャンクテキストのみを抽出
-      return chunks.map(chunk => chunk.chunk_text);
+      const chunkTexts = initialChunks.map(chunk => chunk.chunk_text);
+      if (chunkTexts.length === 0) {
+        return [];
+      }
+
+      // 2. OpenAIRerankerで再ランキング
+      console.log(`[Reranker] ${chunkTexts.length}件のチャンクをリランキングします...`);
+      const rerankedResults = await reranker.rerank(queryText, chunkTexts, {
+        topK: limit, // 最終的に必要な数だけ選択
+      });
+
+      console.log(
+        '[Reranker] リランキング後のスコア:',
+        rerankedResults.map(r => r.score)
+      );
+
+      // 3. スコアの高いチャンクテキストのみを抽出
+      return rerankedResults.map(result => result.document);
     } catch (error) {
-      console.error('RAGチャンク取得エラー:', error);
+      console.error('RAGチャンク取得・リランクエラー:', error);
+      // エラー時はフォールバックとして、単純な検索結果を返す
+      const template = await PromptService.getTemplateByName(templateName);
+      if (template) {
+        const chunks = await PromptChunkService.searchSimilarChunks(template.id, queryText, limit);
+        return chunks.map(chunk => chunk.chunk_text);
+      }
       return [];
     }
   }
