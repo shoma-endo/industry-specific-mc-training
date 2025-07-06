@@ -21,135 +21,70 @@ export interface PromptChunk {
 
 export class PromptChunkService {
   private static readonly CHUNK_SIZE = 1200; // Claude推奨値に拡張
-  private static readonly CHUNK_OVERLAP = 100; // 維持
   private static readonly MIN_CHUNK_SIZE = 300; // 拡張
 
   /**
-   * テキストをセマンティック境界を考慮してチャンクに分割
+   * テキストをセマンティック境界を考慮してチャンクに分割（マークダウン対応）
    */
   private static splitTextIntoChunks(text: string): string[] {
-    // セマンティック分割を試行
-    const semanticChunks = this.splitTextSemanticAware(text);
+    const lines = text.split('\n');
+    const chunks: string[] = [];
+    let currentChunkLines: string[] = [];
 
-    // セマンティック分割で十分な場合はそのまま返す
-    if (semanticChunks.every(chunk => chunk.length <= this.CHUNK_SIZE)) {
-      return semanticChunks;
+    for (const line of lines) {
+      const isHeading = /^(#+\s*|^\d+\.\s)/.test(line.trim());
+      if (isHeading && currentChunkLines.length > 0) {
+        const chunk = currentChunkLines.join('\n').trim();
+        if (chunk.length > 0) chunks.push(chunk);
+        currentChunkLines = [line];
+      } else {
+        currentChunkLines.push(line);
+      }
     }
 
-    // 大きなチャンクは従来の方法で分割
+    if (currentChunkLines.length > 0) {
+      const chunk = currentChunkLines.join('\n').trim();
+      if (chunk.length > 0) chunks.push(chunk);
+    }
+
     const finalChunks: string[] = [];
-
-    for (const chunk of semanticChunks) {
-      if (chunk.length <= this.CHUNK_SIZE) {
+    for (const chunk of chunks) {
+      if (chunk.length > this.CHUNK_SIZE) {
+        finalChunks.push(...this.splitBySentencesAndSize(chunk));
+      } else {
         finalChunks.push(chunk);
-      } else {
-        const subChunks = this.splitTextByFixedSize(chunk);
-        finalChunks.push(...subChunks);
       }
     }
 
-    return finalChunks.filter(chunk => chunk.length >= this.MIN_CHUNK_SIZE);
+    return finalChunks.filter(
+      c => c.length >= this.MIN_CHUNK_SIZE || /^(#+\s*|^\d+\.\s)/.test(c.trim())
+    );
   }
 
   /**
-   * セマンティック境界を考慮した分割
+   * 文境界と文字数で分割するメソッド
    */
-  private static splitTextSemanticAware(text: string): string[] {
-    // 段落境界で分割
-    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-
-    if (paragraphs.length <= 1) {
-      // 段落がない場合は文境界で分割
-      return this.splitBySentences(text);
-    }
-
+  private static splitBySentencesAndSize(text: string): string[] {
+    const sentences = text.split(/(?<=[。！？])\s*/);
     const chunks: string[] = [];
     let currentChunk = '';
-
-    for (const paragraph of paragraphs) {
-      const potentialChunk = currentChunk + (currentChunk ? '\n\n' : '') + paragraph;
-
-      if (potentialChunk.length <= this.CHUNK_SIZE) {
-        currentChunk = potentialChunk;
-      } else {
-        // 現在のチャンクを保存
-        if (currentChunk) {
-          chunks.push(currentChunk.trim());
-        }
-
-        // 段落が大きすぎる場合は文で分割
-        if (paragraph.length > this.CHUNK_SIZE) {
-          const sentenceChunks = this.splitBySentences(paragraph);
-          chunks.push(...sentenceChunks);
-          currentChunk = '';
-        } else {
-          currentChunk = paragraph;
-        }
-      }
-    }
-
-    // 最後のチャンクを追加
-    if (currentChunk) {
-      chunks.push(currentChunk.trim());
-    }
-
-    return chunks;
-  }
-
-  /**
-   * 文境界で分割
-   */
-  private static splitBySentences(text: string): string[] {
-    // 日本語の文境界（。！？）を考慮
-    const sentences = text.split(/(?<=[。！？])\s*/).filter(s => s.trim().length > 0);
-
-    if (sentences.length <= 1) {
-      return [text];
-    }
-
-    const chunks: string[] = [];
-    let currentChunk = '';
-
     for (const sentence of sentences) {
-      const potentialChunk = currentChunk + sentence;
+      const trimmedSentence = sentence.trim();
+      if (trimmedSentence.length === 0) continue;
 
-      if (potentialChunk.length <= this.CHUNK_SIZE) {
-        currentChunk = potentialChunk;
-      } else {
-        if (currentChunk) {
-          chunks.push(currentChunk.trim());
+      if ((currentChunk + ' ' + trimmedSentence).trim().length > this.CHUNK_SIZE) {
+        if (currentChunk.length > 0) {
+          chunks.push(currentChunk);
         }
-        currentChunk = sentence;
+        currentChunk = trimmedSentence;
+      } else {
+        currentChunk = (currentChunk + ' ' + trimmedSentence).trim();
       }
     }
-
-    if (currentChunk) {
-      chunks.push(currentChunk.trim());
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk);
     }
-
     return chunks;
-  }
-
-  /**
-   * 固定サイズでの分割（フォールバック用）
-   */
-  private static splitTextByFixedSize(text: string): string[] {
-    const chunks: string[] = [];
-    let startIndex = 0;
-
-    while (startIndex < text.length) {
-      const endIndex = Math.min(startIndex + this.CHUNK_SIZE, text.length);
-      const chunk = text.slice(startIndex, endIndex);
-      chunks.push(chunk.trim());
-
-      // 最後のチャンクの場合は終了
-      if (endIndex >= text.length) break;
-
-      // 次のチャンクの開始位置（オーバーラップ考慮）
-      startIndex = endIndex - this.CHUNK_OVERLAP;
-    }
-
-    return chunks.filter(chunk => chunk.length > 0);
   }
 
   /**
@@ -188,6 +123,22 @@ export class PromptChunkService {
 
       // 2. テキストをチャンクに分割
       const chunks = this.splitTextIntoChunks(content);
+
+      // ===== デバッグログを追加 =====
+      console.log(`[updatePromptChunks] 分割後のチャンク数: ${chunks.length}`);
+      if (chunks.length > 0) {
+        console.log('[updatePromptChunks] 生成されたチャンク内容:');
+        chunks.forEach((chunk, i) => {
+          console.log(`--- チャンク ${i + 1} (長さ: ${chunk.length}) ---`);
+          console.log(chunk);
+          console.log('--------------------');
+        });
+      } else {
+        console.warn(
+          '[updatePromptChunks] 注意: チャンクが1つも生成されませんでした。プロンプトの形式を確認してください。'
+        );
+      }
+      // ===== デバッグログここまで =====
 
       // 3. 各チャンクの埋め込みを並列生成
       const embeddingPromises = chunks.map(async (chunk, i) => {

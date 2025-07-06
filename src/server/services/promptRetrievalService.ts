@@ -38,28 +38,38 @@ export class PromptRetrievalService {
     adHeadlines?: string[]
   ): Promise<string> {
     try {
+      let retrievalQuery = userQuery;
+
+      if (templateName === 'lp_draft_creation') {
+        const genericQueries = ['お願いします', 'こんにちは', 'LP作成してください', 'LP'];
+        const isGeneric = genericQueries.some(q =>
+          userQuery.toLowerCase().includes(q.toLowerCase())
+        );
+
+        if (isGeneric) {
+          retrievalQuery =
+            'LPの構成要素、特に「特徴・選ばれる理由」と、全体の「出力形式」や「最優先指示」に関する詳細な指示';
+        }
+      }
+
       // クエリを組み立て（ユーザー入力 + 広告見出し）
-      let combinedQuery = userQuery;
       if (adHeadlines && adHeadlines.length > 0) {
-        combinedQuery += '\n広告見出し：' + adHeadlines.join(', ');
+        retrievalQuery += '\n広告見出し：' + adHeadlines.join(', ');
       }
 
       // 旧テンプレートを取得（詳細フォーマット指示を保持）
       const originalTemplate = (await PromptService.getTemplateByName(templateName))?.content ?? '';
 
       // 関連チャンクを取得
-      const chunks = await this.getChunks(templateName, combinedQuery, 4);
+      const chunks = await this.getChunks(templateName, retrievalQuery, 4);
 
       // ===== デバッグログ =====
       try {
         console.log('[PromptRetrievalService] テンプレート:', templateName);
-        console.log('[PromptRetrievalService] クエリ(先頭100文字):', combinedQuery.slice(0, 100));
+        console.log('[PromptRetrievalService] 検索クエリ:', retrievalQuery);
         console.log('[PromptRetrievalService] 取得チャンク数:', chunks.length);
         if (chunks.length > 0) {
-          console.log(
-            '[PromptRetrievalService] チャンクプレビュー:',
-            chunks.map(c => c.substring(0, 80))
-          );
+          console.log('[PromptRetrievalService] チャンクプレビュー (全文):', chunks);
         }
       } catch {
         /* noop */
@@ -81,17 +91,17 @@ export class PromptRetrievalService {
       }
 
       // 最終フォールバック
-      return '16パートでLPを生成してください。';
+      return '18パートでLPを生成してください。';
     } catch (error) {
       console.error('RAGシステムメッセージ構築エラー:', error);
 
       // エラー時のフォールバック
       try {
         const template = await PromptService.getTemplateByName(templateName);
-        return template?.content || '16パートでLPを生成してください。';
+        return template?.content || '18パートでLPを生成してください。';
       } catch (fallbackError) {
         console.error('フォールバック取得エラー:', fallbackError);
-        return '16パートでLPを生成してください。';
+        return '18パートでLPを生成してください。';
       }
     }
   }

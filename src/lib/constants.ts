@@ -38,7 +38,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   lp_draft_creation: {
     maxTokens: 7000,
     temperature: 0.25, // より低温度でClaudeに近づける
-    actualModel: 'gpt-4.1',
+    actualModel: 'gpt-4.1-mini',
     seed: 42,
     top_p: 0.95,
   },
