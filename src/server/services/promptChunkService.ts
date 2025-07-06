@@ -20,9 +20,9 @@ export interface PromptChunk {
 }
 
 export class PromptChunkService {
-  private static readonly CHUNK_SIZE = 1200;     // Claude推奨値に拡張
-  private static readonly CHUNK_OVERLAP = 100;   // 維持
-  private static readonly MIN_CHUNK_SIZE = 300;  // 拡張
+  private static readonly CHUNK_SIZE = 1200; // Claude推奨値に拡張
+  private static readonly CHUNK_OVERLAP = 100; // 維持
+  private static readonly MIN_CHUNK_SIZE = 300; // 拡張
 
   /**
    * テキストをセマンティック境界を考慮してチャンクに分割
@@ -30,15 +30,15 @@ export class PromptChunkService {
   private static splitTextIntoChunks(text: string): string[] {
     // セマンティック分割を試行
     const semanticChunks = this.splitTextSemanticAware(text);
-    
+
     // セマンティック分割で十分な場合はそのまま返す
     if (semanticChunks.every(chunk => chunk.length <= this.CHUNK_SIZE)) {
       return semanticChunks;
     }
-    
+
     // 大きなチャンクは従来の方法で分割
     const finalChunks: string[] = [];
-    
+
     for (const chunk of semanticChunks) {
       if (chunk.length <= this.CHUNK_SIZE) {
         finalChunks.push(chunk);
@@ -47,7 +47,7 @@ export class PromptChunkService {
         finalChunks.push(...subChunks);
       }
     }
-    
+
     return finalChunks.filter(chunk => chunk.length >= this.MIN_CHUNK_SIZE);
   }
 
@@ -57,18 +57,18 @@ export class PromptChunkService {
   private static splitTextSemanticAware(text: string): string[] {
     // 段落境界で分割
     const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-    
+
     if (paragraphs.length <= 1) {
       // 段落がない場合は文境界で分割
       return this.splitBySentences(text);
     }
-    
+
     const chunks: string[] = [];
     let currentChunk = '';
-    
+
     for (const paragraph of paragraphs) {
       const potentialChunk = currentChunk + (currentChunk ? '\n\n' : '') + paragraph;
-      
+
       if (potentialChunk.length <= this.CHUNK_SIZE) {
         currentChunk = potentialChunk;
       } else {
@@ -76,7 +76,7 @@ export class PromptChunkService {
         if (currentChunk) {
           chunks.push(currentChunk.trim());
         }
-        
+
         // 段落が大きすぎる場合は文で分割
         if (paragraph.length > this.CHUNK_SIZE) {
           const sentenceChunks = this.splitBySentences(paragraph);
@@ -87,12 +87,12 @@ export class PromptChunkService {
         }
       }
     }
-    
+
     // 最後のチャンクを追加
     if (currentChunk) {
       chunks.push(currentChunk.trim());
     }
-    
+
     return chunks;
   }
 
@@ -102,17 +102,17 @@ export class PromptChunkService {
   private static splitBySentences(text: string): string[] {
     // 日本語の文境界（。！？）を考慮
     const sentences = text.split(/(?<=[。！？])\s*/).filter(s => s.trim().length > 0);
-    
+
     if (sentences.length <= 1) {
       return [text];
     }
-    
+
     const chunks: string[] = [];
     let currentChunk = '';
-    
+
     for (const sentence of sentences) {
       const potentialChunk = currentChunk + sentence;
-      
+
       if (potentialChunk.length <= this.CHUNK_SIZE) {
         currentChunk = potentialChunk;
       } else {
@@ -122,11 +122,11 @@ export class PromptChunkService {
         currentChunk = sentence;
       }
     }
-    
+
     if (currentChunk) {
       chunks.push(currentChunk.trim());
     }
-    
+
     return chunks;
   }
 
@@ -158,9 +158,9 @@ export class PromptChunkService {
   private static async generateEmbedding(text: string): Promise<number[]> {
     try {
       const response = await openai.embeddings.create({
-        model: 'text-embedding-3-large',  // Claudeに近い高性能モデル
+        model: 'text-embedding-3-small', // 1536次元モデル（データベース定義に合わせる）
         input: text,
-        dimensions: 3072,                 // 最大次元数
+        dimensions: 1536, // テーブル定義に合わせる
       });
 
       return response.data[0]?.embedding || [];
