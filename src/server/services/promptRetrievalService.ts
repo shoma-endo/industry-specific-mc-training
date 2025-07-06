@@ -1,5 +1,12 @@
 import { PromptChunkService } from './promptChunkService';
 import { PromptService } from '@/services/promptService';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateText } from 'ai';
+import { env } from '@/env';
+
+const openaiProvider = createOpenAI({
+  apiKey: env.OPENAI_API_KEY,
+});
 
 export class PromptRetrievalService {
   /**
@@ -48,33 +55,28 @@ export class PromptRetrievalService {
 
         if (isGeneric) {
           try {
-            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-            if (!siteUrl) {
-              throw new Error('環境変数 NEXT_PUBLIC_SITE_URL が設定されていません。');
-            }
-            const response = await fetch(`${siteUrl}/api/rag/v5-query-generator`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                userQuery,
-                templateName,
-              }),
-            });
+            // HTTP fetchを廃止し、ここで直接 generateText を呼び出す
+            const { text } = await generateText({
+              model: openaiProvider('gpt-4o-mini'),
+              prompt: `あなたはRAGシステムの検索クエリ最適化専門家です。
 
-            if (response.ok) {
-              const data = await response.json();
-              retrievalQuery = data.optimizedQuery;
-            } else {
-              console.warn(
-                `クエリ生成APIが正常なレスポンスを返しませんでした (ステータス: ${response.status})。フォールバッククエリを使用します。`
-              );
-              retrievalQuery =
-                'LPの構成要素、特に「特徴・選ばれる理由」と、全体の「出力形式」や「最優先指示」に関する詳細な指示';
-            }
+ユーザーの入力「${userQuery}」を、ベクトル検索で最高のパフォーマンスを発揮できるように、具体的で意図が明確な検索クエリに変換してください。
+
+対象タスク：ランディングページ（LP）の構成要素とドラフト作成
+
+**最重要セクション（クエリ生成時に必ず考慮すること）：**
+- 特徴、選ばれる理由、差別化要素
+- 最優先指示、禁止事項
+- 全体の出力形式、トンマナ
+
+最適化された検索クエリのみを返してください。説明は不要です。`,
+              maxTokens: 200,
+              temperature: 0.3,
+            });
+            retrievalQuery = text.trim();
           } catch (error) {
-            console.error('クエリ生成APIの呼び出し中にエラーが発生しました:', error);
+            console.error('クエリ生成(generateText)でエラー:', error);
+            // エラー時は固定文字列にフォールバック
             retrievalQuery =
               'LPの構成要素、特に「特徴・選ばれる理由」と、全体の「出力形式」や「最優先指示」に関する詳細な指示';
           }
@@ -90,7 +92,7 @@ export class PromptRetrievalService {
       const originalTemplate = (await PromptService.getTemplateByName(templateName))?.content ?? '';
 
       // 関連チャンクを取得
-      const chunks = await this.getChunks(templateName, retrievalQuery, 4);
+      const chunks = await this.getChunks(templateName, retrievalQuery, 8);
 
       // ===== デバッグログ =====
       try {
@@ -108,10 +110,25 @@ export class PromptRetrievalService {
       // チャンクが取得できた場合はナレッジを前置し、後ろに元テンプレ全文を連結
       if (chunks.length > 0) {
         const chunkSection = chunks
-          .map((chunk, index) => `### ナレッジ${index + 1}\n${chunk}`)
+          .map((chunk, index) => `### 提供ナレッジ ${index + 1}\n${chunk}`)
           .join('\n\n');
 
-        return `## LP生成ナレッジ\n${chunkSection}\n\n${originalTemplate}`;
+        const systemPrompt = `あなたは、与えられた指示とナレッジに厳密に従ってランディングページ（LP）のドラフトを作成するプロのコピーライターです。
+
+# 指示
+- 提供された「ナレッジ」に含まれるLPの構成、パート分け、フォーマット、トーン＆マナーの指示に**絶対に、厳密に**従ってください。
+- あなた自身の知識や創造性は、ナレッジで許可された範囲でのみ発揮してください。指示にないパートを追加したり、既存のパートを省略したりしないでください。
+- 全体を通して、指定されたトンマナを一貫して維持してください。
+
+# ナレッジ
+${chunkSection}
+
+---
+${originalTemplate}
+---
+
+以上の指示とナレッジに基づき、ユーザーの要求から最高のLPドラフトを生成してください。`;
+        return systemPrompt;
       }
 
       // チャンク無し: 旧テンプレのみ
