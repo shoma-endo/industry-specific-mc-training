@@ -38,7 +38,7 @@ export const openAiService = {
     messages: ChatMessage[],
     model: string = 'gpt-4o-mini-2024-07-18',
     temperature: number = 0.5,
-    max_tokens: number = 1000,
+    max_completion_tokens: number = 1000,
     logit_bias?: Record<string, number>
   ): Promise<ChatResponse> {
     try {
@@ -47,8 +47,8 @@ export const openAiService = {
         console.log(
           '[OpenAI] model:',
           model,
-          'max_tokens:',
-          max_tokens,
+          'max_completion_tokens:',
+          max_completion_tokens,
           'messages_len:',
           messages.length
         );
@@ -62,7 +62,7 @@ export const openAiService = {
         model: model,
         messages: messages,
         temperature: temperature,
-        max_tokens: max_tokens,
+        max_completion_tokens: max_completion_tokens,
         ...(modelConfig?.seed && { seed: modelConfig.seed }),
         ...(modelConfig?.top_p && { top_p: modelConfig.top_p }),
         ...(logit_bias && { logit_bias }),
@@ -158,14 +158,10 @@ export const openAiService = {
       retryCount?: number;
     } = {}
   ): Promise<StructuredResponse> {
-    const {
-      temperature = 0.3,
-      maxTokens = 2000,
-      retryCount = 3
-    } = options;
+    const { temperature = 0.3, maxTokens = 2000, retryCount = 3 } = options;
 
     let lastError: Error | null = null;
-    
+
     for (let attempt = 0; attempt < retryCount; attempt++) {
       try {
         const modelConfig = MODEL_CONFIGS[model];
@@ -173,17 +169,17 @@ export const openAiService = {
           model: model,
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage }
+            { role: 'user', content: userMessage },
           ],
-          response_format: { 
-            type: 'json_schema', 
+          response_format: {
+            type: 'json_schema',
             json_schema: {
               name: 'structured_response',
-              schema: schema
-            }
+              schema: schema,
+            },
           },
           temperature: temperature,
-          max_tokens: maxTokens,
+          max_completion_tokens: maxTokens,
           ...(modelConfig?.seed && { seed: modelConfig.seed }),
           ...(modelConfig?.top_p && { top_p: modelConfig.top_p }),
         });
@@ -194,25 +190,24 @@ export const openAiService = {
         }
 
         const parsedContent = JSON.parse(rawContent);
-        
+
         return {
           content: parsedContent,
-          raw: rawContent
+          raw: rawContent,
         };
-        
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         console.error(`構造化出力生成エラー (試行${attempt + 1}/${retryCount}):`, error);
-        
+
         if (attempt === retryCount - 1) {
           throw new Error(`構造化出力生成に失敗しました: ${lastError?.message || 'Unknown error'}`);
         }
-        
+
         // 再試行前の待機時間
         await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
       }
     }
-    
+
     throw new Error(`構造化出力生成に失敗しました: ${lastError?.message || 'Unknown error'}`);
   },
 
@@ -231,29 +226,29 @@ export const openAiService = {
   ): Promise<ChatResponse> {
     // コンテキストに応じて設定を調整
     const baseConfig = MODEL_CONFIGS[context.contentType] || MODEL_CONFIGS[model];
-    
+
     let temperature = baseConfig?.temperature || 0.5;
     let maxTokens = baseConfig?.maxTokens || 1000;
-    
+
     // 複雑性に応じて調整
     if (context.complexity === 'complex') {
       maxTokens = Math.min(maxTokens * 1.5, 4000);
     } else if (context.complexity === 'simple') {
       maxTokens = Math.max(maxTokens * 0.7, 500);
     }
-    
+
     // 創造性レベルに応じて調整
     if (context.creativityLevel === 'high') {
       temperature = Math.min(temperature + 0.2, 0.9);
     } else if (context.creativityLevel === 'low') {
       temperature = Math.max(temperature - 0.2, 0.1);
     }
-    
+
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage }
+      { role: 'user', content: userMessage },
     ];
-    
+
     return this.sendMessage(messages, model, temperature, maxTokens);
   },
 
@@ -271,29 +266,23 @@ export const openAiService = {
       contextWeight?: number;
     } = {}
   ): Promise<ChatResponse> {
-    const {
-      temperature = 0.3,
-      maxTokens = 2000,
-      contextWeight = 0.8
-    } = options;
-    
+    const { temperature = 0.3, maxTokens = 2000, contextWeight = 0.8 } = options;
+
     // RAGコンテキストを統合
-    const contextSection = ragContext.length > 0 
-      ? `\n\n## 参考情報\n${ragContext.join('\n\n')}` 
-      : '';
-    
+    const contextSection =
+      ragContext.length > 0 ? `\n\n## 参考情報\n${ragContext.join('\n\n')}` : '';
+
     const enhancedSystemPrompt = systemPrompt + contextSection;
-    
+
     // コンテキストの重要性に応じて温度を調整
-    const adjustedTemperature = ragContext.length > 0 
-      ? temperature * (1 - contextWeight * 0.3) 
-      : temperature;
-    
+    const adjustedTemperature =
+      ragContext.length > 0 ? temperature * (1 - contextWeight * 0.3) : temperature;
+
     const messages: ChatMessage[] = [
       { role: 'system', content: enhancedSystemPrompt },
-      { role: 'user', content: userMessage }
+      { role: 'user', content: userMessage },
     ];
-    
+
     return this.sendMessage(messages, model, adjustedTemperature, maxTokens);
   },
 };
