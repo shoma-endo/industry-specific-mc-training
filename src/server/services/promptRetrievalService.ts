@@ -158,8 +158,9 @@ export class PromptRetrievalService {
 
 ユーザーの入力「${userQuery}」を、ベクトル検索で最高のパフォーマンスを発揮できるように、具体的で意図が明確な検索クエリに変換してください。
 
-**最重要セクション（クエリ生成時に必ず考慮すること）**
+**最重要セクション（クエリ生成時に必ず含めます）**
 - 最優先指示（省略・違反不可）
+- 特徴、選ばれる理由と説明文、差別化
 - 全体の出力形式、トンマナ
 
 最適化された検索クエリのみを返してください。説明は不要です。`,
@@ -170,7 +171,7 @@ export class PromptRetrievalService {
           } catch (error) {
             console.error('クエリ生成(generateText)でエラー:', error);
             // エラー時は固定文字列にフォールバック
-            retrievalQuery = 'LPの構成 18パート構成の厳守';
+            retrievalQuery = 'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化';
           }
         }
       }
@@ -178,7 +179,7 @@ export class PromptRetrievalService {
       // クエリを組み立て（ユーザー入力 + 広告見出し + 最優先指示）
       if (templateName === 'lp_draft_creation') {
         // LP作成の場合は必ず「最優先指示」を検索クエリに含める
-        retrievalQuery += ' 最優先指示 省略・違反不可';
+        retrievalQuery += ' 最優先指示 省略・違反不可 特徴、選ばれる理由と説明文、差別化';
       }
 
       if (adHeadlines && adHeadlines.length > 0) {
