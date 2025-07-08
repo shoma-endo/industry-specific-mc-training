@@ -22,9 +22,10 @@ export interface PromptChunk {
 export class PromptChunkService {
   private static readonly CHUNK_SIZE = 1200; // Claude推奨値に拡張
   private static readonly MIN_CHUNK_SIZE = 300; // 拡張
+  private static readonly OVERLAP_SIZE = 200; // オーバーラップサイズ
 
   /**
-   * テキストをセマンティック境界を考慮してチャンクに分割（マークダウン対応）
+   * テキストをセマンティック境界を考慮してチャンクに分割（オーバーラップ対応）
    */
   private static splitTextIntoChunks(text: string): string[] {
     const lines = text.split('\n');
@@ -32,7 +33,8 @@ export class PromptChunkService {
     let currentChunkLines: string[] = [];
 
     for (const line of lines) {
-      const isHeading = /^(#+\s*|^\d+\.\s)/.test(line.trim());
+      // 改善された見出し判定：【】で囲まれた重要セクションも含める
+      const isHeading = /^(#+\s*|^\d+\.\s|^##\s*【.*】|^【.*】)/.test(line.trim());
       if (isHeading && currentChunkLines.length > 0) {
         const chunk = currentChunkLines.join('\n').trim();
         if (chunk.length > 0) chunks.push(chunk);
@@ -50,41 +52,119 @@ export class PromptChunkService {
     const finalChunks: string[] = [];
     for (const chunk of chunks) {
       if (chunk.length > this.CHUNK_SIZE) {
-        finalChunks.push(...this.splitBySentencesAndSize(chunk));
+        finalChunks.push(...this.splitBySentencesAndSizeWithOverlap(chunk));
       } else {
         finalChunks.push(chunk);
       }
     }
 
     return finalChunks.filter(
-      c => c.length >= this.MIN_CHUNK_SIZE || /^(#+\s*|^\d+\.\s)/.test(c.trim())
+      c =>
+        c.length >= this.MIN_CHUNK_SIZE ||
+        /^(#+\s*|^\d+\.\s|^##\s*【.*】|^【.*】)/.test(c.trim()) ||
+        c.includes('最優先指示') ||
+        c.includes('省略・違反不可')
     );
   }
 
   /**
-   * 文境界と文字数で分割するメソッド
+   * 文境界と文字数で分割するメソッド（オーバーラップ対応）
    */
-  private static splitBySentencesAndSize(text: string): string[] {
+  private static splitBySentencesAndSizeWithOverlap(text: string): string[] {
     const sentences = text.split(/(?<=[。！？])\s*/);
     const chunks: string[] = [];
+    const seenChunks = new Set<string>(); // 重複検知用
     let currentChunk = '';
+    let previousOverlap = '';
+
     for (const sentence of sentences) {
       const trimmedSentence = sentence.trim();
       if (trimmedSentence.length === 0) continue;
 
       if ((currentChunk + ' ' + trimmedSentence).trim().length > this.CHUNK_SIZE) {
         if (currentChunk.length > 0) {
-          chunks.push(currentChunk);
+          // チャンク長オーバーフロー防止：強制分割
+          let finalChunk = currentChunk;
+          while (finalChunk.length > this.CHUNK_SIZE) {
+            const cutPoint = finalChunk.lastIndexOf(' ', this.CHUNK_SIZE);
+            const chunk =
+              cutPoint > 0
+                ? finalChunk.substring(0, cutPoint)
+                : finalChunk.substring(0, this.CHUNK_SIZE);
+
+            // 重複チェック
+            if (!seenChunks.has(chunk) && chunk.length >= this.MIN_CHUNK_SIZE) {
+              chunks.push(chunk);
+              seenChunks.add(chunk);
+            }
+
+            finalChunk = finalChunk.substring(cutPoint > 0 ? cutPoint + 1 : this.CHUNK_SIZE);
+          }
+
+          // 残りを追加
+          if (finalChunk.length >= this.MIN_CHUNK_SIZE && !seenChunks.has(finalChunk)) {
+            chunks.push(finalChunk);
+            seenChunks.add(finalChunk);
+          }
+
+          // OVERLAP_SIZE定数を使用してオーバーラップを計算
+          const overlapCharCount = Math.min(
+            this.OVERLAP_SIZE,
+            Math.floor(currentChunk.length * 0.2)
+          );
+          previousOverlap =
+            currentChunk.length > overlapCharCount
+              ? currentChunk.substring(currentChunk.length - overlapCharCount).trim()
+              : '';
+
+          // 次のチャンクを前のチャンクのオーバーラップで開始
+          currentChunk = previousOverlap
+            ? previousOverlap + ' ' + trimmedSentence
+            : trimmedSentence;
+
+          // オーバーラップ後もCHUNK_SIZEを超える場合の処理
+          if (currentChunk.length > this.CHUNK_SIZE) {
+            currentChunk = trimmedSentence; // オーバーラップを諦めて新規開始
+          }
+        } else {
+          currentChunk = trimmedSentence;
         }
-        currentChunk = trimmedSentence;
       } else {
         currentChunk = (currentChunk + ' ' + trimmedSentence).trim();
       }
     }
+
+    // 最後のチャンクを処理
     if (currentChunk.length > 0) {
-      chunks.push(currentChunk);
+      // 最後のチャンクもオーバーフロー防止
+      while (currentChunk.length > this.CHUNK_SIZE) {
+        const cutPoint = currentChunk.lastIndexOf(' ', this.CHUNK_SIZE);
+        const chunk =
+          cutPoint > 0
+            ? currentChunk.substring(0, cutPoint)
+            : currentChunk.substring(0, this.CHUNK_SIZE);
+
+        if (!seenChunks.has(chunk) && chunk.length >= this.MIN_CHUNK_SIZE) {
+          chunks.push(chunk);
+          seenChunks.add(chunk);
+        }
+
+        currentChunk = currentChunk.substring(cutPoint > 0 ? cutPoint + 1 : this.CHUNK_SIZE);
+      }
+
+      if (currentChunk.length >= this.MIN_CHUNK_SIZE && !seenChunks.has(currentChunk)) {
+        chunks.push(currentChunk);
+      }
     }
+
     return chunks;
+  }
+
+  /**
+   * 文境界と文字数で分割するメソッド（後方互換性のため残す）
+   */
+  private static splitBySentencesAndSize(text: string): string[] {
+    return this.splitBySentencesAndSizeWithOverlap(text);
   }
 
   /**
@@ -194,24 +274,39 @@ export class PromptChunkService {
   }
 
   /**
-   * 類似チャンクを検索
+   * 類似チャンクを検索（ハイブリッド検索対応）
    */
   static async searchSimilarChunks(
     templateId: string,
     queryText: string,
-    limit: number = 4
+    limit: number = 4,
+    useHybrid: boolean = true
   ): Promise<PromptChunk[]> {
     try {
       // クエリの埋め込みを生成
       const queryEmbedding = await this.generateEmbedding(queryText);
 
-      // ベクトル検索実行
-      const { data, error } = await supabase.rpc('search_prompt_chunks', {
-        template_id: templateId,
-        query_embedding: queryEmbedding,
-        similarity_threshold: 0.3, // やや緩くしてヒット率を上げる
-        match_count: limit,
-      });
+      let data, error;
+
+      if (useHybrid) {
+        // テンプレート専用ハイブリッド検索（Precision 重視）
+        ({ data, error } = await supabase.rpc('search_prompt_chunks_hybrid_by_template', {
+          target_template_id: templateId,
+          query_text: queryText,
+          query_embedding: queryEmbedding,
+          match_threshold: 0.4, // 閾値を緩めてヒット率向上
+          match_count: limit,
+          alpha: 0.5, // semantic vs BM25 の重み
+        }));
+      } else {
+        // 従来のベクトル検索
+        ({ data, error } = await supabase.rpc('search_prompt_chunks', {
+          template_id: templateId,
+          query_embedding: queryEmbedding,
+          similarity_threshold: 0.2, // さらに緩めてヒット率向上
+          match_count: limit,
+        }));
+      }
 
       if (error) {
         console.error('チャンク検索エラー:', error);
@@ -230,6 +325,44 @@ export class PromptChunkService {
       // フォールバック: 全チャンクを取得
       return this.getAllChunks(templateId, limit);
     }
+  }
+
+  /**
+   * 汎用的なチャンク検索（全テンプレート対象）
+   */
+  static async searchChunks(
+    query: string,
+    embedding: number[],
+    limit: number = 20,
+    threshold: number = 0.7,
+    useHybrid: boolean = true,
+    templateId: string | null = null
+  ): Promise<PromptChunk[]> {
+    const rpcFunction = useHybrid ? 'search_prompt_chunks_hybrid' : 'search_prompt_chunks';
+
+    const params = useHybrid
+      ? {
+          query_text: query,
+          query_embedding: embedding,
+          target_template_id: templateId,
+          match_threshold: threshold,
+          match_count: limit,
+          alpha: 0.5, // セマンティック検索とBM25のバランス
+        }
+      : {
+          query_embedding: embedding,
+          match_threshold: threshold,
+          match_count: limit,
+        };
+
+    const { data, error } = await supabase.rpc(rpcFunction, params);
+
+    if (error) {
+      console.error('Error searching chunks:', error);
+      throw new Error('Failed to search chunks');
+    }
+
+    return data || [];
   }
 
   /**

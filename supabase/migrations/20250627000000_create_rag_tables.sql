@@ -49,6 +49,7 @@ CREATE TABLE rag_individual_keywords (
     
     -- 管理情報
     confidence_score FLOAT DEFAULT 1.0,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

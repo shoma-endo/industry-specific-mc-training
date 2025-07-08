@@ -24,4 +24,4 @@ create policy "ユーザー自身のみ参照可能"
 create policy "ユーザー自身のみ登録可能"
   on public.sanity_projects
   for insert
-  using (true); 
+  with check ((select auth.uid()) = user_id); 

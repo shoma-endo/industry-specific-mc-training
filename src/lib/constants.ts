@@ -40,6 +40,6 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     temperature: 0.3, // OpenAI Cookbook推奨値
     actualModel: 'gpt-4.1-mini', // 指示順守率の高いモデルに切り替え
     seed: 42,
-    top_p: 0.9, // OpenAI Cookbook推奨値
+    top_p: 0.3, // OpenAI Cookbook推奨値
   },
 };

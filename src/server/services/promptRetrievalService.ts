@@ -4,6 +4,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { env } from '@/env';
 import { OpenAIReranker } from '@/lib/reranker'; // リランカーをインポート
+import { QueryExpansionService } from './queryExpansionService';
 
 const openaiProvider = createOpenAI({
   apiKey: env.OPENAI_API_KEY,
@@ -20,7 +21,7 @@ export class PromptRetrievalService {
   ): Promise<string[]> {
     try {
       const reranker = new OpenAIReranker();
-      const initialRetrieveCount = 20; // 初期検索で多めに取得
+      const initialRetrieveCount = 50; // カスケード検索：より多くの候補を取得
 
       // テンプレートIDを取得
       const template = await PromptService.getTemplateByName(templateName);
@@ -67,6 +68,71 @@ export class PromptRetrievalService {
   }
 
   /**
+   * マルチクエリ検索対応版のチャンク取得
+   */
+  static async getChunksWithMultiQuery(
+    templateName: string,
+    queryText: string,
+    limit: number = 8
+  ): Promise<string[]> {
+    try {
+      const reranker = new OpenAIReranker();
+      const initialRetrieveCount = 50;
+
+      // テンプレートIDを取得
+      const template = await PromptService.getTemplateByName(templateName);
+      if (!template) {
+        console.warn(`テンプレート '${templateName}' が見つかりません`);
+        return [];
+      }
+
+      // 1. 関連クエリを生成
+      const expandedQueries = await QueryExpansionService.generateRelatedQueries(queryText, 2);
+
+      // 2. 検索関数を定義（template対応ハイブリッド検索）
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const searchFunction = async (searchQuery: string, _embedding: number[]) => {
+        // template対応ハイブリッド検索を直接使用（post-filter不要）
+        return await PromptChunkService.searchSimilarChunks(
+          template.id,
+          searchQuery,
+          initialRetrieveCount,
+          true // ハイブリッド検索を有効化
+        );
+      };
+
+      // 3. マルチクエリ検索を実行
+      const chunks = await QueryExpansionService.performMultiQuerySearch(
+        queryText,
+        expandedQueries,
+        searchFunction
+      );
+
+      const chunkTexts = chunks.map(chunk => chunk.content);
+      if (chunkTexts.length === 0) {
+        return [];
+      }
+
+      // 4. OpenAIRerankerで再ランキング
+      console.log(`[MultiQuery Reranker] ${chunkTexts.length}件のチャンクをリランキングします...`);
+      const rerankedResults = await reranker.rerank(queryText, chunkTexts, {
+        topK: limit,
+      });
+
+      console.log(
+        '[MultiQuery Reranker] リランキング後のスコア:',
+        rerankedResults.map(r => r.score)
+      );
+
+      return rerankedResults.map(result => result.document);
+    } catch (error) {
+      console.error('マルチクエリ検索エラー:', error);
+      // フォールバック：通常の検索
+      return await this.getChunks(templateName, queryText, limit);
+    }
+  }
+
+  /**
    * RAG対応のシステムメッセージを構築
    */
   static async buildRagSystemMessage(
@@ -78,7 +144,7 @@ export class PromptRetrievalService {
       let retrievalQuery = userQuery;
 
       if (templateName === 'lp_draft_creation') {
-        const genericQueries = ['お願いします', 'こんにちは', 'LP作成してください', 'LP'];
+        const genericQueries = ['お願いします', '事業者', 'LP作成してください', 'LP'];
         const isGeneric = genericQueries.some(q =>
           userQuery.toLowerCase().includes(q.toLowerCase())
         );
@@ -87,16 +153,13 @@ export class PromptRetrievalService {
           try {
             // HTTP fetchを廃止し、ここで直接 generateText を呼び出す
             const { text } = await generateText({
-              model: openaiProvider('gpt-4o-mini'),
+              model: openaiProvider('gpt-4.1-nano'),
               prompt: `あなたはRAGシステムの検索クエリ最適化専門家です。
 
 ユーザーの入力「${userQuery}」を、ベクトル検索で最高のパフォーマンスを発揮できるように、具体的で意図が明確な検索クエリに変換してください。
 
-対象タスク：ランディングページ（LP）の構成要素とドラフト作成
-
-**最重要セクション（クエリ生成時に必ず考慮すること）：**
-- 特徴、選ばれる理由、差別化要素
-- 最優先指示、禁止事項
+**最重要セクション（クエリ生成時に必ず考慮すること）**
+- 最優先指示（省略・違反不可）
 - 全体の出力形式、トンマナ
 
 最適化された検索クエリのみを返してください。説明は不要です。`,
@@ -107,13 +170,17 @@ export class PromptRetrievalService {
           } catch (error) {
             console.error('クエリ生成(generateText)でエラー:', error);
             // エラー時は固定文字列にフォールバック
-            retrievalQuery =
-              'LPの構成要素、特に「特徴・選ばれる理由」と、全体の「出力形式」や「最優先指示」に関する詳細な指示';
+            retrievalQuery = 'LPの構成 18パート構成の厳守';
           }
         }
       }
 
-      // クエリを組み立て（ユーザー入力 + 広告見出し）
+      // クエリを組み立て（ユーザー入力 + 広告見出し + 最優先指示）
+      if (templateName === 'lp_draft_creation') {
+        // LP作成の場合は必ず「最優先指示」を検索クエリに含める
+        retrievalQuery += ' 最優先指示 省略・違反不可';
+      }
+
       if (adHeadlines && adHeadlines.length > 0) {
         retrievalQuery += '\n広告見出し：' + adHeadlines.join(', ');
       }
@@ -143,6 +210,15 @@ export class PromptRetrievalService {
           .map((chunk, index) => `### 提供ナレッジ ${index + 1}\n${chunk}`)
           .join('\n\n');
 
+        // 必ず含めたい固定フォーマット（特徴・選ばれる理由…）
+        const fixedFeatureSection = `## 必須フォーマット: 特徴・選ばれる理由
+7. 特徴、選ばれる理由と説明文、差別化
+**選ばれる理由の前に、「この選ばれる理由がいかに重要なのか？」がわかる誘導文を200文字程度入れてください。**
+・ほかではなく、これがほしい
+・選ばれる理由は最大6つまでにする
+例）
+  ・小見出し1\n  詳細説明（100文字程度）\n  ・小見出し2\n  詳細説明（100文字程度）`;
+
         const systemPrompt = `あなたは、与えられた指示とナレッジに厳密に従ってランディングページ（LP）のドラフトを作成するプロのコピーライターです。
 
 # 指示
@@ -151,6 +227,8 @@ export class PromptRetrievalService {
 - 全体を通して、指定されたトンマナを一貫して維持してください。
 
 # ナレッジ
+${fixedFeatureSection}
+
 ${chunkSection}
 
 ---
