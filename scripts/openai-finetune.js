@@ -143,7 +143,7 @@ program
   .command('create')
   .description('ファインチューニングジョブを作成します')
   .requiredOption('-f, --file <file_id>', 'ファインチューニングに使用するファイルID')
-  .option('-m, --model <model>', 'ベースモデル名', 'gpt-4o-2024-08-06')
+  .option('-m, --model <model>', 'ベースモデル名', 'gpt-4.1-nano')
   .option('-n, --name <name>', 'ファインチューニングジョブの名前')
   .option('-e, --epochs <number>', 'エポック数', '3')
   .action(async options => {

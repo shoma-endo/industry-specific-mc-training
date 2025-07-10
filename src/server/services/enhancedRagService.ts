@@ -174,7 +174,7 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
 
       // 5. Function-Calling実行
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-2024-08-06', // バージョン固定で安定性向上
+        model: 'gpt-4.1-nano', // バージョン固定で安定性向上
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query },
@@ -366,7 +366,7 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
         .join('\n\n');
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-2024-08-06', // バージョン固定
+        model: 'gpt-4.1-nano', // バージョン固定
         messages: [
           {
             role: 'system',
