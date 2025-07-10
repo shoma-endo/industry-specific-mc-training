@@ -42,13 +42,17 @@ export const openAiService = {
     logit_bias?: Record<string, number>
   ): Promise<ChatResponse> {
     try {
-      // ===== デバッグ: モデルとmax_tokensを出力 =====
+      // ===== デバッグ: モデルと最終 max_completion_tokens を出力 =====
+      // MODEL_CONFIGS に maxTokens があればそちらを優先
+      const modelConfig = MODEL_CONFIGS[model];
+      const resolvedMaxTokens = modelConfig?.maxTokens ?? max_completion_tokens;
+
       try {
         console.log(
           '[OpenAI] model:',
           model,
-          'max_completion_tokens:',
-          max_completion_tokens,
+          'max_completion_tokens(resolved):',
+          resolvedMaxTokens,
           'messages_len:',
           messages.length
         );
@@ -57,12 +61,11 @@ export const openAiService = {
       }
 
       // Claude品質に近づけるため、設定されたパラメータを使用
-      const modelConfig = MODEL_CONFIGS[model];
       const completion = await openai.chat.completions.create({
         model: model,
         messages: messages,
         temperature: temperature,
-        max_completion_tokens: max_completion_tokens,
+        max_completion_tokens: resolvedMaxTokens,
         ...(modelConfig?.seed && { seed: modelConfig.seed }),
         ...(modelConfig?.top_p && { top_p: modelConfig.top_p }),
         ...(logit_bias && { logit_bias }),
