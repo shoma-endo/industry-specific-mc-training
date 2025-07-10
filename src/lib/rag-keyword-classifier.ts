@@ -18,7 +18,7 @@ import {
 
 /**
  * RAGベースキーワード分類システム
- * 
+ *
  * ファインチューニングモデルからRAGシステムに移行し、
  * より柔軟で保守性の高いキーワード分類を実現
  */
@@ -27,15 +27,15 @@ export class RAGKeywordClassifier {
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     process.env.SUPABASE_SERVICE_ROLE || ''
   );
-  
+
   private openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || '',
   });
 
   // メモリキャッシュ（本番環境ではRedisを推奨）
-  private static embeddingCache = new Map<string, { embedding: number[], timestamp: number }>();
+  private static embeddingCache = new Map<string, { embedding: number[]; timestamp: number }>();
   private static readonly CACHE_TTL = 60 * 60 * 1000; // 1時間
-  
+
   // パフォーマンスメトリクス
   private static performanceMetrics = {
     totalRequests: 0,
@@ -44,7 +44,7 @@ export class RAGKeywordClassifier {
     cacheMisses: 0,
     averageResponseTime: 0,
     errorCount: 0,
-    lastResetTime: Date.now()
+    lastResetTime: Date.now(),
   };
 
   /**
@@ -55,58 +55,57 @@ export class RAGKeywordClassifier {
     options: ClassificationOptions = {}
   ): Promise<ClassifyKeywordsResponse> {
     const startTime = Date.now();
-    
+
     try {
       // パフォーマンスメトリクス更新
       RAGKeywordClassifier.performanceMetrics.totalRequests++;
-      
+
       // 1. 入力検証・正規化
       const normalizedKeywords = this.normalizeKeywords(keywords);
-      
+
       if (normalizedKeywords.length === 0) {
         throw new ClassificationError('有効なキーワードがありません');
       }
 
       // 2. 各キーワードの類似事例検索
       const searchResults = await this.searchSimilarExamples(normalizedKeywords, options);
-      
+
       // 3. LLMによる分類実行
       const classificationResult = await this.performClassification(
         normalizedKeywords,
         searchResults
       );
-      
+
       // 4. 結果の構造化
       const structuredResults = this.structureResults(
         normalizedKeywords,
         classificationResult,
         searchResults
       );
-      
+
       // 5. エビデンス生成（オプション）
-      const evidence = options.includeEvidence 
-        ? this.generateEvidence(searchResults)
-        : undefined;
+      const evidence = options.includeEvidence ? this.generateEvidence(searchResults) : undefined;
 
       const processingTime = Date.now() - startTime;
-      
+
       // 平均応答時間の更新
       this.updateAverageResponseTime(processingTime);
 
       const baseMetadata = {
         totalProcessed: keywords.length,
         processingTime,
-        confidence: this.calculateOverallConfidence(structuredResults)
+        confidence: this.calculateOverallConfidence(structuredResults),
       };
 
       // パフォーマンス情報を含める（開発環境のみ）
-      const metadata = process.env.NODE_ENV === 'development' 
-        ? { ...baseMetadata, performance: this.getPerformanceSnapshot() }
-        : baseMetadata;
+      const metadata =
+        process.env.NODE_ENV === 'development'
+          ? { ...baseMetadata, performance: this.getPerformanceSnapshot() }
+          : baseMetadata;
 
       const response: ClassifyKeywordsResponse = {
         results: structuredResults,
-        metadata
+        metadata,
       };
 
       if (evidence !== undefined) {
@@ -114,18 +113,16 @@ export class RAGKeywordClassifier {
       }
 
       return response;
-
     } catch (error) {
       // エラー数をカウント
       RAGKeywordClassifier.performanceMetrics.errorCount++;
-      
+
       if (error instanceof RAGClassificationError) {
         throw error;
       }
-      throw new ClassificationError(
-        'キーワード分類中にエラーが発生しました',
-        { originalError: error }
-      );
+      throw new ClassificationError('キーワード分類中にエラーが発生しました', {
+        originalError: error,
+      });
     }
   }
 
@@ -143,52 +140,50 @@ export class RAGKeywordClassifier {
    * 各キーワードの類似事例を検索
    */
   private async searchSimilarExamples(
-    keywords: string[], 
+    keywords: string[],
     options: ClassificationOptions = {}
   ): Promise<SearchResultByKeyword[]> {
     try {
       // バッチでEmbedding生成（コスト削減）
       const embeddings = await this.generateEmbeddingsBatch(keywords);
-      
+
       // 検索パラメータの動的調整
       const searchParams = this.adjustSearchParameters(keywords);
-      
+
       // 並列でハイブリッド検索実行
       const results = await Promise.all(
         keywords.map(async (keyword, index) => {
           const embedding = embeddings[index];
-          
+
           // コンテキストを考慮した検索関数選択
           const searchFunction = this.selectSearchFunction(keyword, options);
-          
-          const { data, error } = await this.supabase
-            .rpc(searchFunction, {
-              search_text: keyword,
-              query_embedding: embedding,
-              context_type: searchParams.contextType,
-              vector_weight: searchParams.vectorWeight,
-              text_weight: searchParams.textWeight,
-              similarity_threshold: searchParams.similarityThreshold,
-              result_limit: searchParams.resultLimit
-            });
+
+          const { data, error } = await this.supabase.rpc(searchFunction, {
+            search_text: keyword,
+            query_embedding: embedding,
+            context_type: searchParams.contextType,
+            vector_weight: searchParams.vectorWeight,
+            text_weight: searchParams.textWeight,
+            similarity_threshold: searchParams.similarityThreshold,
+            result_limit: searchParams.resultLimit,
+          });
 
           if (error) {
             console.error(`検索エラー (${keyword}):`, error);
             return {
               keyword,
-              similarExamples: []
+              similarExamples: [],
             };
           }
 
           return {
             keyword,
-            similarExamples: data || []
+            similarExamples: data || [],
           };
         })
       );
 
       return results;
-
     } catch (error) {
       throw new DatabaseError('類似事例検索中にエラーが発生しました', { error });
     }
@@ -201,13 +196,13 @@ export class RAGKeywordClassifier {
     const avgLength = keywords.reduce((sum, k) => sum + k.length, 0) / keywords.length;
     const hasLocationKeywords = keywords.some(k => this.isLocationKeyword(k));
     const hasServiceKeywords = keywords.some(k => this.isServiceKeyword(k));
-    
+
     return {
       contextType: hasLocationKeywords ? 'local' : hasServiceKeywords ? 'service' : 'general',
       vectorWeight: avgLength > 15 ? 0.6 : 0.7, // 長いキーワードはテキスト検索重視
       textWeight: avgLength > 15 ? 0.4 : 0.3,
       similarityThreshold: keywords.length > 10 ? 0.6 : 0.5, // 多数キーワードは閾値を上げる
-      resultLimit: Math.max(3, Math.min(8, Math.floor(keywords.length / 2))) // 適応的な結果数
+      resultLimit: Math.max(3, Math.min(8, Math.floor(keywords.length / 2))), // 適応的な結果数
     };
   }
 
@@ -218,11 +213,11 @@ export class RAGKeywordClassifier {
     if (options.includeDiversity) {
       return 'diversity_rerank_search';
     }
-    
+
     if (options.userContext) {
       return 'contextual_keyword_search';
     }
-    
+
     return 'advanced_hybrid_search';
   }
 
@@ -234,9 +229,9 @@ export class RAGKeywordClassifier {
       /[都道府県市区町村]/,
       /東京|大阪|名古屋|福岡|札幌|仙台|広島|神戸|京都|横浜/,
       /[0-9]{3}-[0-9]{4}/, // 郵便番号
-      /駅|空港|港/
+      /駅|空港|港/,
     ];
-    
+
     return locationPatterns.some(pattern => pattern.test(keyword));
   }
 
@@ -247,9 +242,9 @@ export class RAGKeywordClassifier {
     const servicePatterns = [
       /サービス|支援|相談|代行|作成|制作|設計|開発|運営|管理/,
       /料金|価格|費用|コスト|見積|無料|格安/,
-      /予約|申込|依頼|注文|購入|契約/
+      /予約|申込|依頼|注文|購入|契約/,
     ];
-    
+
     return servicePatterns.some(pattern => pattern.test(keyword));
   }
 
@@ -263,32 +258,31 @@ export class RAGKeywordClassifier {
     try {
       // 類似事例からコンテキスト構築
       const context = this.buildContext(searchResults);
-      
+
       // プロンプト構築
       const prompt = this.buildClassificationPrompt(keywords, context);
-      
+
       // OpenAI API呼び出し
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini-2024-07-18',
+        model: 'gpt-4.1-nano',
         messages: [
           {
             role: 'system',
             content: `あなたはGoogle広告のキーワード分類の専門家です。
             提供されたコンテキストを参考に、キーワードを「今すぐ客キーワード」または「後から客キーワード」に分類してください。
             
-            類似事例の分類傾向を重視し、一貫性のある分類を行ってください。`
+            類似事例の分類傾向を重視し、一貫性のある分類を行ってください。`,
           },
           {
             role: 'user',
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         temperature: 0.2,
-        max_tokens: 1000
+        max_tokens: 1000,
       });
 
       return response.choices[0]?.message?.content || '';
-
     } catch (error) {
       throw new ClassificationError('LLM分類処理中にエラーが発生しました', { error });
     }
@@ -299,7 +293,7 @@ export class RAGKeywordClassifier {
    */
   private buildContext(searchResults: SearchResultByKeyword[]): string {
     const contextParts: string[] = [];
-    
+
     searchResults.forEach(result => {
       if (result.similarExamples.length > 0) {
         contextParts.push(`\n${result.keyword}の類似事例:`);
@@ -311,7 +305,7 @@ export class RAGKeywordClassifier {
         });
       }
     });
-    
+
     return contextParts.join('\n');
   }
 
@@ -358,19 +352,21 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
   ) {
     const immediate = this.extractKeywords(classificationResult, '今すぐ客キーワード');
     const later = this.extractKeywords(classificationResult, '後から客キーワード');
-    const unclassified = keywords.filter(k => 
-      !immediate.includes(k) && !later.includes(k)
-    );
+    const unclassified = keywords.filter(k => !immediate.includes(k) && !later.includes(k));
 
     // リランキング処理
-    const immediateResults = immediate.map(k => this.createKeywordResult(k, 'immediate', searchResults));
+    const immediateResults = immediate.map(k =>
+      this.createKeywordResult(k, 'immediate', searchResults)
+    );
     const laterResults = later.map(k => this.createKeywordResult(k, 'later', searchResults));
-    const unclassifiedResults = unclassified.map(k => this.createKeywordResult(k, 'unclassified', searchResults));
+    const unclassifiedResults = unclassified.map(k =>
+      this.createKeywordResult(k, 'unclassified', searchResults)
+    );
 
     return {
       immediate_customer: this.rerankResults(immediateResults, 'immediate'),
       later_customer: this.rerankResults(laterResults, 'later'),
-      unclassified: this.rerankResults(unclassifiedResults, 'unclassified')
+      unclassified: this.rerankResults(unclassifiedResults, 'unclassified'),
     };
   }
 
@@ -384,19 +380,19 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       if (Math.abs(confidenceDiff) > 0.1) {
         return confidenceDiff;
       }
-      
+
       // 2. 類似キーワード数でソート
       const similarityDiff = (b.similarKeywords?.length || 0) - (a.similarKeywords?.length || 0);
       if (similarityDiff !== 0) {
         return similarityDiff;
       }
-      
+
       // 3. カテゴリ特有の重み付け
       const categoryWeight = this.calculateCategoryWeight(a.keyword, b.keyword, category);
       if (categoryWeight !== 0) {
         return categoryWeight;
       }
-      
+
       // 4. キーワード長（短い方が優先）
       return a.keyword.length - b.keyword.length;
     });
@@ -410,24 +406,24 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       // 今すぐ客キーワードは地域名や具体的サービス名を優先
       const aHasLocation = this.isLocationKeyword(keywordA);
       const bHasLocation = this.isLocationKeyword(keywordB);
-      
+
       if (aHasLocation && !bHasLocation) return -1;
       if (!aHasLocation && bHasLocation) return 1;
-      
+
       const aHasService = this.isServiceKeyword(keywordA);
       const bHasService = this.isServiceKeyword(keywordB);
-      
+
       if (aHasService && !bHasService) return -1;
       if (!aHasService && bHasService) return 1;
     } else if (category === 'later') {
       // 後から客キーワードは一般的な情報キーワードを優先
       const aIsGeneral = this.isGeneralKeyword(keywordA);
       const bIsGeneral = this.isGeneralKeyword(keywordB);
-      
+
       if (aIsGeneral && !bIsGeneral) return -1;
       if (!aIsGeneral && bIsGeneral) return 1;
     }
-    
+
     return 0;
   }
 
@@ -439,9 +435,9 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       /とは|方法|やり方|手順|流れ|仕組み/,
       /比較|違い|選び方|おすすめ|ランキング/,
       /メリット|デメリット|効果|特徴|基本/,
-      /種類|一覧|まとめ|解説|説明/
+      /種類|一覧|まとめ|解説|説明/,
     ];
-    
+
     return generalPatterns.some(pattern => pattern.test(keyword));
   }
 
@@ -451,9 +447,9 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
   private extractKeywords(text: string, category: string): string[] {
     const regex = new RegExp(`【${category}】([\\s\\S]*?)(?=【|$)`);
     const match = text.match(regex);
-    
+
     if (!match || !match[1]) return [];
-    
+
     return match[1]
       .split('\n')
       .map(line => line.trim())
@@ -471,14 +467,13 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
   ): KeywordResult {
     const searchResult = searchResults.find(r => r.keyword === keyword);
     const confidence = this.calculateConfidence(classification, searchResult);
-    
+
     return {
       keyword,
       classification,
       confidence,
-      similarKeywords: searchResult?.similarExamples
-        .slice(0, 3)
-        .map((ex: HybridSearchResult) => ex.keyword) || []
+      similarKeywords:
+        searchResult?.similarExamples.slice(0, 3).map((ex: HybridSearchResult) => ex.keyword) || [],
     };
   }
 
@@ -494,11 +489,12 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
     }
 
     const topSimilarity = searchResult.similarExamples[0]?.combined_score || 0;
-    const consistentClassifications = searchResult.similarExamples
-      .filter((ex: HybridSearchResult) => ex.classification === classification).length;
-    
+    const consistentClassifications = searchResult.similarExamples.filter(
+      (ex: HybridSearchResult) => ex.classification === classification
+    ).length;
+
     const consistencyRatio = consistentClassifications / searchResult.similarExamples.length;
-    
+
     return Math.min(0.95, topSimilarity * 0.6 + consistencyRatio * 0.4);
   }
 
@@ -511,8 +507,8 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       similarExamples: result.similarExamples.map((ex: HybridSearchResult) => ({
         keyword: ex.keyword,
         classification: ex.classification === 'immediate' ? '今すぐ客' : '後から客',
-        similarity: ex.combined_score
-      }))
+        similarity: ex.combined_score,
+      })),
     }));
   }
 
@@ -527,15 +523,15 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
     const allResults = [
       ...results.immediate_customer,
       ...results.later_customer,
-      ...results.unclassified
+      ...results.unclassified,
     ];
-    
+
     if (allResults.length === 0) return 0;
-    
-    const averageConfidence = allResults.reduce(
-      (sum: number, result: KeywordResult) => sum + result.confidence, 0
-    ) / allResults.length;
-    
+
+    const averageConfidence =
+      allResults.reduce((sum: number, result: KeywordResult) => sum + result.confidence, 0) /
+      allResults.length;
+
     return Math.round(averageConfidence * 100) / 100;
   }
 
@@ -565,11 +561,11 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       // キャッシュにないものだけAPI呼び出し
       if (uncachedTexts.length > 0) {
         RAGKeywordClassifier.performanceMetrics.embeddingApiCalls++;
-        
+
         const response = await this.openai.embeddings.create({
-          model: 'text-embedding-3-large',  // Claudeに近い高性能モデル
+          model: 'text-embedding-3-large', // Claudeに近い高性能モデル
           input: uncachedTexts,
-          dimensions: 3072,                 // 最大次元数
+          dimensions: 3072, // 最大次元数
         });
 
         // 結果をキャッシュに保存＆結果配列に設定
@@ -577,7 +573,7 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
           const embedding = item.embedding;
           const originalIndex = uncachedIndexes[index];
           const text = uncachedTexts[index];
-          
+
           if (text && originalIndex !== undefined) {
             this.setCachedEmbedding(text, embedding);
             results[originalIndex] = embedding;
@@ -586,7 +582,6 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       }
 
       return results;
-
     } catch (error) {
       throw new EmbeddingGenerationError('Embedding生成中にエラーが発生しました', { error });
     }
@@ -604,22 +599,21 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       }
 
       RAGKeywordClassifier.performanceMetrics.embeddingApiCalls++;
-      
+
       const response = await this.openai.embeddings.create({
-        model: 'text-embedding-3-large',  // Claudeに近い高性能モデル
+        model: 'text-embedding-3-large', // Claudeに近い高性能モデル
         input: text,
-        dimensions: 3072,                 // 最大次元数
+        dimensions: 3072, // 最大次元数
       });
-      
+
       const embedding = response.data[0]?.embedding || [];
-      
+
       // キャッシュに保存
       if (embedding.length > 0) {
         this.setCachedEmbedding(text, embedding);
       }
-      
-      return embedding;
 
+      return embedding;
     } catch (error) {
       throw new EmbeddingGenerationError('Embedding生成中にエラーが発生しました', { error });
     }
@@ -631,21 +625,21 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
   private getCachedEmbedding(text: string): number[] | null {
     const cacheKey = this.generateCacheKey(text);
     const cached = RAGKeywordClassifier.embeddingCache.get(cacheKey);
-    
-    if (cached && (Date.now() - cached.timestamp) < RAGKeywordClassifier.CACHE_TTL) {
+
+    if (cached && Date.now() - cached.timestamp < RAGKeywordClassifier.CACHE_TTL) {
       // キャッシュヒット
       RAGKeywordClassifier.performanceMetrics.cacheHits++;
       return cached.embedding;
     }
-    
+
     // キャッシュミス
     RAGKeywordClassifier.performanceMetrics.cacheMisses++;
-    
+
     // 期限切れの場合は削除
     if (cached) {
       RAGKeywordClassifier.embeddingCache.delete(cacheKey);
     }
-    
+
     return null;
   }
 
@@ -656,7 +650,7 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
     const cacheKey = this.generateCacheKey(text);
     RAGKeywordClassifier.embeddingCache.set(cacheKey, {
       embedding,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     // キャッシュサイズ制限（1000件）
@@ -681,8 +675,8 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
   private updateAverageResponseTime(responseTime: number): void {
     const metrics = RAGKeywordClassifier.performanceMetrics;
     const totalRequests = metrics.totalRequests;
-    
-    metrics.averageResponseTime = 
+
+    metrics.averageResponseTime =
       (metrics.averageResponseTime * (totalRequests - 1) + responseTime) / totalRequests;
   }
 
@@ -692,7 +686,7 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
   private getPerformanceSnapshot() {
     const metrics = RAGKeywordClassifier.performanceMetrics;
     const uptime = Date.now() - metrics.lastResetTime;
-    
+
     return {
       totalRequests: metrics.totalRequests,
       embeddingApiCalls: metrics.embeddingApiCalls,
@@ -700,7 +694,7 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       averageResponseTime: Math.round(metrics.averageResponseTime),
       errorRate: metrics.errorCount / metrics.totalRequests || 0,
       uptimeMs: uptime,
-      cacheSize: RAGKeywordClassifier.embeddingCache.size
+      cacheSize: RAGKeywordClassifier.embeddingCache.size,
     };
   }
 
@@ -715,7 +709,7 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       cacheMisses: 0,
       averageResponseTime: 0,
       errorCount: 0,
-      lastResetTime: Date.now()
+      lastResetTime: Date.now(),
     };
   }
 
@@ -725,7 +719,7 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
   static getPerformanceMetrics() {
     const metrics = RAGKeywordClassifier.performanceMetrics;
     const uptime = Date.now() - metrics.lastResetTime;
-    
+
     return {
       totalRequests: metrics.totalRequests,
       embeddingApiCalls: metrics.embeddingApiCalls,
@@ -734,7 +728,7 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join('\n')}
       errorRate: metrics.errorCount / metrics.totalRequests || 0,
       uptimeMs: uptime,
       cacheSize: RAGKeywordClassifier.embeddingCache.size,
-      memoryUsage: process.memoryUsage()
+      memoryUsage: process.memoryUsage(),
     };
   }
 }

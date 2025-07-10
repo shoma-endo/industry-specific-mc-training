@@ -42,7 +42,7 @@ class ChatService {
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
         const config = model ? MODEL_CONFIGS[model] : null;
-        const actualModel = config ? config.actualModel : model || 'gpt-4.1-nano-2025-04-14';
+        const actualModel = config ? config.actualModel : model || 'gpt-4.1-nano';
         const temperature = config ? config.temperature : 0.5;
         const maxTokens = config ? config.maxTokens : 1000;
 
@@ -139,7 +139,7 @@ class ChatService {
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
         const config = model ? MODEL_CONFIGS[model] : null;
-        const actualModel = config ? config.actualModel : model || 'gpt-4.1-nano-2025-04-14';
+        const actualModel = config ? config.actualModel : model || 'gpt-4.1-nano';
         const temperature = config ? config.temperature : 0.5;
         const maxTokens = config ? config.maxTokens : 1000;
 

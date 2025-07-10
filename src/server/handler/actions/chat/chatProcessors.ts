@@ -48,7 +48,7 @@ export class ChatProcessorService {
       ];
 
       try {
-        const aiResponse = await openAiService.sendMessage(messages, 'gpt-4.1-nano-2025-04-14');
+        const aiResponse = await openAiService.sendMessage(messages, 'gpt-4.1-nano');
         return { query, aiMessage: aiResponse.message || '' };
       } catch (error) {
         console.error(`AI処理に失敗しました (query: "${query}"):`, error);
@@ -59,7 +59,10 @@ export class ChatProcessorService {
     return Promise.all(tasks);
   }
 
-  async handleGoogleSearch(keywords: string[], token: string): Promise<{ query: string; searchResult: string }[]> {
+  async handleGoogleSearch(
+    keywords: string[],
+    token: string
+  ): Promise<{ query: string; searchResult: string }[]> {
     const searchPromises = keywords.map(async query => {
       try {
         const searchResultData = await googleSearchAction({ liffAccessToken: token, query });

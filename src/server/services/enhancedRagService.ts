@@ -93,7 +93,7 @@ export class EnhancedRAGService {
       useMultiQuery = true,
       useVerification = false,
       maxChunks = 8,
-      temperature = 0.7
+      temperature = 0.7,
     } = options;
 
     try {
@@ -102,9 +102,9 @@ export class EnhancedRAGService {
 
       if (chunks.length === 0) {
         return {
-          answer: "申し訳ございませんが、関連する情報が見つかりませんでした。",
+          answer: '申し訳ございませんが、関連する情報が見つかりませんでした。',
           sources: [],
-          confidence: 0
+          confidence: 0,
         };
       }
 
@@ -112,51 +112,51 @@ export class EnhancedRAGService {
       const context = chunks.map((chunk, index) => ({
         id: `chunk_${index + 1}`,
         content: chunk.chunk_text,
-        citation_number: index + 1
+        citation_number: index + 1,
       }));
 
       // 3. Function-Calling用の関数定義
       const functions = [
         {
-          name: "generate_cited_response",
-          description: "コンテキストに基づいて引用付きの回答を生成します",
+          name: 'generate_cited_response',
+          description: 'コンテキストに基づいて引用付きの回答を生成します',
           parameters: {
-            type: "object",
+            type: 'object',
             properties: {
               answer: {
-                type: "string",
-                description: "ユーザーの質問に対する詳細な回答"
+                type: 'string',
+                description: 'ユーザーの質問に対する詳細な回答',
               },
               citations: {
-                type: "array",
+                type: 'array',
                 items: {
-                  type: "object",
+                  type: 'object',
                   properties: {
                     citation_number: {
-                      type: "integer",
-                      description: "引用番号"
+                      type: 'integer',
+                      description: '引用番号',
                     },
                     quoted_text: {
-                      type: "string",
-                      description: "引用したテキストの一部"
+                      type: 'string',
+                      description: '引用したテキストの一部',
                     },
                     relevance: {
-                      type: "number",
-                      description: "関連度スコア (0-1)"
-                    }
+                      type: 'number',
+                      description: '関連度スコア (0-1)',
+                    },
                   },
-                  required: ["citation_number", "quoted_text", "relevance"]
+                  required: ['citation_number', 'quoted_text', 'relevance'],
                 },
-                description: "使用した引用のリスト"
+                description: '使用した引用のリスト',
               },
               confidence: {
-                type: "number",
-                description: "回答の信頼度 (0-1)"
-              }
+                type: 'number',
+                description: '回答の信頼度 (0-1)',
+              },
             },
-            required: ["answer", "citations", "confidence"]
-          }
-        }
+            required: ['answer', 'citations', 'confidence'],
+          },
+        },
       ];
 
       // 4. システムプロンプト構築
@@ -177,10 +177,10 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
         model: 'gpt-4o-2024-08-06', // バージョン固定で安定性向上
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: query }
+          { role: 'user', content: query },
         ],
         functions,
-        function_call: { name: "generate_cited_response" },
+        function_call: { name: 'generate_cited_response' },
         temperature,
         max_tokens: 4000, // Function-Calling用に増量（上限内）
       });
@@ -192,7 +192,7 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
       }
 
       const result = JSON.parse(functionCall.arguments);
-      
+
       // 7. Self-Verification（オプション）
       if (useVerification) {
         const verifiedResult = await this.verifyResponse(query, result, context);
@@ -202,9 +202,9 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
             id: c.id,
             content: c.content,
             similarity: 0.8, // デフォルト値
-            citation_number: c.citation_number
+            citation_number: c.citation_number,
           })),
-          confidence: verifiedResult.confidence
+          confidence: verifiedResult.confidence,
         };
       }
 
@@ -214,11 +214,10 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
           id: c.id,
           content: c.content,
           similarity: 0.8, // デフォルト値
-          citation_number: c.citation_number
+          citation_number: c.citation_number,
         })),
-        confidence: result.confidence
+        confidence: result.confidence,
       };
-
     } catch (error) {
       console.error('Enhanced RAG生成エラー:', error);
       throw new Error('RAG生成に失敗しました');
@@ -234,24 +233,27 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
     useMultiQuery: boolean = true
   ): Promise<SearchChunk[]> {
     const embedding = await openaiEmbed(query);
-    
+
     if (useMultiQuery) {
       // マルチクエリ検索
       const expandedQueries = await QueryExpansionService.generateRelatedQueries(query, 2);
-      const searchFunction = async (searchQuery: string, embedding: number[]): Promise<PromptChunk[]> => {
-        const results = await PromptChunkService.searchChunks(
+      const searchFunction = async (
+        searchQuery: string,
+        embedding: number[]
+      ): Promise<PromptChunk[]> => {
+        const results = (await PromptChunkService.searchChunks(
           searchQuery,
           embedding,
           50, // 多めに取得
           0.78,
           true // ハイブリッド検索
-        ) as SearchResult[];
+        )) as SearchResult[];
         // PromptChunkServiceの結果をPromptChunk型に変換
         return results.map(result => ({
           id: result.id || '',
           chunk_text: result.chunk_text,
           ...(result.similarity !== undefined && { similarity: result.similarity }),
-          ...(result.combined_score !== undefined && { combined_score: result.combined_score })
+          ...(result.combined_score !== undefined && { combined_score: result.combined_score }),
         }));
       };
 
@@ -266,30 +268,34 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
       const chunkTexts = chunks.map(chunk => chunk.content);
       const rerankedResults = await reranker.rerank(query, chunkTexts, { topK: maxChunks });
 
-      return rerankedResults.map((result): SearchChunk => ({
-        chunk_text: result.document,
-        content: result.document,
-        score: result.score
-      }));
+      return rerankedResults.map(
+        (result): SearchChunk => ({
+          chunk_text: result.document,
+          content: result.document,
+          score: result.score,
+        })
+      );
     } else {
       // 通常検索
-      const chunks = await PromptChunkService.searchChunks(
+      const chunks = (await PromptChunkService.searchChunks(
         query,
         embedding,
         50,
         0.78,
         true
-      ) as SearchResult[];
+      )) as SearchResult[];
 
       const reranker = new OpenAIReranker();
       const chunkTexts = chunks.map(chunk => chunk.chunk_text);
       const rerankedResults = await reranker.rerank(query, chunkTexts, { topK: maxChunks });
 
-      return rerankedResults.map((result): SearchChunk => ({
-        chunk_text: result.document,
-        content: result.document,
-        score: result.score
-      }));
+      return rerankedResults.map(
+        (result): SearchChunk => ({
+          chunk_text: result.document,
+          content: result.document,
+          score: result.score,
+        })
+      );
     }
   }
 
@@ -323,7 +329,7 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
 }`;
 
     const verificationResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-mini-2024-07-18', // バージョン固定
+      model: 'gpt-4.1-nano',
       messages: [{ role: 'user', content: verificationPrompt }],
       response_format: { type: 'json_object' },
       temperature: 0.1,
@@ -331,10 +337,12 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
     });
 
     try {
-      const rawVerification = JSON.parse(verificationResponse.choices[0]?.message?.content || '{}') as Partial<VerificationResponse>;
+      const rawVerification = JSON.parse(
+        verificationResponse.choices[0]?.message?.content || '{}'
+      ) as Partial<VerificationResponse>;
       return {
         answer: rawVerification.answer || response.answer,
-        confidence: rawVerification.confidence || response.confidence * 0.9 // 検証通過で若干減点
+        confidence: rawVerification.confidence || response.confidence * 0.9, // 検証通過で若干減点
       };
     } catch (error) {
       console.error('検証結果の解析エラー:', error);
@@ -345,20 +353,17 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
   /**
    * 簡単な引用付き回答生成（Function-Calling不要な場合）
    */
-  static async generateWithSimpleCitation(
-    query: string,
-    maxChunks: number = 8
-  ): Promise<string> {
+  static async generateWithSimpleCitation(query: string, maxChunks: number = 8): Promise<string> {
     try {
       const chunks = await this.retrieveAndRerank(query, maxChunks, true);
 
       if (chunks.length === 0) {
-        return "申し訳ございませんが、関連する情報が見つかりませんでした。";
+        return '申し訳ございませんが、関連する情報が見つかりませんでした。';
       }
 
-      const context = chunks.map((chunk, index) => 
-        `[${index + 1}] ${chunk.chunk_text}`
-      ).join('\n\n');
+      const context = chunks
+        .map((chunk, index) => `[${index + 1}] ${chunk.chunk_text}`)
+        .join('\n\n');
 
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-2024-08-06', // バージョン固定
@@ -374,15 +379,15 @@ ${context}
 - 必ず提供されたコンテキストに基づいて回答してください
 - 参考にした部分は {{cite:X}} の形式で引用してください（Xは番号）
 - 不明な点は素直に「分からない」と答えてください
-- 日本語で回答してください`
+- 日本語で回答してください`,
           },
-          { role: 'user', content: query }
+          { role: 'user', content: query },
         ],
         temperature: 0.7,
         max_tokens: 3000, // 引用付き回答用に適切なサイズ
       });
 
-      return response.choices[0]?.message?.content || "回答を生成できませんでした。";
+      return response.choices[0]?.message?.content || '回答を生成できませんでした。';
     } catch (error) {
       console.error('Simple Citation RAG生成エラー:', error);
       throw new Error('RAG生成に失敗しました');

@@ -26,7 +26,7 @@ const SYSTEM_PROMPTS: Record<string, string> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
   rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,
   ad_copy_creation: AD_COPY_PROMPT,
-  'gpt-4.1-nano-2025-04-14': AD_COPY_FINISHING_PROMPT,
+  'gpt-4.1-nano': AD_COPY_FINISHING_PROMPT,
   lp_draft_creation: LP_DRAFT_PROMPT,
 };
 
@@ -39,7 +39,7 @@ async function getSystemPrompt(model: string, liffAccessToken?: string): Promise
     switch (model) {
       case 'ad_copy_creation':
         return await generateAdCopyPrompt(liffAccessToken);
-      case 'gpt-4.1-nano-2025-04-14':
+      case 'gpt-4.1-nano':
         return await generateAdCopyFinishingPrompt(liffAccessToken);
       case 'lp_draft_creation':
         return await generateLpDraftPrompt(liffAccessToken);
@@ -70,7 +70,7 @@ export class ModelHandlerService {
         return this.handleSemrushModel(userId, systemPrompt, userMessage);
       case 'ad_copy_creation':
         return this.handleAdCopyModel(userId, systemPrompt, userMessage);
-      case 'gpt-4.1-nano-2025-04-14':
+      case 'gpt-4.1-nano':
         return this.handleFinishingModel(userId, systemPrompt, userMessage);
       case 'lp_draft_creation':
         return this.handleLPDraftModel(userId, systemPrompt, userMessage);
@@ -178,7 +178,7 @@ export class ModelHandlerService {
         JSON.stringify(adItems),
         systemPrompt,
         [],
-        'gpt-4.1-nano-2025-04-14',
+        'gpt-4.1-nano',
         userMessage.trim(),
         searchResult
       );
@@ -316,7 +316,7 @@ export class ModelHandlerService {
       userId,
       systemPrompt,
       JSON.stringify(adItems),
-      'gpt-4.1-nano-2025-04-14',
+      'gpt-4.1-nano',
       userMessage.trim(),
       searchResult
     );
@@ -327,12 +327,7 @@ export class ModelHandlerService {
     systemPrompt: string,
     userMessage: string
   ): Promise<ChatResponse> {
-    return await chatService.startChat(
-      userId,
-      systemPrompt,
-      userMessage.trim(),
-      'gpt-4.1-nano-2025-04-14'
-    );
+    return await chatService.startChat(userId, systemPrompt, userMessage.trim(), 'gpt-4.1-nano');
   }
 
   private async handleFinishingModel(
@@ -340,12 +335,7 @@ export class ModelHandlerService {
     systemPrompt: string,
     userMessage: string
   ): Promise<ChatResponse> {
-    return await chatService.startChat(
-      userId,
-      systemPrompt,
-      userMessage.trim(),
-      'gpt-4.1-nano-2025-04-14'
-    );
+    return await chatService.startChat(userId, systemPrompt, userMessage.trim(), 'gpt-4.1-nano');
   }
 
   private async handleLPDraftModel(
@@ -381,7 +371,7 @@ export class ModelHandlerService {
         const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
 
         const config = MODEL_CONFIGS['lp_draft_creation'];
-        const actualModel = config ? config.actualModel : 'gpt-4.1-nano-2025-04-14';
+        const actualModel = config ? config.actualModel : 'gpt-4.1-nano';
 
         return await chatService.startChat(
           userId,
@@ -394,7 +384,7 @@ export class ModelHandlerService {
 
         // 最終フォールバック: 変数置換なし
         const config = MODEL_CONFIGS['lp_draft_creation'];
-        const actualModel = config ? config.actualModel : 'gpt-4.1-nano-2025-04-14';
+        const actualModel = config ? config.actualModel : 'gpt-4.1-nano';
 
         return await chatService.startChat(userId, systemPrompt, userMessage.trim(), actualModel);
       }

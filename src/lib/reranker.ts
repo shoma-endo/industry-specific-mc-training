@@ -34,11 +34,7 @@ export class OpenAIReranker {
     documents: string[],
     options: RerankOptions = {}
   ): Promise<RerankResult[]> {
-    const {
-      topK = 5,
-      temperature = 0.1,
-      model = 'gpt-4o-mini-2024-07-18'
-    } = options;
+    const { topK = 5, temperature = 0.1, model = 'gpt-4.1-nano' } = options;
 
     if (documents.length === 0) {
       return [];
@@ -46,7 +42,7 @@ export class OpenAIReranker {
 
     try {
       const prompt = this.buildRerankPrompt(query, documents);
-      
+
       const response = await this.openai.chat.completions.create({
         model,
         messages: [
@@ -62,16 +58,16 @@ export class OpenAIReranker {
             - 0.4-0.5: 弱い関連性
             - 0.0-0.3: 無関係または関連性が薄い
             
-            JSONで結果を返してください。`
+            JSONで結果を返してください。`,
           },
           {
             role: 'user',
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         temperature,
         max_tokens: 2000,
-        response_format: { type: 'json_object' }
+        response_format: { type: 'json_object' },
       });
 
       const result = response.choices[0]?.message?.content;
@@ -79,18 +75,19 @@ export class OpenAIReranker {
         throw new Error('リランク結果が空です');
       }
 
-      const scores = JSON.parse(result) as { scores: Array<{ document_id: number; score: number; reasoning: string }> };
+      const scores = JSON.parse(result) as {
+        scores: Array<{ document_id: number; score: number; reasoning: string }>;
+      };
       const rerankedResults = this.parseAndSort(documents, scores, topK);
-      
-      return rerankedResults;
 
+      return rerankedResults;
     } catch (error) {
       console.error('リランクエラー:', error);
       // フォールバック: 元の順序を保持
       return documents.slice(0, topK).map((doc, index) => ({
         document: doc,
         score: 0.5, // 中間値
-        originalIndex: index
+        originalIndex: index,
       }));
     }
   }
@@ -100,7 +97,7 @@ export class OpenAIReranker {
    */
   private buildRerankPrompt(query: string, documents: string[]): string {
     const docList = documents.map((doc, i) => `文書${i + 1}: ${doc}`).join('\n');
-    
+
     return `
 ## クエリ
 ${query}
@@ -145,7 +142,7 @@ ${docList}
             return {
               document,
               score: Math.max(0, Math.min(1, item.score || 0)),
-              originalIndex: docIndex
+              originalIndex: docIndex,
             };
           }
           return null;
@@ -155,14 +152,13 @@ ${docList}
         .slice(0, topK);
 
       return results;
-
     } catch (error) {
       console.error('結果パースエラー:', error);
       // フォールバック
       return documents.slice(0, topK).map((doc, index) => ({
         document: doc,
         score: 0.5,
-        originalIndex: index
+        originalIndex: index,
       }));
     }
   }
@@ -198,7 +194,7 @@ export class EmbeddingReranker {
       // クエリと文書のエンベディングを生成
       const [queryEmbedding, docEmbeddings] = await Promise.all([
         this.generateEmbedding(query),
-        this.generateEmbeddings(documents)
+        this.generateEmbeddings(documents),
       ]);
 
       // コサイン類似度を計算
@@ -209,7 +205,7 @@ export class EmbeddingReranker {
             return {
               document,
               score: this.cosineSimilarity(queryEmbedding, docEmb),
-              originalIndex: index
+              originalIndex: index,
             };
           }
           return null;
@@ -217,17 +213,14 @@ export class EmbeddingReranker {
         .filter((item): item is RerankResult => item !== null);
 
       // 類似度でソートしてトップKを返す
-      return similarities
-        .sort((a, b) => b.score - a.score)
-        .slice(0, topK);
-
+      return similarities.sort((a, b) => b.score - a.score).slice(0, topK);
     } catch (error) {
       console.error('エンベディングリランクエラー:', error);
       // フォールバック
       return documents.slice(0, topK).map((doc, index) => ({
         document: doc,
         score: 0.5,
-        originalIndex: index
+        originalIndex: index,
       }));
     }
   }
@@ -252,7 +245,7 @@ export class EmbeddingReranker {
     if (texts.length === 0) {
       return [];
     }
-    
+
     const response = await this.openai.embeddings.create({
       model: 'text-embedding-3-large',
       input: texts,
@@ -303,16 +296,12 @@ export class AdaptiveReranker {
   async rerank(
     query: string,
     documents: string[],
-    options: RerankOptions & { 
+    options: RerankOptions & {
       highPrecision?: boolean;
       maxDocuments?: number;
     } = {}
   ): Promise<RerankResult[]> {
-    const {
-      highPrecision = false,
-      maxDocuments = 10,
-      ...rerankOptions
-    } = options;
+    const { highPrecision = false, maxDocuments = 10, ...rerankOptions } = options;
 
     // 文書数が多い場合や高精度が不要な場合はエンベディングベース
     if (documents.length > maxDocuments || !highPrecision) {

@@ -28,7 +28,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     seed: 42, // 再現性向上
     top_p: 0.9, // Claude準拠
   },
-  'gpt-4.1-nano-2025-04-14': {
+  'gpt-4.1-nano': {
     maxTokens: 1500,
     temperature: 0.3, // Claude推奨値に調整
     actualModel: 'gpt-4.1-nano',

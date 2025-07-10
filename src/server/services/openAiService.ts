@@ -36,7 +36,7 @@ export const openAiService = {
    */
   async sendMessage(
     messages: ChatMessage[],
-    model: string = 'gpt-4o-mini-2024-07-18',
+    model: string = 'gpt-4.1-nano',
     temperature: number = 0.5,
     max_completion_tokens: number = 1000,
     logit_bias?: Record<string, number>
@@ -95,7 +95,7 @@ export const openAiService = {
   async startChat(
     systemPrompt: string,
     userMessage: string,
-    model: string = 'gpt-4.1-nano-2025-04-14',
+    model: string = 'gpt-4.1-nano',
     temperature: number = 0.5,
     maxTokens: number = 1000
   ): Promise<ChatResponse> {
@@ -124,7 +124,7 @@ export const openAiService = {
     messages: ChatMessage[],
     userMessage: string,
     systemPrompt: string,
-    model: string = 'gpt-4.1-nano-2025-04-14',
+    model: string = 'gpt-4.1-nano',
     temperature: number = 0.5,
     maxTokens: number = 1000
   ): Promise<ChatResponse> {
@@ -151,7 +151,7 @@ export const openAiService = {
     systemPrompt: string,
     userMessage: string,
     schema: JsonSchema,
-    model: string = 'gpt-4.1-nano-2025-04-14',
+    model: string = 'gpt-4.1-nano',
     options: {
       temperature?: number;
       maxTokens?: number;
@@ -222,7 +222,7 @@ export const openAiService = {
       complexity: 'simple' | 'medium' | 'complex';
       creativityLevel: 'low' | 'medium' | 'high';
     },
-    model: string = 'gpt-4.1-nano-2025-04-14'
+    model: string = 'gpt-4.1-nano'
   ): Promise<ChatResponse> {
     // コンテキストに応じて設定を調整
     const baseConfig = MODEL_CONFIGS[context.contentType] || MODEL_CONFIGS[model];
@@ -259,7 +259,7 @@ export const openAiService = {
     systemPrompt: string,
     userMessage: string,
     ragContext: string[],
-    model: string = 'gpt-4.1-nano-2025-04-14',
+    model: string = 'gpt-4.1-nano',
     options: {
       temperature?: number;
       maxTokens?: number;

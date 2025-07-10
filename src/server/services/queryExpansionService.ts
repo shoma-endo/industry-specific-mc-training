@@ -12,17 +12,19 @@ async function openaiEmbed(text: string): Promise<number[]> {
       input: text,
       dimensions: 1536,
     });
-    
+
     const embedding = response.data[0]?.embedding;
     if (!embedding || embedding.length === 0) {
       console.error('Empty embedding received for text:', text.substring(0, 100));
       throw new Error('Empty embedding received from OpenAI API');
     }
-    
+
     return embedding;
   } catch (error) {
     console.error('OpenAI embedding error:', error);
-    throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -59,7 +61,7 @@ export class QueryExpansionService {
 2. 関連クエリ2`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-nano',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 200,
@@ -85,22 +87,21 @@ export class QueryExpansionService {
    * 複数のクエリの埋め込みを生成し、マージ
    */
   static async generateMultiQueryEmbeddings(queries: string[]): Promise<{
-    embeddings: number[][],
-    mergedEmbedding: number[]
+    embeddings: number[][];
+    mergedEmbedding: number[];
   }> {
-    const embeddings = await Promise.all(
-      queries.map((query: string) => openaiEmbed(query))
-    );
+    const embeddings = await Promise.all(queries.map((query: string) => openaiEmbed(query)));
 
     // 平均ベクトルを計算
-    const mergedEmbedding = embeddings[0]?.map((_: number, index: number) => {
-      const sum = embeddings.reduce((acc: number, emb: number[]) => acc + (emb[index] || 0), 0);
-      return sum / embeddings.length;
-    }) || [];
+    const mergedEmbedding =
+      embeddings[0]?.map((_: number, index: number) => {
+        const sum = embeddings.reduce((acc: number, emb: number[]) => acc + (emb[index] || 0), 0);
+        return sum / embeddings.length;
+      }) || [];
 
     return {
       embeddings,
-      mergedEmbedding
+      mergedEmbedding,
     };
   }
 
@@ -117,14 +118,14 @@ export class QueryExpansionService {
 
     // 各クエリで検索実行
     const searchResults = await Promise.all(
-      allQueries.map((query: string, index: number) => 
+      allQueries.map((query: string, index: number) =>
         searchFunction(query, embeddings[index] || [])
       )
     );
 
     // 結果をマージし、重複を除去
     const mergedResults = new Map();
-    
+
     searchResults.forEach((results, queryIndex) => {
       results.forEach(result => {
         const key = result.id;
@@ -134,12 +135,15 @@ export class QueryExpansionService {
             content: result.chunk_text,
             score: result.combined_score || result.similarity || 0,
             query_sources: [queryIndex],
-            max_score: result.combined_score || result.similarity || 0
+            max_score: result.combined_score || result.similarity || 0,
           });
         } else {
           const existing = mergedResults.get(key)!;
           existing.query_sources.push(queryIndex);
-          existing.max_score = Math.max(existing.max_score, result.combined_score || result.similarity || 0);
+          existing.max_score = Math.max(
+            existing.max_score,
+            result.combined_score || result.similarity || 0
+          );
         }
       });
     });
