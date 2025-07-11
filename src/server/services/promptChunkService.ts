@@ -171,18 +171,13 @@ export class PromptChunkService {
    * テキストの埋め込みベクトルを生成
    */
   private static async generateEmbedding(text: string): Promise<number[]> {
-    try {
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-3-small', // 1536次元モデル（データベース定義に合わせる）
-        input: text,
-        dimensions: 1536, // テーブル定義に合わせる
-      });
+    const response = await openai.embeddings.create({
+      model: 'text-embedding-3-small', // 1536次元モデル（データベース定義に合わせる）
+      input: text,
+      dimensions: 1536, // テーブル定義に合わせる
+    });
 
-      return response.data[0]?.embedding || [];
-    } catch (error) {
-      console.error('埋め込み生成エラー:', error);
-      throw new Error('埋め込み生成に失敗しました');
-    }
+    return response.data[0]?.embedding || [];
   }
 
   /**

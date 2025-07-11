@@ -55,17 +55,13 @@ export const useLiff = (): UseLiffResult => {
       if (liff.isLoggedIn()) {
         setIsLoggedIn(true);
 
-        try {
-          const profileData = await liff.getProfile();
-          setProfile({
-            userId: profileData.userId,
-            displayName: profileData.displayName,
-            pictureUrl: profileData.pictureUrl || '',
-            statusMessage: profileData.statusMessage || '',
-          });
-        } catch (profileError) {
-          console.error('Failed to get profile:', profileError);
-        }
+        const profileData = await liff.getProfile();
+        setProfile({
+          userId: profileData.userId,
+          displayName: profileData.displayName,
+          pictureUrl: profileData.pictureUrl || '',
+          statusMessage: profileData.statusMessage || '',
+        });
       } else {
         if (!liff.isInClient()) {
           liff.login({ redirectUri: window.location.href });

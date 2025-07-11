@@ -6,26 +6,19 @@ const openai = new OpenAI({
 });
 
 async function openaiEmbed(text: string): Promise<number[]> {
-  try {
-    const response = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: text,
-      dimensions: 1536,
-    });
+  const response = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: text,
+    dimensions: 1536,
+  });
 
-    const embedding = response.data[0]?.embedding;
-    if (!embedding || embedding.length === 0) {
-      console.error('Empty embedding received for text:', text.substring(0, 100));
-      throw new Error('Empty embedding received from OpenAI API');
-    }
-
-    return embedding;
-  } catch (error) {
-    console.error('OpenAI embedding error:', error);
-    throw new Error(
-      `Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+  const embedding = response.data[0]?.embedding;
+  if (!embedding || embedding.length === 0) {
+    console.error('Empty embedding received for text:', text.substring(0, 100));
+    throw new Error('Empty embedding received from OpenAI API');
   }
+
+  return embedding;
 }
 
 interface PromptChunk {

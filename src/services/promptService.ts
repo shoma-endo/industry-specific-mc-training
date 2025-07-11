@@ -130,32 +130,27 @@ export class PromptService extends SupabaseService {
    * 新しいプロンプトテンプレートを作成
    */
   static async createTemplate(data: CreatePromptTemplateInput): Promise<PromptTemplate> {
-    try {
-      const service = new PromptService();
-      const now = new Date().toISOString();
+    const service = new PromptService();
+    const now = new Date().toISOString();
 
-      const { data: result, error } = await service.serviceRoleSupabase
-        .from('prompt_templates')
-        .insert({
-          ...data,
-          created_at: now,
-          updated_at: now,
-        })
-        .select()
-        .single();
+    const { data: result, error } = await service.serviceRoleSupabase
+      .from('prompt_templates')
+      .insert({
+        ...data,
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single();
 
-      if (error) {
-        throw new Error(`プロンプト作成エラー: ${error.message}`);
-      }
-
-      // 初期バージョンを履歴に保存
-      await this.saveVersion(result.id, data.content, 1, data.created_by, '初期作成');
-
-      return result;
-    } catch (error) {
-      console.error('プロンプト作成エラー:', error);
-      throw error;
+    if (error) {
+      throw new Error(`プロンプト作成エラー: ${error.message}`);
     }
+
+    // 初期バージョンを履歴に保存
+    await this.saveVersion(result.id, data.content, 1, data.created_by, '初期作成');
+
+    return result;
   }
 
   /**
@@ -165,77 +160,67 @@ export class PromptService extends SupabaseService {
     id: string,
     data: UpdatePromptTemplateInput
   ): Promise<PromptTemplate> {
-    try {
-      const service = new PromptService();
+    const service = new PromptService();
 
-      // 現在のバージョンを取得
-      const current = await this.getTemplateById(id);
-      if (!current) {
-        throw new Error('プロンプトが見つかりません');
-      }
-
-      // 内容に変更がある場合のみバージョンを上げる
-      const hasContentChange = data.content && data.content !== current.content;
-      const newVersion = hasContentChange ? current.version + 1 : current.version;
-
-      // バージョン履歴を保存（内容が変更された場合のみ）
-      if (hasContentChange && data.content) {
-        await this.saveVersion(
-          id,
-          current.content,
-          current.version,
-          data.updated_by,
-          data.change_summary || '内容を更新'
-        );
-      }
-
-      // メインテーブルを更新
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { change_summary, ...updateData } = data;
-      const { data: result, error } = await service.serviceRoleSupabase
-        .from('prompt_templates')
-        .update({
-          ...updateData,
-          version: newVersion,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(`プロンプト更新エラー: ${error.message}`);
-      }
-
-      return result;
-    } catch (error) {
-      console.error('プロンプト更新エラー:', error);
-      throw error;
+    // 現在のバージョンを取得
+    const current = await this.getTemplateById(id);
+    if (!current) {
+      throw new Error('プロンプトが見つかりません');
     }
+
+    // 内容に変更がある場合のみバージョンを上げる
+    const hasContentChange = data.content && data.content !== current.content;
+    const newVersion = hasContentChange ? current.version + 1 : current.version;
+
+    // バージョン履歴を保存（内容が変更された場合のみ）
+    if (hasContentChange && data.content) {
+      await this.saveVersion(
+        id,
+        current.content,
+        current.version,
+        data.updated_by,
+        data.change_summary || '内容を更新'
+      );
+    }
+
+    // メインテーブルを更新
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { change_summary, ...updateData } = data;
+    const { data: result, error } = await service.serviceRoleSupabase
+      .from('prompt_templates')
+      .update({
+        ...updateData,
+        version: newVersion,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`プロンプト更新エラー: ${error.message}`);
+    }
+
+    return result;
   }
 
   /**
    * プロンプトテンプレートを削除（論理削除）
    */
   static async deleteTemplate(id: string, updatedBy: string): Promise<void> {
-    try {
-      const service = new PromptService();
+    const service = new PromptService();
 
-      const { error } = await service.serviceRoleSupabase
-        .from('prompt_templates')
-        .update({
-          is_active: false,
-          updated_by: updatedBy,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
+    const { error } = await service.serviceRoleSupabase
+      .from('prompt_templates')
+      .update({
+        is_active: false,
+        updated_by: updatedBy,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
 
-      if (error) {
-        throw new Error(`プロンプト削除エラー: ${error.message}`);
-      }
-    } catch (error) {
-      console.error('プロンプト削除エラー:', error);
-      throw error;
+    if (error) {
+      throw new Error(`プロンプト削除エラー: ${error.message}`);
     }
   }
 
@@ -249,24 +234,19 @@ export class PromptService extends SupabaseService {
     createdBy: string,
     changeSummary?: string
   ): Promise<void> {
-    try {
-      const service = new PromptService();
+    const service = new PromptService();
 
-      const { error } = await service.serviceRoleSupabase.from('prompt_versions').insert({
-        template_id: templateId,
-        version,
-        content,
-        change_summary: changeSummary,
-        created_by: createdBy,
-        created_at: new Date().toISOString(),
-      });
+    const { error } = await service.serviceRoleSupabase.from('prompt_versions').insert({
+      template_id: templateId,
+      version,
+      content,
+      change_summary: changeSummary,
+      created_by: createdBy,
+      created_at: new Date().toISOString(),
+    });
 
-      if (error) {
-        throw new Error(`バージョン履歴保存エラー: ${error.message}`);
-      }
-    } catch (error) {
-      console.error('バージョン履歴保存エラー:', error);
-      throw error;
+    if (error) {
+      throw new Error(`バージョン履歴保存エラー: ${error.message}`);
     }
   }
 
@@ -343,15 +323,11 @@ export class PromptService extends SupabaseService {
     // 置換後に残っているプレースホルダも確認
     const unresolved = (result.match(/{{(\w+)}}/g) || []).map(v => v.replace(/[{}]/g, ''));
 
-    // デバッグログ（try-catch でログ失敗時の影響を最小化）
-    try {
-      console.log('[PromptService.replaceVariables] 変数置換', {
-        replaced: replacedKeys,
-        unresolved,
-      });
-    } catch {
-      /* noop */
-    }
+    // デバッグログ
+    console.log('[PromptService.replaceVariables] 変数置換', {
+      replaced: replacedKeys,
+      unresolved,
+    });
 
     return result;
   }

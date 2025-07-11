@@ -423,45 +423,40 @@ export class SupabaseService {
    * チャットセッションとそれに紐づくすべてのメッセージを削除
    */
   async deleteChatSession(sessionId: string, userId: string): Promise<void> {
+    // トランザクション的な削除を実行
+    // 1. セッションに紐づくメッセージを削除
+    const { error: messagesError } = await this.supabase
+      .from('chat_messages')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('user_id', userId);
+
+    if (messagesError) {
+      console.error('Failed to delete chat messages:', messagesError);
+      throw new Error('チャットメッセージの削除に失敗しました');
+    }
+
+    // 2. セッションに紐づく検索結果を削除（存在する場合）
     try {
-      // トランザクション的な削除を実行
-      // 1. セッションに紐づくメッセージを削除
-      const { error: messagesError } = await this.supabase
-        .from('chat_messages')
-        .delete()
-        .eq('session_id', sessionId)
-        .eq('user_id', userId);
+      await this.deleteSearchResultsBySessionId(sessionId, userId);
+    } catch (searchError) {
+      // 検索結果の削除に失敗してもチャットセッション削除は継続する
+      console.warn(
+        'Failed to delete search results, but continuing with session deletion:',
+        searchError
+      );
+    }
 
-      if (messagesError) {
-        console.error('Failed to delete chat messages:', messagesError);
-        throw new Error('チャットメッセージの削除に失敗しました');
-      }
+    // 3. セッション自体を削除
+    const { error: sessionError } = await this.supabase
+      .from('chat_sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('user_id', userId);
 
-      // 2. セッションに紐づく検索結果を削除（存在する場合）
-      try {
-        await this.deleteSearchResultsBySessionId(sessionId, userId);
-      } catch (searchError) {
-        // 検索結果の削除に失敗してもチャットセッション削除は継続する
-        console.warn(
-          'Failed to delete search results, but continuing with session deletion:',
-          searchError
-        );
-      }
-
-      // 3. セッション自体を削除
-      const { error: sessionError } = await this.supabase
-        .from('chat_sessions')
-        .delete()
-        .eq('id', sessionId)
-        .eq('user_id', userId);
-
-      if (sessionError) {
-        console.error('Failed to delete chat session:', sessionError);
-        throw new Error('チャットセッションの削除に失敗しました');
-      }
-    } catch (error) {
-      console.error('Error deleting chat session:', error);
-      throw error;
+    if (sessionError) {
+      console.error('Failed to delete chat session:', sessionError);
+      throw new Error('チャットセッションの削除に失敗しました');
     }
   }
 
