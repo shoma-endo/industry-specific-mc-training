@@ -4,7 +4,12 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
-import { startChatSchema, continueChatSchema, type StartChatInput, type ContinueChatInput } from './shared/validators';
+import {
+  startChatSchema,
+  continueChatSchema,
+  type StartChatInput,
+  type ContinueChatInput,
+} from './shared/validators';
 
 const modelHandler = new ModelHandlerService();
 
@@ -24,14 +29,14 @@ async function checkAuth(liffAccessToken: string) {
 export async function startChat(data: StartChatInput): Promise<ChatResponse> {
   try {
     const validatedData = startChatSchema.parse(data);
-    
+
     // 認証チェック
     const auth = await checkAuth(validatedData.liffAccessToken);
     if (auth.isError) {
-      return { 
-        message: '', 
-        error: auth.error, 
-        requiresSubscription: auth.requiresSubscription 
+      return {
+        message: '',
+        error: auth.error,
+        requiresSubscription: auth.requiresSubscription,
       };
     }
 
@@ -50,14 +55,14 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
 export async function continueChat(data: ContinueChatInput): Promise<ChatResponse> {
   try {
     const validatedData = continueChatSchema.parse(data);
-    
+
     // 認証チェック
     const auth = await checkAuth(validatedData.liffAccessToken);
     if (auth.isError) {
-      return { 
-        message: '', 
-        error: auth.error, 
-        requiresSubscription: auth.requiresSubscription 
+      return {
+        message: '',
+        error: auth.error,
+        requiresSubscription: auth.requiresSubscription,
       };
     }
 
@@ -96,15 +101,22 @@ export async function deleteChatSession(sessionId: string, liffAccessToken: stri
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+
   try {
     await chatService.deleteChatSession(sessionId, auth.userId);
     return { success: true, error: null };
   } catch (error) {
     console.error('Failed to delete chat session:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'チャットセッションの削除に失敗しました' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'チャットセッションの削除に失敗しました',
     };
   }
 }
+
+// === Server Action aliases (for client-side import) ===
+export const startChatSA = startChat;
+export const continueChatSA = continueChat;
+export const getChatSessionsSA = getChatSessions;
+export const getSessionMessagesSA = getSessionMessages;
+export const deleteChatSessionSA = deleteChatSession;

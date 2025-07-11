@@ -17,6 +17,13 @@ export class SupabaseService {
   }
 
   /**
+   * Supabaseクライアントを取得（サブクラスからのアクセス用）
+   */
+  getClient(): SupabaseClient {
+    return this.supabase;
+  }
+
+  /**
    * ユーザープロフィールを保存または更新
    */
   async saveUserProfile(

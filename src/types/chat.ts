@@ -130,6 +130,26 @@ export interface OpenAIResponse {
 }
 
 /**
+ * Server Component用の簡潔なChatMessage型
+ */
+export interface ServerChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  created_at: number;
+}
+
+/**
+ * Server Component用のChatSession型（RPCでメッセージを含む）
+ */
+export interface ServerChatSession {
+  id: string;
+  title: string;
+  last_message_at: number;
+  messages?: ServerChatMessage[]; // RPC で埋め込む
+}
+
+/**
  * Google検索結果のデータベースモデル
  */
 export type DbSearchResult = {

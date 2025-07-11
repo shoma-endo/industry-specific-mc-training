@@ -4,6 +4,13 @@ export const ERROR_MESSAGES = {
   ad_not_found: 'この検索キーワードでは広告情報が見つかりませんでした。',
 };
 
+// Feature Flags
+export const FEATURE_FLAGS = {
+  USE_RPC_V2: process.env.FEATURE_RPC_V2 === 'true',
+  USE_SERVER_COMPONENTS: process.env.FEATURE_SERVER_COMPONENTS === 'true',
+  USE_DYNAMIC_IMPORTS: process.env.FEATURE_DYNAMIC_IMPORTS === 'true',
+};
+
 // AI モデル設定
 interface ModelConfig {
   maxTokens: number;
