@@ -186,48 +186,34 @@ export default function ChatClient() {
     checkSubscription();
   }, [isLoggedIn, getAccessToken]);
 
-  // セッション一覧を取得
-  const fetchSessions = useCallback(async () => {
-    if (!isLoggedIn) return;
-
-    setIsSessionsLoading(true);
-
-    try {
-      const liffAccessToken = await getAccessToken();
-      if (!liffAccessToken) {
-        console.error('LINEアクセストークンが取得できません');
-        return;
-      }
-
-      const result = await getChatSessions(liffAccessToken);
-      if (result.error) {
-        console.error(result.error);
-        return;
-      }
-
-      if (result.sessions) {
-        const formattedSessions: Session[] = result.sessions.map(session => ({
-          id: session.id,
-          title:
-            session.title ||
-            `新しい会話 ${new Date(session.lastMessageAt || session.createdAt).toLocaleDateString()}`,
-          updatedAt: new Date(session.lastMessageAt || session.createdAt),
-        }));
-        setSessions(formattedSessions);
-      }
-    } catch (error) {
-      console.error('Failed to fetch chat sessions:', error);
-    } finally {
-      setIsSessionsLoading(false);
-    }
-  }, [isLoggedIn, getAccessToken]);
-
   // セッション一覧を初期ロード
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchSessions();
-    }
-  }, [isLoggedIn, fetchSessions]);
+    if (!isLoggedIn) return;
+
+    const loadSessions = async () => {
+      setIsSessionsLoading(true);
+      try {
+        const liffAccessToken = await getAccessToken();
+        if (!liffAccessToken) return;
+
+        const result = await getChatSessions(liffAccessToken);
+        if (result.error) return;
+
+        if (result.sessions) {
+          const formattedSessions: Session[] = result.sessions.map(session => ({
+            id: session.id,
+            title: session.title,
+            updatedAt: new Date(session.lastMessageAt || session.createdAt),
+          }));
+          setSessions(formattedSessions);
+        }
+      } finally {
+        setIsSessionsLoading(false);
+      }
+    };
+
+    loadSessions();
+  }, [isLoggedIn, getAccessToken]);
 
   // ユーザーのスクロール操作を検出
   const handleUserScroll = useCallback(() => {
@@ -401,31 +387,39 @@ export default function ChatClient() {
       const liffAccessToken = await getAccessToken();
       const recentMessages = messages.slice(-MAX_MESSAGES);
 
-      const response =
-        messages.length === 0 || !sessionId
-          ? await startChat({
-              userMessage: input,
-              model: selectedModel,
-              liffAccessToken,
-            })
-          : await continueChat({
-              sessionId,
-              messages: [...recentMessages, userMessage].map(msg => ({
-                role: msg.role,
-                content: msg.content,
-              })),
-              userMessage: input,
-              model: selectedModel,
-              liffAccessToken,
-            });
+      const isNewChat = messages.length === 0 || !sessionId;
+      const response = isNewChat
+        ? await startChat({
+            userMessage: input,
+            model: selectedModel,
+            liffAccessToken,
+          })
+        : await continueChat({
+            sessionId,
+            messages: [...recentMessages, userMessage].map(msg => ({
+              role: msg.role,
+              content: msg.content,
+            })),
+            userMessage: input,
+            model: selectedModel,
+            liffAccessToken,
+          });
 
-      if (response.sessionId && !sessionId) {
+      // 新しいチャット開始時にローカルでセッション一覧を更新
+      if (isNewChat && response.sessionId) {
         setSessionId(response.sessionId);
         if (sessionListRef.current) {
           setPreservedScrollTop(sessionListRef.current.scrollTop);
           setShouldPreserveScroll(true);
         }
-        fetchSessions();
+
+        // API再取得ではなく、ローカルで新しいセッションを追加
+        const newSession: Session = {
+          id: response.sessionId,
+          title: input.slice(0, 30) + (input.length > 30 ? '...' : ''),
+          updatedAt: new Date(),
+        };
+        setSessions(prev => [newSession, ...prev]);
       }
 
       if (response.error) {
