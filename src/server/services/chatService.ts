@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { openAiService, ChatResponse } from './openAiService';
+import { llmChat } from './llmService';
 import {
   ChatMessage,
   ChatSession,
@@ -14,6 +14,12 @@ import {
 } from '@/types/chat';
 import { SupabaseService } from './supabaseService';
 import { MODEL_CONFIGS, FEATURE_FLAGS } from '@/lib/constants';
+
+interface ChatResponse {
+  message: string;
+  error?: string;
+  requiresSubscription?: boolean;
+}
 
 class ChatService {
   private supabaseService: SupabaseService;
@@ -43,21 +49,25 @@ class ChatService {
       let userMessageString: string;
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
-        const config = model ? MODEL_CONFIGS[model] : null;
-        const actualModel = config ? config.actualModel : model || 'gpt-4.1-nano';
-        const temperature = config ? config.temperature : 0.5;
-        const maxTokens = config ? config.maxTokens : 1000;
-
-        aiResponse = await openAiService.startChat(
-          systemPrompt,
-          userMessage,
-          actualModel,
-          temperature,
-          maxTokens
-        );
-
-        if (aiResponse.error) {
-          return aiResponse;
+        const config = MODEL_CONFIGS[model ?? 'gpt-4.1-nano'] ?? MODEL_CONFIGS['gpt-4.1-nano']!;
+        const providerKey = config.provider;
+        const llmModel = config.actualModel;
+        
+        try {
+          const aiReply = await llmChat(
+            providerKey,
+            llmModel,
+            [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userMessage }
+            ],
+            { temperature: config.temperature, maxTokens: config.maxTokens }
+          );
+          
+          aiResponse = { message: aiReply };
+        } catch (error) {
+          console.error('LLM Chat error:', error);
+          return { message: '', error: 'AI通信に失敗しました' };
         }
       } else {
         userMessageString = userMessage[0]!;
@@ -140,22 +150,28 @@ class ChatService {
       let userMessageString: string;
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
-        const config = model ? MODEL_CONFIGS[model] : null;
-        const actualModel = config ? config.actualModel : model || 'gpt-4.1-nano';
-        const temperature = config ? config.temperature : 0.5;
-        const maxTokens = config ? config.maxTokens : 1000;
-
-        aiResponse = await openAiService.continueChat(
-          messages,
-          userMessage,
-          systemPrompt,
-          actualModel,
-          temperature,
-          maxTokens
-        );
-
-        if (aiResponse.error) {
-          return aiResponse;
+        const config = MODEL_CONFIGS[model ?? 'gpt-4.1-nano'] ?? MODEL_CONFIGS['gpt-4.1-nano']!;
+        const providerKey = config.provider;
+        const llmModel = config.actualModel;
+        
+        try {
+          const llmMessages = [
+            { role: 'system' as const, content: systemPrompt },
+            ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+            { role: 'user' as const, content: userMessage }
+          ];
+          
+          const aiReply = await llmChat(
+            providerKey,
+            llmModel,
+            llmMessages,
+            { temperature: config.temperature, maxTokens: config.maxTokens }
+          );
+          
+          aiResponse = { message: aiReply };
+        } catch (error) {
+          console.error('LLM Chat error:', error);
+          return { message: '', error: 'AI通信に失敗しました' };
         }
       } else {
         userMessageString = userMessage[0]!;
