@@ -185,13 +185,28 @@ export class ModelHandlerService {
     } else if (model === 'lp_draft_creation') {
       // RAG対応: LP継続生成でもRAG機能を使用
       try {
-        const ragSystemPrompt = await PromptRetrievalService.buildRagSystemMessage(
-          'lp_draft_creation',
-          userMessage.trim()
-        );
+        // 高速モードフラグ: 短いクエリや一般的なクエリは高速モード
+        const fastMode = userMessage.length < 50 || 
+          ['お願いします', '事業者', 'LP作成してください', 'LP'].some(q =>
+            userMessage.toLowerCase().includes(q.toLowerCase())
+          );
+
+        if (fastMode) {
+          console.log('[Fast Mode] 高速モードでLP継続生成を実行');
+        }
+
+        // 並列処理化: RAGシステムメッセージ構築と事業者情報取得を同時実行
+        const [ragSystemPrompt, variables] = await Promise.all([
+          PromptRetrievalService.buildRagSystemMessage(
+            'lp_draft_creation',
+            userMessage.trim(),
+            undefined,
+            { skipQueryOptimization: fastMode }
+          ),
+          BriefService.getVariablesByUserId(userId)
+        ]);
 
         // 事業者情報による変数置換
-        const variables = await BriefService.getVariablesByUserId(userId);
         const finalSystemPrompt = PromptService.replaceVariables(ragSystemPrompt, variables);
 
         const validMessages = messages.map(msg => ({
@@ -210,42 +225,23 @@ export class ModelHandlerService {
       } catch (error) {
         console.error('RAG LP継続生成エラー:', error);
 
-        // フォールバック: 従来のシステムプロンプトを使用
-        try {
-          const variables = await BriefService.getVariablesByUserId(userId);
-          const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
+        // 単一のフォールバック処理に簡素化
+        const variables = await BriefService.getVariablesByUserId(userId).catch(() => ({}));
+        const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
 
-          const validMessages = messages.map(msg => ({
-            role: msg.role as 'user' | 'assistant' | 'system',
-            content: msg.content,
-          }));
+        const validMessages = messages.map(msg => ({
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: msg.content,
+        }));
 
-          return await chatService.continueChat(
-            userId,
-            sessionId,
-            userMessage,
-            finalSystemPrompt,
-            validMessages,
-            'lp_draft_creation'
-          );
-        } catch (fallbackError) {
-          console.error('継続フォールバック処理エラー:', fallbackError);
-
-          // 最終フォールバック: 変数置換なし
-          const validMessages = messages.map(msg => ({
-            role: msg.role as 'user' | 'assistant' | 'system',
-            content: msg.content,
-          }));
-
-          return await chatService.continueChat(
-            userId,
-            sessionId,
-            userMessage,
-            systemPrompt,
-            validMessages,
-            'lp_draft_creation'
-          );
-        }
+        return await chatService.continueChat(
+          userId,
+          sessionId,
+          userMessage,
+          finalSystemPrompt,
+          validMessages,
+          'lp_draft_creation'
+        );
       }
     } else {
       return await chatService.continueChat(
@@ -344,14 +340,28 @@ export class ModelHandlerService {
     userMessage: string
   ): Promise<ChatResponse> {
     try {
-      // RAG対応: プロンプトチャンクから関連情報を取得してシステムメッセージを構築
-      const ragSystemPrompt = await PromptRetrievalService.buildRagSystemMessage(
-        'lp_draft_creation',
-        userMessage.trim()
-      );
+      // 高速モードフラグ: 短いクエリや一般的なクエリは高速モード
+      const fastMode = userMessage.length < 50 || 
+        ['お願いします', '事業者', 'LP作成してください', 'LP'].some(q =>
+          userMessage.toLowerCase().includes(q.toLowerCase())
+        );
+
+      if (fastMode) {
+        console.log('[Fast Mode] 高速モードでLP生成を実行');
+      }
+
+      // 並列処理化: RAGシステムメッセージ構築と事業者情報取得を同時実行
+      const [ragSystemPrompt, variables] = await Promise.all([
+        PromptRetrievalService.buildRagSystemMessage(
+          'lp_draft_creation',
+          userMessage.trim(),
+          undefined,
+          { skipQueryOptimization: fastMode }
+        ),
+        BriefService.getVariablesByUserId(userId)
+      ]);
 
       // 事業者情報による変数置換
-      const variables = await BriefService.getVariablesByUserId(userId);
       const finalSystemPrompt = PromptService.replaceVariables(ragSystemPrompt, variables);
 
       // チャットサービス経由でセッション保存とRAG版生成
@@ -365,23 +375,16 @@ export class ModelHandlerService {
     } catch (error) {
       console.error('RAG LP生成エラー:', error);
 
-      // フォールバック: 従来のシステムプロンプトを使用
-      try {
-        const variables = await BriefService.getVariablesByUserId(userId);
-        const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
+      // 単一のフォールバック処理に簡素化
+      const variables = await BriefService.getVariablesByUserId(userId).catch(() => ({}));
+      const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
 
-        return await chatService.startChat(
-          userId,
-          finalSystemPrompt,
-          userMessage.trim(),
-          'lp_draft_creation'
-        );
-      } catch (fallbackError) {
-        console.error('フォールバック処理エラー:', fallbackError);
-
-        // 最終フォールバック: 変数置換なし
-        return await chatService.startChat(userId, systemPrompt, userMessage.trim(), 'lp_draft_creation');
-      }
+      return await chatService.startChat(
+        userId,
+        finalSystemPrompt,
+        userMessage.trim(),
+        'lp_draft_creation'
+      );
     }
   }
 

@@ -5,12 +5,25 @@ import { generateText } from 'ai';
 import { env } from '@/env';
 import { OpenAIReranker } from '@/lib/reranker'; // リランカーをインポート
 import { QueryExpansionService } from './queryExpansionService';
+import { cache } from 'react';
 
 const openaiProvider = createOpenAI({
   apiKey: env.OPENAI_API_KEY,
 });
 
 export class PromptRetrievalService {
+  /**
+   * キャッシュ化されたチャンク取得関数
+   * 同じクエリに対しては同一リクエスト中で結果を再利用
+   */
+  static getCachedChunks = cache(async (
+    templateName: string,
+    queryText: string,
+    limit: number = 6
+  ): Promise<string[]> => {
+    return this.getChunks(templateName, queryText, limit);
+  });
+
   /**
    * 指定されたプロンプトテンプレートから関連チャンクを取得（リランキング対応）
    */
@@ -20,8 +33,8 @@ export class PromptRetrievalService {
     limit: number = 8 // 最終的に必要なチャンク数
   ): Promise<string[]> {
     try {
-      const reranker = new OpenAIReranker();
-      const initialRetrieveCount = 50; // カスケード検索：より多くの候補を取得
+      // 初期取得数を最適化（50 → 20に削減）
+      const initialRetrieveCount = Math.max(20, limit * 2);
 
       // テンプレートIDを取得
       const template = await PromptService.getTemplateByName(templateName);
@@ -30,7 +43,7 @@ export class PromptRetrievalService {
         return [];
       }
 
-      // 1. 初期検索で関連性が高そうなチャンクを多めに取得
+      // 1. 初期検索で関連性が高そうなチャンクを取得
       const initialChunks = await PromptChunkService.searchSimilarChunks(
         template.id,
         queryText,
@@ -42,7 +55,15 @@ export class PromptRetrievalService {
         return [];
       }
 
-      // 2. OpenAIRerankerで再ランキング
+      // 2. リランキング処理を条件付きで実行（軽量化）
+      if (chunkTexts.length <= limit) {
+        // 取得チャンク数が必要数以下の場合はリランキングをスキップ
+        console.log(`[Reranker Skip] チャンク数${chunkTexts.length}件、リランキングをスキップします`);
+        return chunkTexts;
+      }
+
+      // 3. OpenAIRerankerで再ランキング（必要な場合のみ）
+      const reranker = new OpenAIReranker();
       console.log(`[Reranker] ${chunkTexts.length}件のチャンクをリランキングします...`);
       const rerankedResults = await reranker.rerank(queryText, chunkTexts, {
         topK: limit, // 最終的に必要な数だけ選択
@@ -53,7 +74,7 @@ export class PromptRetrievalService {
         rerankedResults.map(r => r.score)
       );
 
-      // 3. スコアの高いチャンクテキストのみを抽出
+      // 4. スコアの高いチャンクテキストのみを抽出
       return rerankedResults.map(result => result.document);
     } catch (error) {
       console.error('RAGチャンク取得・リランクエラー:', error);
@@ -76,8 +97,8 @@ export class PromptRetrievalService {
     limit: number = 8
   ): Promise<string[]> {
     try {
-      const reranker = new OpenAIReranker();
-      const initialRetrieveCount = 50;
+      // 初期取得数を最適化（50 → 20に削減）
+      const initialRetrieveCount = Math.max(20, limit * 2);
 
       // テンプレートIDを取得
       const template = await PromptService.getTemplateByName(templateName);
@@ -113,7 +134,15 @@ export class PromptRetrievalService {
         return [];
       }
 
-      // 4. OpenAIRerankerで再ランキング
+      // 4. リランキング処理を条件付きで実行（軽量化）
+      if (chunkTexts.length <= limit) {
+        // 取得チャンク数が必要数以下の場合はリランキングをスキップ
+        console.log(`[MultiQuery Reranker Skip] チャンク数${chunkTexts.length}件、リランキングをスキップします`);
+        return chunkTexts;
+      }
+
+      // 5. OpenAIRerankerで再ランキング（必要な場合のみ）
+      const reranker = new OpenAIReranker();
       console.log(`[MultiQuery Reranker] ${chunkTexts.length}件のチャンクをリランキングします...`);
       const rerankedResults = await reranker.rerank(queryText, chunkTexts, {
         topK: limit,
@@ -138,7 +167,8 @@ export class PromptRetrievalService {
   static async buildRagSystemMessage(
     templateName: string,
     userQuery: string,
-    adHeadlines?: string[]
+    adHeadlines?: string[],
+    options: { skipQueryOptimization?: boolean } = {}
   ): Promise<string> {
     try {
       let retrievalQuery = userQuery;
@@ -150,11 +180,16 @@ export class PromptRetrievalService {
         );
 
         if (isGeneric) {
-          try {
-            // HTTP fetchを廃止し、ここで直接 generateText を呼び出す
-            const { text } = await generateText({
-              model: openaiProvider('gpt-4.1-nano'),
-              prompt: `あなたはRAGシステムの検索クエリ最適化専門家です。
+          // 高速化オプション: クエリ最適化をスキップ
+          if (options.skipQueryOptimization) {
+            console.log('[Fast Mode] クエリ最適化をスキップ、事前定義クエリを使用');
+            retrievalQuery = 'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
+          } else {
+            try {
+              // HTTP fetchを廃止し、ここで直接 generateText を呼び出す
+              const { text } = await generateText({
+                model: openaiProvider('gpt-4.1-nano'),
+                prompt: `あなたはRAGシステムの検索クエリ最適化専門家です。
 
 ユーザーの入力「${userQuery}」を、ベクトル検索で最高のパフォーマンスを発揮できるように、具体的で意図が明確な検索クエリに変換してください。
 
@@ -165,14 +200,15 @@ export class PromptRetrievalService {
 - 全体の出力形式、トンマナ
 
 最適化された検索クエリのみを返してください。説明は不要です。`,
-              maxTokens: 200,
-              temperature: 0.3,
-            });
-            retrievalQuery = text.trim();
-          } catch (error) {
-            console.error('クエリ生成(generateText)でエラー:', error);
-            // エラー時は固定文字列にフォールバック
-            retrievalQuery = 'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
+                maxTokens: 200,
+                temperature: 0.3,
+              });
+              retrievalQuery = text.trim();
+            } catch (error) {
+              console.error('クエリ生成(generateText)でエラー:', error);
+              // エラー時は固定文字列にフォールバック
+              retrievalQuery = 'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
+            }
           }
         }
       }
@@ -190,8 +226,8 @@ export class PromptRetrievalService {
       // 旧テンプレートを取得（詳細フォーマット指示を保持）
       const originalTemplate = (await PromptService.getTemplateByName(templateName))?.content ?? '';
 
-      // 関連チャンクを取得
-      const chunks = await this.getChunks(templateName, retrievalQuery, 8);
+      // 関連チャンクを取得（キャッシュ化、件数を6に最適化）
+      const chunks = await this.getCachedChunks(templateName, retrievalQuery, 6);
 
       // ===== デバッグログ =====
       try {
