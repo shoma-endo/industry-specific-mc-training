@@ -327,7 +327,7 @@ export class ModelHandlerService {
     systemPrompt: string,
     userMessage: string
   ): Promise<ChatResponse> {
-    return await chatService.startChat(userId, systemPrompt, userMessage.trim(), 'gpt-4.1-nano');
+    return await chatService.startChat(userId, systemPrompt, userMessage.trim(), 'ad_copy_creation');
   }
 
   private async handleFinishingModel(
@@ -370,23 +370,17 @@ export class ModelHandlerService {
         const variables = await BriefService.getVariablesByUserId(userId);
         const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
 
-        const config = MODEL_CONFIGS['lp_draft_creation'];
-        const actualModel = config ? config.actualModel : 'gpt-4.1-nano';
-
         return await chatService.startChat(
           userId,
           finalSystemPrompt,
           userMessage.trim(),
-          actualModel
+          'lp_draft_creation'
         );
       } catch (fallbackError) {
         console.error('フォールバック処理エラー:', fallbackError);
 
         // 最終フォールバック: 変数置換なし
-        const config = MODEL_CONFIGS['lp_draft_creation'];
-        const actualModel = config ? config.actualModel : 'gpt-4.1-nano';
-
-        return await chatService.startChat(userId, systemPrompt, userMessage.trim(), actualModel);
+        return await chatService.startChat(userId, systemPrompt, userMessage.trim(), 'lp_draft_creation');
       }
     }
   }

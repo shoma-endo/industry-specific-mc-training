@@ -13,6 +13,7 @@ export const FEATURE_FLAGS = {
 
 // AI モデル設定
 interface ModelConfig {
+  provider: 'openai' | 'anthropic';
   maxTokens: number;
   temperature: number;
   actualModel: string;
@@ -22,6 +23,7 @@ interface ModelConfig {
 
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': {
+    provider: 'openai',
     maxTokens: 1500,
     temperature: 0.3, // Claude推奨値に調整
     actualModel: 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2',
@@ -29,23 +31,26 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     top_p: 0.95, // Claude準拠
   },
   ad_copy_creation: {
+    provider: 'anthropic',
     maxTokens: 1500,
-    temperature: 0.3, // Claude推奨値に調整
-    actualModel: 'gpt-4.1-nano',
-    seed: 42, // 再現性向上
-    top_p: 0.9, // Claude準拠
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.9,
   },
   'gpt-4.1-nano': {
+    provider: 'anthropic',
     maxTokens: 1500,
-    temperature: 0.3, // Claude推奨値に調整
-    actualModel: 'gpt-4.1-nano',
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
     seed: 42,
     top_p: 0.9,
   },
   lp_draft_creation: {
-    maxTokens: 7000, // 指摘に基づき、十分なトークンを確保
-    temperature: 0.3, // OpenAI Cookbook推奨値
-    actualModel: 'gpt-4.1-mini', // 指示順守率の高いモデルに切り替え
+    provider: 'anthropic',
+    maxTokens: 8000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
     seed: 42,
     top_p: 0.1,
   },
