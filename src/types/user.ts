@@ -23,9 +23,6 @@ export interface User {
   stripeCustomerId?: string | undefined; // StripeカスタマーID
   stripeSubscriptionId?: string | undefined; // Stripeサブスクリプション ID
 
-  // Google Search API利用回数
-  googleSearchCount: number; // 月間Google Search API利用回数
-
   // 権限管理
   role: UserRole; // ユーザーロール（user: 一般ユーザー, admin: 管理者）
 }
@@ -58,7 +55,7 @@ export interface DbUser {
   line_status_message?: string | undefined;
   stripe_customer_id?: string | undefined;
   stripe_subscription_id?: string | undefined;
-  google_search_count: number;
+
   role: UserRole;
 }
 
@@ -76,7 +73,7 @@ export function toDbUser(user: User): DbUser {
     line_status_message: user.lineStatusMessage,
     stripe_customer_id: user.stripeCustomerId,
     stripe_subscription_id: user.stripeSubscriptionId,
-    google_search_count: user.googleSearchCount,
+
     role: user.role,
   };
 }
@@ -92,7 +89,7 @@ export function toUser(dbUser: DbUser): User {
     lineStatusMessage: dbUser.line_status_message,
     stripeCustomerId: dbUser.stripe_customer_id,
     stripeSubscriptionId: dbUser.stripe_subscription_id,
-    googleSearchCount: dbUser.google_search_count,
+
     role: dbUser.role,
   };
 }

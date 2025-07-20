@@ -10,37 +10,25 @@ export type AuthMiddlewareResult = {
   userId: string;
   requiresSubscription: boolean;
   subscription: Stripe.Subscription | null;
-  user?: { id: string; googleSearchCount: number };
+  user?: { id: string };
   error?: string;
 };
-
-// ダミーのアクセストークンリスト
-const DUMMY_ACCESS_TOKENS = ['dummy-token', 'dummy-token-for-auth-check'];
 
 /**
  * LINE認証とサブスクリプションチェックを行うミドルウェア
  */
-export const authMiddleware = async (
+export async function authMiddleware(
   liffAccessToken?: string,
   refreshTokenValue?: string
-): Promise<AuthMiddlewareResult> => {
+): Promise<AuthMiddlewareResult> {
   // ★★★ 開発時：特定のダミートークンの場合は検証をスキップ ★★★
-  if (
-    process.env.NODE_ENV === 'development' &&
-    liffAccessToken &&
-    DUMMY_ACCESS_TOKENS.includes(liffAccessToken)
-  ) {
-    console.warn(
-      `[Auth Middleware] Development mode: Skipping LIFF token verification for dummy token: ${liffAccessToken}`
-    );
-    const dummyLineUserId = 'dev-dummy-line-id';
-    const dummyAppUserId = 'dev-dummy-app-user-id';
+  if (process.env.NODE_ENV === 'development' && liffAccessToken === 'dummy-token') {
     return {
-      lineUserId: dummyLineUserId,
-      userId: dummyAppUserId,
+      lineUserId: 'dummy-line-user-id',
+      userId: 'dummy-app-user-id',
       requiresSubscription: false,
       subscription: null,
-      user: { id: dummyAppUserId, googleSearchCount: 0 },
+      user: { id: 'dummy-app-user-id' },
     };
   }
   // ★★★ ここまで ★★★
@@ -120,7 +108,7 @@ export const authMiddleware = async (
       userId: user.id,
       requiresSubscription: false,
       subscription: actualSubscription,
-      user: { id: user.id, googleSearchCount: user.googleSearchCount },
+      user: { id: user.id },
     };
   } catch (error) {
     console.error('[Auth Middleware] Error:', error);
@@ -140,4 +128,4 @@ export const authMiddleware = async (
       subscription: null,
     };
   }
-};
+}

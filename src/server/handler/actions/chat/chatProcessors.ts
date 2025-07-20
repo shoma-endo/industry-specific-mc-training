@@ -1,8 +1,3 @@
-import { ChatMessage } from '@/server/services/openAiService';
-import { googleSearchAction } from '@/server/handler/actions/googleSearch.actions';
-import { openAiService } from '@/server/services/openAiService';
-import { GOOGLE_SEARCH_CATEGORIZATION_PROMPT } from '@/lib/prompts';
-
 export class ChatProcessorService {
   extractKeywordSections(text: string): { immediate: string[]; later: string[] } {
     const extractSection = (source: string | undefined): string[] =>
@@ -30,54 +25,6 @@ export class ChatProcessorService {
     }
 
     return { immediate, later };
-  }
-
-  async generateAIResponsesFromTitles(
-    input: { query: string; searchResult: string }[]
-  ): Promise<{ query: string; aiMessage: string }[]> {
-    const tasks = input.map(async ({ query, searchResult }) => {
-      const messages: ChatMessage[] = [
-        {
-          role: 'system',
-          content: GOOGLE_SEARCH_CATEGORIZATION_PROMPT,
-        },
-        {
-          role: 'user',
-          content: `キーワード【${query}】\n検索結果【${searchResult}】`,
-        },
-      ];
-
-      try {
-        const aiResponse = await openAiService.sendMessage(messages, 'gpt-4.1-nano');
-        return { query, aiMessage: aiResponse.message || '' };
-      } catch (error) {
-        console.error(`AI処理に失敗しました (query: "${query}"):`, error);
-        return { query, aiMessage: '' };
-      }
-    });
-
-    return Promise.all(tasks);
-  }
-
-  async handleGoogleSearch(
-    keywords: string[],
-    token: string
-  ): Promise<{ query: string; searchResult: string }[]> {
-    const searchPromises = keywords.map(async query => {
-      try {
-        const searchResultData = await googleSearchAction({ liffAccessToken: token, query });
-        const searchResult = searchResultData.items
-          .map(item => `タイトル: ${item.title}\nスニペット: ${item.snippet}`)
-          .join('\n');
-        return { query, searchResult };
-      } catch (error) {
-        console.error(`Critical error searching for "${query}":`, error);
-        return { query, searchResult: '' };
-      }
-    });
-
-    const resultsArray = await Promise.all(searchPromises);
-    return resultsArray;
   }
 
   parseAdItems(input: string) {

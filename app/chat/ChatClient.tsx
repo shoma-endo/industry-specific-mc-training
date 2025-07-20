@@ -42,7 +42,6 @@ const AVAILABLE_MODELS = {
   ad_copy_creation: '広告文作成（Claude）',
   'gpt-4.1-nano': '広告文仕上げ（Claude）',
   lp_draft_creation: 'LPドラフト作成（Claude）',
-  // 'google_search': 'Google検索', 一旦使わなくなったのでコメントアウト
 };
 
 const MAX_MESSAGES = 10;

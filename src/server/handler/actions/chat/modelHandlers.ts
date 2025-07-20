@@ -63,9 +63,9 @@ export class ModelHandlerService {
 
     switch (model) {
       case 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2':
-        return this.handleFTModel(userId, systemPrompt, userMessage, model, liffAccessToken);
+        return this.handleFTModel(userId, systemPrompt, userMessage, model);
       case 'rag_keyword_classifier':
-        return this.handleRAGModel(userId, systemPrompt, userMessage, liffAccessToken);
+        return this.handleRAGModel(userId, systemPrompt, userMessage);
       case 'semrush_search':
         return this.handleSemrushModel(userId, systemPrompt, userMessage);
       case 'ad_copy_creation':
@@ -112,15 +112,10 @@ export class ModelHandlerService {
         return { message: result.message, error: '', requiresSubscription: false };
       }
 
-      const getSearchResults = await this.processor.handleGoogleSearch(immediate, liffAccessToken);
-      const aiResponses = await this.processor.generateAIResponsesFromTitles(getSearchResults);
-      const falseQueries = this.extractFalseQueries(aiResponses);
-      const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
-
       return await chatService.continueChat(
         userId,
         sessionId,
-        `【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`,
+        `【今すぐ客キーワード】\n${immediate.join('\n')}\n\n【後から客キーワード】\n${later.join('\n')}`,
         systemPrompt,
         [],
         model
@@ -147,15 +142,10 @@ export class ModelHandlerService {
         );
       }
 
-      const getSearchResults = await this.processor.handleGoogleSearch(immediate, liffAccessToken);
-      const aiResponses = await this.processor.generateAIResponsesFromTitles(getSearchResults);
-      const falseQueries = this.extractFalseQueries(aiResponses);
-      const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
-
       return await chatService.continueChat(
         userId,
         sessionId,
-        `【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`,
+        `【今すぐ客キーワード】\n${immediate.join('\n')}\n\n【後から客キーワード】\n${later.join('\n')}`,
         systemPrompt,
         [],
         model
@@ -186,7 +176,8 @@ export class ModelHandlerService {
       // RAG対応: LP継続生成でもRAG機能を使用
       try {
         // 高速モードフラグ: 短いクエリや一般的なクエリは高速モード
-        const fastMode = userMessage.length < 50 || 
+        const fastMode =
+          userMessage.length < 50 ||
           ['お願いします', '事業者', 'LP作成してください', 'LP'].some(q =>
             userMessage.toLowerCase().includes(q.toLowerCase())
           );
@@ -203,7 +194,7 @@ export class ModelHandlerService {
             undefined,
             { skipQueryOptimization: fastMode }
           ),
-          BriefService.getVariablesByUserId(userId)
+          BriefService.getVariablesByUserId(userId),
         ]);
 
         // 事業者情報による変数置換
@@ -259,8 +250,7 @@ export class ModelHandlerService {
     userId: string,
     systemPrompt: string,
     userMessage: string,
-    model: string,
-    liffAccessToken: string
+    model: string
   ): Promise<ChatResponse> {
     const config = MODEL_CONFIGS[model];
     const maxTokens = config ? config.maxTokens : 1000;
@@ -282,15 +272,10 @@ export class ModelHandlerService {
       return { message: result.message, error: '', requiresSubscription: false };
     }
 
-    const getSearchResults = await this.processor.handleGoogleSearch(immediate, liffAccessToken);
-    const aiResponses = await this.processor.generateAIResponsesFromTitles(getSearchResults);
-    const falseQueries = this.extractFalseQueries(aiResponses);
-    const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
-
     return await chatService.startChat(
       userId,
       systemPrompt,
-      `${userMessage}\n\n【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`
+      `${userMessage}\n\n【今すぐ客キーワード】\n${immediate.join('\n')}\n\n【後から客キーワード】\n${later.join('\n')}`
     );
   }
 
@@ -323,7 +308,12 @@ export class ModelHandlerService {
     systemPrompt: string,
     userMessage: string
   ): Promise<ChatResponse> {
-    return await chatService.startChat(userId, systemPrompt, userMessage.trim(), 'ad_copy_creation');
+    return await chatService.startChat(
+      userId,
+      systemPrompt,
+      userMessage.trim(),
+      'ad_copy_creation'
+    );
   }
 
   private async handleFinishingModel(
@@ -341,7 +331,8 @@ export class ModelHandlerService {
   ): Promise<ChatResponse> {
     try {
       // 高速モードフラグ: 短いクエリや一般的なクエリは高速モード
-      const fastMode = userMessage.length < 50 || 
+      const fastMode =
+        userMessage.length < 50 ||
         ['お願いします', '事業者', 'LP作成してください', 'LP'].some(q =>
           userMessage.toLowerCase().includes(q.toLowerCase())
         );
@@ -358,7 +349,7 @@ export class ModelHandlerService {
           undefined,
           { skipQueryOptimization: fastMode }
         ),
-        BriefService.getVariablesByUserId(userId)
+        BriefService.getVariablesByUserId(userId),
       ]);
 
       // 事業者情報による変数置換
@@ -419,47 +410,13 @@ export class ModelHandlerService {
     return reply;
   }
 
-  private extractFalseQueries(aiResponses: { query: string; aiMessage: string }[]): string[] {
-    return aiResponses
-      .filter(response => {
-        const message = response.aiMessage.toLowerCase().trim();
-        return message === 'false' || message === 'no' || message === 'x' || message === '×';
-      })
-      .map(response => response.query);
-  }
-
-  private subtractMultilineStrings(original: string, toRemove: string[]) {
-    const originalLines = original
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line);
-    const toRemoveSet = new Set(toRemove.map(item => item.trim()));
-
-    const remaining: string[] = [];
-    const removed: string[] = [];
-
-    originalLines.forEach(line => {
-      if (toRemoveSet.has(line)) {
-        removed.push(line);
-      } else {
-        remaining.push(line);
-      }
-    });
-
-    return {
-      remaining: remaining.join('\n'),
-      removed: removed.length > 0 ? removed.join('\n') + '\n' : '',
-    };
-  }
-
   /**
    * RAGモデルの処理（新機能）
    */
   private async handleRAGModel(
     userId: string,
     systemPrompt: string,
-    userMessage: string,
-    liffAccessToken: string
+    userMessage: string
   ): Promise<ChatResponse> {
     try {
       // ユーザーメッセージからキーワードを抽出
@@ -487,15 +444,10 @@ export class ModelHandlerService {
       }
 
       // Google検索による検証（既存の処理と同様）
-      const getSearchResults = await this.processor.handleGoogleSearch(immediate, liffAccessToken);
-      const aiResponses = await this.processor.generateAIResponsesFromTitles(getSearchResults);
-      const falseQueries = this.extractFalseQueries(aiResponses);
-      const afterKeywords = this.subtractMultilineStrings(immediate.join('\n'), falseQueries);
-
       return await chatService.startChat(
         userId,
         systemPrompt,
-        `${userMessage}\n\n【今すぐ客キーワード】\n${afterKeywords.remaining}\n\n【後から客キーワード】\n${afterKeywords.removed}${later.join('\n')}`
+        `${userMessage}\n\n【今すぐ客キーワード】\n${immediate.join('\n')}\n\n【後から客キーワード】\n${later.join('\n')}`
       );
     } catch (error) {
       console.error('RAGモデル処理エラー:', error);

@@ -1,24 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const liffAccessToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    
-    if (!liffAccessToken) {
-      return NextResponse.json({ error: 'Authorization header is required' }, { status: 401 });
-    }
-
-    const auth = await authMiddleware(liffAccessToken);
-    if (auth.error) {
-      return NextResponse.json({ error: auth.error }, { status: 401 });
-    }
-
-    return NextResponse.json({ 
-      googleSearchCount: auth.user?.googleSearchCount || 0
-    });
+    // Google Search機能は廃止されました
+    return NextResponse.json(
+      {
+        error: 'Google Search feature has been deprecated',
+      },
+      { status: 410 }
+    ); // Gone
   } catch (error) {
-    console.error('Error getting search count:', error);
+    console.error('Error in search-count API:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
