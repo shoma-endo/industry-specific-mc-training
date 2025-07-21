@@ -14,6 +14,7 @@ import {
 } from '@/types/chat';
 import { SupabaseService } from './supabaseService';
 import { MODEL_CONFIGS, FEATURE_FLAGS } from '@/lib/constants';
+import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 
 interface ChatResponse {
   message: string;
@@ -67,7 +68,11 @@ class ChatService {
           aiResponse = { message: aiReply };
         } catch (error) {
           console.error('LLM Chat error:', error);
-          return { message: '', error: 'AI通信に失敗しました' };
+          throw new ChatError(
+            'AI通信に失敗しました',
+            ChatErrorCode.NETWORK_ERROR,
+            { model: llmModel, error }
+          );
         }
       } else {
         userMessageString = userMessage[0]!;
@@ -122,8 +127,16 @@ class ChatService {
         sessionId,
       };
     } catch (error) {
+      if (error instanceof ChatError) {
+        console.error('Chat domain error:', error);
+        return { message: '', error: error.userMessage };
+      }
       console.error('Failed to start chat:', error);
-      return { message: '', error: 'チャットの開始に失敗しました' };
+      throw new ChatError(
+        'チャットの開始に失敗しました',
+        ChatErrorCode.SESSION_CREATION_FAILED,
+        { userId, error }
+      );
     }
   }
 
@@ -171,7 +184,11 @@ class ChatService {
           aiResponse = { message: aiReply };
         } catch (error) {
           console.error('LLM Chat error:', error);
-          return { message: '', error: 'AI通信に失敗しました' };
+          throw new ChatError(
+            'AI通信に失敗しました',
+            ChatErrorCode.NETWORK_ERROR,
+            { model: llmModel, sessionId, error }
+          );
         }
       } else {
         userMessageString = userMessage[0]!;
@@ -218,8 +235,16 @@ class ChatService {
         sessionId,
       };
     } catch (error) {
+      if (error instanceof ChatError) {
+        console.error('Chat domain error:', error);
+        return { message: '', error: error.userMessage };
+      }
       console.error('Failed to continue chat:', error);
-      return { message: '', error: 'チャットの継続に失敗しました' };
+      throw new ChatError(
+        'チャットの継続に失敗しました',
+        ChatErrorCode.MESSAGE_SEND_FAILED,
+        { userId, sessionId, error }
+      );
     }
   }
 
@@ -232,7 +257,11 @@ class ChatService {
       return dbSessions.map(session => toChatSession(session));
     } catch (error) {
       console.error('Failed to get user sessions:', error);
-      return [];
+      throw new ChatError(
+        'チャットセッションの取得に失敗しました',
+        ChatErrorCode.SESSION_LOAD_FAILED,
+        { userId, error }
+      );
     }
   }
 
@@ -245,7 +274,11 @@ class ChatService {
       return dbMessages.map(message => toChatMessage(message));
     } catch (error) {
       console.error('Failed to get session messages:', error);
-      return [];
+      throw new ChatError(
+        'メッセージの取得に失敗しました',
+        ChatErrorCode.MESSAGE_LOAD_FAILED,
+        { sessionId, userId, error }
+      );
     }
   }
 
@@ -257,7 +290,11 @@ class ChatService {
       await this.supabaseService.deleteChatSession(sessionId, userId);
     } catch (error) {
       console.error('Failed to delete chat session:', error);
-      throw new Error('チャットセッションの削除に失敗しました');
+      throw new ChatError(
+        'チャットセッションの削除に失敗しました',
+        ChatErrorCode.SESSION_DELETE_FAILED,
+        { sessionId, userId, error }
+      );
     }
   }
 
@@ -276,7 +313,15 @@ class ChatService {
         console.error('Failed to get sessions with messages (RPC):', error);
         // RPCが失敗した場合は旧実装にフォールバック
         console.warn('Falling back to legacy implementation');
-        return this.getSessionsWithMessagesLegacy(userId);
+        try {
+          return this.getSessionsWithMessagesLegacy(userId);
+        } catch (fallbackError) {
+          throw new ChatError(
+            'セッション取得に失敗しました（RPC/レガシー両方）',
+            ChatErrorCode.SESSION_LOAD_FAILED,
+            { userId, rpcError: error, fallbackError }
+          );
+        }
       }
 
       return (data ?? []).map((row: {
@@ -326,7 +371,11 @@ class ChatService {
       return sessionsWithMessages;
     } catch (error) {
       console.error('Failed to get sessions with messages (legacy):', error);
-      throw new Error('セッション取得に失敗しました');
+      throw new ChatError(
+        'セッション取得に失敗しました',
+        ChatErrorCode.SESSION_LOAD_FAILED,
+        { userId, error }
+      );
     }
   }
 }
