@@ -72,7 +72,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
   // ✅ ボタンの参照を保持
   const markdownBtnRef = useRef<HTMLButtonElement>(null);
-  const textBtnRef = useRef<HTMLButtonElement>(null);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
 
   // ✅ マークダウン対応TipTapエディタ
@@ -170,20 +169,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
     }
   };
 
-  // ✅ プレーンテキストとしてコピー（CSS吹き出しのみ）
-  const handleCopyText = async () => {
-    if (editor) {
-      try {
-        const text = editor.getText();
-        await navigator.clipboard.writeText(text);
-        showBubble(textBtnRef, '📄 テキストを\nコピーしました！', 'text');
-      } catch (error) {
-        console.error('プレーンテキストコピーエラー:', error);
-        showBubble(textBtnRef, '❌ コピーに\n失敗しました', 'text');
-      }
-    }
-  };
-
   // ✅ マークダウンファイルとしてダウンロード（CSS吹き出しのみ）
   const handleDownloadMarkdown = () => {
     if (markdownContent) {
@@ -196,11 +181,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         link.download = fileName;
         link.click();
         URL.revokeObjectURL(url);
-
-        showBubble(downloadBtnRef, '📁 ファイルを\nダウンロード完了！', 'download');
       } catch (error) {
         console.error('ファイルダウンロードエラー:', error);
-        showBubble(downloadBtnRef, '❌ ダウンロードに\n失敗しました', 'download');
       }
     }
   };
@@ -302,34 +284,23 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
             size="sm"
             variant="default"
             onClick={handleCopyMarkdown}
-            className="flex-1 bg-green-600 hover:bg-green-700 transition-colors"
+            className="flex-1 bg-green-600 hover:bg-green-700 transition-colors py-6"
           >
             <ClipboardCheck size={16} className="mr-1" />
             マークダウンコピー
           </Button>
           <Button
-            ref={textBtnRef}
+            ref={downloadBtnRef}
             size="sm"
             variant="outline"
-            onClick={handleCopyText}
-            className="flex-1 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+            onClick={handleDownloadMarkdown}
+            className="flex-1 hover:bg-purple-50 hover:border-purple-300 transition-colors py-6"
           >
-            <FileText size={16} className="mr-1" />
-            プレーンテキストコピー
+            <FileDown size={16} className="mr-1" />
+            .mdファイル
+            <br />
+            ダウンロード
           </Button>
-        </div>
-        <Button
-          ref={downloadBtnRef}
-          size="sm"
-          variant="outline"
-          onClick={handleDownloadMarkdown}
-          className="w-full hover:bg-purple-50 hover:border-purple-300 transition-colors"
-        >
-          <FileDown size={16} className="mr-1" />
-          .mdファイルとしてダウンロード
-        </Button>
-        <div className="text-xs text-gray-500 mt-2 text-center">
-          💡 Zenn・Qiita等の記事投稿に最適化
         </div>
       </div>
 
