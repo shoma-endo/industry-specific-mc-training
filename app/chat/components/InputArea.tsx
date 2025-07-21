@@ -212,10 +212,8 @@ const InputArea: React.FC<InputAreaProps> = ({
         onMenuToggle={onMenuToggle}
       />
 
-      <div className="h-16" />
-
       {/* 入力エリア */}
-      <div className="border-t p-3 bg-white">
+      <div className="border-t px-3 py-2 bg-white">
         <form onSubmit={handleSubmit} className="relative">
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30 transition-all duration-150">
