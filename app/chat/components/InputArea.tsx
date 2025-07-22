@@ -38,54 +38,7 @@ interface InputAreaProps {
   onMenuToggle?: (() => void) | undefined;
 }
 
-interface InputAreaHeaderProps {
-  isMobile: boolean;
-  currentSessionTitle?: string | undefined;
-  selectedModel: string;
-  onModelChange: (model: string) => void;
-  onMenuToggle?: (() => void) | undefined;
-}
 
-const InputAreaHeader: React.FC<InputAreaHeaderProps> = ({
-  isMobile,
-  currentSessionTitle,
-  selectedModel,
-  onModelChange,
-  onMenuToggle,
-}) => (
-  <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm h-16">
-    <div className="container mx-auto px-4 h-full flex items-center justify-between">
-      <div className="flex items-center space-x-3">
-        {isMobile && onMenuToggle && (
-          <Button variant="ghost" size="icon" onClick={onMenuToggle} aria-label="メニュー">
-            <Menu className="h-5 w-5" />
-          </Button>
-        )}
-        <div className="flex items-center space-x-2">
-          <Bot className="h-6 w-6 text-[#06c755]" />
-          <span className="font-medium text-sm md:text-base truncate max-w-[150px] md:max-w-[300px]">
-            {currentSessionTitle || '新しいチャット'}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Select value={selectedModel} onValueChange={onModelChange}>
-          <SelectTrigger className="w-[120px] md:w-[180px] min-w-[120px] h-9 text-xs md:text-sm border-gray-200">
-            <SelectValue placeholder="モデルを選択" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(AVAILABLE_MODELS).map(([modelId, modelName]) => (
-              <SelectItem key={modelId} value={modelId}>
-                {modelName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  </header>
-);
 
 const InputArea: React.FC<InputAreaProps> = ({
   onSendMessage,
@@ -97,7 +50,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onMenuToggle,
 }) => {
   const [input, setInput] = useState('');
-  const [selectedModel, setSelectedModel] = useState<string>(
+  const [selectedModel] = useState<string>(
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
   );
   const [isMobile, setIsMobile] = useState(false);
@@ -204,15 +157,40 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   return (
     <>
-      <InputAreaHeader
-        isMobile={isMobile}
-        currentSessionTitle={currentSessionTitle}
-        selectedModel={selectedModel}
-        onModelChange={setSelectedModel}
-        onMenuToggle={onMenuToggle}
-      />
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm h-16">
+        <div className="container mx-auto px-4 h-full flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {isMobile && onMenuToggle && (
+              <Button variant="ghost" size="icon" onClick={onMenuToggle} aria-label="メニュー">
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
+            <div className="flex items-center space-x-2">
+              <Bot className="h-6 w-6 text-[#06c755]" />
+              <span className="font-medium text-sm md:text-base truncate max-w-[150px] md:max-w-[300px]">
+                {currentSessionTitle || '新しいチャット'}
+              </span>
+            </div>
+          </div>
 
-      {/* 入力エリア */}
+          <div className="flex items-center space-x-2">
+            <Select value={selectedModel} onValueChange={() => {}}>
+              <SelectTrigger className="w-[120px] md:w-[180px] min-w-[120px] h-9 text-xs md:text-sm border-gray-200">
+                <SelectValue placeholder="モデルを選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(AVAILABLE_MODELS).map(([modelId, modelName]) => (
+                  <SelectItem key={modelId} value={modelId}>
+                    {modelName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </header>
+
+      {/* 入力エリア - レイアウトで既にpadding-topが設定されているため調整 */}
       <div className="border-t px-3 py-2 bg-white">
         <form onSubmit={handleSubmit} className="relative">
           <div className="flex flex-col gap-2">

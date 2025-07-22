@@ -10,7 +10,7 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { createLowlight } from 'lowlight';
-import { X, ClipboardCheck, FileDown } from 'lucide-react';
+import { X, ClipboardCheck, FileDown, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface CanvasPanelProps {
@@ -25,6 +25,13 @@ interface BubbleState {
   message: string;
   type: 'markdown' | 'text' | 'download';
   position: { top: number; left: number };
+}
+
+// ✅ 見出し情報の型定義
+interface HeadingItem {
+  level: number; // 1-6 (H1-H6)
+  text: string;
+  id: string;
 }
 
 // ✅ lowlightインスタンスを作成
@@ -69,6 +76,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
     position: { top: 0, left: 0 },
   });
 
+  // ✅ アウトラインパネル用のstate
+  const [outlineVisible, setOutlineVisible] = useState(false);
+  const [headings, setHeadings] = useState<HeadingItem[]>([]);
+
   // ✅ リサイザー機能のためのstate
   const [canvasWidth, setCanvasWidth] = useState(() => {
     // localStorage から保存された幅を復元（デフォルト: 450px）
@@ -85,6 +96,39 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   // ✅ ボタンの参照を保持
   const markdownBtnRef = useRef<HTMLButtonElement>(null);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
+
+  // ✅ 見出しIDを生成する関数
+  const generateHeadingId = useCallback((text: string): string => {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }, []);
+
+  // ✅ マークダウンから見出しを抽出する関数
+  const extractHeadings = useCallback(
+    (markdown: string): HeadingItem[] => {
+      const lines = markdown.split('\n');
+      const headingItems: HeadingItem[] = [];
+
+      lines.forEach((line, index) => {
+        const trimmed = line.trim();
+        const match = trimmed.match(/^(#{1,6})\s+(.+)$/);
+
+        if (match && match[1] && match[2]) {
+          const level = match[1].length;
+          const text = match[2];
+          const id = `heading-${index}-${generateHeadingId(text)}`;
+
+          headingItems.push({ level, text, id });
+        }
+      });
+
+      return headingItems;
+    },
+    [generateHeadingId]
+  );
 
   // ✅ 幅変更をlocalStorageに保存
   useEffect(() => {
@@ -161,19 +205,25 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
   // ✅ コンテンツが更新された時の処理
   useEffect(() => {
+    console.log('🔄 CanvasPanel - content updated:', !!content);
     if (content) {
       const markdown = parseAsMarkdown(content);
       setMarkdownContent(markdown);
 
+      // ✅ 見出しを抽出
+      const extractedHeadings = extractHeadings(markdown);
+      console.log('📝 Extracted headings:', extractedHeadings);
+      setHeadings(extractedHeadings);
+
       if (editor) {
         // マークダウンをHTMLに変換してエディタに設定
-        const htmlContent = markdown
-          .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-          .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-          .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-          .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
-          .replace(/^##### (.*$)/gm, '<h5>$1</h5>')
-          .replace(/^###### (.*$)/gm, '<h6>$1</h6>')
+        let htmlContent = markdown
+          .replace(/^# (.*$)/gm, '<h1 id="heading-$1">$1</h1>')
+          .replace(/^## (.*$)/gm, '<h2 id="heading-$1">$1</h2>')
+          .replace(/^### (.*$)/gm, '<h3 id="heading-$1">$1</h3>')
+          .replace(/^#### (.*$)/gm, '<h4 id="heading-$1">$1</h4>')
+          .replace(/^##### (.*$)/gm, '<h5 id="heading-$1">$1</h5>')
+          .replace(/^###### (.*$)/gm, '<h6 id="heading-$1">$1</h6>')
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.*?)\*/g, '<em>$1</em>')
           .replace(/`(.*?)`/g, '<code>$1</code>')
@@ -183,10 +233,30 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
           .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
           .replace(/\n/g, '<br>');
 
+        // 見出しIDを適切に設定
+        extractedHeadings.forEach(heading => {
+          const regex = new RegExp(
+            `<h${heading.level} id="heading-[^"]*">${heading.text}</h${heading.level}>`,
+            'g'
+          );
+          htmlContent = htmlContent.replace(
+            regex,
+            `<h${heading.level} id="${heading.id}">${heading.text}</h${heading.level}>`
+          );
+        });
+
         editor.commands.setContent(htmlContent);
       }
     }
-  }, [editor, content]);
+  }, [editor, content, extractHeadings]);
+
+  // ✅ 見出しクリック時のスクロール機能
+  const handleHeadingClick = (headingId: string) => {
+    const element = document.getElementById(headingId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   // ✅ 吹き出し表示関数
   const showBubble = (
@@ -256,13 +326,13 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       className="canvas-panel h-full bg-white border-l flex flex-col relative"
       style={{ width: canvasWidth }}
     >
-      {/* ✅ リサイザーハンドル */}
+      {/* ✅ リサイザーハンドル - 固定ヘッダー下から開始 */}
       <div
-        className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize transition-all duration-200 group ${
+        className={`absolute left-0 top-16 bottom-0 w-1 cursor-col-resize transition-all duration-200 group ${
           isResizing ? 'bg-blue-500 w-2 shadow-lg' : 'bg-gray-200 hover:bg-blue-300 hover:w-1.5'
         }`}
         onMouseDown={handleMouseDown}
-        style={{ zIndex: 50 }}
+        style={{ zIndex: 45 }} // ヘッダーより少し下のz-index
         title="ドラッグして幅を調整"
       >
         {/* リサイザーハンドルの視覚的ヒント */}
@@ -271,10 +341,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         </div>
       </div>
 
-      {/* ✅ CSS吹き出し（サルワカデザイン） */}
+      {/* ✅ CSS吹き出し（サルワカデザイン） - 最上位に表示 */}
       {bubble.isVisible && (
         <div
-          className={`absolute z-50 px-3 py-2 text-sm font-medium text-white rounded-lg shadow-lg transition-all duration-300 ease-in-out transform ${
+          className={`absolute z-[60] px-3 py-2 text-sm font-medium text-white rounded-lg shadow-lg transition-all duration-300 ease-in-out transform ${
             bubble.type === 'markdown'
               ? 'bg-green-600'
               : bubble.type === 'text'
@@ -303,32 +373,50 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         </div>
       )}
 
-      {/* ヘッダー部分 */}
-      <div className="flex items-center justify-between p-4 border-b bg-gray-50 ml-2">
+      {/* ヘッダー部分 - 固定ヘッダー分のtop位置を調整 */}
+      <div className="sticky top-16 z-40 flex items-center justify-between p-4 border-b bg-gray-50 ml-2 shadow-sm">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-semibold text-gray-800">Canvas (マークダウン記事)</h3>
+          {headings.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                console.log('🎛️ Toggle outline:', !outlineVisible, 'headings:', headings.length);
+                setOutlineVisible(!outlineVisible);
+              }}
+              className={`w-8 h-8 transition-colors ${
+                outlineVisible ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'hover:bg-gray-200'
+              }`}
+              title="アウトライン表示切り替え"
+            >
+              <List size={16} />
+            </Button>
+          )}
         </div>
 
         <div className="flex gap-2">
           <Button
             ref={markdownBtnRef}
-            variant="ghost"
             size="sm"
+            variant="default"
             onClick={handleCopyMarkdown}
-            className="w-8 h-8 hover:bg-green-100 hover:text-green-600 transition-colors"
+            className="bg-green-600 hover:bg-green-700 transition-colors px-3 py-1 text-xs"
             title="マークダウンとしてコピー"
           >
-            <ClipboardCheck size={16} />
+            <ClipboardCheck size={14} className="mr-1" />
+            コピー
           </Button>
           <Button
             ref={downloadBtnRef}
-            variant="ghost"
             size="sm"
+            variant="outline"
             onClick={handleDownloadMarkdown}
-            className="w-8 h-8 hover:bg-purple-100 hover:text-purple-600 transition-colors"
+            className="hover:bg-purple-50 hover:border-purple-300 transition-colors px-3 py-1 text-xs"
             title="マークダウンファイルをダウンロード"
           >
-            <FileDown size={16} />
+            <FileDown size={14} className="mr-1" />
+            .md
           </Button>
           <Button
             variant="ghost"
@@ -342,41 +430,58 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         </div>
       </div>
 
-      {/* エディタエリア */}
-      <div className="flex-1 overflow-auto ml-2">
+      {/* ✅ アウトラインパネル - ヘッダー下の適切な位置に配置 */}
+      {(() => {
+        const shouldShow = outlineVisible && headings.length > 0;
+        console.log('📋 Outline panel display:', {
+          outlineVisible,
+          headingsCount: headings.length,
+          shouldShow,
+        });
+        return shouldShow;
+      })() && (
+        <div className="sticky top-32 z-30 border-b bg-gray-50 ml-2 max-h-48 overflow-y-auto shadow-sm">
+          <div className="p-3">
+            <h4 className="text-sm font-medium text-gray-600 mb-2">アウトライン</h4>
+            <div className="space-y-1">
+              {headings.map((heading, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    console.log('🔗 Heading clicked:', heading.id, heading.text);
+                    handleHeadingClick(heading.id);
+                  }}
+                  className={`block w-full text-left text-sm hover:bg-gray-200 rounded px-2 py-1 transition-colors ${
+                    heading.level === 1
+                      ? 'font-semibold text-gray-900'
+                      : heading.level === 2
+                        ? 'font-medium text-gray-800 pl-4'
+                        : heading.level === 3
+                          ? 'text-gray-700 pl-6'
+                          : heading.level === 4
+                            ? 'text-gray-600 pl-8'
+                            : heading.level === 5
+                              ? 'text-gray-500 pl-10'
+                              : 'text-gray-400 pl-12'
+                  }`}
+                  title={heading.text}
+                >
+                  {heading.text}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* エディタエリア - 固定ヘッダー分の十分なpadding-topを確保 */}
+      <div className="flex-1 overflow-auto ml-2 pt-20">
         <EditorContent
           editor={editor}
           className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded"
         />
       </div>
 
-      {/* フッター部分（ボタン類） */}
-      <div className="p-4 border-t bg-gray-50 ml-2">
-        <div className="flex gap-2 mb-2">
-          <Button
-            ref={markdownBtnRef}
-            size="sm"
-            variant="default"
-            onClick={handleCopyMarkdown}
-            className="flex-1 bg-green-600 hover:bg-green-700 transition-colors py-6"
-          >
-            <ClipboardCheck size={16} className="mr-1" />
-            マークダウンコピー
-          </Button>
-          <Button
-            ref={downloadBtnRef}
-            size="sm"
-            variant="outline"
-            onClick={handleDownloadMarkdown}
-            className="flex-1 hover:bg-purple-50 hover:border-purple-300 transition-colors py-6"
-          >
-            <FileDown size={16} className="mr-1" />
-            .mdファイル
-            <br />
-            ダウンロード
-          </Button>
-        </div>
-      </div>
 
       {/* ✅ CSSアニメーション */}
       <style jsx>{`

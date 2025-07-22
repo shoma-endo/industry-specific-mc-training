@@ -192,8 +192,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
       <div
         className={cn(
-          'flex-1 flex flex-col',
-          isMobile && 'pt-12' // モバイルでメニューボタンの余白を確保
+          'flex-1 flex flex-col pt-16', // 固定ヘッダー分のpadding-topを全体に適用
+          isMobile && 'pt-16' // モバイルでも同じpadding-topを使用
         )}
       >
         {subscription.requiresSubscription && (
