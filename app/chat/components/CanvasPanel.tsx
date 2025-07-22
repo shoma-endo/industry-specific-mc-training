@@ -196,7 +196,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   ) => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const containerRect = buttonRef.current.closest('.w-96')?.getBoundingClientRect();
+      const containerRect = buttonRef.current.closest('.canvas-panel')?.getBoundingClientRect();
 
       if (containerRect) {
         // コンテナ内での相対位置を計算
@@ -252,7 +252,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   if (!isVisible) return null;
 
   return (
-    <div className="h-full bg-white border-l flex flex-col relative" style={{ width: canvasWidth }}>
+    <div
+      className="canvas-panel h-full bg-white border-l flex flex-col relative"
+      style={{ width: canvasWidth }}
+    >
       {/* ✅ リサイザーハンドル */}
       <div
         className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize transition-all duration-200 group ${
