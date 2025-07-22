@@ -66,7 +66,8 @@ const ChatClient: React.FC = () => {
         hasInitializedRef.current = false;
       });
     }
-  }, [isLoggedIn, liffLoading]); // ✅ 安全な依存配列のみ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, liffLoading]); // ✅ 安全な依存配列のみ（actionsを含めると無限ループ）
 
   // LIFF初期化中のローディング表示
   if (liffLoading) {

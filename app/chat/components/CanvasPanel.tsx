@@ -1,18 +1,17 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Typography from '@tiptap/extension-typography';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { StarterKit } from '@tiptap/starter-kit';
+import { Typography } from '@tiptap/extension-typography';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Table } from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableHeader from '@tiptap/extension-table-header';
-import TableCell from '@tiptap/extension-table-cell';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
 import { createLowlight } from 'lowlight';
-import { Card } from '@/components/ui/card';
+import { X, ClipboardCheck, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { X, Copy, Download, FileText, FileDown, ClipboardCheck } from 'lucide-react';
 
 interface CanvasPanelProps {
   onClose: () => void;
@@ -70,9 +69,72 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
     position: { top: 0, left: 0 },
   });
 
+  // ✅ リサイザー機能のためのstate
+  const [canvasWidth, setCanvasWidth] = useState(() => {
+    // localStorage から保存された幅を復元（デフォルト: 450px）
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('canvas-width');
+      return saved ? parseInt(saved, 10) : 450;
+    }
+    return 450;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartXRef = useRef<number>(0);
+  const initialWidthRef = useRef<number>(0);
+
   // ✅ ボタンの参照を保持
   const markdownBtnRef = useRef<HTMLButtonElement>(null);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
+
+  // ✅ 幅変更をlocalStorageに保存
+  useEffect(() => {
+    localStorage.setItem('canvas-width', canvasWidth.toString());
+  }, [canvasWidth]);
+
+  // ✅ リサイザーのマウスイベントハンドラー
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      setIsResizing(true);
+      resizeStartXRef.current = e.clientX;
+      initialWidthRef.current = canvasWidth;
+      e.preventDefault();
+    },
+    [canvasWidth]
+  );
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const deltaX = resizeStartXRef.current - e.clientX; // 左にドラッグで拡大
+      const newWidth = Math.max(320, Math.min(1000, initialWidthRef.current + deltaX)); // 320px-1000px の範囲
+      setCanvasWidth(newWidth);
+    },
+    [isResizing]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  // ✅ グローバルマウスイベントの管理
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      // リサイズ中はカーソルを固定
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+    return () => {}; // falseの場合の空のcleanup関数
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // ✅ マークダウン対応TipTapエディタ
   const editor = useEditor({
@@ -190,7 +252,22 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   if (!isVisible) return null;
 
   return (
-    <div className="w-96 h-full bg-white border-l flex flex-col relative">
+    <div className="h-full bg-white border-l flex flex-col relative" style={{ width: canvasWidth }}>
+      {/* ✅ リサイザーハンドル */}
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-1 cursor-col-resize transition-all duration-200 group ${
+          isResizing ? 'bg-blue-500 w-2 shadow-lg' : 'bg-gray-200 hover:bg-blue-300 hover:w-1.5'
+        }`}
+        onMouseDown={handleMouseDown}
+        style={{ zIndex: 50 }}
+        title="ドラッグして幅を調整"
+      >
+        {/* リサイザーハンドルの視覚的ヒント */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="w-0.5 h-8 bg-white/70 rounded-full"></div>
+        </div>
+      </div>
+
       {/* ✅ CSS吹き出し（サルワカデザイン） */}
       {bubble.isVisible && (
         <div
@@ -223,61 +300,55 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         </div>
       )}
 
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">Canvas (マークダウン記事)</h2>
+      {/* ヘッダー部分 */}
+      <div className="flex items-center justify-between p-4 border-b bg-gray-50 ml-2">
         <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-800">Canvas (マークダウン記事)</h3>
+        </div>
+
+        <div className="flex gap-2">
           <Button
             ref={markdownBtnRef}
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={handleCopyMarkdown}
             className="w-8 h-8 hover:bg-green-100 hover:text-green-600 transition-colors"
             title="マークダウンとしてコピー"
           >
-            <Copy size={16} />
+            <ClipboardCheck size={16} />
           </Button>
           <Button
             ref={downloadBtnRef}
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={handleDownloadMarkdown}
             className="w-8 h-8 hover:bg-purple-100 hover:text-purple-600 transition-colors"
             title="マークダウンファイルをダウンロード"
           >
-            <Download size={16} />
+            <FileDown size={16} />
           </Button>
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={onClose}
             className="w-8 h-8 hover:bg-red-100 hover:text-red-600 transition-colors"
+            title="Canvasを閉じる"
           >
             <X size={16} />
           </Button>
         </div>
       </div>
 
-      {/* コンテンツエリア */}
-      <div className="flex-1 overflow-auto">
-        <Card className="m-4 p-4">
-          {content ? (
-            <EditorContent
-              editor={editor}
-              className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded"
-            />
-          ) : (
-            <div className="text-gray-500 text-center py-8">
-              <FileText size={48} className="mx-auto mb-4 text-gray-300" />
-              <p>AIの返信がマークダウン記事として</p>
-              <p>ここに表示されます</p>
-            </div>
-          )}
-        </Card>
+      {/* エディタエリア */}
+      <div className="flex-1 overflow-auto ml-2">
+        <EditorContent
+          editor={editor}
+          className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded"
+        />
       </div>
 
-      {/* フッターアクション */}
-      <div className="p-4 border-t bg-gray-50">
+      {/* フッター部分（ボタン類） */}
+      <div className="p-4 border-t bg-gray-50 ml-2">
         <div className="flex gap-2 mb-2">
           <Button
             ref={markdownBtnRef}
