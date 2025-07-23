@@ -9,9 +9,16 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
+import { Link } from '@tiptap/extension-link';
+import { Image } from '@tiptap/extension-image';
+import { Color } from '@tiptap/extension-color';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Highlight } from '@tiptap/extension-highlight';
+import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight } from 'lowlight';
-import { X, ClipboardCheck, FileDown, List } from 'lucide-react';
+import { X, ClipboardCheck, FileDown, List, Edit3, Save, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface CanvasPanelProps {
   onClose: () => void;
@@ -79,6 +86,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   // ✅ アウトラインパネル用のstate
   const [outlineVisible, setOutlineVisible] = useState(false);
   const [headings, setHeadings] = useState<HeadingItem[]>([]);
+  
+  // ✅ Claude web版Canvas同様の編集機能
+  const [isEditing, setIsEditing] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSavedContent, setLastSavedContent] = useState('');
 
   // ✅ リサイザー機能のためのstate
   const [canvasWidth, setCanvasWidth] = useState(() => {
@@ -96,6 +108,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   // ✅ ボタンの参照を保持
   const markdownBtnRef = useRef<HTMLButtonElement>(null);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
 
   // ✅ 見出しIDを生成する関数
   const generateHeadingId = useCallback((text: string): string => {
@@ -180,7 +193,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
     return () => {}; // falseの場合の空のcleanup関数
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
-  // ✅ マークダウン対応TipTapエディタ
+  // ✅ Claude web版Canvas同様のマークダウン対応TipTapエディタ
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -197,10 +210,36 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       TableRow,
       TableHeader,
       TableCell,
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-blue-600 underline hover:text-blue-800',
+        },
+      }),
+      Image.configure({
+        HTMLAttributes: {
+          class: 'max-w-full h-auto rounded',
+        },
+      }),
+      Color,
+      TextStyle,
+      Highlight.configure({
+        multicolor: true,
+      }),
+      Placeholder.configure({
+        placeholder: 'ここでマークダウンを編集できます...',
+      }),
     ],
     content: '',
-    editable: false, // 読み取り専用
+    editable: isEditing, // 編集モード切り替え対応
     immediatelyRender: false,
+    onUpdate: ({ editor }) => {
+      // Claude web版同様のリアルタイム更新検知
+      const newContent = editor.getHTML();
+      if (newContent !== lastSavedContent) {
+        setHasUnsavedChanges(true);
+      }
+    },
   });
 
   // ✅ コンテンツが更新された時の処理
@@ -216,7 +255,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       setHeadings(extractedHeadings);
 
       if (editor) {
-        // マークダウンをHTMLに変換してエディタに設定
+        // ChatGPT風マークダウンをHTMLに変換してエディタに設定
         let htmlContent = markdown
           .replace(/^# (.*$)/gm, '<h1 id="heading-$1">$1</h1>')
           .replace(/^## (.*$)/gm, '<h2 id="heading-$1">$1</h2>')
@@ -227,11 +266,37 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.*?)\*/g, '<em>$1</em>')
           .replace(/`(.*?)`/g, '<code>$1</code>')
-          .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-          .replace(/^- (.*$)/gm, '<li>$1</li>')
-          .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
-          .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
-          .replace(/\n/g, '<br>');
+          .replace(/```([\s\S]*?)\n```/g, '<pre><code>$1</code></pre>')
+          // ChatGPT風リスト処理 - 改行を考慮
+          .split('\n')
+          .map(line => {
+            // チェックマーク付きリスト
+            if (line.match(/^[✅✓☑️]\s/)) {
+              return `<p class="checklist-item">${line}</p>`;
+            }
+            // 通常のリスト
+            if (line.match(/^[-*]\s/)) {
+              return `<li>${line.replace(/^[-*]\s/, '')}</li>`;
+            }
+            // 番号付きリスト
+            if (line.match(/^\d+\.\s/)) {
+              return `<li>${line.replace(/^\d+\.\s/, '')}</li>`;
+            }
+            // 空行
+            if (line.trim() === '') {
+              return '<br>';
+            }
+            // 通常の段落
+            if (!line.match(/^[#<]/)) {
+              return `<p>${line}</p>`;
+            }
+            return line;
+          })
+          .join('\n')
+          // 連続するliをulで囲む
+          .replace(/(<li>.*?<\/li>\n?)+/g, '<ul>$&</ul>')
+          // 不要なbrタグを整理
+          .replace(/<br>\n?<br>/g, '<br>');
 
         // 見出しIDを適切に設定
         extractedHeadings.forEach(heading => {
@@ -246,9 +311,75 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         });
 
         editor.commands.setContent(htmlContent);
+        setLastSavedContent(htmlContent);
+        setHasUnsavedChanges(false);
       }
     }
   }, [editor, content, extractHeadings]);
+
+  // ✅ Claude web版Canvas同様の編集機能
+  const handleToggleEdit = useCallback(() => {
+    if (isEditing && hasUnsavedChanges) {
+      // 未保存の変更がある場合の警告
+      const confirm = window.confirm('未保存の変更があります。編集を終了しますか？');
+      if (!confirm) return;
+    }
+    
+    setIsEditing(!isEditing);
+    if (editor) {
+      editor.setEditable(!isEditing);
+    }
+  }, [isEditing, hasUnsavedChanges, editor]);
+
+  // ✅ HTMLからマークダウンへの変換（Claude web版同様）
+  const convertHtmlToMarkdown = useCallback((html: string): string => {
+    return html
+      .replace(/<h1[^>]*>(.*?)<\/h1>/g, '# $1')
+      .replace(/<h2[^>]*>(.*?)<\/h2>/g, '## $1')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/g, '### $1')
+      .replace(/<h4[^>]*>(.*?)<\/h4>/g, '#### $1')
+      .replace(/<h5[^>]*>(.*?)<\/h5>/g, '##### $1')
+      .replace(/<h6[^>]*>(.*?)<\/h6>/g, '###### $1')
+      .replace(/<strong[^>]*>(.*?)<\/strong>/g, '**$1**')
+      .replace(/<em[^>]*>(.*?)<\/em>/g, '*$1*')
+      .replace(/<code[^>]*>(.*?)<\/code>/g, '`$1`')
+      .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```')
+      .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/g, (match, content) => {
+        return content.replace(/<li[^>]*>(.*?)<\/li>/g, '- $1\n');
+      })
+      .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/g, (match, content) => {
+        let counter = 1;
+        return content.replace(/<li[^>]*>(.*?)<\/li>/g, () => `${counter++}. $1\n`);
+      })
+      .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
+      .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/g, '![$2]($1)')
+      .replace(/<br\s*\/?>/g, '\n')
+      .replace(/<p[^>]*>(.*?)<\/p>/g, '$1\n\n')
+      .replace(/\n\n+/g, '\n\n')
+      .trim();
+  }, []);
+
+  const handleSaveChanges = useCallback(() => {
+    if (editor) {
+      const currentContent = editor.getHTML();
+      setLastSavedContent(currentContent);
+      setHasUnsavedChanges(false);
+      
+      // マークダウンに変換して保存
+      const markdownFromHtml = convertHtmlToMarkdown(currentContent);
+      setMarkdownContent(markdownFromHtml);
+      
+      showBubble(saveBtnRef, '💾 変更を保存しました', 'markdown');
+    }
+  }, [editor, convertHtmlToMarkdown]);
+
+  const handleRevertChanges = useCallback(() => {
+    if (editor && lastSavedContent) {
+      editor.commands.setContent(lastSavedContent);
+      setHasUnsavedChanges(false);
+      // 吹き出しは削除
+    }
+  }, [editor, lastSavedContent]);
 
   // ✅ 見出しクリック時のスクロール機能
   const handleHeadingClick = (headingId: string) => {
@@ -323,7 +454,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
   return (
     <div
-      className="canvas-panel h-full bg-white border-l flex flex-col relative"
+      className="canvas-panel h-full bg-gray-50 border-l flex flex-col relative"
       style={{ width: canvasWidth }}
     >
       {/* ✅ リサイザーハンドル - 固定ヘッダー下から開始 */}
@@ -374,7 +505,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       )}
 
       {/* ヘッダー部分 - 固定ヘッダー分のtop位置を調整 */}
-      <div className="sticky top-16 z-40 flex items-center justify-between p-4 border-b bg-gray-50 ml-2 shadow-sm">
+      <div className="sticky top-16 z-40 flex items-center justify-between p-4 border-b bg-white ml-2 shadow-sm">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-semibold text-gray-800">Canvas (マークダウン記事)</h3>
           {headings.length > 0 && (
@@ -396,6 +527,52 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         </div>
 
         <div className="flex gap-2">
+          {/* Claude web版Canvas同様の編集ボタン */}
+          <Button
+            size="sm"
+            variant={isEditing ? "default" : "outline"}
+            onClick={handleToggleEdit}
+            className={cn(
+              "px-3 py-1 text-xs transition-colors",
+              isEditing 
+                ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                : "hover:bg-blue-50 hover:border-blue-300"
+            )}
+            title={isEditing ? "編集を終了" : "編集を開始"}
+          >
+            <Edit3 size={14} className="mr-1" />
+            {isEditing ? "完了" : "編集"}
+          </Button>
+
+          {/* 編集モード時の保存・元に戻すボタン */}
+          {isEditing && (
+            <>
+              <Button
+                ref={saveBtnRef}
+                size="sm"
+                variant="default"
+                onClick={handleSaveChanges}
+                disabled={!hasUnsavedChanges}
+                className="bg-green-600 hover:bg-green-700 px-3 py-1 text-xs"
+                title="変更を保存"
+              >
+                <Save size={14} className="mr-1" />
+                保存
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRevertChanges}
+                disabled={!hasUnsavedChanges}
+                className="hover:bg-orange-50 hover:border-orange-300 px-3 py-1 text-xs"
+                title="変更を元に戻す"
+              >
+                <RefreshCw size={14} className="mr-1" />
+                元に戻す
+              </Button>
+            </>
+          )}
+
           <Button
             ref={markdownBtnRef}
             size="sm"
@@ -440,7 +617,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         });
         return shouldShow;
       })() && (
-        <div className="sticky top-32 z-30 border-b bg-gray-50 ml-2 max-h-48 overflow-y-auto shadow-sm">
+        <div className="sticky top-32 z-30 border-b bg-white ml-2 max-h-48 overflow-y-auto shadow-sm">
           <div className="p-3">
             <h4 className="text-sm font-medium text-gray-600 mb-2">アウトライン</h4>
             <div className="space-y-1">
@@ -474,16 +651,74 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         </div>
       )}
 
-      {/* エディタエリア - 固定ヘッダー分の十分なpadding-topを確保 */}
+      {/* エディタエリア - ChatGPT風Canvas同様のスタイル */}
       <div className="flex-1 overflow-auto ml-2 pt-20">
-        <EditorContent
-          editor={editor}
-          className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded"
-        />
+        <div className={cn(
+          "min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4",
+          isEditing && "border-2 border-dashed border-blue-300"
+        )}>
+          <EditorContent
+            editor={editor}
+            className={cn(
+              "prose prose-lg max-w-none transition-all duration-200",
+              // ChatGPT風の見出しスタイル
+              "prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8",
+              "prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6",
+              "prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5",
+              "prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4",
+              // 本文スタイル
+              "prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4",
+              // リストスタイル（ChatGPT風）
+              "prose-ul:space-y-2 prose-li:text-gray-700",
+              "prose-ol:space-y-2",
+              // 強調とリンク
+              "prose-strong:text-gray-900 prose-strong:font-semibold",
+              "prose-em:text-gray-600 prose-em:italic",
+              "prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline",
+              // コードとプリフォーマット
+              "prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono",
+              "prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4",
+              // 引用
+              "prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600",
+              // テーブル
+              "prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2",
+              // 編集モード時のスタイル
+              isEditing && [
+                "focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-50",
+                "min-h-96"
+              ]
+            )}
+            style={{
+              // ChatGPT風の追加スタイル
+              lineHeight: '1.7',
+              fontSize: '16px',
+            }}
+          />
+          
+          {/* 編集モード時のヘルプテキスト */}
+          {isEditing && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+              <strong>編集のヒント:</strong>
+              <ul className="mt-1 ml-4 list-disc space-y-1">
+                <li>見出しは # で始める（# 大見出し, ## 中見出し）</li>
+                <li>強調は **太字** や *斜体* で囲む</li>
+                <li>コードは `コード` やコードブロック ```で囲む</li>
+                <li>リストは - や 1. で始める</li>
+              </ul>
+            </div>
+          )}
+          
+          {/* 未保存の変更通知 */}
+          {hasUnsavedChanges && (
+            <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-sm text-orange-700">
+              ⚠️ 未保存の変更があります
+            </div>
+          )}
+        </div>
       </div>
 
 
-      {/* ✅ CSSアニメーション */}
+      {/* ✅ ChatGPT風CSSスタイル */}
       <style jsx>{`
         .animate-bounce-in {
           animation: bounceIn 0.3s ease-out;
@@ -502,6 +737,45 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
             opacity: 1;
             transform: scale(1) translateY(0);
           }
+        }
+
+        /* ChatGPT風チェックリストスタイル */
+        :global(.checklist-item) {
+          margin: 8px 0 !important;
+          padding: 8px 12px !important;
+          background-color: #f8fafc !important;
+          border-radius: 6px !important;
+          border-left: 3px solid #10b981 !important;
+          font-size: 16px !important;
+          line-height: 1.6 !important;
+          display: flex !important;
+          align-items: center !important;
+        }
+
+        /* 見出しの中央寄せ改善 */
+        :global(.prose h1) {
+          text-align: center !important;
+          margin-top: 2rem !important;
+          margin-bottom: 1.5rem !important;
+          color: #1f2937 !important;
+          font-weight: 700 !important;
+        }
+
+        /* 絵文字の表示改善 */
+        :global(.prose) {
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif !important;
+        }
+
+        /* リストの改善 */
+        :global(.prose ul li) {
+          margin: 4px 0 !important;
+          line-height: 1.6 !important;
+        }
+
+        /* 段落の間隔改善 */
+        :global(.prose p) {
+          margin-top: 1rem !important;
+          margin-bottom: 1rem !important;
         }
       `}</style>
     </div>
