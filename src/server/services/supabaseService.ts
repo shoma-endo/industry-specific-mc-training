@@ -214,73 +214,8 @@ export class SupabaseService {
     }
   }
 
-  /**
-   * sanity_projectsテーブルからユーザーのSanityプロジェクトを取得
-   */
-  async getSanityProjectByUserId(userId: string): Promise<{
-    id: string;
-    user_id: string;
-    project_id: string;
-    dataset: string;
-    created_at: string;
-  } | null> {
-    const { data, error } = await this.supabase
-      .from('sanity_projects')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) {
-      console.error('Failed to fetch sanity project:', error);
-      return null;
-    }
-    return data;
-  }
 
-  /**
-   * sanity_projectsテーブルにユーザーのSanityプロジェクトを挿入または更新 (Upsert)
-   */
-  async createSanityProject(userId: string, projectId: string, dataset: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('sanity_projects')
-      // .insert([{ user_id: userId, project_id: projectId, dataset: dataset }]);
-      .upsert(
-        {
-          user_id: userId,
-          project_id: projectId,
-          dataset: dataset,
-        },
-        {
-          onConflict: 'user_id', // user_id が重複した場合に更新
-        }
-      );
 
-    if (error) {
-      console.error('Failed to upsert sanity project:', error);
-      throw new Error('Sanityプロジェクトの登録または更新に失敗しました');
-    }
-  }
-
-  // ユーザーIDからSanityプロジェクト情報を取得
-  async getSanityProjectInfoByUserId(userId: string): Promise<{
-    projectId: string;
-    dataset: string;
-  }> {
-    const { data, error } = await this.supabase
-      .from('sanity_projects')
-      .select('project_id, dataset')
-      .eq('user_id', userId)
-      .single();
-
-    if (error || !data) {
-      console.error('Failed to fetch basic sanity project info:', error);
-      throw new Error('Sanity project info not found');
-    }
-
-    return {
-      projectId: data.project_id,
-      dataset: data.dataset,
-    };
-  }
 
   /**
    * wordpress_settingsテーブルからユーザーのWordPress設定を取得（セルフホスト対応版）
@@ -381,50 +316,8 @@ export class SupabaseService {
     }
   }
 
-  async updateSanityProject(userId: string, projectId: string, dataset: string) {
-    const { data, error } = await this.supabase
-      .from('sanity_projects')
-      .update({
-        project_id: projectId,
-        dataset: dataset,
-      })
-      .eq('user_id', userId)
-      .select()
-      .single();
 
-    if (error) {
-      console.error('[SupabaseService] Error updating sanity project:', error);
-      throw new Error(`Failed to update sanity project: ${error.message}`);
-    }
 
-    return data;
-  }
-
-  async getAllSanityProjects() {
-    const { data, error } = await this.supabase.from('sanity_projects').select('*');
-
-    if (error) {
-      console.error('[SupabaseService] Error fetching all sanity projects:', error);
-      throw new Error(`Failed to fetch sanity projects: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  async updateSanityProjectDatasets(fromDataset: string, toDataset: string) {
-    const { data, error } = await this.supabase
-      .from('sanity_projects')
-      .update({ dataset: toDataset })
-      .eq('dataset', fromDataset)
-      .select();
-
-    if (error) {
-      console.error('[SupabaseService] Error updating sanity project datasets:', error);
-      throw new Error(`Failed to update sanity project datasets: ${error.message}`);
-    }
-
-    return data;
-  }
 
   /**
    * チャットセッションとそれに紐づくすべてのメッセージを削除

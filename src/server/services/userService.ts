@@ -8,11 +8,14 @@ import type { User } from '@/types/user';
  */
 export class UserService {
   private lineAuthService: LineAuthService;
-  private stripeService: StripeService;
+  
+  // 遅延初期化でStripeServiceのインスタンスを取得
+  private getStripeService() {
+    return new StripeService();
+  }
 
   constructor() {
     this.lineAuthService = new LineAuthService();
-    this.stripeService = new StripeService();
   }
 
   /**

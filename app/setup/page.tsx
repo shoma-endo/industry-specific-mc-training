@@ -1,8 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getWordPressSettings } from '@/server/handler/actions/sanity.action';
+import { getWordPressSettings } from '@/server/handler/actions/wordpress.action';
 import SetupDashboard from '@/components/SetupDashboard';
-import { getSanityProject } from '@/server/handler/actions/sanity.action';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,21 +11,6 @@ export default async function SetupPage() {
 
   if (!liffAccessToken) {
     redirect('/login');
-  }
-
-  // Sanity設定をチェック
-  let hasSanitySettings = false;
-  let sanityProjectId = null;
-  try {
-    const sanityProject = await getSanityProject(liffAccessToken);
-    // project_idが存在し、空文字列でない場合のみ設定済みと判定
-    hasSanitySettings = !!(
-      sanityProject &&
-      sanityProject.project_id &&
-      sanityProject.project_id.trim() !== ''
-    );
-    sanityProjectId = sanityProject?.project_id || null;
-  } catch {
   }
 
   // WordPress設定をチェック（WordPress.comとセルフホスト両対応）
@@ -46,10 +30,6 @@ export default async function SetupPage() {
 
   return (
     <SetupDashboard
-      sanitySettings={{
-        hasSettings: hasSanitySettings,
-        projectId: sanityProjectId,
-      }}
       wordpressSettings={{
         hasSettings: hasWordPressSettings,
         type: wordpressSettings?.wpType || 'wordpress_com',

@@ -28,9 +28,6 @@ npm run build
 # Lint code
 npm run lint
 
-# Start Sanity Studio (CMS)
-npm run studio
-
 # Expose local development with ngrok (for LINE LIFF testing)
 npm run ngrok
 ```
@@ -46,8 +43,6 @@ This is a Next.js application that provides AI-powered marketing copy generation
 - **Payments**: Stripe subscription management with feature gating
 - **AI**: OpenAI API with fine-tuned models for keyword categorization
 - **Search**: Google Custom Search + SEMrush for competitive research
-- **CMS**: Sanity headless CMS for landing page management
-- **WordPress Export**: Convert Sanity content to WordPress posts
 
 ### Authentication Flow
 
@@ -78,7 +73,6 @@ Environment variables are type-safe using `@t3-oss/env-nextjs` in `src/env.ts`. 
 - OpenAI: API key for chat completions
 - Google: Search API key and Custom Search Engine ID
 - SEMrush: API key for competitive research
-- Sanity: Project ID, dataset, and API tokens
 
 ### Key Code Patterns
 
@@ -90,29 +84,12 @@ Environment variables are type-safe using `@t3-oss/env-nextjs` in `src/env.ts`. 
 
 **Client/Server Separation**: Client components handle LIFF auth, server actions handle business logic
 
-### Sanity CMS Integration
-
-- Landing pages are managed in Sanity Studio (`/studio`)
-- Custom plugins provide WordPress export and debug tools
-- Content can be exported to WordPress using Application Passwords
-- Preview functionality supports draft content
-
-### WordPress Export Feature
-
-The WordPress export (`src/lib/wordpress-converter.ts`) converts Sanity landing pages into WordPress-compatible HTML posts with:
-
-- Structured HTML generation with inline CSS
-- Featured image upload support
-- OAuth authentication flow for WordPress API
-- Draft/publish status control
-
 ### Database Schema
 
 Supabase migrations in `supabase/migrations/` define:
 
 - User profiles linked to LINE accounts
 - Chat sessions and message history
-- Sanity project configurations
 - WordPress connection settings
 
 ### Development Notes

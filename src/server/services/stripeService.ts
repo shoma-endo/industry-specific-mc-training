@@ -1,12 +1,17 @@
 import Stripe from 'stripe';
 import { env } from '@/env';
-import { userService } from './userService';
 
 export class StripeService {
   private stripe: Stripe;
 
   constructor() {
     this.stripe = new Stripe(env.STRIPE_SECRET_KEY);
+  }
+
+  // 遅延初期化でUserServiceを取得（循環依存を避けるため）
+  private async getUserService() {
+    const { userService } = await import('./userService');
+    return userService;
   }
 
   /**
@@ -176,6 +181,7 @@ export class StripeService {
     try {
       // 1. userId から Stripe の顧客ID (stripeCustomerId) を取得する
       //    userService を利用してアプリケーションのユーザーデータベースから取得
+      const userService = await this.getUserService();
       const user = await userService.getUserById(userId);
       const stripeCustomerId = user?.stripeCustomerId;
 
