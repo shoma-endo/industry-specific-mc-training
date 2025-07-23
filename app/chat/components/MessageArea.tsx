@@ -189,10 +189,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
                       <Button
                         size="sm"
                         variant="default"
-                        onClick={() => {
-                          console.log('🖱️ Canvas edit button clicked for message:', message.id, message.content.substring(0, 100) + '...');
-                          onEditInCanvas(message.content);
-                        }}
+                        onClick={() => onEditInCanvas(message.content)}
                         className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg border border-white/20 px-3 py-1 text-xs h-8 transition-all duration-200 hover:scale-105 hover:shadow-xl backdrop-blur-sm rounded-full"
                         title="Canvasで編集して文章を改善"
                       >

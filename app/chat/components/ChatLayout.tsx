@@ -150,7 +150,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // ✅ 過去のメッセージをCanvasで編集する関数
   const handleEditInCanvas = (content: string) => {
-    console.log('🎨 handleEditInCanvas called with content:', content.substring(0, 100) + '...');
     setIsManualEdit(true); // 手動編集フラグを設定
     setCanvasContent(content);
     setCanvasPanelOpen(true);

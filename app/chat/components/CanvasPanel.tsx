@@ -86,7 +86,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   // ✅ アウトラインパネル用のstate
   const [outlineVisible, setOutlineVisible] = useState(false);
   const [headings, setHeadings] = useState<HeadingItem[]>([]);
-  
+
   // ✅ Claude web版Canvas同様の編集機能
   const [isEditing, setIsEditing] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -244,26 +244,41 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
   // ✅ コンテンツが更新された時の処理
   useEffect(() => {
-    console.log('🔄 CanvasPanel - content updated:', !!content, 'content length:', content?.length);
-    console.log('🔄 CanvasPanel - content preview:', content?.substring(0, 200));
     if (content) {
       const markdown = parseAsMarkdown(content);
       setMarkdownContent(markdown);
 
       // ✅ 見出しを抽出
       const extractedHeadings = extractHeadings(markdown);
-      console.log('📝 Extracted headings:', extractedHeadings);
       setHeadings(extractedHeadings);
 
       if (editor) {
         // ChatGPT風マークダウンをHTMLに変換してエディタに設定
         let htmlContent = markdown
-          .replace(/^# (.*$)/gm, '<h1 id="heading-$1">$1</h1>')
-          .replace(/^## (.*$)/gm, '<h2 id="heading-$1">$1</h2>')
-          .replace(/^### (.*$)/gm, '<h3 id="heading-$1">$1</h3>')
-          .replace(/^#### (.*$)/gm, '<h4 id="heading-$1">$1</h4>')
-          .replace(/^##### (.*$)/gm, '<h5 id="heading-$1">$1</h5>')
-          .replace(/^###### (.*$)/gm, '<h6 id="heading-$1">$1</h6>')
+          .replace(/^# (.*$)/gm, (match, text) => {
+            const id = `heading-${generateHeadingId(text)}`;
+            return `<h1 id="${id}">${text}</h1>`;
+          })
+          .replace(/^## (.*$)/gm, (match, text) => {
+            const id = `heading-${generateHeadingId(text)}`;
+            return `<h2 id="${id}">${text}</h2>`;
+          })
+          .replace(/^### (.*$)/gm, (match, text) => {
+            const id = `heading-${generateHeadingId(text)}`;
+            return `<h3 id="${id}">${text}</h3>`;
+          })
+          .replace(/^#### (.*$)/gm, (match, text) => {
+            const id = `heading-${generateHeadingId(text)}`;
+            return `<h4 id="${id}">${text}</h4>`;
+          })
+          .replace(/^##### (.*$)/gm, (match, text) => {
+            const id = `heading-${generateHeadingId(text)}`;
+            return `<h5 id="${id}">${text}</h5>`;
+          })
+          .replace(/^###### (.*$)/gm, (match, text) => {
+            const id = `heading-${generateHeadingId(text)}`;
+            return `<h6 id="${id}">${text}</h6>`;
+          })
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.*?)\*/g, '<em>$1</em>')
           .replace(/`(.*?)`/g, '<code>$1</code>')
@@ -299,17 +314,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
           // 不要なbrタグを整理
           .replace(/<br>\n?<br>/g, '<br>');
 
-        // 見出しIDを適切に設定
-        extractedHeadings.forEach(heading => {
-          const regex = new RegExp(
-            `<h${heading.level} id="heading-[^"]*">${heading.text}</h${heading.level}>`,
-            'g'
-          );
-          htmlContent = htmlContent.replace(
-            regex,
-            `<h${heading.level} id="${heading.id}">${heading.text}</h${heading.level}>`
-          );
-        });
+        // 見出しIDは既に正しく設定されているため、この処理は不要
 
         editor.commands.setContent(htmlContent);
         setLastSavedContent(htmlContent);
@@ -325,7 +330,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       const confirm = window.confirm('未保存の変更があります。編集を終了しますか？');
       if (!confirm) return;
     }
-    
+
     setIsEditing(!isEditing);
     if (editor) {
       editor.setEditable(!isEditing);
@@ -365,11 +370,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       const currentContent = editor.getHTML();
       setLastSavedContent(currentContent);
       setHasUnsavedChanges(false);
-      
+
       // マークダウンに変換して保存
       const markdownFromHtml = convertHtmlToMarkdown(currentContent);
       setMarkdownContent(markdownFromHtml);
-      
+
       showBubble(saveBtnRef, '💾 変更を\n保存しました', 'markdown');
     }
   }, [editor, convertHtmlToMarkdown]);
@@ -384,10 +389,51 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
   // ✅ 見出しクリック時のスクロール機能
   const handleHeadingClick = (headingId: string) => {
-    const element = document.getElementById(headingId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setTimeout(() => {
+      const possibleSelectors = ['.ProseMirror', '[data-tippy-root] .ProseMirror', '.canvas-panel .ProseMirror'];
+      let editorElement: Element | null = null;
+      
+      for (const selector of possibleSelectors) {
+        editorElement = document.querySelector(selector);
+        if (editorElement) break;
+      }
+      
+      if (editorElement) {
+        let element = editorElement.querySelector(`#${headingId}`);
+        
+        if (!element) {
+          const targetHeading = headings.find(h => h.id === headingId);
+          if (targetHeading) {
+            const allHeadings = editorElement.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            element = Array.from(allHeadings).find(h => 
+              h.textContent?.trim() === targetHeading.text.trim()
+            ) || null;
+          }
+        }
+        
+        if (element) {
+          const canvasScrollContainer = document.querySelector('.canvas-panel .flex-1.overflow-auto');
+          
+          if (canvasScrollContainer) {
+            const containerRect = canvasScrollContainer.getBoundingClientRect();
+            const elementRect = element.getBoundingClientRect();
+            const currentScrollTop = canvasScrollContainer.scrollTop;
+            const targetScrollTop = currentScrollTop + (elementRect.top - containerRect.top) - 120;
+            
+            canvasScrollContainer.scrollTo({
+              top: Math.max(0, targetScrollTop),
+              behavior: 'smooth'
+            });
+          } else {
+            element.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start',
+              inline: 'nearest'
+            });
+          }
+        }
+      }
+    }, 100);
   };
 
   // ✅ 吹き出し表示関数
@@ -523,13 +569,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                console.log('🎛️ Toggle outline:', !outlineVisible, 'headings:', headings.length);
-                setOutlineVisible(!outlineVisible);
-              }}
+              onClick={() => setOutlineVisible(!outlineVisible)}
               className={`w-8 h-8 transition-all duration-200 ${
-                outlineVisible 
-                  ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 shadow-sm' 
+                outlineVisible
+                  ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 shadow-sm'
                   : 'hover:bg-gray-200'
               }`}
               title="アウトライン表示切り替え"
@@ -543,18 +586,18 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
           {/* Claude web版Canvas同様の編集ボタン */}
           <Button
             size="sm"
-            variant={isEditing ? "default" : "outline"}
+            variant={isEditing ? 'default' : 'outline'}
             onClick={handleToggleEdit}
             className={cn(
-              "px-3 py-1 text-xs transition-colors",
-              isEditing 
-                ? "bg-blue-600 hover:bg-blue-700 text-white" 
-                : "hover:bg-blue-50 hover:border-blue-300"
+              'px-3 py-1 text-xs transition-colors',
+              isEditing
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'hover:bg-blue-50 hover:border-blue-300'
             )}
-            title={isEditing ? "編集を終了" : "編集を開始"}
+            title={isEditing ? '編集を終了' : '編集を開始'}
           >
             <Edit3 size={14} className="mr-1" />
-            {isEditing ? "完了" : "編集"}
+            {isEditing ? '完了' : '編集'}
           </Button>
 
           {/* 編集モード時の保存・元に戻すボタン */}
@@ -621,15 +664,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       </div>
 
       {/* ✅ アウトラインパネル - ヘッダー下の適切な位置に配置 */}
-      {(() => {
-        const shouldShow = outlineVisible && headings.length > 0;
-        console.log('📋 Outline panel display:', {
-          outlineVisible,
-          headingsCount: headings.length,
-          shouldShow,
-        });
-        return shouldShow;
-      })() && (
+      {outlineVisible && headings.length > 0 && (
         <div className="sticky top-32 z-30 border-b bg-white ml-2 max-h-48 overflow-y-auto shadow-sm">
           <div className="p-3">
             <h4 className="text-sm font-medium text-gray-600 mb-2">アウトライン</h4>
@@ -637,10 +672,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
               {headings.map((heading, index) => (
                 <button
                   key={index}
-                  onClick={() => {
-                    console.log('🔗 Heading clicked:', heading.id, heading.text);
-                    handleHeadingClick(heading.id);
-                  }}
+                  onClick={() => handleHeadingClick(heading.id)}
                   className={`block w-full text-left text-sm hover:bg-gray-200 rounded px-2 py-1 transition-colors ${
                     heading.level === 1
                       ? 'font-semibold text-gray-900'
@@ -666,42 +698,44 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
       {/* エディタエリア - ChatGPT風Canvas同様のスタイル */}
       <div className="flex-1 overflow-auto ml-2 pt-20">
-        <div className={cn(
-          "min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4 transition-all duration-300",
-          isEditing && [
-            "border-2 border-dashed border-blue-400 shadow-lg",
-            "bg-gradient-to-br from-white to-blue-50/30"
-          ]
-        )}>
+        <div
+          className={cn(
+            'min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4 transition-all duration-300',
+            isEditing && [
+              'border-2 border-dashed border-blue-400 shadow-lg',
+              'bg-gradient-to-br from-white to-blue-50/30',
+            ]
+          )}
+        >
           <EditorContent
             editor={editor}
             className={cn(
-              "prose prose-lg max-w-none transition-all duration-200",
+              'prose prose-lg max-w-none transition-all duration-200',
               // ChatGPT風の見出しスタイル
-              "prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8",
-              "prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6",
-              "prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5",
-              "prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4",
+              'prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8',
+              'prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6',
+              'prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5',
+              'prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4',
               // 本文スタイル
-              "prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4",
+              'prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4',
               // リストスタイル（ChatGPT風）
-              "prose-ul:space-y-2 prose-li:text-gray-700",
-              "prose-ol:space-y-2",
+              'prose-ul:space-y-2 prose-li:text-gray-700',
+              'prose-ol:space-y-2',
               // 強調とリンク
-              "prose-strong:text-gray-900 prose-strong:font-semibold",
-              "prose-em:text-gray-600 prose-em:italic",
-              "prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline",
+              'prose-strong:text-gray-900 prose-strong:font-semibold',
+              'prose-em:text-gray-600 prose-em:italic',
+              'prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline',
               // コードとプリフォーマット
-              "prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono",
-              "prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4",
+              'prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono',
+              'prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4',
               // 引用
-              "prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600",
+              'prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600',
               // テーブル
-              "prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2",
+              'prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2',
               // 編集モード時のスタイル
               isEditing && [
-                "focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-50",
-                "min-h-96"
+                'focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-50',
+                'min-h-96',
               ]
             )}
             style={{
@@ -710,7 +744,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
               fontSize: '16px',
             }}
           />
-          
+
           {/* 編集モード時のヘルプテキスト */}
           {isEditing && (
             <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl text-sm text-blue-800 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -742,7 +776,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
               </div>
             </div>
           )}
-          
+
           {/* 未保存の変更通知 */}
           {hasUnsavedChanges && (
             <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-sm text-orange-700">
@@ -751,7 +785,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
           )}
         </div>
       </div>
-
 
       {/* ✅ ChatGPT風CSSスタイル */}
       <style jsx>{`
@@ -798,7 +831,14 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
         /* 絵文字の表示改善 */
         :global(.prose) {
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif !important;
+          font-family:
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            'Segoe UI',
+            Roboto,
+            'Helvetica Neue',
+            sans-serif !important;
         }
 
         /* リストの改善 */
