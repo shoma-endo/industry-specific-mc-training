@@ -2,7 +2,7 @@
 
 import React, { memo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bot, PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Session = {
@@ -48,21 +48,15 @@ const SessionListContent = memo(function SessionListContent({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b">
-        <h2 className="font-medium text-lg flex items-center gap-2">
-          <Bot size={20} className="text-[#06c755]" />
-          チャット履歴
-        </h2>
-      </div>
-
       <div className="flex-1 overflow-y-auto" ref={sessionListRef}>
-        <div className="p-3">
+        <div className="p-3 pt-20">
           <Button
             variant="outline"
             onClick={onStartNewChat}
             className="w-full mb-4 flex items-center gap-2 bg-white border-gray-200 hover:bg-gray-50"
           >
             <PlusCircle size={16} className="text-[#06c755]" />
+            新規チャット
           </Button>
 
           {sessions.length === 0 ? (
