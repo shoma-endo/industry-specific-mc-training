@@ -254,7 +254,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
       if (editor) {
         // ChatGPT風マークダウンをHTMLに変換してエディタに設定
-        let htmlContent = markdown
+        const htmlContent = markdown
           .replace(/^# (.*$)/gm, (match, text) => {
             const id = `heading-${generateHeadingId(text)}`;
             return `<h1 id="${id}">${text}</h1>`;
@@ -321,7 +321,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         setHasUnsavedChanges(false);
       }
     }
-  }, [editor, content, extractHeadings]);
+  }, [editor, content, extractHeadings, generateHeadingId]);
 
   // ✅ Claude web版Canvas同様の編集機能
   const handleToggleEdit = useCallback(() => {
