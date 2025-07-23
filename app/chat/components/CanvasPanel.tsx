@@ -370,7 +370,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       const markdownFromHtml = convertHtmlToMarkdown(currentContent);
       setMarkdownContent(markdownFromHtml);
       
-      showBubble(saveBtnRef, '💾 変更を保存しました', 'markdown');
+      showBubble(saveBtnRef, '💾 変更を\n保存しました', 'markdown');
     }
   }, [editor, convertHtmlToMarkdown]);
 
@@ -487,8 +487,12 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
             top: `${bubble.position.top}px`,
             left: `${bubble.position.left}px`,
             minWidth: '150px',
+            minHeight: '48px',
             textAlign: 'center',
             whiteSpace: 'pre-line',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           {bubble.message}
