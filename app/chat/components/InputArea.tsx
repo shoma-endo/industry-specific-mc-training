@@ -111,7 +111,6 @@ const InputArea: React.FC<InputAreaProps> = ({
 - 見出し（#, ##, ###）を使用した階層構造
 - リスト（- , 1. ）で情報を整理
 - 強調（**太字**）で重要なポイントを強調
-- コードブロック（\`\`\`）で技術的な内容を整理
 - 適切な段落分けと読みやすい構成
 
 ## 構造例：
@@ -120,8 +119,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 ### サブセクション
 - ポイント1
 - ポイント2
-
-**重要なポイント**
+- ポイント3
 `;
       return `${originalPrompt}\n\n${markdownInstructions}`;
     }
@@ -154,7 +152,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
     if (hasArticleKeyword) {
       const markdownInstructions =
-        '※ 返答は**マークダウン記事形式**で構造化して作成してください。見出し（#, ##, ###）、リスト（- , 1. ）、強調（**太字**）、コード（```）を適切に使用してください。';
+        '※ 返答は**マークダウン記事形式**で構造化して作成してください。見出し（#, ##, ###）、リスト（- , 1. ）、強調（**太字**）を適切に使用してください。';
       return `${originalPrompt}\n\n${markdownInstructions}`;
     }
 
