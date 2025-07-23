@@ -5,7 +5,7 @@ import { ChatSession } from '@/domain/interfaces/IChatService';
 import { ChatSessionActions } from '@/hooks/useChatSession';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu } from 'lucide-react';
+import { Menu, ChevronRight } from 'lucide-react';
 import SessionListContent from '@/components/SessionListContent';
 import { DeleteChatDialog } from '@/components/DeleteChatDialog';
 
@@ -24,6 +24,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
@@ -126,14 +127,36 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
     onStartNewChat: handleStartNewChat,
     onHoverSession: setHoveredSessionId,
     sessionListRef,
+    onToggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
+    showToggleButton: !isMobile,
   };
 
   // デスクトップ用サイドバー
   if (!isMobile) {
     return (
       <>
-        <div className="bg-slate-50 border-r flex-shrink-0 flex flex-col w-80 relative h-full">
-          {shouldShowLoading ? <LoadingIndicator /> : <SessionListContent {...sessionListProps} />}
+        <div className={`bg-slate-50 border-r flex-shrink-0 flex flex-col relative h-full transition-all duration-300 ${
+          sidebarCollapsed ? 'w-12' : 'w-80'
+        }`}>
+          {sidebarCollapsed ? (
+            // 折りたたみ時の表示
+            <div className="flex flex-col items-center pt-20">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="h-8 w-8 hover:bg-gray-200"
+                title="サイドバーを開く"
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          ) : (
+            // 展開時の表示
+            <>
+              {shouldShowLoading ? <LoadingIndicator /> : <SessionListContent {...sessionListProps} />}
+            </>
+          )}
         </div>
 
         <DeleteChatDialog

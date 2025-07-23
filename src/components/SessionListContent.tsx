@@ -2,7 +2,7 @@
 
 import React, { memo } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Session = {
@@ -20,6 +20,8 @@ interface SessionListContentProps {
   onStartNewChat: () => void;
   onHoverSession: (sessionId: string | null) => void;
   sessionListRef: React.RefObject<HTMLDivElement | null>;
+  onToggleSidebar?: () => void;
+  showToggleButton?: boolean;
 }
 
 const SessionListContent = memo(function SessionListContent({
@@ -31,6 +33,8 @@ const SessionListContent = memo(function SessionListContent({
   onStartNewChat,
   onHoverSession,
   sessionListRef,
+  onToggleSidebar,
+  showToggleButton = false,
 }: SessionListContentProps) {
   const formatDate = (date: Date) => {
     const today = new Date();
@@ -50,14 +54,27 @@ const SessionListContent = memo(function SessionListContent({
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto" ref={sessionListRef}>
         <div className="p-3 pt-20">
-          <Button
-            variant="outline"
-            onClick={onStartNewChat}
-            className="w-full mb-4 flex items-center gap-2 bg-white border-gray-200 hover:bg-gray-50"
-          >
-            <PlusCircle size={16} className="text-[#06c755]" />
-            新規チャット
-          </Button>
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant="outline"
+              onClick={onStartNewChat}
+              className="flex-1 flex items-center gap-2 bg-white border-gray-200 hover:bg-gray-50"
+            >
+              <PlusCircle size={16} className="text-[#06c755]" />
+              新規チャット
+            </Button>
+            {showToggleButton && onToggleSidebar && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onToggleSidebar}
+                className="bg-white border-gray-200 hover:bg-gray-50"
+                title="サイドバーを閉じる"
+              >
+                <ChevronLeft size={16} />
+              </Button>
+            )}
+          </div>
 
           {sessions.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm">履歴がありません</div>
