@@ -254,31 +254,29 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
       if (editor) {
         // ChatGPT風マークダウンをHTMLに変換してエディタに設定
-        const htmlContent = markdown
-          .replace(/^# (.*$)/gm, (match, text) => {
-            const id = `heading-${generateHeadingId(text)}`;
-            return `<h1 id="${id}">${text}</h1>`;
-          })
-          .replace(/^## (.*$)/gm, (match, text) => {
-            const id = `heading-${generateHeadingId(text)}`;
-            return `<h2 id="${id}">${text}</h2>`;
-          })
-          .replace(/^### (.*$)/gm, (match, text) => {
-            const id = `heading-${generateHeadingId(text)}`;
-            return `<h3 id="${id}">${text}</h3>`;
-          })
-          .replace(/^#### (.*$)/gm, (match, text) => {
-            const id = `heading-${generateHeadingId(text)}`;
-            return `<h4 id="${id}">${text}</h4>`;
-          })
-          .replace(/^##### (.*$)/gm, (match, text) => {
-            const id = `heading-${generateHeadingId(text)}`;
-            return `<h5 id="${id}">${text}</h5>`;
-          })
-          .replace(/^###### (.*$)/gm, (match, text) => {
-            const id = `heading-${generateHeadingId(text)}`;
-            return `<h6 id="${id}">${text}</h6>`;
-          })
+        // ✅ 見出しIDの一貫性を保つために、行インデックスを使用してHTMLに変換
+        const lines = markdown.split('\n');
+        let htmlContent = markdown;
+        
+        // 見出し処理をインデックス付きで実行
+        lines.forEach((line, index) => {
+          const trimmed = line.trim();
+          const match = trimmed.match(/^(#{1,6})\s+(.+)$/);
+          
+          if (match && match[1] && match[2]) {
+            const level = match[1].length;
+            const text = match[2];
+            const id = `heading-${index}-${generateHeadingId(text)}`;
+            const tagName = `h${level}`;
+            const replacement = `<${tagName} id="${id}">${text}</${tagName}>`;
+            
+            // 元の行を置換
+            htmlContent = htmlContent.replace(line, replacement);
+          }
+        });
+        
+        // その他のマークダウン要素を処理
+        htmlContent = htmlContent
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.*?)\*/g, '<em>$1</em>')
           .replace(/`(.*?)`/g, '<code>$1</code>')

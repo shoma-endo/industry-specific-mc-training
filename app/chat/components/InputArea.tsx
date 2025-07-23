@@ -50,7 +50,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onMenuToggle,
 }) => {
   const [input, setInput] = useState('');
-  const [selectedModel] = useState<string>(
+  const [selectedModel, setSelectedModel] = useState<string>(
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
   );
   const [isMobile, setIsMobile] = useState(false);
@@ -101,8 +101,32 @@ const InputArea: React.FC<InputAreaProps> = ({
   }, [input, adjustTextareaHeight]);
 
   // ✅ マークダウン記事生成を促進するプロンプト拡張
-  const enhancePromptForMarkdown = (originalPrompt: string): string => {
-    // 記事生成系のキーワードを検出
+  const enhancePromptForMarkdown = (originalPrompt: string, selectedModel: string): string => {
+    // LPドラフト作成モデルの場合は必ずマークダウン形式で返答
+    if (selectedModel === 'lp_draft_creation') {
+      const markdownInstructions = `
+※ 出力は必ず**マークダウン記事形式**で構造化して作成してください。
+
+## 必須要素：
+- 見出し（#, ##, ###）を使用した階層構造
+- リスト（- , 1. ）で情報を整理
+- 強調（**太字**）で重要なポイントを強調
+- コードブロック（\`\`\`）で技術的な内容を整理
+- 適切な段落分けと読みやすい構成
+
+## 構造例：
+# メインタイトル
+## セクション1
+### サブセクション
+- ポイント1
+- ポイント2
+
+**重要なポイント**
+`;
+      return `${originalPrompt}\n\n${markdownInstructions}`;
+    }
+
+    // 既存のキーワードベース検出（他のモデル用）
     const articleKeywords = [
       '記事',
       '作成',
@@ -143,7 +167,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
     const originalMessage = input.trim();
     // ✅ プロンプトを拡張してマークダウン記事生成を促進
-    const enhancedMessage = enhancePromptForMarkdown(originalMessage);
+    const enhancedMessage = enhancePromptForMarkdown(originalMessage, selectedModel);
 
     setInput('');
 
@@ -174,7 +198,7 @@ const InputArea: React.FC<InputAreaProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            <Select value={selectedModel} onValueChange={() => {}}>
+            <Select value={selectedModel} onValueChange={setSelectedModel}>
               <SelectTrigger className="w-[120px] md:w-[180px] min-w-[120px] h-9 text-xs md:text-sm border-gray-200">
                 <SelectValue placeholder="モデルを選択" />
               </SelectTrigger>
