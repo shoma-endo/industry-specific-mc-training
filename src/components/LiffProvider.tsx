@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +30,7 @@ export function useLiffContext() {
 }
 
 interface LiffProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
   /**
    * LIFF初期化を明示的に呼び出す場所でtrueに設定する
    */
@@ -48,33 +48,53 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   }, [initialize, isLoading, isLoggedIn, error, initLiff]);
 
   const [syncedWithServer, setSyncedWithServer] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // コンテキストに値を設定して子コンポーネントにLIFF状態を提供
+  // ✅ 最新の値を参照するためのRef
+  const liffObjectRef = useRef(liffObject);
+  const isLoggedInRef = useRef(isLoggedIn);
+
+  // Refを最新の値で更新
+  useEffect(() => {
+    liffObjectRef.current = liffObject;
+  }, [liffObject]);
+
+  useEffect(() => {
+    isLoggedInRef.current = isLoggedIn;
+  }, [isLoggedIn]);
+
+  // ✅ 完全に安定したgetAccessToken（依存配列なし）
   const getAccessToken = useCallback(async (): Promise<string> => {
-    if (liffObject && isLoggedIn) {
-      const token = await liffObject.getAccessToken();
+    const currentLiff = liffObjectRef.current;
+    const currentLoggedIn = isLoggedInRef.current;
+
+    if (currentLiff && currentLoggedIn) {
+      const token = await currentLiff.getAccessToken();
       if (token) return token;
     }
     throw new Error('LIFF is not initialized or user is not logged in');
-  }, [liffObject, isLoggedIn]);
+  }, []); // ✅ 依存配列完全に空
 
-  // 🧠 サーバーとの同期処理をuseEffectで適切に管理
-  useEffect(() => {
-    const syncUserIdWithServer = async () => {
-      if (initialize && isLoggedIn && profile && !syncedWithServer) {
-        try {
-          // 🔁 サーバーとの同期処理があればここに記述
-          const token = await getAccessToken(); // LIFFからアクセストークン取得
-          await verifyLineTokenServer(token);   // サーバーに送ってHttpOnly Cookie保存！！
-          setSyncedWithServer(true);
-        } catch (error) {
-          console.error('Failed to sync user ID with server:', error);
-        }
+  // ✅ サーバー同期をuseEffectから分離してイベントドリブンに変更
+  const syncWithServerIfNeeded = useCallback(async () => {
+    if (initialize && isLoggedIn && profile && !syncedWithServer) {
+      try {
+        const token = await getAccessToken();
+        await verifyLineTokenServer(token);
+        setSyncedWithServer(true);
+      } catch (error) {
+        console.error('Failed to sync user ID with server:', error);
       }
-    };
-
-    syncUserIdWithServer();
+    }
   }, [initialize, isLoggedIn, profile, syncedWithServer, getAccessToken]);
+
+  // ✅ 初期化完了時にのみサーバー同期を実行
+  useEffect(() => {
+    if (isLoggedIn && profile && !isInitialized) {
+      syncWithServerIfNeeded();
+      setIsInitialized(true);
+    }
+  }, [isLoggedIn, profile, isInitialized, syncWithServerIfNeeded]);
 
   // 自動ログイン：LIFF初期化後にログインしていなければ遷移
   useEffect(() => {
@@ -92,7 +112,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         </CardHeader>
         <CardContent>
           <p>LIFF初期化中にエラーが発生しました。</p>
-          <p className="text-sm text-gray-500">{error.message}</p>
+          <p className="text-sm text-gray-500">{error}</p>
           <Button className="mt-4" onClick={() => window.location.reload()}>
             再読み込み
           </Button>

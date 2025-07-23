@@ -1,0 +1,222 @@
+import {
+  IChatService,
+  SendMessageParams,
+  SendMessageResponse,
+  ChatSession,
+  ChatMessage,
+} from '../interfaces/IChatService';
+import {
+  startChatSA,
+  continueChatSA,
+  getChatSessionsSA,
+  getSessionMessagesSA,
+  deleteChatSessionSA,
+} from '@/server/handler/actions/chat.actions';
+import { ChatError, ChatErrorCode } from '../errors/ChatError';
+
+interface ValidationResult {
+  isValid: boolean;
+  error?: string;
+}
+
+export class ChatService implements IChatService {
+  private currentUserId: string | null = null;
+  private accessTokenProvider: (() => Promise<string>) | null = null;
+
+  setAccessTokenProvider(provider: () => Promise<string>) {
+    this.accessTokenProvider = provider;
+  }
+
+  async sendMessage(params: SendMessageParams): Promise<SendMessageResponse> {
+    try {
+      const validation = this.validateMessage(params.content);
+      if (!validation.isValid) {
+        throw new ChatError(
+          validation.error || 'メッセージのバリデーションに失敗しました',
+          ChatErrorCode.VALIDATION_ERROR,
+          { content: params.content }
+        );
+      }
+
+      const response = params.isNewSession
+        ? await this.startNewChat(params)
+        : await this.continueChat(params);
+
+      return response;
+    } catch (error) {
+      const errorMessage = this.handleError(error);
+      throw new ChatError(errorMessage, ChatErrorCode.MESSAGE_SEND_FAILED, { params, error });
+    }
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const result = await deleteChatSessionSA(sessionId, accessToken);
+      if (!result.success) {
+        throw new ChatError(
+          result.error || 'セッションの削除に失敗しました',
+          ChatErrorCode.SESSION_DELETE_FAILED,
+          { sessionId }
+        );
+      }
+    } catch (error) {
+      if (error instanceof ChatError) {
+        throw error;
+      }
+      throw new ChatError(
+        'セッションの削除中にエラーが発生しました',
+        ChatErrorCode.SESSION_DELETE_FAILED,
+        { sessionId, error }
+      );
+    }
+  }
+
+  async loadSessions(): Promise<ChatSession[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const result = await getChatSessionsSA(accessToken);
+
+      if (result.error) {
+        throw new ChatError(result.error, ChatErrorCode.SESSION_LOAD_FAILED);
+      }
+
+      if (!result.sessions) {
+        return [];
+      }
+
+      const formattedSessions: ChatSession[] = result.sessions.map(session => ({
+        id: session.id,
+        title: session.title,
+        updatedAt: new Date(session.lastMessageAt || session.createdAt),
+        messageCount: 0, // TODO: Add messageCount to API response
+        lastMessage: undefined as string | undefined, // TODO: Add lastMessage to API response
+      }));
+
+      return formattedSessions;
+    } catch (error) {
+      if (error instanceof ChatError) {
+        throw error;
+      }
+      throw new ChatError(
+        'チャットセッションの読み込み中にエラーが発生しました',
+        ChatErrorCode.SESSION_LOAD_FAILED,
+        { error }
+      );
+    }
+  }
+
+  async loadSessionMessages(sessionId: string): Promise<ChatMessage[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const messagesResult = await getSessionMessagesSA(sessionId, accessToken);
+
+      if (messagesResult.error) {
+        throw new ChatError(messagesResult.error, ChatErrorCode.MESSAGE_LOAD_FAILED, { sessionId });
+      }
+
+      if (!messagesResult.messages) {
+        return [];
+      }
+
+      const uiMessages: ChatMessage[] = messagesResult.messages.map((msg, index) => ({
+        id: `${msg.id || index}`,
+        role: msg.role === 'system' ? 'assistant' : (msg.role as 'user' | 'assistant'),
+        content: msg.content,
+        timestamp: new Date(msg.createdAt),
+      }));
+
+      return uiMessages;
+    } catch (error) {
+      if (error instanceof ChatError) {
+        throw error;
+      }
+      throw new ChatError(
+        'メッセージの読み込み中にエラーが発生しました',
+        ChatErrorCode.MESSAGE_LOAD_FAILED,
+        { sessionId, error }
+      );
+    }
+  }
+
+  startNewSession(): string {
+    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private validateMessage(content: string): ValidationResult {
+    if (!content?.trim()) {
+      return { isValid: false, error: 'メッセージが空です' };
+    }
+    if (content.length > 4000) {
+      return { isValid: false, error: 'メッセージが長すぎます（4000文字以内）' };
+    }
+    return { isValid: true };
+  }
+
+  private async startNewChat(params: SendMessageParams): Promise<SendMessageResponse> {
+    const response = await startChatSA({
+      userMessage: params.content,
+      model: params.model,
+      liffAccessToken: params.accessToken,
+    });
+
+    return {
+      message: response.message,
+      sessionId: response.sessionId as string | undefined,
+      error: response.error as string | undefined,
+      requiresSubscription: response.requiresSubscription as boolean | undefined,
+    };
+  }
+
+  private async continueChat(params: SendMessageParams): Promise<SendMessageResponse> {
+    if (!params.sessionId) {
+      throw new Error('セッションIDが必要です');
+    }
+
+    const response = await continueChatSA({
+      sessionId: params.sessionId,
+      messages: params.messages,
+      userMessage: params.content,
+      model: params.model,
+      liffAccessToken: params.accessToken,
+    });
+
+    return {
+      message: response.message,
+      sessionId: (response.sessionId || params.sessionId) as string | undefined,
+      error: response.error as string | undefined,
+      requiresSubscription: response.requiresSubscription as boolean | undefined,
+    };
+  }
+
+  private async getAccessToken(): Promise<string> {
+    try {
+      if (!this.accessTokenProvider) {
+        throw new ChatError(
+          'アクセストークンプロバイダーが設定されていません',
+          ChatErrorCode.AUTHENTICATION_FAILED
+        );
+      }
+      return await this.accessTokenProvider();
+    } catch (error) {
+      if (error instanceof ChatError) {
+        throw error;
+      }
+      throw new ChatError(
+        'アクセストークンの取得に失敗しました',
+        ChatErrorCode.AUTHENTICATION_FAILED,
+        { error }
+      );
+    }
+  }
+
+  private handleError(error: unknown): string {
+    if (error instanceof ChatError) {
+      return error.message;
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return '予期せぬエラーが発生しました';
+  }
+}

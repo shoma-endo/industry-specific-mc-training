@@ -5,6 +5,7 @@ import liff from '@line/liff';
 import { getLineProfileServer } from '@/server/handler/actions/login.actions';
 import { getLineProfileServerResponse } from '@/server/handler/actions/login.actions';
 import { env } from '@/env';
+import { LiffError } from '@/domain/errors/LiffError';
 
 interface LiffProfile {
   userId: string;
@@ -16,7 +17,7 @@ interface LiffProfile {
 interface UseLiffResult {
   isLoggedIn: boolean;
   isLoading: boolean;
-  error: Error | null;
+  error: string | null;
   liffObject: typeof liff | null;
   profile: LiffProfile | null;
   login: () => void;
@@ -24,6 +25,7 @@ interface UseLiffResult {
   getLineProfile: () => Promise<getLineProfileServerResponse>;
   getAccessToken: () => Promise<string>;
   initLiff: () => Promise<void>;
+  clearError: () => void;
 }
 
 // -----------------------------
@@ -32,9 +34,11 @@ interface UseLiffResult {
 export const useLiff = (): UseLiffResult => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<LiffProfile | null>(null);
   const [liffObject, setLiffObject] = useState<typeof liff | null>(null);
+
+  const clearError = () => setError(null);
 
   // -----------------------------
   // 明示的に呼び出す：LIFF初期化＆ログイン状態確認
@@ -46,7 +50,7 @@ export const useLiff = (): UseLiffResult => {
     try {
       const liffId = env.NEXT_PUBLIC_LIFF_ID;
       if (!liffId) {
-        throw new Error('LIFF ID is not defined');
+        throw LiffError.invalidLiffId(liffId);
       }
 
       await liff.init({ liffId });
@@ -55,21 +59,27 @@ export const useLiff = (): UseLiffResult => {
       if (liff.isLoggedIn()) {
         setIsLoggedIn(true);
 
-        const profileData = await liff.getProfile();
-        setProfile({
-          userId: profileData.userId,
-          displayName: profileData.displayName,
-          pictureUrl: profileData.pictureUrl || '',
-          statusMessage: profileData.statusMessage || '',
-        });
+        try {
+          const profileData = await liff.getProfile();
+          setProfile({
+            userId: profileData.userId,
+            displayName: profileData.displayName,
+            pictureUrl: profileData.pictureUrl || '',
+            statusMessage: profileData.statusMessage || '',
+          });
+        } catch (profileError) {
+          throw LiffError.profileFetchFailed(profileError);
+        }
       } else {
         if (!liff.isInClient()) {
           liff.login({ redirectUri: window.location.href });
         }
       }
     } catch (initError) {
-      console.error('LIFF initialization failed (raw error object):', initError);
-      setError(initError instanceof Error ? initError : new Error(String(initError)));
+      console.error('LIFF initialization failed:', initError);
+      const errorMessage =
+        initError instanceof LiffError ? initError.userMessage : 'LIFFの初期化に失敗しました。';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -97,64 +107,89 @@ export const useLiff = (): UseLiffResult => {
   // プロフィール取得（サーバーでトークンを検証）
   // -----------------------------
   const getLineProfile = async (): Promise<getLineProfileServerResponse> => {
-    const lineAccessToken = await getAccessToken();
-    const profile = await getLineProfileServer(lineAccessToken);
-    return profile;
+    try {
+      const lineAccessToken = await getAccessToken();
+      const profile = await getLineProfileServer(lineAccessToken);
+      return profile;
+    } catch (error) {
+      throw LiffError.profileFetchFailed(error);
+    }
   };
 
   // -----------------------------
   // アクセストークン取得（リフレッシュ対応）
   // -----------------------------
   const getAccessToken = async (): Promise<string> => {
-    await liff.ready;
-    const lineAccessToken = liff.getAccessToken() ?? '';
-
     try {
-      // サーバー側でトークンの検証とリフレッシュを実行
-      const response = await fetch('/api/user/current');
-      const data = await response.json();
+      await liff.ready;
+      const lineAccessToken = liff.getAccessToken() ?? '';
 
-      if (data.needsReauth) {
-        console.warn('[LIFF] 再認証が必要です');
-        liff.logout();
-        liff.login({ redirectUri: window.location.href });
-        throw new Error('Re-authentication required');
+      if (!lineAccessToken) {
+        throw LiffError.tokenExpired();
       }
 
-      if (data.tokenRefreshed) {
-        // LIFFオブジェクトのトークンも更新が必要な場合があります
-        // （ただし、LIFF SDKは基本的にサーバーサイドのトークンと同期しないため、
-        //  必要に応じて別の方法でトークンを管理する必要があります）
-      }
-
-      return lineAccessToken;
-    } catch (fetchError) {
-      console.warn(
-        '[LIFF] サーバー側トークン確認失敗、フォールバックとしてクライアント側で確認',
-        fetchError
-      );
-
-      // フォールバック：クライアント側でのトークン確認
       try {
-        const res = await fetch(
-          `https://api.line.me/oauth2/v2.1/verify?access_token=${lineAccessToken}`
-        );
-        const data = await res.json();
+        // サーバー側でトークンの検証とリフレッシュを実行
+        const response = await fetch('/api/user/current');
 
-        if (!res.ok || data.expires_in < 0) {
-          console.warn('[LIFF] トークン期限切れ、再ログインを実行');
+        if (!response.ok) {
+          throw LiffError.networkError(new Error(`HTTP ${response.status}`));
+        }
+
+        const data = await response.json();
+
+        if (data.needsReauth) {
+          console.warn('[LIFF] 再認証が必要です');
           liff.logout();
           liff.login({ redirectUri: window.location.href });
-          throw new Error('LINE access token is expired');
+          throw LiffError.tokenExpired();
         }
-      } catch (err) {
-        console.warn('[LIFF] トークン確認失敗、再ログイン', err);
-        liff.logout();
-        liff.login({ redirectUri: window.location.href });
-        throw err;
-      }
 
-      return lineAccessToken;
+        if (data.tokenRefreshed) {
+          // LIFFオブジェクトのトークンも更新が必要な場合があります
+          // （ただし、LIFF SDKは基本的にサーバーサイドのトークンと同期しないため、
+          //  必要に応じて別の方法でトークンを管理する必要があります）
+        }
+
+        return lineAccessToken;
+      } catch (fetchError) {
+        console.warn(
+          '[LIFF] サーバー側トークン確認失敗、フォールバックとしてクライアント側で確認',
+          fetchError
+        );
+
+        // フォールバック：クライアント側でのトークン確認
+        try {
+          const res = await fetch(
+            `https://api.line.me/oauth2/v2.1/verify?access_token=${lineAccessToken}`
+          );
+
+          if (!res.ok) {
+            throw LiffError.networkError(new Error(`LINE API HTTP ${res.status}`));
+          }
+
+          const data = await res.json();
+
+          if (data.expires_in < 0) {
+            console.warn('[LIFF] トークン期限切れ、再ログインを実行');
+            liff.logout();
+            liff.login({ redirectUri: window.location.href });
+            throw LiffError.tokenExpired();
+          }
+        } catch (verifyError) {
+          console.warn('[LIFF] トークン確認失敗、再ログイン', verifyError);
+          liff.logout();
+          liff.login({ redirectUri: window.location.href });
+          throw LiffError.tokenRefreshFailed(verifyError);
+        }
+
+        return lineAccessToken;
+      }
+    } catch (error) {
+      if (error instanceof LiffError) {
+        throw error;
+      }
+      throw LiffError.tokenRefreshFailed(error);
     }
   };
 
@@ -172,5 +207,6 @@ export const useLiff = (): UseLiffResult => {
     getLineProfile,
     getAccessToken,
     initLiff,
+    clearError,
   };
 };
