@@ -103,8 +103,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     router.push('/subscription');
   };
 
-  // ✅ AIの返信を監視してCanvasに自動反映
+  // ✅ 手動編集フラグを追加
+  const [isManualEdit, setIsManualEdit] = useState(false);
+
+  // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く）
   useEffect(() => {
+    // 手動編集中は自動更新をスキップ
+    if (isManualEdit) return;
+
     const messages = chatSession.state.messages;
     const latestAIMessage = getLatestAIMessage(messages);
 
@@ -115,11 +121,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         setCanvasPanelOpen(true);
       }
     }
-  }, [chatSession.state.messages, canvasContent, canvasPanelOpen]);
+  }, [chatSession.state.messages, canvasContent, canvasPanelOpen, isManualEdit]);
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {
     try {
+      // 新規メッセージ送信時は手動編集フラグをリセット
+      setIsManualEdit(false);
       // 初期化を実行してからメッセージ送信
       await chatSession.actions.sendMessage(content, model);
     } catch (error) {
@@ -138,6 +146,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       // エラー時でもCanvas切り替えを実行
       setCanvasPanelOpen(!canvasPanelOpen);
     }
+  };
+
+  // ✅ 過去のメッセージをCanvasで編集する関数
+  const handleEditInCanvas = (content: string) => {
+    console.log('🎨 handleEditInCanvas called with content:', content.substring(0, 100) + '...');
+    setIsManualEdit(true); // 手動編集フラグを設定
+    setCanvasContent(content);
+    setCanvasPanelOpen(true);
   };
 
   if (!isLoggedIn) {
@@ -207,6 +223,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         <MessageArea
           messages={chatSession.state.messages}
           isLoading={chatSession.state.isLoading}
+          onEditInCanvas={handleEditInCanvas}
         />
 
         <InputArea
@@ -225,7 +242,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
       {canvasPanelOpen && (
         <CanvasPanel
-          onClose={() => setCanvasPanelOpen(false)}
+          onClose={() => {
+            setCanvasPanelOpen(false);
+            setIsManualEdit(false); // Canvas閉じる時も手動編集フラグをリセット
+          }}
           content={canvasContent}
           isVisible={canvasPanelOpen}
         />

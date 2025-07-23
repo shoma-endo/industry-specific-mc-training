@@ -244,7 +244,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
   // ✅ コンテンツが更新された時の処理
   useEffect(() => {
-    console.log('🔄 CanvasPanel - content updated:', !!content);
+    console.log('🔄 CanvasPanel - content updated:', !!content, 'content length:', content?.length);
+    console.log('🔄 CanvasPanel - content preview:', content?.substring(0, 200));
     if (content) {
       const markdown = parseAsMarkdown(content);
       setMarkdownContent(markdown);
@@ -505,9 +506,15 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       )}
 
       {/* ヘッダー部分 - 固定ヘッダー分のtop位置を調整 */}
-      <div className="sticky top-16 z-40 flex items-center justify-between p-4 border-b bg-white ml-2 shadow-sm">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold text-gray-800">Canvas (マークダウン記事)</h3>
+      <div className="sticky top-16 z-40 flex items-center justify-between p-4 border-b bg-white/90 backdrop-blur-sm ml-2 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <h3 className="text-lg font-semibold text-gray-800">Canvas</h3>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+              マークダウン記事
+            </span>
+          </div>
           {headings.length > 0 && (
             <Button
               variant="ghost"
@@ -516,8 +523,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
                 console.log('🎛️ Toggle outline:', !outlineVisible, 'headings:', headings.length);
                 setOutlineVisible(!outlineVisible);
               }}
-              className={`w-8 h-8 transition-colors ${
-                outlineVisible ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'hover:bg-gray-200'
+              className={`w-8 h-8 transition-all duration-200 ${
+                outlineVisible 
+                  ? 'bg-blue-100 text-blue-600 hover:bg-blue-200 shadow-sm' 
+                  : 'hover:bg-gray-200'
               }`}
               title="アウトライン表示切り替え"
             >
@@ -654,8 +663,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       {/* エディタエリア - ChatGPT風Canvas同様のスタイル */}
       <div className="flex-1 overflow-auto ml-2 pt-20">
         <div className={cn(
-          "min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4",
-          isEditing && "border-2 border-dashed border-blue-300"
+          "min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4 transition-all duration-300",
+          isEditing && [
+            "border-2 border-dashed border-blue-400 shadow-lg",
+            "bg-gradient-to-br from-white to-blue-50/30"
+          ]
         )}>
           <EditorContent
             editor={editor}
@@ -697,14 +709,33 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
           
           {/* 編集モード時のヘルプテキスト */}
           {isEditing && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
-              <strong>編集のヒント:</strong>
-              <ul className="mt-1 ml-4 list-disc space-y-1">
-                <li>見出しは # で始める（# 大見出し, ## 中見出し）</li>
-                <li>強調は **太字** や *斜体* で囲む</li>
-                <li>コードは `コード` やコードブロック ```で囲む</li>
-                <li>リストは - や 1. で始める</li>
-              </ul>
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl text-sm text-blue-800 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <strong className="text-blue-900">編集のヒント</strong>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">#</span>
+                    <span>見出し（# 大見出し, ## 中見出し）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">**</span>
+                    <span>強調（**太字**, *斜体*）</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">`</span>
+                    <span>コード（`インライン`, ```ブロック```）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">-</span>
+                    <span>リスト（- 項目, 1. 番号付き）</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           

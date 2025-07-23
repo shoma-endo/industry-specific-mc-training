@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
-import { Bot } from 'lucide-react';
+import { Bot, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface MessageAreaProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  onEditInCanvas?: (content: string) => void;
 }
 
-const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading }) => {
+const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditInCanvas }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
 
   // メッセージが追加されたときに自動スクロール
   useEffect(() => {
@@ -146,11 +149,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading }) => {
           {messages.map((message, index) => (
             <div
               key={message.id || index}
-              className="mb-4 last:mb-2"
+              className="mb-4 last:mb-2 group"
+              onMouseEnter={() => setHoveredMessageId(message.id || index.toString())}
+              onMouseLeave={() => setHoveredMessageId(null)}
             >
               <div
                 className={cn(
-                  'flex items-start gap-2',
+                  'flex items-start gap-2 relative',
                   message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                 )}
               >
@@ -161,15 +166,41 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading }) => {
                 )}
                 <div
                   className={cn(
-                    'max-w-[85%] p-3 rounded-2xl',
+                    'max-w-[85%] p-3 rounded-2xl relative transition-all duration-200',
                     message.role === 'user'
                       ? 'bg-[#06c755] text-white'
-                      : 'bg-white text-gray-800 border border-gray-100'
+                      : 'bg-white text-gray-800 border border-gray-100',
+                    // アシスタントメッセージのホバー効果
+                    message.role === 'assistant' && onEditInCanvas && [
+                      'hover:shadow-md hover:border-blue-200',
+                      hoveredMessageId === (message.id || index.toString()) && 'shadow-lg border-blue-300 ring-2 ring-blue-100'
+                    ]
                   )}
                 >
                   <div className="whitespace-pre-wrap text-sm">
                     {formatMessageContent(message.content)}
                   </div>
+                  
+                  {/* Canvas編集ボタン - アシスタントメッセージのみに表示 */}
+                  {message.role === 'assistant' && 
+                   onEditInCanvas && 
+                   hoveredMessageId === (message.id || index.toString()) && (
+                    <div className="absolute -top-2 -right-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => {
+                          console.log('🖱️ Canvas edit button clicked for message:', message.id, message.content.substring(0, 100) + '...');
+                          onEditInCanvas(message.content);
+                        }}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg border border-white/20 px-3 py-1 text-xs h-8 transition-all duration-200 hover:scale-105 hover:shadow-xl backdrop-blur-sm rounded-full"
+                        title="Canvasで編集して文章を改善"
+                      >
+                        <Edit3 size={12} className="mr-1.5" />
+                        Canvas
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 {message.role === 'user' && <div className="opacity-0 w-8 h-8" />}
               </div>
