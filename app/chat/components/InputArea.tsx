@@ -38,8 +38,6 @@ interface InputAreaProps {
   onMenuToggle?: (() => void) | undefined;
 }
 
-
-
 const InputArea: React.FC<InputAreaProps> = ({
   onSendMessage,
   onToggleCanvas,
@@ -100,72 +98,11 @@ const InputArea: React.FC<InputAreaProps> = ({
     adjustTextareaHeight();
   }, [input, adjustTextareaHeight]);
 
-  // ✅ マークダウン記事生成を促進するプロンプト拡張
-  const enhancePromptForMarkdown = (originalPrompt: string, selectedModel: string): string => {
-    // LPドラフト作成モデルの場合は必ずマークダウン形式で返答
-    if (selectedModel === 'lp_draft_creation') {
-      const markdownInstructions = `
-※ 出力は必ず**マークダウン記事形式**で構造化して作成してください。
-
-## 必須要素：
-- 見出し（#, ##, ###）を使用した階層構造
-- リスト（- , 1. ）で情報を整理
-- 強調（**太字**）で重要なポイントを強調
-- 適切な段落分けと読みやすい構成
-
-## 構造例：
-# メインタイトル
-## セクション1
-### サブセクション
-- ポイント1
-- ポイント2
-- ポイント3
-`;
-      return `${originalPrompt}\n\n${markdownInstructions}`;
-    }
-
-    // 既存のキーワードベース検出（他のモデル用）
-    const articleKeywords = [
-      '記事',
-      '作成',
-      '書いて',
-      '投稿',
-      'ブログ',
-      '文章',
-      '内容',
-      'まとめ',
-      '紹介',
-      '解説',
-      'チュートリアル',
-      'ガイド',
-      '手順',
-      'プロジェクト',
-      '計画',
-      '提案書',
-      'レポート',
-      '資料',
-    ];
-
-    const hasArticleKeyword = articleKeywords.some(keyword =>
-      originalPrompt.toLowerCase().includes(keyword)
-    );
-
-    if (hasArticleKeyword) {
-      const markdownInstructions =
-        '※ 返答は**マークダウン記事形式**で構造化して作成してください。見出し（#, ##, ###）、リスト（- , 1. ）、強調（**太字**）を適切に使用してください。';
-      return `${originalPrompt}\n\n${markdownInstructions}`;
-    }
-
-    return originalPrompt;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || disabled) return;
 
     const originalMessage = input.trim();
-    // ✅ プロンプトを拡張してマークダウン記事生成を促進
-    const enhancedMessage = enhancePromptForMarkdown(originalMessage, selectedModel);
 
     setInput('');
 
@@ -174,7 +111,7 @@ const InputArea: React.FC<InputAreaProps> = ({
       await onToggleCanvas();
     }
 
-    await onSendMessage(enhancedMessage, selectedModel);
+    await onSendMessage(originalMessage, selectedModel);
   };
 
   return (
