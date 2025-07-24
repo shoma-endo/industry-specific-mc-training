@@ -58,8 +58,8 @@ export class CanvasService implements ICanvasService {
 
   async loadCanvasHistory(sessionId: string): Promise<CanvasData[]> {
     try {
-      // TODO: Implement database query by sessionId
-      // For now, return filtered history
+      // セッションIDベースのデータベース検索は未実装
+      // 現在は過去24時間の履歴をフィルタリング
       return this.history.filter(canvas => 
         canvas.timestamp && canvas.timestamp > new Date(Date.now() - 24 * 60 * 60 * 1000)
       );
@@ -364,12 +364,12 @@ export class CanvasService implements ICanvasService {
   }
 
   private async uploadToStorage(imageData: string, canvasId: string): Promise<string> {
-    // TODO: Implement Supabase Storage
+    // Supabase Storageへのアップロードは未実装
     return `https://supabase.storage/${canvasId}.png`;
   }
 
   private emitCanvasInserted(imageData: string, sessionId: string): void {
-    // TODO: Implement event bus
+    // イベントバスシステムは未実装
     console.log('Canvas inserted to chat:', { sessionId, imageSize: imageData.length });
   }
 

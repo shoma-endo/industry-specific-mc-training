@@ -98,9 +98,3 @@ export function getRoleDisplayName(role: UserRole | null): string {
   }
 }
 
-// デバッグ用（開発環境のみ）
-export function debugUserRole(role: UserRole | null, context: string) {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[Auth Debug] ${context}: role = ${role}`);
-  }
-}

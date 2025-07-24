@@ -36,7 +36,7 @@ export const openAiService = {
    */
   async sendMessage(
     messages: ChatMessage[],
-    model: string = 'gpt-4.1-nano',
+    model: string = 'ad_copy_finishing',
     temperature: number = 0.5,
     max_completion_tokens: number = 1000,
     logit_bias?: Record<string, number>
@@ -47,17 +47,13 @@ export const openAiService = {
       const modelConfig = MODEL_CONFIGS[model];
       const resolvedMaxTokens = modelConfig?.maxTokens ?? max_completion_tokens;
 
-      try {
-        console.log(
-          '[OpenAI] model:',
-          model,
-          'max_completion_tokens(resolved):',
-          resolvedMaxTokens,
-          'messages_len:',
-          messages.length
-        );
-      } catch {
-        /* noop */
+      // 開発環境のみでログ出力
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          console.log(`[OpenAI] model: ${model}, tokens: ${resolvedMaxTokens}, messages: ${messages.length}`);
+        } catch {
+          /* noop */
+        }
       }
 
       // Claude品質に近づけるため、設定されたパラメータを使用
@@ -98,7 +94,7 @@ export const openAiService = {
   async startChat(
     systemPrompt: string,
     userMessage: string,
-    model: string = 'gpt-4.1-nano',
+    model: string = 'ad_copy_finishing',
     temperature: number = 0.5,
     maxTokens: number = 1000
   ): Promise<ChatResponse> {
@@ -127,7 +123,7 @@ export const openAiService = {
     messages: ChatMessage[],
     userMessage: string,
     systemPrompt: string,
-    model: string = 'gpt-4.1-nano',
+    model: string = 'ad_copy_finishing',
     temperature: number = 0.5,
     maxTokens: number = 1000
   ): Promise<ChatResponse> {
@@ -154,7 +150,7 @@ export const openAiService = {
     systemPrompt: string,
     userMessage: string,
     schema: JsonSchema,
-    model: string = 'gpt-4.1-nano',
+    model: string = 'ad_copy_finishing',
     options: {
       temperature?: number;
       maxTokens?: number;
@@ -225,7 +221,7 @@ export const openAiService = {
       complexity: 'simple' | 'medium' | 'complex';
       creativityLevel: 'low' | 'medium' | 'high';
     },
-    model: string = 'gpt-4.1-nano'
+    model: string = 'ad_copy_finishing'
   ): Promise<ChatResponse> {
     // コンテキストに応じて設定を調整
     const baseConfig = MODEL_CONFIGS[context.contentType] || MODEL_CONFIGS[model];
@@ -262,7 +258,7 @@ export const openAiService = {
     systemPrompt: string,
     userMessage: string,
     ragContext: string[],
-    model: string = 'gpt-4.1-nano',
+    model: string = 'ad_copy_finishing',
     options: {
       temperature?: number;
       maxTokens?: number;

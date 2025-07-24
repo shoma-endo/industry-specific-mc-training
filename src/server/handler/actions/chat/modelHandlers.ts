@@ -26,7 +26,7 @@ const SYSTEM_PROMPTS: Record<string, string> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
   rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,
   ad_copy_creation: AD_COPY_PROMPT,
-  'gpt-4.1-nano': AD_COPY_FINISHING_PROMPT,
+  ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
   lp_draft_creation: LP_DRAFT_PROMPT,
 };
 
@@ -39,7 +39,7 @@ async function getSystemPrompt(model: string, liffAccessToken?: string): Promise
     switch (model) {
       case 'ad_copy_creation':
         return await generateAdCopyPrompt(liffAccessToken);
-      case 'gpt-4.1-nano':
+      case 'ad_copy_finishing':
         return await generateAdCopyFinishingPrompt(liffAccessToken);
       case 'lp_draft_creation':
         return await generateLpDraftPrompt(liffAccessToken);

@@ -297,7 +297,7 @@ export class PromptService extends SupabaseService {
     try {
       // 将来的にユーザー固有のプロンプトキャッシュを再生成する処理を実装
       console.log(`ユーザー ${userId} のプロンプト再生成を開始`);
-      // TODO: 実装予定
+      // ユーザー固有プロンプトキャッシュ機能は未実装
     } catch (error) {
       console.error(`ユーザー ${userId} のプロンプト再生成エラー:`, error);
     }

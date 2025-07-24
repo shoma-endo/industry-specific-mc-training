@@ -54,7 +54,7 @@ export class QueryExpansionService {
 2. 関連クエリ2`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-nano',
+      model: 'ad_copy_finishing',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 200,

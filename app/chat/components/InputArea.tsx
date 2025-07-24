@@ -24,7 +24,7 @@ const RichEditor = dynamic(() => import('../components/RichEditor'), {
 const AVAILABLE_MODELS = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': 'キーワード選定（OpenAI）',
   ad_copy_creation: '広告文作成（Claude）',
-  'gpt-4.1-nano': '広告文仕上げ（Claude）',
+  ad_copy_finishing: '広告文仕上げ（Claude）',
   lp_draft_creation: 'LPドラフト作成（Claude）',
 };
 

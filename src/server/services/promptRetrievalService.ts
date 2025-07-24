@@ -188,7 +188,7 @@ export class PromptRetrievalService {
             try {
               // HTTP fetchを廃止し、ここで直接 generateText を呼び出す
               const { text } = await generateText({
-                model: openaiProvider('gpt-4.1-nano'),
+                model: openaiProvider('ad_copy_finishing'),
                 prompt: `あなたはRAGシステムの検索クエリ最適化専門家です。
 
 ユーザーの入力「${userQuery}」を、ベクトル検索で最高のパフォーマンスを発揮できるように、具体的で意図が明確な検索クエリに変換してください。

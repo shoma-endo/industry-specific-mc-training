@@ -89,8 +89,8 @@ export class ChatService implements IChatService {
         id: session.id,
         title: session.title,
         updatedAt: new Date(session.lastMessageAt || session.createdAt),
-        messageCount: 0, // TODO: Add messageCount to API response
-        lastMessage: undefined as string | undefined, // TODO: Add lastMessage to API response
+        messageCount: 0, // メッセージ数はAPI応答に含まれていない
+        lastMessage: undefined as string | undefined, // 最後のメッセージはAPI応答に含まれていない
       }));
 
       return formattedSessions;

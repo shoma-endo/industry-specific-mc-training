@@ -34,7 +34,7 @@ export class OpenAIReranker {
     documents: string[],
     options: RerankOptions = {}
   ): Promise<RerankResult[]> {
-    const { topK = 5, temperature = 0.1, model = 'gpt-4.1-nano' } = options;
+    const { topK = 5, temperature = 0.1, model = 'ad_copy_finishing' } = options;
 
     if (documents.length === 0) {
       return [];

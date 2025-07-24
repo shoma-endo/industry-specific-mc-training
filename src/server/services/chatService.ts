@@ -50,7 +50,7 @@ class ChatService {
       let userMessageString: string;
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
-        const config = MODEL_CONFIGS[model ?? 'gpt-4.1-nano'] ?? MODEL_CONFIGS['gpt-4.1-nano']!;
+        const config = MODEL_CONFIGS[model ?? 'ad_copy_finishing'] ?? MODEL_CONFIGS['ad_copy_finishing']!;
         const providerKey = config.provider;
         const llmModel = config.actualModel;
         
@@ -163,7 +163,7 @@ class ChatService {
       let userMessageString: string;
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
-        const config = MODEL_CONFIGS[model ?? 'gpt-4.1-nano'] ?? MODEL_CONFIGS['gpt-4.1-nano']!;
+        const config = MODEL_CONFIGS[model ?? 'ad_copy_finishing'] ?? MODEL_CONFIGS['ad_copy_finishing']!;
         const providerKey = config.provider;
         const llmModel = config.actualModel;
         

@@ -230,7 +230,7 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
                   </label>
                   <Input
                     type="password"
-                    placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                    placeholder="例: abcd efgh ijkl mnop qrst uvwx"
                     value={wpApplicationPassword}
                     onChange={(e) => setWpApplicationPassword(e.target.value)}
                     className="w-full"
@@ -297,7 +297,7 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
                 <li>WordPress管理画面にログイン</li>
                 <li>「ユーザー」→「プロフィール」→「アプリケーションパスワード」</li>
                 <li>新しいアプリケーションパスワードを生成</li>
-                <li>生成されたパスワード（xxxx xxxx 形式）をコピー</li>
+                <li>生成されたパスワード（abcd efgh 形式）をコピー</li>
                 <li>上記フォームに必要情報を入力</li>
               </ol>
             </div>

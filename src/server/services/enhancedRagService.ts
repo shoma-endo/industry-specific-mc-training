@@ -174,7 +174,7 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
 
       // 5. Function-Calling実行
       const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-nano', // バージョン固定で安定性向上
+        model: 'ad_copy_finishing', // バージョン固定で安定性向上
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query },
@@ -329,7 +329,7 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
 }`;
 
     const verificationResponse = await openai.chat.completions.create({
-      model: 'gpt-4.1-nano',
+      model: 'ad_copy_finishing',
       messages: [{ role: 'user', content: verificationPrompt }],
       response_format: { type: 'json_object' },
       temperature: 0.1,
@@ -366,7 +366,7 @@ ${context.map(c => `[${c.citation_number}] ${c.content}`).join('\n\n')}
         .join('\n\n');
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-nano', // バージョン固定
+        model: 'ad_copy_finishing', // バージョン固定
         messages: [
           {
             role: 'system',

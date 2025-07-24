@@ -38,7 +38,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     seed: 42,
     top_p: 0.9,
   },
-  'gpt-4.1-nano': {
+  ad_copy_finishing: {
     provider: 'anthropic',
     maxTokens: 1500,
     temperature: 0.3,
