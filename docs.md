@@ -30,36 +30,54 @@ supabaseにはauthと掛け合わせた認証をしていないので
 ├── .git/                  # Gitリポジトリ
 ├── .next/                 # Next.jsビルドディレクトリ
 ├── .vscode/               # VSCode設定
+├── app/                   # Next.js App Router（メイン）
+│   ├── ad-form/           # LP作成フォーム機能
+│   ├── admin/             # 管理機能
+│   │   └── prompts/       # プロンプト管理
+│   ├── api/               # API Routes
+│   │   ├── line/          # LINE連携API
+│   │   ├── wordpress/     # WordPress連携API
+│   │   └── ...            # その他API
+│   ├── business-info/     # ビジネス情報入力
+│   ├── chat/              # チャット機能
+│   ├── login/             # ログインページ
+│   ├── setup/             # セットアップページ
+│   ├── subscription/      # サブスクリプション機能
+│   ├── globals.css        # グローバルCSS
+│   ├── layout.tsx         # ルートレイアウト
+│   └── page.tsx           # トップページ
 ├── data/                  # データファイル
 ├── node_modules/          # 依存ライブラリ
 ├── public/                # 静的ファイル
 ├── scripts/               # スクリプトファイル
-├── src/                   # ソースコード
-│   ├── app/               # Next.jsアプリケーションルーティング
-│   │   ├── chat/          # チャット機能
-│   │   ├── mypage/        # マイページ機能
-│   │   ├── subscription/  # サブスクリプション機能
-│   │   ├── globals.css    # グローバルCSS
-│   │   ├── layout.tsx     # レイアウトコンポーネント
-│   │   └── page.tsx       # トップページ
-│   ├── components/        # Reactコンポーネント
-│   │   ├── features/      # 機能単位のコンポーネント
-│   │   ├── ui/            # 共通UIコンポーネント
-│   │   ├── Footer.tsx     # フッターコンポーネント
-│   │   └── LiffProvider.tsx  # LIFFコンテキストプロバイダー
+├── src/                   # ソースコード（統合済み）
+│   ├── components/        # Reactコンポーネント（統合）
+│   │   ├── ui/            # shadcn/ui共通コンポーネント
+│   │   ├── ClientLiffProvider.tsx  # LIFFプロバイダー
+│   │   ├── Footer.tsx     # フッター
+│   │   └── ...            # その他コンポーネント
+│   ├── di/                # 依存性注入コンテナ
+│   ├── domain/            # ドメインロジック
+│   │   ├── errors/        # エラークラス
+│   │   ├── interfaces/    # インターフェース
+│   │   ├── models/        # ドメインモデル
+│   │   └── services/      # ドメインサービス
 │   ├── hooks/             # Reactフック
-│   │   └── useLiff.ts     # LIFF関連のカスタムフック
+│   │   ├── useLiff.ts     # LIFF関連フック
+│   │   └── ...            # その他フック
 │   ├── lib/               # ユーティリティ関数
 │   ├── server/            # サーバーサイドコード
 │   │   ├── handler/       # リクエストハンドラー
 │   │   │   └── actions/   # サーバーアクション
+│   │   ├── middleware/    # ミドルウェア
 │   │   └── services/      # ビジネスロジック
 │   ├── types/             # 型定義
 │   └── env.ts             # 環境変数の型定義
 ├── supabase/              # Supabase関連ファイル
+│   └── migrations/        # データベースマイグレーション
 ├── .env.local             # 環境変数
 ├── .gitignore             # git除外設定
-├── components.json        # コンポーネント設定
+├── components.json        # shadcn/ui設定
 ├── eslint.config.mjs      # ESLint設定
 ├── next.config.ts         # Next.js設定
 ├── package-lock.json      # パッケージロックファイル
@@ -73,12 +91,13 @@ supabaseにはauthと掛け合わせた認証をしていないので
 
 ### アプリケーションのレイヤー
 
-1. **UI層**: `src/components/ui/` - 再利用可能な基本的なUIコンポーネント
-2. **機能層**: `src/components/features/` - 特定の機能に紐づいたコンポーネント
-3. **ページ層**: `src/app/**/page.tsx` - ルーティングとページコンポーネント
-4. **コンテキスト層**: `src/components/LiffProvider.tsx` - アプリケーション全体の状態管理
-5. **アクション層**: `src/server/handler/actions/` - ハンドラーサーバーアクション
-6. **サービス層**: `src/server/services/` - ビジネスロジック
+1. **UI層**: `src/components/ui/` - shadcn/ui基本UIコンポーネント
+2. **コンポーネント層**: `src/components/` - アプリケーション固有のコンポーネント
+3. **ページ層**: `app/**/page.tsx` - App Routerページコンポーネント
+4. **API層**: `app/api/` - Next.js Route Handlers
+5. **ドメイン層**: `src/domain/` - ビジネスロジックとドメインモデル
+6. **アクション層**: `src/server/handler/actions/` - サーバーアクション
+7. **サービス層**: `src/server/services/` - 外部API連携とデータアクセス
 
 ## 処理の流れ
 
@@ -102,13 +121,30 @@ sequenceDiagram
     Client->>Client: LiffContextに保存
 ```
 
+## リファクタリング後の重要な変更点
+
+### ディレクトリ構造の統合（2025-07-24）
+
+1. **App Router統一**: `app/`ディレクトリがメインのルーティング構造
+2. **コンポーネント統合**: 全コンポーネントが`src/components/`に集約
+3. **重複解消**: `src/app/`の重複ディレクトリを削除
+4. **設定統一**: `components.json`のCSSパスを`app/globals.css`に修正
+
+### ベストプラクティス準拠
+
+- **Next.js 15 App Router**: 最新のルーティング構造に準拠
+- **shadcn/ui統合**: UIコンポーネントライブラリの適切な設定
+- **TypeScript設定**: パスマッピング（`@/*` → `./src/*`）の統一
+- **ビルド最適化**: 重複ディレクトリ削除によるビルド効率向上
+
 ## 開発ルール
 
 ### コンポーネント設計
 
 1. **単一責任の原則**: 各コンポーネントは1つの責任のみを持つ
-2. **機能ごとのディレクトリ分割**: 関連するコンポーネントは同じディレクトリにまとめる
-3. **Presentation/Container分離**: 表示とロジックを分離する
+2. **App Router活用**: ページコンポーネントは`app/`ディレクトリで管理
+3. **コンポーネント統合**: 共通コンポーネントは`src/components/`で統一管理
+4. **shadcn/ui活用**: UIコンポーネントは`src/components/ui/`のshadcn/uiを優先使用
 
 ### 命名規則
 
