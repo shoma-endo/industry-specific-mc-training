@@ -80,7 +80,6 @@ export const useLiff = (): UseLiffResult => {
       
       // 認証コード無効エラーの場合は、URLパラメータをクリアして再試行
       if (initError instanceof Error && initError.message.includes('invalid authorization code')) {
-        console.log('Invalid authorization code detected, clearing URL and retrying...');
         
         // URLパラメータをクリアして再試行
         const url = new URL(window.location.href);

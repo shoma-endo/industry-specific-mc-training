@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Plug, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { WordPressType } from '@/types/wordpress';
-// import { createWordPressSettings } from '@/server/handler/actions/sanity.action';
 
 interface ExistingWordPressSettings {
   id?: string;

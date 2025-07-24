@@ -105,15 +105,6 @@ function convertToWordPressHTML(data: LandingPageData): {
   content: string;
   slug: string;
 } {
-  //   const sections: string[] = [];
-
-  //   // Hero セクション
-  //   sections.push(`
-  // <div class="hero-section" style="text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-  //   <div class="hero-content" style="max-width: 800px; margin: 0 auto;">
-  //     <p style="font-size: 1.2rem; margin-bottom: 30px; opacity: 0.9;">${data.hero.subtitle}</p>
-  //   </div>
-  // </div>`.trim());
 
   // 空の配列やオブジェクトをスキップ
 
