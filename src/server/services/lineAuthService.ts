@@ -179,6 +179,20 @@ export class LineAuthService {
       // エラーレスポンスの形式が不明なため、text()で取得して詳細をログに出力することを検討
       const errorText = await response.text();
       console.error('[LINE Profile Fetch] Error response text:', errorText);
+      
+      // 401エラーでアクセストークン期限切れの場合は専用エラーをthrow
+      if (response.status === 401) {
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.message && errorJson.message.includes('access token expired')) {
+            throw new LineTokenExpiredError(`[LINE Profile Fetch] Access token expired: ${errorText}`);
+          }
+        } catch {
+          // JSON parse error は無視してgenericなLineTokenExpiredErrorをthrow
+        }
+        throw new LineTokenExpiredError(`[LINE Profile Fetch] Unauthorized (401): ${errorText}`);
+      }
+      
       // error.messageがundefinedになるのを避けるため、エラーテキストを直接使うか、
       // より堅牢なエラーハンドリングを行う
       let errorMessage = `HTTP error ${response.status}`;

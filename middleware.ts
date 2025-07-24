@@ -1,28 +1,15 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getUserRole, isAdmin } from '@/lib/auth-utils';
+import { getUserRoleWithRefresh, isAdmin } from '@/lib/auth-utils';
 
 // 管理者権限が必要なパスの定義
-const ADMIN_REQUIRED_PATHS = ['/setup', '/studio', '/admin'] as const;
+const ADMIN_REQUIRED_PATHS = ['/setup', '/admin'] as const;
 
 // 認証不要なパスの定義
 const PUBLIC_PATHS = ['/login', '/unauthorized', '/', '/landingPage'] as const;
 
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
-};
-
 export async function middleware(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl;
+  const { pathname } = request.nextUrl;
 
   // パフォーマンス向上のためのログ
   const startTime = Date.now();
@@ -34,42 +21,66 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // 🔍 2. Sanityプレビュー用の例外処理
-    if (pathname.startsWith('/landingPage') && searchParams.get('userId')) {
-      logMiddleware(pathname, 'SANITY_PREVIEW', Date.now() - startTime);
-      return NextResponse.next();
-    }
-
-    // 🔍 3. アクセストークンの取得
+    // 🔍 3. アクセストークンとリフレッシュトークンの取得
     const accessToken = request.cookies.get('line_access_token')?.value;
+    const refreshToken = request.cookies.get('line_refresh_token')?.value;
 
     if (!accessToken) {
       logMiddleware(pathname, 'NO_ACCESS_TOKEN', Date.now() - startTime);
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    // 🔍 4. ユーザーロールの取得（キャッシュ考慮）
-    const userRole = await getUserRoleWithCache(accessToken);
+    // 🔍 4. ユーザーロールの取得（リフレッシュトークン対応キャッシュ考慮）
+    const authResult = await getUserRoleWithCacheAndRefresh(accessToken, refreshToken);
 
-    if (!userRole) {
+    if (!authResult.role) {
+      if (authResult.needsReauth) {
+        logMiddleware(pathname, 'NEEDS_REAUTH', Date.now() - startTime);
+        // クッキーをクリアしてログインページにリダイレクト
+        const response = NextResponse.redirect(new URL('/login', request.url));
+        response.cookies.delete('line_access_token');
+        response.cookies.delete('line_refresh_token');
+        return response;
+      }
+      
       logMiddleware(pathname, 'INVALID_TOKEN', Date.now() - startTime);
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
     // 🔍 5. 管理者権限チェック
     if (requiresAdminAccess(pathname)) {
-      if (!isAdmin(userRole)) {
-        logMiddleware(pathname, 'INSUFFICIENT_PERMISSIONS', Date.now() - startTime, userRole);
+      if (!isAdmin(authResult.role)) {
+        logMiddleware(pathname, 'INSUFFICIENT_PERMISSIONS', Date.now() - startTime, authResult.role);
         return NextResponse.redirect(new URL('/unauthorized', request.url));
       }
     }
 
     // 🔍 6. 成功時のレスポンス
-    logMiddleware(pathname, 'SUCCESS', Date.now() - startTime, userRole);
+    logMiddleware(pathname, 'SUCCESS', Date.now() - startTime, authResult.role);
 
     // レスポンスヘッダーにユーザー情報を付与（オプション）
     const response = NextResponse.next();
-    response.headers.set('x-user-role', userRole);
+    response.headers.set('x-user-role', authResult.role);
+
+    // 新しいトークンがある場合はクッキーを更新
+    if (authResult.newAccessToken) {
+      response.cookies.set('line_access_token', authResult.newAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60, // 30日
+      });
+      logMiddleware(pathname, 'TOKEN_REFRESHED', Date.now() - startTime, authResult.role);
+    }
+
+    if (authResult.newRefreshToken) {
+      response.cookies.set('line_refresh_token', authResult.newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 90 * 24 * 60 * 60, // 90日
+      });
+    }
 
     return response;
   } catch (error) {
@@ -102,21 +113,28 @@ function requiresAdminAccess(pathname: string): boolean {
 const roleCache = new Map<string, { role: string; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5分キャッシュ
 
-async function getUserRoleWithCache(accessToken: string) {
+async function getUserRoleWithCacheAndRefresh(accessToken: string, refreshToken?: string) {
   const cacheKey = accessToken.substring(0, 20); // セキュリティのため一部のみ使用
   const cached = roleCache.get(cacheKey);
 
   // キャッシュが有効かチェック
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.role as 'user' | 'admin';
+    return { role: cached.role as 'user' | 'admin' };
   }
 
   try {
-    const role = await getUserRole(accessToken);
+    const result = await getUserRoleWithRefresh(accessToken, refreshToken);
 
-    if (role) {
-      // キャッシュに保存
-      roleCache.set(cacheKey, { role, timestamp: Date.now() });
+    if (result.role) {
+      // キャッシュに保存（新しいトークンがある場合はそれでキャッシュ）
+      const tokenForCache = result.newAccessToken || accessToken;
+      const cacheKeyForNewToken = tokenForCache.substring(0, 20);
+      roleCache.set(cacheKeyForNewToken, { role: result.role, timestamp: Date.now() });
+
+      // 古いキャッシュを削除
+      if (result.newAccessToken && cacheKey !== cacheKeyForNewToken) {
+        roleCache.delete(cacheKey);
+      }
 
       // メモリリーク防止：古いキャッシュを削除
       if (roleCache.size > 1000) {
@@ -127,7 +145,7 @@ async function getUserRoleWithCache(accessToken: string) {
       }
     }
 
-    return role;
+    return result;
   } catch (error) {
     // キャッシュを削除
     roleCache.delete(cacheKey);

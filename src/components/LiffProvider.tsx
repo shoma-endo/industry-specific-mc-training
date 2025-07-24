@@ -68,11 +68,22 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     const currentLiff = liffObjectRef.current;
     const currentLoggedIn = isLoggedInRef.current;
 
-    if (currentLiff && currentLoggedIn) {
+    if (!currentLiff) {
+      throw new Error('LIFF is not initialized');
+    }
+
+    if (!currentLoggedIn) {
+      throw new Error('User is not logged in');
+    }
+
+    try {
       const token = await currentLiff.getAccessToken();
       if (token) return token;
+      throw new Error('Failed to get access token from LIFF');
+    } catch (error) {
+      console.error('getAccessToken error:', error);
+      throw new Error('LIFF is not initialized or user is not logged in');
     }
-    throw new Error('LIFF is not initialized or user is not logged in');
   }, []); // ✅ 依存配列完全に空
 
   // ✅ サーバー同期をuseEffectから分離してイベントドリブンに変更

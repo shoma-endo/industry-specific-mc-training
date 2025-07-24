@@ -23,6 +23,55 @@ export async function getUserRole(accessToken: string): Promise<UserRole | null>
   }
 }
 
+export async function getUserRoleWithRefresh(
+  accessToken: string,
+  refreshToken?: string
+): Promise<{
+  role: UserRole | null;
+  newAccessToken?: string;
+  newRefreshToken?: string;
+  needsReauth?: boolean;
+}> {
+  try {
+    const result = await userService.getUserFromLiffTokenWithRefresh(accessToken, refreshToken);
+    
+    if (result.needsReauth) {
+      return { role: null, needsReauth: true };
+    }
+    
+    if (!result.user) {
+      console.warn('[Auth Utils] User not found for access token');
+      return { role: null };
+    }
+    
+    // デフォルト値の確保
+    const role = result.user.role || 'user';
+    
+    const returnValue: {
+      role: UserRole;
+      newAccessToken?: string;
+      newRefreshToken?: string;
+      needsReauth?: boolean;
+    } = { role };
+    
+    if (result.newAccessToken) {
+      returnValue.newAccessToken = result.newAccessToken;
+    }
+    
+    if (result.newRefreshToken) {
+      returnValue.newRefreshToken = result.newRefreshToken;
+    }
+    
+    return returnValue;
+  } catch (error) {
+    console.error('[Auth Utils] Failed to get user role with refresh:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+    });
+    return { role: null };
+  }
+}
+
 export function isAdmin(role: UserRole | null): boolean {
   return role === 'admin';
 }

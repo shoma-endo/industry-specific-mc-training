@@ -28,7 +28,6 @@ interface SubscriptionInfo {
 const ProfileDisplay = () => {
   const { profile, isLoading, isLoggedIn, logout } = useLiffContext();
 
-  // Early return pattern (CLAUDE.mdルール)
   if (isLoading) {
     return <p className="text-center my-4">プロフィール読み込み中...</p>;
   }
@@ -65,12 +64,18 @@ const ProfileDisplay = () => {
 
 // 管理者向けカードコンポーネント（constパターン使用）
 const AdminAccessCard = () => {
-  const { getAccessToken } = useLiffContext();
+  const { getAccessToken, isLoggedIn, isLoading } = useLiffContext();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAdminRole = async () => {
+      // LIFF初期化とログイン完了を待つ
+      if (!isLoggedIn || isLoading) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const token = await getAccessToken();
         const result = await checkUserRole(token);
@@ -80,16 +85,17 @@ const AdminAccessCard = () => {
         }
       } catch (error) {
         console.error('管理者権限チェックエラー:', error);
+        // エラーの場合は管理者ではないとして処理を続行
       } finally {
         setLoading(false);
       }
     };
 
     checkAdminRole();
-  }, [getAccessToken]);
+  }, [getAccessToken, isLoggedIn, isLoading]);
 
-  // Early return pattern
-  if (loading || !isAdmin) {
+  // Early return pattern - ログイン完了まで待つ
+  if (isLoading || loading || !isLoggedIn || !isAdmin) {
     return null;
   }
 
@@ -133,7 +139,7 @@ const AdminAccessCard = () => {
 };
 
 export default function Home() {
-  const { profile, getAccessToken } = useLiffContext();
+  const { profile, getAccessToken, isLoading, isLoggedIn } = useLiffContext();
   
   // サブスク関連ステート（descriptive naming）
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
@@ -155,7 +161,11 @@ export default function Home() {
   // サブスク情報取得
   useEffect(() => {
     const fetchSubscriptionData = async () => {
-      if (!profile) return;
+      // LIFF初期化とログイン完了を待つ
+      if (!profile || isLoading || !isLoggedIn) {
+        setSubscriptionLoading(false);
+        return;
+      }
       
       try {
         const token = await getAccessToken();
@@ -169,7 +179,8 @@ export default function Home() {
         } else {
           setSubscriptionError(result.error || 'サブスク取得エラー');
         }
-      } catch {
+      } catch (error) {
+        console.error('Subscription fetch error:', error);
         setSubscriptionError('サブスク取得中にエラー');
       } finally {
         setSubscriptionLoading(false);
@@ -177,7 +188,7 @@ export default function Home() {
     };
     
     fetchSubscriptionData();
-  }, [profile, getAccessToken]);
+  }, [profile, getAccessToken, isLoading, isLoggedIn]);
 
   // イベントハンドラー（handleプレフィックス）
   const handleSubscribe = async () => {

@@ -1,4 +1,4 @@
-import { LineAuthService } from './lineAuthService';
+import { LineAuthService, LineTokenExpiredError } from './lineAuthService';
 import { StripeService } from './stripeService';
 import { userRepository } from './userRepository';
 import type { User } from '@/types/user';
@@ -51,7 +51,72 @@ export class UserService {
 
       return user;
     } catch (error) {
+      // LineTokenExpiredErrorの場合は、そのままthrowして上位で処理させる
+      if (error instanceof LineTokenExpiredError) {
+        throw error;
+      }
       console.error('Failed to get or create user in userService:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * LIFFアクセストークンからユーザー情報を取得（リフレッシュトークン対応）
+   */
+  async getUserFromLiffTokenWithRefresh(
+    liffAccessToken: string, 
+    refreshToken?: string
+  ): Promise<{
+    user: User | null;
+    newAccessToken?: string;
+    newRefreshToken?: string;
+    needsReauth?: boolean;
+  }> {
+    try {
+      const user = await this.getUserFromLiffToken(liffAccessToken);
+      return { user };
+    } catch (error) {
+      if (error instanceof LineTokenExpiredError && refreshToken) {
+        try {
+          // トークンリフレッシュを試行
+          const refreshResult = await this.lineAuthService.verifyLineTokenWithRefresh(
+            liffAccessToken,
+            refreshToken
+          );
+
+          if (refreshResult.isValid && refreshResult.newAccessToken) {
+            // 新しいアクセストークンでユーザー情報を再取得
+            const user = await this.getUserFromLiffToken(refreshResult.newAccessToken);
+            const returnValue: {
+              user: User | null;
+              newAccessToken?: string;
+              newRefreshToken?: string;
+              needsReauth?: boolean;
+            } = { user };
+            
+            if (refreshResult.newAccessToken) {
+              returnValue.newAccessToken = refreshResult.newAccessToken;
+            }
+            
+            if (refreshResult.newRefreshToken) {
+              returnValue.newRefreshToken = refreshResult.newRefreshToken;
+            }
+            
+            return returnValue;
+          } else if (refreshResult.needsReauth) {
+            return { user: null, needsReauth: true };
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed in userService:', refreshError);
+          return { user: null, needsReauth: true };
+        }
+      }
+      
+      // その他のエラーまたはリフレッシュトークンがない場合
+      if (error instanceof LineTokenExpiredError) {
+        return { user: null, needsReauth: true };
+      }
+      
       throw error;
     }
   }

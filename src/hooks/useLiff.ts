@@ -77,6 +77,28 @@ export const useLiff = (): UseLiffResult => {
       }
     } catch (initError) {
       console.error('LIFF initialization failed:', initError);
+      
+      // 認証コード無効エラーの場合は、URLパラメータをクリアして再試行
+      if (initError instanceof Error && initError.message.includes('invalid authorization code')) {
+        console.log('Invalid authorization code detected, clearing URL and retrying...');
+        
+        // URLパラメータをクリアして再試行
+        const url = new URL(window.location.href);
+        url.searchParams.delete('code');
+        url.searchParams.delete('state');
+        url.searchParams.delete('liffClientId');
+        url.searchParams.delete('liffRedirectUri');
+        window.history.replaceState({}, '', url.toString());
+        
+        // 少し待ってから再初期化を試行
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+        
+        setError('認証情報をリセットしています...');
+        return;
+      }
+      
       const errorMessage =
         initError instanceof LiffError ? initError.userMessage : 'LIFFの初期化に失敗しました。';
       setError(errorMessage);
