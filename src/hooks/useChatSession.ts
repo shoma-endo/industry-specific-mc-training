@@ -9,19 +9,9 @@ import {
   createAssistantMessage,
 } from '@/domain/models/chat.models';
 import { ChatError } from '@/domain/errors/ChatError';
+import type { ChatSessionActions, ChatSessionHook } from '@/types/hooks';
 
-export interface ChatSessionActions {
-  sendMessage: (content: string, model: string) => Promise<void>;
-  loadSessions: () => Promise<void>;
-  loadSession: (sessionId: string) => Promise<void>;
-  deleteSession: (sessionId: string) => Promise<void>;
-  startNewSession: () => void;
-}
-
-export interface ChatSessionHook {
-  state: ChatState;
-  actions: ChatSessionActions;
-}
+export type { ChatSessionActions, ChatSessionHook };
 
 const MAX_MESSAGES = 10;
 
@@ -184,14 +174,16 @@ export const useChatSession = (
     }));
   }, []);
 
+  const actions: ChatSessionActions = {
+    sendMessage,
+    loadSessions,
+    loadSession, 
+    deleteSession,
+    startNewSession,
+  };
+
   return {
     state,
-    actions: {
-      sendMessage,
-      loadSessions,
-      loadSession,
-      deleteSession,
-      startNewSession,
-    },
+    actions,
   };
 };

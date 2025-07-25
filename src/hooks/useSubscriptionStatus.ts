@@ -1,33 +1,21 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import {
+import type {
   ISubscriptionService,
-  SubscriptionStatus,
-  SubscriptionDetails,
+  SubscriptionStatus as DomainSubscriptionStatus,
 } from '@/domain/interfaces/ISubscriptionService';
 import { SubscriptionError } from '@/domain/errors/SubscriptionError';
+import type { SubscriptionHook, SubscriptionDetails } from '@/types/hooks';
 
-export interface SubscriptionHook {
-  subscriptionStatus: SubscriptionStatus | null;
-  isLoading: boolean;
-  requiresSubscription: boolean;
-  hasActiveSubscription: boolean;
-  subscriptionDetails: SubscriptionDetails | null;
-  error: string | null;
-  actions: {
-    checkSubscription: () => Promise<void>;
-    refreshSubscription: () => Promise<void>;
-    clearError: () => void;
-  };
-}
+export type { SubscriptionHook, SubscriptionDetails };
 
 export const useSubscriptionStatus = (
   subscriptionService: ISubscriptionService,
   getAccessToken: () => Promise<string>,
   isLoggedIn: boolean
 ): SubscriptionHook => {
-  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<DomainSubscriptionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +97,7 @@ export const useSubscriptionStatus = (
     isLoading,
     requiresSubscription: subscriptionStatus?.requiresSubscription ?? false,
     hasActiveSubscription: subscriptionStatus?.hasActiveSubscription ?? false,
-    subscriptionDetails: subscriptionStatus?.subscription ?? null,
+    subscriptionDetails: (subscriptionStatus?.subscription ?? null) as SubscriptionDetails | null,
     error: error || subscriptionStatus?.error || null,
     actions: {
       checkSubscription: initializeIfNeeded, // ✅ 自動初期化付き

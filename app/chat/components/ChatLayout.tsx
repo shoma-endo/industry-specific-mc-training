@@ -231,7 +231,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           disabled={chatSession.state.isLoading}
           canvasOpen={canvasPanelOpen}
           currentSessionTitle={
-            chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
+            chatSession.state.sessions.find((s) => s.id === chatSession.state.currentSessionId)
               ?.title || '新しいチャット'
           }
           isMobile={isMobile}

@@ -11,14 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
-
-interface DeleteChatDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
-  chatTitle: string;
-  isDeleting?: boolean;
-}
+import { DeleteChatDialogProps } from '@/types/components';
 
 export function DeleteChatDialog({
   open,

@@ -4,25 +4,7 @@ import React, { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Trash2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-type Session = {
-  id: string;
-  title: string;
-  updatedAt: Date;
-};
-
-interface SessionListContentProps {
-  sessions: Session[];
-  sessionId: string;
-  hoveredSessionId: string | null;
-  onLoadSession: (id: string) => void;
-  onDeleteClick: (session: Session, e: React.MouseEvent) => void;
-  onStartNewChat: () => void;
-  onHoverSession: (sessionId: string | null) => void;
-  sessionListRef: React.RefObject<HTMLDivElement | null>;
-  onToggleSidebar?: () => void;
-  showToggleButton?: boolean;
-}
+import type { SessionListItem, SessionListContentProps } from '@/types/components';
 
 const SessionListContent = memo(function SessionListContent({
   sessions,
@@ -80,7 +62,7 @@ const SessionListContent = memo(function SessionListContent({
             <div className="text-center py-8 text-gray-400 text-sm">履歴がありません</div>
           ) : (
             <div className="space-y-2">
-              {sessions.map(session => (
+              {sessions.map((session: SessionListItem) => (
                 <div
                   key={session.id}
                   className={cn(

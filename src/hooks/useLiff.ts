@@ -6,27 +6,7 @@ import { getLineProfileServer } from '@/server/handler/actions/login.actions';
 import { getLineProfileServerResponse } from '@/server/handler/actions/login.actions';
 import { env } from '@/env';
 import { LiffError } from '@/domain/errors/LiffError';
-
-interface LiffProfile {
-  userId: string;
-  displayName: string;
-  pictureUrl?: string;
-  statusMessage?: string;
-}
-
-interface UseLiffResult {
-  isLoggedIn: boolean;
-  isLoading: boolean;
-  error: string | null;
-  liffObject: typeof liff | null;
-  profile: LiffProfile | null;
-  login: () => void;
-  logout: () => void;
-  getLineProfile: () => Promise<getLineProfileServerResponse>;
-  getAccessToken: () => Promise<string>;
-  initLiff: () => Promise<void>;
-  clearError: () => void;
-}
+import { LiffProfile, UseLiffResult } from '@/types/hooks';
 
 // -----------------------------
 // useLiff フック

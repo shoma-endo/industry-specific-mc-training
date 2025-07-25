@@ -5,19 +5,9 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, AlertCircle, Settings, Plug, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { SetupDashboardProps } from '@/types/components';
 
-interface WordPressSettings {
-  hasSettings: boolean;
-  type: 'wordpress_com' | 'self_hosted';
-  siteId?: string;
-  siteUrl?: string;
-}
-
-interface Props {
-  wordpressSettings: WordPressSettings;
-}
-
-export default function SetupDashboard({ wordpressSettings }: Props) {
+export default function SetupDashboard({ wordpressSettings }: SetupDashboardProps) {
   const router = useRouter();
 
   const isSetupComplete = wordpressSettings.hasSettings;

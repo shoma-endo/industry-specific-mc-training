@@ -14,7 +14,8 @@ import {
 import { CanvasError } from '@/domain/errors/CanvasError';
 import { CanvasTool } from '@/domain/interfaces/ICanvasService';
 
-export interface CanvasPanelActions {
+// 現在の実装に基づくインターフェース（ドメインモデルと一致）
+interface CanvasPanelActions {
   // 基本操作
   saveCanvas: (imageData: string) => Promise<string>;
   insertToChat: (imageData: string, sessionId: string) => Promise<void>;
@@ -44,7 +45,7 @@ export interface CanvasPanelActions {
   importFromImage: (imageData: string) => Promise<void>;
 }
 
-export interface CanvasPanelHook {
+interface CanvasPanelHook {
   state: CanvasState;
   actions: CanvasPanelActions;
   error: string | null;

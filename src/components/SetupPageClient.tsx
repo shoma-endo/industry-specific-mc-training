@@ -2,15 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { WordPressType } from '@/types/wordpress';
+import { SetupPageClientProps } from '@/types/components';
 
-interface Props {
-  liffAccessToken: string;
-  hasWordPressSettings: boolean;
-  wordpressType?: WordPressType | undefined;
-}
-
-export default function SetupPageClient({ hasWordPressSettings, wordpressType }: Props) {
+export default function SetupPageClient({ hasWordPressSettings, wordpressType }: SetupPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isEditMode = searchParams?.get('edit') === 'true';

@@ -5,19 +5,7 @@ import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyLineTokenServer } from '@/server/handler/actions/login.actions';
-interface LiffContextType {
-  isLoggedIn: boolean;
-  isLoading: boolean;
-  profile: {
-    userId: string;
-    displayName: string;
-    pictureUrl?: string;
-  } | null;
-  login: () => void;
-  logout: () => void;
-  liffObject: unknown;
-  getAccessToken: () => Promise<string>;
-}
+import type { LiffContextType } from '@/types/components';
 
 const LiffContext = createContext<LiffContextType | null>(null);
 
@@ -29,13 +17,7 @@ export function useLiffContext() {
   return context;
 }
 
-interface LiffProviderProps {
-  children: React.ReactNode;
-  /**
-   * LIFF初期化を明示的に呼び出す場所でtrueに設定する
-   */
-  initialize?: boolean;
-}
+import type { LiffProviderProps } from '@/types/components';
 
 export function LiffProvider({ children, initialize = false }: LiffProviderProps) {
   const { isLoggedIn, isLoading, error, profile, login, logout, liffObject, initLiff } = useLiff();
@@ -77,7 +59,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     }
 
     try {
-      const token = await currentLiff.getAccessToken();
+      const token = await (currentLiff as unknown as { getAccessToken: () => Promise<string> }).getAccessToken();
       if (token) return token;
       throw new Error('Failed to get access token from LIFF');
     } catch (error) {
@@ -144,7 +126,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   }
 
   // 非ログイン状態でブラウザ環境の場合はログインボタンを表示
-  if (!isLoggedIn && liffObject && !liffObject.isInClient()) {
+  if (!isLoggedIn && liffObject && !(liffObject as unknown as { isInClient: () => boolean }).isInClient()) {
     return (
       <Card className="max-w-md mx-auto mt-8">
         <CardHeader>

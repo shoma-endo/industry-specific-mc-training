@@ -9,24 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Plug, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { WordPressType } from '@/types/wordpress';
+import type { WordPressSettingsFormProps } from '@/types/components';
 
-interface ExistingWordPressSettings {
-  id?: string;
-  wpType: WordPressType;
-  wpSiteId?: string;
-  wpSiteUrl?: string;
-  wpUsername?: string;
-  wpApplicationPassword?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface Props {
-  liffAccessToken: string;
-  existingSettings: ExistingWordPressSettings | null;
-}
-
-export default function WordPressSettingsForm({ liffAccessToken, existingSettings }: Props) {
+export default function WordPressSettingsForm({ liffAccessToken, existingSettings }: WordPressSettingsFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null);

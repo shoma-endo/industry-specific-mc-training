@@ -1,14 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-interface UseMobileResult {
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-  screenWidth: number;
-  orientation: 'portrait' | 'landscape';
-}
+import { UseMobileResult } from '@/types/hooks';
 
 const BREAKPOINTS = {
   mobile: 768,

@@ -5,12 +5,7 @@ import { Home, MessageCircle, FileText } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-
-interface NavItem {
-  icon: React.ReactNode;
-  label: string;
-  href: string;
-}
+import { NavItem } from '@/types/components';
 
 export function Footer() {
   const pathname = usePathname();
