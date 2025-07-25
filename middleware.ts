@@ -31,7 +31,10 @@ export async function middleware(request: NextRequest) {
     }
 
     // 🔍 4. ユーザーロールの取得（リフレッシュトークン対応キャッシュ考慮）
-    const authResult = await getUserRoleWithCacheAndRefresh(accessToken, refreshToken);
+    const authResult = await getUserRoleWithCacheAndRefresh(accessToken, refreshToken).catch((error) => {
+      console.error('[Middleware] Error in getUserRoleWithCacheAndRefresh:', error);
+      return { role: null, needsReauth: true };
+    });
 
     if (!authResult.role) {
       if (authResult.needsReauth) {
@@ -123,6 +126,11 @@ async function getUserRoleWithCacheAndRefresh(accessToken: string, refreshToken?
   }
 
   try {
+    if (!getUserRoleWithRefresh || typeof getUserRoleWithRefresh !== 'function') {
+      console.error('[Middleware] getUserRoleWithRefresh is not a function');
+      return { role: null, needsReauth: true };
+    }
+    
     const result = await getUserRoleWithRefresh(accessToken, refreshToken);
 
     if (result.role) {
@@ -182,4 +190,13 @@ function logMiddleware(
       })
     );
   }
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except static files and API routes
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api/).*)' 
+  ]
 }
