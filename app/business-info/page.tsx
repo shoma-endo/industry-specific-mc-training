@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import BusinessInfoForm from './components/BusinessInfoForm';
 import BusinessInfoFormSkeleton from './components/BusinessInfoFormSkeleton';
 
+export const dynamic = 'force-dynamic';
+
 export default function BusinessInfoPage() {
   return (
     <div className="container mx-auto px-4 py-8 pb-24 max-w-4xl">

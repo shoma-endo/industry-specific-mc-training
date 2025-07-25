@@ -8,6 +8,8 @@ import { cookies } from 'next/headers';
 import { getUserRole } from '@/lib/auth-utils';
 import type { UserRole } from '@/types/user';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'アクセス権限なし | Industry Specific MC Training',
   description: 'このページにアクセスするための権限がありません。',
