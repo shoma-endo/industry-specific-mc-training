@@ -50,29 +50,29 @@ class ChatService {
       let userMessageString: string;
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
-        const config = MODEL_CONFIGS[model ?? 'ad_copy_finishing'] ?? MODEL_CONFIGS['ad_copy_finishing']!;
+        const config =
+          MODEL_CONFIGS[model ?? 'ad_copy_finishing'] ?? MODEL_CONFIGS['ad_copy_finishing']!;
         const providerKey = config.provider;
         const llmModel = config.actualModel;
-        
+
         try {
           const aiReply = await llmChat(
             providerKey,
             llmModel,
             [
               { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMessage }
+              { role: 'user', content: userMessage },
             ],
             { temperature: config.temperature, maxTokens: config.maxTokens }
           );
-          
+
           aiResponse = { message: aiReply };
         } catch (error) {
           console.error('LLM Chat error:', error);
-          throw new ChatError(
-            'AI通信に失敗しました',
-            ChatErrorCode.NETWORK_ERROR,
-            { model: llmModel, error }
-          );
+          throw new ChatError('AI通信に失敗しました', ChatErrorCode.NETWORK_ERROR, {
+            model: llmModel,
+            error,
+          });
         }
       } else {
         userMessageString = userMessage[0]!;
@@ -132,11 +132,10 @@ class ChatService {
         return { message: '', error: error.userMessage };
       }
       console.error('Failed to start chat:', error);
-      throw new ChatError(
-        'チャットの開始に失敗しました',
-        ChatErrorCode.SESSION_CREATION_FAILED,
-        { userId, error }
-      );
+      throw new ChatError('チャットの開始に失敗しました', ChatErrorCode.SESSION_CREATION_FAILED, {
+        userId,
+        error,
+      });
     }
   }
 
@@ -159,36 +158,57 @@ class ChatService {
     requiresSubscription?: boolean;
   }> {
     try {
+      // ✅ デバッグログ: 履歴の確認
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          `[ChatService] continueChat - Model: ${model}, History length: ${messages.length}`
+        );
+        if (messages.length > 0) {
+          console.log(
+            `[ChatService] History preview:`,
+            messages.slice(-3).map(m => ({
+              role: m.role,
+              content: m.content.substring(0, 50) + (m.content.length > 50 ? '...' : ''),
+            }))
+          );
+        }
+      }
+
       let aiResponse: ChatResponse;
       let userMessageString: string;
       if (typeof userMessage === 'string') {
         userMessageString = userMessage;
-        const config = MODEL_CONFIGS[model ?? 'ad_copy_finishing'] ?? MODEL_CONFIGS['ad_copy_finishing']!;
+        const config =
+          MODEL_CONFIGS[model ?? 'ad_copy_finishing'] ?? MODEL_CONFIGS['ad_copy_finishing']!;
         const providerKey = config.provider;
         const llmModel = config.actualModel;
-        
+
         try {
           const llmMessages = [
             { role: 'system' as const, content: systemPrompt },
             ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-            { role: 'user' as const, content: userMessage }
+            { role: 'user' as const, content: userMessage },
           ];
-          
-          const aiReply = await llmChat(
-            providerKey,
-            llmModel,
-            llmMessages,
-            { temperature: config.temperature, maxTokens: config.maxTokens }
-          );
-          
+
+          // ✅ デバッグログ: LLMに送信するメッセージの確認
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[ChatService] LLM messages length: ${llmMessages.length}`);
+            console.log(`[ChatService] LLM provider: ${providerKey}, model: ${llmModel}`);
+          }
+
+          const aiReply = await llmChat(providerKey, llmModel, llmMessages, {
+            temperature: config.temperature,
+            maxTokens: config.maxTokens,
+          });
+
           aiResponse = { message: aiReply };
         } catch (error) {
           console.error('LLM Chat error:', error);
-          throw new ChatError(
-            'AI通信に失敗しました',
-            ChatErrorCode.NETWORK_ERROR,
-            { model: llmModel, sessionId, error }
-          );
+          throw new ChatError('AI通信に失敗しました', ChatErrorCode.NETWORK_ERROR, {
+            model: llmModel,
+            sessionId,
+            error,
+          });
         }
       } else {
         userMessageString = userMessage[0]!;
@@ -240,11 +260,11 @@ class ChatService {
         return { message: '', error: error.userMessage };
       }
       console.error('Failed to continue chat:', error);
-      throw new ChatError(
-        'チャットの継続に失敗しました',
-        ChatErrorCode.MESSAGE_SEND_FAILED,
-        { userId, sessionId, error }
-      );
+      throw new ChatError('チャットの継続に失敗しました', ChatErrorCode.MESSAGE_SEND_FAILED, {
+        userId,
+        sessionId,
+        error,
+      });
     }
   }
 
@@ -274,11 +294,11 @@ class ChatService {
       return dbMessages.map(message => toChatMessage(message));
     } catch (error) {
       console.error('Failed to get session messages:', error);
-      throw new ChatError(
-        'メッセージの取得に失敗しました',
-        ChatErrorCode.MESSAGE_LOAD_FAILED,
-        { sessionId, userId, error }
-      );
+      throw new ChatError('メッセージの取得に失敗しました', ChatErrorCode.MESSAGE_LOAD_FAILED, {
+        sessionId,
+        userId,
+        error,
+      });
     }
   }
 
@@ -306,7 +326,8 @@ class ChatService {
   async getSessionsWithMessages(userId: string): Promise<ServerChatSession[]> {
     if (FEATURE_FLAGS.USE_RPC_V2) {
       // 新実装: RPC関数を使用
-      const { data, error } = await this.supabaseService.getClient()
+      const { data, error } = await this.supabaseService
+        .getClient()
         .rpc('get_sessions_with_messages', { p_user_id: userId });
 
       if (error) {
@@ -324,17 +345,19 @@ class ChatService {
         }
       }
 
-      return (data ?? []).map((row: {
-        session_id: string;
-        title: string;
-        last_message_at: number;
-        messages: ServerChatMessage[];
-      }) => ({
-        id: row.session_id,
-        title: row.title,
-        last_message_at: row.last_message_at,
-        messages: row.messages || [],
-      }));
+      return (data ?? []).map(
+        (row: {
+          session_id: string;
+          title: string;
+          last_message_at: number;
+          messages: ServerChatMessage[];
+        }) => ({
+          id: row.session_id,
+          title: row.title,
+          last_message_at: row.last_message_at,
+          messages: row.messages || [],
+        })
+      );
     } else {
       // 旧実装: 従来の方法
       return this.getSessionsWithMessagesLegacy(userId);
@@ -347,10 +370,10 @@ class ChatService {
   private async getSessionsWithMessagesLegacy(userId: string): Promise<ServerChatSession[]> {
     try {
       const sessions = await this.getUserSessions(userId);
-      
+
       // 最大5件のセッションのみメッセージを取得（パフォーマンス考慮）
       const sessionsWithMessages = await Promise.all(
-        sessions.slice(0, 5).map(async (session) => {
+        sessions.slice(0, 5).map(async session => {
           const messages = await this.getSessionMessages(session.id, userId);
           const serverMessages: ServerChatMessage[] = messages.map(msg => ({
             id: msg.id,
@@ -371,11 +394,10 @@ class ChatService {
       return sessionsWithMessages;
     } catch (error) {
       console.error('Failed to get sessions with messages (legacy):', error);
-      throw new ChatError(
-        'セッション取得に失敗しました',
-        ChatErrorCode.SESSION_LOAD_FAILED,
-        { userId, error }
-      );
+      throw new ChatError('セッション取得に失敗しました', ChatErrorCode.SESSION_LOAD_FAILED, {
+        userId,
+        error,
+      });
     }
   }
 }

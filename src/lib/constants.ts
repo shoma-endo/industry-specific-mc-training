@@ -54,4 +54,12 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     seed: 42,
     top_p: 0.1,
   },
+  lp_improvement: {
+    provider: 'anthropic',
+    maxTokens: 3000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.9,
+  },
 };

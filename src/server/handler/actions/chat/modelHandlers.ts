@@ -172,6 +172,25 @@ export class ModelHandlerService {
         userMessage.trim(),
         searchResult
       );
+    } else if (
+      model === 'ad_copy_creation' ||
+      model === 'ad_copy_finishing' ||
+      model === 'lp_improvement'
+    ) {
+      // ✅ Claudeモデルの履歴引き継ぎ対応
+      const validMessages = messages.map(msg => ({
+        role: msg.role as 'user' | 'assistant' | 'system',
+        content: msg.content,
+      }));
+
+      return await chatService.continueChat(
+        userId,
+        sessionId,
+        userMessage,
+        systemPrompt,
+        validMessages, // 履歴を正しく渡す
+        model
+      );
     } else if (model === 'lp_draft_creation') {
       // RAG対応: LP継続生成でもRAG機能を使用
       try {
@@ -234,16 +253,22 @@ export class ModelHandlerService {
           'lp_draft_creation'
         );
       }
-    } else {
-      return await chatService.continueChat(
-        userId,
-        sessionId,
-        userMessage,
-        systemPrompt,
-        [],
-        model
-      );
     }
+
+    // デフォルト処理: 未対応モデルの場合
+    const validMessages = messages.map(msg => ({
+      role: msg.role as 'user' | 'assistant' | 'system',
+      content: msg.content,
+    }));
+
+    return await chatService.continueChat(
+      userId,
+      sessionId,
+      userMessage,
+      systemPrompt,
+      validMessages,
+      model
+    );
   }
 
   private async handleFTModel(

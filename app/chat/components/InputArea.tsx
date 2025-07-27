@@ -26,6 +26,7 @@ const AVAILABLE_MODELS = {
   ad_copy_creation: '広告文作成（Claude）',
   ad_copy_finishing: '広告文仕上げ（Claude）',
   lp_draft_creation: 'LPドラフト作成（Claude）',
+  lp_improvement: 'LP改善（Claude）',
 };
 
 interface InputAreaProps {
