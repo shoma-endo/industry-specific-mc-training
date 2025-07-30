@@ -5,7 +5,9 @@ import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyLineTokenServer } from '@/server/handler/actions/login.actions';
+import { userService } from '@/server/services/userService';
 import type { LiffContextType } from '@/types/components';
+import type { User } from '@/types/user';
 
 const LiffContext = createContext<LiffContextType | null>(null);
 
@@ -31,6 +33,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
 
   const [syncedWithServer, setSyncedWithServer] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
   // ✅ 最新の値を参照するためのRef
   const liffObjectRef = useRef(liffObject);
@@ -74,6 +77,11 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
       try {
         const token = await getAccessToken();
         await verifyLineTokenServer(token);
+        
+        // ユーザー情報を取得してstateに設定
+        const userData = await userService.getUserFromLiffToken(token);
+        setUser(userData);
+        
         setSyncedWithServer(true);
       } catch (error) {
         console.error('Failed to sync user ID with server:', error);
@@ -146,6 +154,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         isLoggedIn,
         isLoading,
         profile,
+        user,
         login,
         logout,
         liffObject,

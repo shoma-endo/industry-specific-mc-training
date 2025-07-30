@@ -12,10 +12,12 @@ import {
   createCustomerPortalSession,
   checkUserRole,
 } from '@/server/handler/actions/subscription.actions';
+import { updateUserFullName } from '@/server/handler/actions/user.actions';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Settings, Shield } from 'lucide-react';
 import Link from 'next/link';
+import { FullNameDialog } from '@/components/FullNameDialog';
 
 interface SubscriptionInfo {
   id: string;
@@ -139,7 +141,7 @@ const AdminAccessCard = () => {
 };
 
 export default function Home() {
-  const { profile, getAccessToken, isLoading, isLoggedIn } = useLiffContext();
+  const { profile, getAccessToken, isLoading, isLoggedIn, user } = useLiffContext();
   
   // サブスク関連ステート（descriptive naming）
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
@@ -150,6 +152,9 @@ export default function Home() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
 
+  // フルネーム関連ステート
+  const [showFullNameDialog, setShowFullNameDialog] = useState(false);
+
   // 日付フォーマット関数（constパターン）
   const formatDate = (dateString: string) =>
     new Intl.DateTimeFormat('ja-JP', { 
@@ -158,11 +163,18 @@ export default function Home() {
       day: 'numeric' 
     }).format(new Date(dateString));
 
+  // フルネーム未入力チェック
+  useEffect(() => {
+    if (isLoggedIn && user && !user.fullName && !isLoading) {
+      setShowFullNameDialog(true);
+    }
+  }, [isLoggedIn, user, isLoading]);
+
   // サブスク情報取得
   useEffect(() => {
     const fetchSubscriptionData = async () => {
-      // LIFF初期化とログイン完了を待つ
-      if (!profile || isLoading || !isLoggedIn) {
+      // LIFF初期化とログイン完了を待つ、フルネームダイアログが表示中は待機
+      if (!profile || isLoading || !isLoggedIn || showFullNameDialog) {
         setSubscriptionLoading(false);
         return;
       }
@@ -188,7 +200,7 @@ export default function Home() {
     };
     
     fetchSubscriptionData();
-  }, [profile, getAccessToken, isLoading, isLoggedIn]);
+  }, [profile, getAccessToken, isLoading, isLoggedIn, showFullNameDialog]);
 
   // イベントハンドラー（handleプレフィックス）
   const handleSubscribe = async () => {
@@ -267,6 +279,21 @@ export default function Home() {
     }
   };
 
+  const handleSaveFullName = async (fullName: string) => {
+    try {
+      const result = await updateUserFullName(fullName);
+      if (result.success) {
+        setShowFullNameDialog(false);
+        window.location.reload();
+      } else {
+        throw new Error(result.error || 'フルネーム保存に失敗しました');
+      }
+    } catch (error) {
+      console.error('フルネーム保存エラー:', error);
+      throw error;
+    }
+  };
+
   const renderSubscriptionStatus = () => {
     if (!subscriptionData) return null;
 
@@ -289,11 +316,14 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-8">業界特化MC養成講座</h1>
+    <>
+      <FullNameDialog open={showFullNameDialog} onSave={handleSaveFullName} />
+      
+      <div className="flex flex-col items-center justify-center min-h-screen p-8">
+        <h1 className="text-3xl font-bold mb-8">業界特化MC養成講座</h1>
 
-      <ProfileDisplay />
-      <AdminAccessCard />
+        <ProfileDisplay />
+        <AdminAccessCard />
 
       {/* サブスクリプション情報カード */}
       <Card className="w-full max-w-md mb-6 mt-4">
@@ -412,6 +442,7 @@ export default function Home() {
           ) : null}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

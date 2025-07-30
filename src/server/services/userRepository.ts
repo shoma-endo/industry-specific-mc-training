@@ -140,6 +140,8 @@ export class UserRepository extends SupabaseService {
         dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
       if (updates.lastLoginAt !== undefined)
         dbUpdates.last_login_at = updates.lastLoginAt;
+      if (updates.fullName !== undefined)
+        dbUpdates.full_name = updates.fullName;
 
       if (updates.role !== undefined) dbUpdates.role = updates.role;
 
@@ -231,6 +233,28 @@ export class UserRepository extends SupabaseService {
       return true;
     } catch (error) {
       console.error('Repository error (updateUserRole):', error);
+      return false;
+    }
+  }
+
+  async updateFullName(userId: string, fullName: string): Promise<boolean> {
+    try {
+      const { error } = await this.supabase
+        .from('users')
+        .update({
+          full_name: fullName,
+          updated_at: Date.now(),
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error updating full name:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Repository error (updateFullName):', error);
       return false;
     }
   }

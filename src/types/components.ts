@@ -17,6 +17,7 @@ export interface LiffContextType {
   isLoggedIn: boolean;
   isLoading: boolean;
   profile: LiffProfile | null;
+  user?: import('@/types/user').User | null;
   login: () => void;
   logout: () => void;
   liffObject: unknown;

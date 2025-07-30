@@ -154,6 +154,10 @@ export class UserService {
   ): Promise<boolean> {
     return userRepository.updateStripeSubscriptionId(lineUserId, stripeSubscriptionId);
   }
+
+  async updateFullName(userId: string, fullName: string): Promise<boolean> {
+    return userRepository.updateFullName(userId, fullName);
+  }
 }
 
 export const userService = new UserService();
