@@ -258,6 +258,25 @@ export class UserRepository extends SupabaseService {
       return false;
     }
   }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching all users:', error);
+        return [];
+      }
+
+      return data ? data.map(dbUser => toUser(dbUser as DbUser)) : [];
+    } catch (error) {
+      console.error('Repository error (getAllUsers):', error);
+      return [];
+    }
+  }
 }
 
 export const userRepository = new UserRepository();

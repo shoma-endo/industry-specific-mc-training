@@ -158,6 +158,10 @@ export class UserService {
   async updateFullName(userId: string, fullName: string): Promise<boolean> {
     return userRepository.updateFullName(userId, fullName);
   }
+
+  async getAllUsers(): Promise<User[]> {
+    return userRepository.getAllUsers();
+  }
 }
 
 export const userService = new UserService();

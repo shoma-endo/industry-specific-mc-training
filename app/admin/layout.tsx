@@ -23,12 +23,6 @@ export default function AdminLayout({
                 >
                   ダッシュボード
                 </Link>
-                <Link 
-                  href="/admin/prompts" 
-                  className="text-sm font-medium text-gray-600 hover:text-gray-900"
-                >
-                  プロンプト管理
-                </Link>
               </nav>
             </div>
             <div className="flex items-center space-x-4">

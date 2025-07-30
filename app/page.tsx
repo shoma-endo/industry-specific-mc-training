@@ -123,17 +123,6 @@ const AdminAccessCard = () => {
               管理者ダッシュボード
             </Button>
           </Link>
-
-          <Link href="/admin/prompts" className="block">
-            <Button
-              variant="outline"
-              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
-              aria-label="プロンプト管理へ移動"
-              tabIndex={0}
-            >
-              プロンプト管理
-            </Button>
-          </Link>
         </div>
       </CardContent>
     </Card>

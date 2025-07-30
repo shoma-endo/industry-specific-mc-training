@@ -13,15 +13,15 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="hover:shadow-lg transition-shadow flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <span className="text-blue-600">🎯</span>
               <span>プロンプト管理</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-gray-600 mb-4">
+          <CardContent className="flex-1 flex flex-col">
+            <p className="text-gray-600 mb-4 flex-1">
               AIが使用するプロンプトテンプレートを作成・編集・管理します
             </p>
             <Link href="/admin/prompts">
@@ -32,20 +32,22 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="hover:shadow-lg transition-shadow flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <span className="text-green-600">👥</span>
               <span>ユーザー管理</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-gray-600 mb-4">
+          <CardContent className="flex-1 flex flex-col">
+            <p className="text-gray-600 mb-4 flex-1">
               登録ユーザーの管理とサブスクリプション状況を確認します
             </p>
-            <Button variant="outline" className="w-full" disabled>
-              準備中
-            </Button>
+            <Link href="/admin/users">
+              <Button className="w-full">
+                ユーザー管理画面へ
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
