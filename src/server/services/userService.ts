@@ -36,6 +36,7 @@ export class UserService {
           stripeCustomerId: undefined,
           stripeSubscriptionId: undefined,
           role: 'user',
+          lastLoginAt: Date.now(),
         });
 
         if (!user) {
@@ -46,6 +47,7 @@ export class UserService {
           lineDisplayName: lineProfile.displayName,
           linePictureUrl: lineProfile.pictureUrl,
           lineStatusMessage: lineProfile.statusMessage,
+          lastLoginAt: Date.now(),
         });
       }
 

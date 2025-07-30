@@ -138,6 +138,8 @@ export class UserRepository extends SupabaseService {
         dbUpdates.stripe_customer_id = updates.stripeCustomerId;
       if (updates.stripeSubscriptionId !== undefined)
         dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
+      if (updates.lastLoginAt !== undefined)
+        dbUpdates.last_login_at = updates.lastLoginAt;
 
       if (updates.role !== undefined) dbUpdates.role = updates.role;
 

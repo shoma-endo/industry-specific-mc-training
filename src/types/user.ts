@@ -11,6 +11,7 @@ export interface User {
   id: string; // ユーザーID (Supabaseの自動生成ID等)
   createdAt: number; // ユーザー作成日時 (タイムスタンプ)
   updatedAt: number; // 最終更新日時 (タイムスタンプ)
+  lastLoginAt?: number | undefined; // 最終ログイン日時 (タイムスタンプ)
 
   // LINE関連情報
   lineUserId: string; // LINE UserID
@@ -49,6 +50,7 @@ export interface DbUser {
   id: string;
   created_at: number;
   updated_at: number;
+  last_login_at?: number | undefined;
   line_user_id: string;
   line_display_name: string;
   line_picture_url?: string | undefined;
@@ -67,6 +69,7 @@ export function toDbUser(user: User): DbUser {
     id: user.id,
     created_at: user.createdAt,
     updated_at: user.updatedAt,
+    last_login_at: user.lastLoginAt,
     line_user_id: user.lineUserId,
     line_display_name: user.lineDisplayName,
     line_picture_url: user.linePictureUrl,
@@ -83,6 +86,7 @@ export function toUser(dbUser: DbUser): User {
     id: dbUser.id,
     createdAt: dbUser.created_at,
     updatedAt: dbUser.updated_at,
+    lastLoginAt: dbUser.last_login_at,
     lineUserId: dbUser.line_user_id,
     lineDisplayName: dbUser.line_display_name,
     linePictureUrl: dbUser.line_picture_url,
