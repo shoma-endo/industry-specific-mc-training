@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { getAllUsers } from '@/server/handler/actions/admin.actions';
-import type { User } from '@/types/user';
+import { getAllUsers, updateUserRole } from '@/server/handler/actions/admin.actions';
+import { getRoleDisplayName } from '@/lib/auth-utils';
+import type { User, UserRole } from '@/types/user';
 
 const formatDateTime = (timestamp: number | undefined) => {
   if (!timestamp) return '未ログイン';
@@ -19,10 +20,25 @@ const formatDateTime = (timestamp: number | undefined) => {
   }).format(new Date(timestamp));
 };
 
+const getRoleColor = (role: UserRole | null) => {
+  switch (role) {
+    case 'admin':
+      return 'bg-red-100 text-red-800';
+    case 'user':
+      return 'bg-green-100 text-green-800';
+    case 'unavailable':
+      return 'bg-gray-100 text-gray-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -43,6 +59,39 @@ export default function UsersPage() {
 
     fetchUsers();
   }, []);
+
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    if (!userId || !newRole) return;
+
+    setUpdatingUserId(userId);
+    
+    try {
+      const result = await updateUserRole(userId, newRole);
+      if (result.success) {
+        // ローカル状態を更新
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user.id === userId ? { ...user, role: newRole } : user
+          )
+        );
+        setEditingUserId(null);
+        
+        // キャッシュクリア通知を送信（権限変更の即座反映のため）
+        try {
+          await fetch('/api/auth/clear-cache', { method: 'POST' });
+        } catch (error) {
+          console.warn('Cache clear failed:', error);
+        }
+      } else {
+        alert(result.error || 'ユーザー権限の更新に失敗しました');
+      }
+    } catch (error) {
+      console.error('ユーザー権限更新エラー:', error);
+      alert('ユーザー権限の更新中にエラーが発生しました');
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -111,6 +160,12 @@ export default function UsersPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       登録日
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      権限
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      アクション
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -127,6 +182,44 @@ export default function UsersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDateTime(user.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {editingUserId === user.id ? (
+                          <select
+                            className="border border-gray-300 rounded px-2 py-1 text-xs"
+                            defaultValue={user.role}
+                            onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
+                            disabled={updatingUserId === user.id}
+                          >
+                            <option value="user">一般ユーザー</option>
+                            <option value="admin">管理者</option>
+                            <option value="unavailable">サービス利用停止</option>
+                          </select>
+                        ) : (
+                          <span className={`px-2 py-1 text-xs rounded-full ${getRoleColor(user.role)}`}>
+                            {getRoleDisplayName(user.role)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {editingUserId === user.id ? (
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setEditingUserId(null)}
+                              className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                              disabled={updatingUserId === user.id}
+                            >
+                              キャンセル
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setEditingUserId(user.id)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            編集
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

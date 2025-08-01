@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getUserRoleWithRefresh, isAdmin } from '@/lib/auth-utils';
+import { getUserRoleWithRefresh, isAdmin, isUnavailable } from '@/lib/auth-utils';
+import type { UserRole } from '@/types/user';
 
 // 管理者権限が必要なパスの定義
 const ADMIN_REQUIRED_PATHS = ['/setup', '/admin'] as const;
@@ -15,10 +16,23 @@ export async function middleware(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // 🔍 1. 公開パスかチェック
+    // 🔍 1. 公開パスかチェック（ただし、ログイン済みユーザーの場合はホーム画面でも権限チェックを実行）
     if (isPublicPath(pathname)) {
-      logMiddleware(pathname, 'PUBLIC_PATH', Date.now() - startTime);
-      return NextResponse.next();
+      // ホーム画面の場合は、ログイン済みユーザーに対して権限チェックを実行
+      if (pathname === '/') {
+        const accessToken = request.cookies.get('line_access_token')?.value;
+        if (accessToken) {
+          // ログイン済みの場合は権限チェックを続行
+          // 認証チェックに進む
+        } else {
+          // 未ログインの場合は通常のホーム画面を表示
+          logMiddleware(pathname, 'PUBLIC_PATH', Date.now() - startTime);
+          return NextResponse.next();
+        }
+      } else {
+        logMiddleware(pathname, 'PUBLIC_PATH', Date.now() - startTime);
+        return NextResponse.next();
+      }
     }
 
     // 🔍 3. アクセストークンとリフレッシュトークンの取得
@@ -37,7 +51,7 @@ export async function middleware(request: NextRequest) {
     });
 
     if (!authResult.role) {
-      if (authResult.needsReauth) {
+      if ('needsReauth' in authResult && authResult.needsReauth) {
         logMiddleware(pathname, 'NEEDS_REAUTH', Date.now() - startTime);
         // クッキーをクリアしてログインページにリダイレクト
         const response = NextResponse.redirect(new URL('/login', request.url));
@@ -50,7 +64,19 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    // 🔍 5. 管理者権限チェック
+    // 🔍 5. unavailableユーザーのアクセス制限チェック
+    if (isUnavailable(authResult.role)) {
+      // 既に/unavailableページにいる場合はそのまま通す
+      if (pathname === '/unavailable') {
+        logMiddleware(pathname, 'UNAVAILABLE_PAGE_ACCESS', Date.now() - startTime, authResult.role);
+        return NextResponse.next();
+      }
+      // その他のページへのアクセスは/unavailableにリダイレクト
+      logMiddleware(pathname, 'SERVICE_UNAVAILABLE', Date.now() - startTime, authResult.role);
+      return NextResponse.redirect(new URL('/unavailable', request.url));
+    }
+
+    // 🔍 6. 管理者権限チェック
     if (requiresAdminAccess(pathname)) {
       if (!isAdmin(authResult.role)) {
         logMiddleware(pathname, 'INSUFFICIENT_PERMISSIONS', Date.now() - startTime, authResult.role);
@@ -58,7 +84,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // 🔍 6. 成功時のレスポンス
+    // 🔍 7. 成功時のレスポンス
     logMiddleware(pathname, 'SUCCESS', Date.now() - startTime, authResult.role);
 
     // レスポンスヘッダーにユーザー情報を付与（オプション）
@@ -66,7 +92,7 @@ export async function middleware(request: NextRequest) {
     response.headers.set('x-user-role', authResult.role);
 
     // 新しいトークンがある場合はクッキーを更新
-    if (authResult.newAccessToken) {
+    if ('newAccessToken' in authResult && authResult.newAccessToken) {
       response.cookies.set('line_access_token', authResult.newAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -76,7 +102,7 @@ export async function middleware(request: NextRequest) {
       logMiddleware(pathname, 'TOKEN_REFRESHED', Date.now() - startTime, authResult.role);
     }
 
-    if (authResult.newRefreshToken) {
+    if ('newRefreshToken' in authResult && authResult.newRefreshToken) {
       response.cookies.set('line_refresh_token', authResult.newRefreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -114,7 +140,7 @@ function requiresAdminAccess(pathname: string): boolean {
 
 // 🚀 パフォーマンス最適化：メモリキャッシュ
 const roleCache = new Map<string, { role: string; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5分キャッシュ
+const CACHE_TTL = 30 * 1000; // 30秒キャッシュ（権限変更の反映を早くするため）
 
 async function getUserRoleWithCacheAndRefresh(accessToken: string, refreshToken?: string) {
   const cacheKey = accessToken.substring(0, 20); // セキュリティのため一部のみ使用
@@ -122,7 +148,7 @@ async function getUserRoleWithCacheAndRefresh(accessToken: string, refreshToken?
 
   // キャッシュが有効かチェック
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return { role: cached.role as 'user' | 'admin' };
+    return { role: cached.role as UserRole };
   }
 
   try {
@@ -177,7 +203,7 @@ function logMiddleware(
   // プロダクション環境では構造化ログ
   if (
     process.env.NODE_ENV === 'production' &&
-    (result === 'ERROR' || result === 'INSUFFICIENT_PERMISSIONS')
+    (result === 'ERROR' || result === 'INSUFFICIENT_PERMISSIONS' || result === 'SERVICE_UNAVAILABLE')
   ) {
     console.warn(
       JSON.stringify({

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { PromptService } from '@/services/promptService';
 import { PromptChunkService } from '@/server/services/promptChunkService';
+import { canUseServices } from '@/lib/auth-utils';
 import { 
   CreatePromptTemplateInput, 
   UpdatePromptTemplateInput, 
@@ -43,7 +44,16 @@ async function checkAdminPermission(liffAccessToken: string) {
   try {
     const service = new PromptService();
     const user = await service.getUserByLineId(auth.lineUserId);
-    if (!user || user.role !== 'admin') {
+    if (!user) {
+      return { success: false, error: 'ユーザー情報が見つかりません' };
+    }
+
+    // unavailableユーザーのサービス利用制限チェック
+    if (!canUseServices(user.role)) {
+      return { success: false, error: 'サービスの利用が停止されています' };
+    }
+
+    if (user.role !== 'admin') {
       return { success: false, error: '管理者権限が必要です' };
     }
 

@@ -4,6 +4,8 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
+import { canUseServices } from '@/lib/auth-utils';
+import { userService } from '@/server/services/userService';
 import {
   startChatSchema,
   continueChatSchema,
@@ -23,6 +25,26 @@ async function checkAuth(liffAccessToken: string) {
       requiresSubscription: authResult.requiresSubscription,
     };
   }
+
+  // unavailableユーザーのサービス利用制限チェック
+  try {
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (user && !canUseServices(user.role)) {
+      return {
+        isError: true as const,
+        error: 'サービスの利用が停止されています',
+        requiresSubscription: false,
+      };
+    }
+  } catch (error) {
+    console.error('User role check failed in checkAuth:', error);
+    return {
+      isError: true as const,
+      error: 'ユーザー情報の確認に失敗しました',
+      requiresSubscription: false,
+    };
+  }
+
   return { isError: false as const, userId: authResult.userId! };
 }
 

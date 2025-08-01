@@ -2,6 +2,7 @@
 
 import { LineAuthService, LineTokenExpiredError } from '@/server/services/lineAuthService';
 import { userService } from '@/server/services/userService';
+import { isUnavailable } from '@/lib/auth-utils';
 import Stripe from 'stripe';
 import { StripeService } from '@/server/services/stripeService';
 
@@ -81,6 +82,17 @@ export async function authMiddleware(
         error: 'Application user not found for this LINE user.',
         lineUserId: lineProfile.userId,
         userId: '',
+        requiresSubscription: false,
+        subscription: null,
+      };
+    }
+
+    // unavailableユーザーのサービス利用制限チェック
+    if (isUnavailable(user.role)) {
+      return {
+        error: 'サービスの利用が停止されています',
+        lineUserId: lineProfile.userId,
+        userId: user.id,
         requiresSubscription: false,
         subscription: null,
       };

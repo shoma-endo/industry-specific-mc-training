@@ -5,6 +5,7 @@ import { StripeService } from '@/server/services/stripeService';
 import { LineAuthService } from '@/server/services/lineAuthService';
 import { userService } from '@/server/services/userService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { isUnavailable, canUseServices } from '@/lib/auth-utils';
 
 // 遅延初期化でStripeServiceのインスタンスを取得
 const getStripeService = () => new StripeService();
@@ -24,6 +25,16 @@ export async function getUserSubscription(liffAccessToken: string) {
         hasActiveSubscription: false,
         error: authResult.error,
         requiresSubscription: authResult.requiresSubscription,
+      };
+    }
+
+    // unavailableユーザーのサービス利用制限チェック
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (user && isUnavailable(user.role)) {
+      return {
+        success: false,
+        error: 'サービスの利用が停止されています',
+        hasActiveSubscription: false,
       };
     }
     const subscription = authResult.subscription!;
@@ -71,6 +82,15 @@ export async function cancelUserSubscription(
       };
     }
 
+    // unavailableユーザーのサービス利用制限チェック
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (user && !canUseServices(user.role)) {
+      return {
+        success: false,
+        error: 'サービスの利用が停止されています',
+      };
+    }
+
     await getStripeService().cancelSubscription(subscriptionId, immediate);
 
     return {
@@ -98,6 +118,15 @@ export async function resumeUserSubscription(subscriptionId: string, liffAccessT
         success: false,
         error: authResult.error,
         requiresSubscription: authResult.requiresSubscription,
+      };
+    }
+
+    // unavailableユーザーのサービス利用制限チェック
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (user && !canUseServices(user.role)) {
+      return {
+        success: false,
+        error: 'サービスの利用が停止されています',
       };
     }
 
@@ -129,7 +158,14 @@ export async function createCustomerPortalSession(returnUrl: string, liffAccessT
       };
     }
 
+    // unavailableユーザーのサービス利用制限チェック
     const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (user && !canUseServices(user.role)) {
+      return {
+        success: false,
+        error: 'サービスの利用が停止されています',
+      };
+    }
 
     if (!user || !user.stripeCustomerId) {
       return {
@@ -161,7 +197,22 @@ export async function createCustomerPortalSession(returnUrl: string, liffAccessT
  */
 export async function getSubscriptionPriceDetails(liffAccessToken: string) {
   try {
-    await authMiddleware(liffAccessToken);
+    const authResult = await authMiddleware(liffAccessToken);
+    if (authResult.error) {
+      return {
+        success: false,
+        error: authResult.error,
+      };
+    }
+
+    // unavailableユーザーのサービス利用制限チェック
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (user && !canUseServices(user.role)) {
+      return {
+        success: false,
+        error: 'サービスの利用が停止されています',
+      };
+    }
 
     const priceId = env.STRIPE_PRICE_ID;
     const priceDetails = await getStripeService().getPriceDetails(priceId);
@@ -192,6 +243,15 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
       };
     }
 
+    // unavailableユーザーのサービス利用制限チェック
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (user && !canUseServices(user.role)) {
+      return {
+        success: false,
+        error: 'サービスの利用が停止されています',
+      };
+    }
+
     // トークンからユーザーIDを取得
     const lineProfile = await getLineAuthService().getLineProfile(liffAccessToken);
     const userId = lineProfile.userId;
@@ -199,8 +259,6 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
     // リダイレクトURL
     const successUrl = `${host}/subscription/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${host}/subscription/cancel`;
-
-    const user = await userService.getUserFromLiffToken(liffAccessToken);
     if (!user) {
       return {
         success: false,
@@ -252,6 +310,21 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
 export async function getCheckoutSessionDetails(sessionId: string, liffAccessToken: string) {
   try {
     const authResult = await authMiddleware(liffAccessToken);
+    if (authResult.error) {
+      return {
+        success: false,
+        error: authResult.error,
+      };
+    }
+
+    // unavailableユーザーのサービス利用制限チェック
+    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    if (user && !canUseServices(user.role)) {
+      return {
+        success: false,
+        error: 'サービスの利用が停止されています',
+      };
+    }
 
     const session = await getStripeService().getCheckoutSession(sessionId);
 
@@ -289,20 +362,29 @@ export const checkUserRole = async (liffAccessToken: string) => {
       return {
         success: false,
         error: 'ユーザー情報が見つかりません',
-        role: 'user'
+        role: 'user' as const
+      };
+    }
+
+    // unavailableユーザーの場合は利用停止メッセージを返す
+    if (isUnavailable(user.role)) {
+      return {
+        success: false,
+        error: 'サービスの利用が停止されています',
+        role: user.role || 'user' as const
       };
     }
 
     return {
       success: true,
-      role: user.role || 'user'
+      role: user.role || 'user' as const
     };
   } catch (error) {
     console.error('権限チェックエラー:', error);
     return {
       success: false,
       error: '権限の確認に失敗しました',
-      role: 'user'
+      role: 'user' as const
     };
   }
 };

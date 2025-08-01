@@ -1,7 +1,7 @@
 /**
  * ユーザーロールの型定義
  */
-export type UserRole = 'user' | 'admin';
+export type UserRole = 'user' | 'admin' | 'unavailable';
 
 /**
  * ユーザー情報の型定義
@@ -26,7 +26,7 @@ export interface User {
   stripeSubscriptionId?: string | undefined; // Stripeサブスクリプション ID
 
   // 権限管理
-  role: UserRole; // ユーザーロール（user: 一般ユーザー, admin: 管理者）
+  role: UserRole; // ユーザーロール（user: 一般ユーザー, admin: 管理者, unavailable: サービス利用不可）
 }
 
 /**

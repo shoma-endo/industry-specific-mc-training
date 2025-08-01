@@ -1,7 +1,7 @@
 import { LineAuthService, LineTokenExpiredError } from './lineAuthService';
 import { StripeService } from './stripeService';
 import { userRepository } from './userRepository';
-import type { User } from '@/types/user';
+import type { User, UserRole } from '@/types/user';
 
 /**
  * ユーザーサービス: ユーザー管理と課金状態の確認機能を提供
@@ -161,6 +161,13 @@ export class UserService {
 
   async getAllUsers(): Promise<User[]> {
     return userRepository.getAllUsers();
+  }
+
+  /**
+   * ユーザーの権限を更新
+   */
+  async updateUserRole(userId: string, newRole: UserRole): Promise<boolean> {
+    return userRepository.updateUserRole(userId, newRole);
   }
 }
 

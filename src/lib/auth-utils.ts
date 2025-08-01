@@ -76,8 +76,19 @@ export function isAdmin(role: UserRole | null): boolean {
   return role === 'admin';
 }
 
+export function isUnavailable(role: UserRole | null): boolean {
+  return role === 'unavailable';
+}
+
+export function canUseServices(role: UserRole | null): boolean {
+  return role !== 'unavailable' && role !== null;
+}
+
 export function canAccess(userRole: UserRole | null, requiredRole: UserRole): boolean {
   if (!userRole) return false;
+  
+  // unavailableユーザーは全サービス利用不可
+  if (userRole === 'unavailable') return false;
   
   // adminは全てにアクセス可能
   if (userRole === 'admin') return true;
@@ -93,6 +104,8 @@ export function getRoleDisplayName(role: UserRole | null): string {
       return '管理者';
     case 'user':
       return '一般ユーザー';
+    case 'unavailable':
+      return 'サービス利用停止';
     default:
       return '不明';
   }
