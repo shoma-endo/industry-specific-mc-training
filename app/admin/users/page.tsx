@@ -76,6 +76,9 @@ export default function UsersPage() {
         );
         setEditingUserId(null);
         
+        // 成功アラートを表示
+        alert('ユーザー権限を更新しました');
+        
         // キャッシュクリア通知を送信（権限変更の即座反映のため）
         try {
           await fetch('/api/auth/clear-cache', { method: 'POST' });
