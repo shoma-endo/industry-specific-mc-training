@@ -46,7 +46,7 @@ LINE認証をベースとした業界特化型AIマーケティング支援プ�
 - **使用量制限**：Google検索回数制限・プラン別機能制御
 - **管理者ダッシュボード**：ユーザー・プロンプト管理
 
-## 🏗️ システムアーキテクチャ（2025年7月最新版）
+## 🏗️ システムアーキテクチャ（2025年8月最新版）
 
 ```mermaid
 graph TB
@@ -71,7 +71,6 @@ graph TB
     
     subgraph "Data Layer"
         K[Supabase PostgreSQL + RLS]
-        L[Sanity CMS 3.86]
         M[Vector Embeddings]
     end
     
@@ -98,7 +97,6 @@ graph TB
     G --> H
     H --> I
     G --> K
-    G --> L
     I --> M
     I --> P
     H --> N
@@ -139,17 +137,18 @@ sequenceDiagram
 ## 🛠️ 技術スタック
 
 ### **フロントエンド**
-- **Next.js 15.3.1** - React フレームワーク（App Router + Turbopack）
-- **React 19.0.0** - UIライブラリ（Server Components対応）
-- **TypeScript 5.x** - strict mode による型安全性
-- **Tailwind CSS 4.x** - PostCSS統合スタイリング
+- **Next.js 15.3.1** - React フレームワーク（App Router + Turbopack） ※最新: 15.4
+- **React 19.0.0** - UIライブラリ（Server Components対応） ※最新: 19.1.1
+- **TypeScript 5.x** - strict mode による型安全性 ※最新: 5.9.2
+- **Tailwind CSS 4.x** - PostCSS統合スタイリング ※最新: 4.1.11
 - **Radix UI** - アクセシビリティ対応UIコンポーネント
 - **TipTap 3.0.7** - リッチテキストエディター
 - **Canvas API** - 描画・図形作成機能
+- **Sentry 9.42.0** - エラー監視・パフォーマンス分析
 
 ### **バックエンド・データベース・AI**
-- **Supabase 2.49.1** - PostgreSQL + RLS + Vector Embeddings
-- **OpenAI API 4.90** - GPT-4 + Fine-tuned モデル
+- **Supabase 2.49.1** - PostgreSQL + RLS + Vector Embeddings ※最新: 2.53.0
+- **OpenAI API 4.90** - GPT-4 + Fine-tuned モデル ※最新: 5.11.0（**メジャーアップデート**）
 - **Anthropic Claude** - Sonnet-4 via @ai-sdk/anthropic 1.2.12
 - **RAGシステム** - ベクトル検索・ハイブリッド検索
 - **@t3-oss/env-nextjs 0.12.0** - 型安全な環境変数管理
@@ -158,12 +157,12 @@ sequenceDiagram
 - **SEMrush API** - 競合分析・広告データ
 - **Google Custom Search API** - リアルタイム検索
 - **LINE LIFF 2.25.1** - LINE認証プラットフォーム
-- **Stripe 17.7.0** - サブスクリプション・決済管理
+- **Stripe 17.7.0** - サブスクリプション・決済管理 ※最新: 18.4.0（**メジャーアップデート**）
 
 ### **開発・デプロイ**
 - **Vercel** - ホスティング・自動デプロイ
 - **Husky 9.1.7 + lint-staged 16.1.2** - Git hooks によるコード品質管理
-- **ESLint 9 + Prettier 3.5.3** - 統合リンター・フォーマッター
+- **ESLint 9 + Prettier 3.5.3** - 統合リンター・フォーマッター ※ESLint最新: 9.32.0
 - **tsc-watch 6.2.1** - TypeScript監視・ホットリロード
 
 ## 📊 データベーススキーマ
@@ -218,13 +217,6 @@ erDiagram
         timestamp updated_at
     }
     
-    sanity_projects {
-        uuid id PK
-        uuid user_id FK
-        text project_id
-        text dataset
-        timestamp created_at
-    }
     
     prompt_templates {
         uuid id PK
@@ -274,7 +266,6 @@ erDiagram
     users ||--o{ chat_messages : owns
     users ||--o{ briefs : creates
     users ||--o| wordpress_settings : configures
-    users ||--o| sanity_projects : manages
     chat_sessions ||--o{ chat_messages : contains
     prompt_templates ||--o{ prompt_versions : has
     prompt_templates ||--o{ prompt_chunks : contains
@@ -335,6 +326,15 @@ GOOGLE_CSE_ID=your_custom_search_engine_id
 # SEMrush API（オプション）
 SEMRUSH_API_KEY=your_semrush_api_key
 
+# Anthropic API
+ANTHROPIC_API_KEY=your_anthropic_api_key
+
+# Sentry設定（エラー監視）
+SENTRY_DSN=your_sentry_dsn
+SENTRY_ORG=your_sentry_org
+SENTRY_PROJECT=your_sentry_project
+SENTRY_AUTH_TOKEN=your_sentry_auth_token
+
 # サイトURL
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
@@ -373,7 +373,7 @@ npm run ngrok
 2. 「アプリケーションパスワード」で新しいパスワード生成
 3. サイトURL、ユーザー名、Application Passwordを設定
 
-## 📁 プロジェクト構造（リファクタリング後・2025年7月）
+## 📁 プロジェクト構造（リファクタリング後・2025年8月）
 
 ```
 ├── app/                       # Next.js App Router（メイン）
@@ -449,7 +449,7 @@ npm run ngrok
 - **ステージング**: Vercel プレビュー環境
 - **本番環境**: Vercel 本番デプロイ
 
-## 🏗️ 開発・デバッグ・管理機能（2025年7月最新版）
+## 🏗️ 開発・デバッグ・管理機能
 
 ### 🔧 開発コマンド
 ```bash
@@ -486,7 +486,7 @@ npm run ngrok
 - `/subscription/success` - 決済完了
 - `/subscription/cancel` - 決済キャンセル
 
-## 📈 最新の改善・リファクタリング（2025年7月）
+## 📈 最新の改善・リファクタリング（2025年8月）
 
 ### ✨ 新機能追加
 - **Canvas描画機能** - リアルタイム描画・図形作成・チャット統合
