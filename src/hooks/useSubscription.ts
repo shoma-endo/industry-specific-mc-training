@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createSubscriptionSession } from '@/server/handler/actions/subscription.actions';
 import { useLiff } from '@/hooks/useLiff';
 import { SubscriptionError } from '@/domain/errors/SubscriptionError';
+import { env } from '@/env';
 
 export function useSubscription() {
   const { getAccessToken } = useLiff();
@@ -13,6 +14,12 @@ export function useSubscription() {
   const clearError = () => setError(null);
 
   const startSubscription = async () => {
+    // Stripe無効時は処理を停止
+    if (env.NEXT_PUBLIC_STRIPE_ENABLED !== 'true') {
+      setError('Stripe機能は現在無効になっています');
+      return null;
+    }
+
     setLoading(true);
     clearError();
 

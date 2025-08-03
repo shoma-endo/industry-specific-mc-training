@@ -16,6 +16,15 @@ const getLineAuthService = () => new LineAuthService();
  */
 export async function getUserSubscription(liffAccessToken: string) {
   try {
+    // Stripe 機能が無効なら常に "加入不要" として扱う
+    if (env.STRIPE_ENABLED !== 'true') {
+      return {
+        success: true,
+        hasActiveSubscription: false,
+        requiresSubscription: false,
+      };
+    }
+
     const authResult = await authMiddleware(liffAccessToken);
 
     // 認証エラーまたは未加入の場合はフラグをそのまま返す
@@ -37,7 +46,15 @@ export async function getUserSubscription(liffAccessToken: string) {
         hasActiveSubscription: false,
       };
     }
-    const subscription = authResult.subscription!;
+    const subscription = authResult.subscription;
+
+    if (!subscription) {
+      return {
+        success: true,
+        hasActiveSubscription: false,
+        requiresSubscription: false,
+      };
+    }
 
     // 次回の請求日を取得
     const nextBillingDate = new Date(subscription.current_period_end * 1000);
@@ -357,12 +374,12 @@ export async function getCheckoutSessionDetails(sessionId: string, liffAccessTok
 export const checkUserRole = async (liffAccessToken: string) => {
   try {
     const user = await userService.getUserFromLiffToken(liffAccessToken);
-    
+
     if (!user) {
       return {
         success: false,
         error: 'ユーザー情報が見つかりません',
-        role: 'user' as const
+        role: 'user' as const,
       };
     }
 
@@ -371,20 +388,20 @@ export const checkUserRole = async (liffAccessToken: string) => {
       return {
         success: false,
         error: 'サービスの利用が停止されています',
-        role: user.role || 'user' as const
+        role: user.role || ('user' as const),
       };
     }
 
     return {
       success: true,
-      role: user.role || 'user' as const
+      role: user.role || ('user' as const),
     };
   } catch (error) {
     console.error('権限チェックエラー:', error);
     return {
       success: false,
       error: '権限の確認に失敗しました',
-      role: 'user' as const
+      role: 'user' as const,
     };
   }
 };

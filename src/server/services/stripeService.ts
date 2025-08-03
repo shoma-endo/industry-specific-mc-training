@@ -2,10 +2,20 @@ import Stripe from 'stripe';
 import { env } from '@/env';
 
 export class StripeService {
-  private stripe: Stripe;
+  private stripe!: Stripe;
+  private isEnabled: boolean;
 
   constructor() {
-    this.stripe = new Stripe(env.STRIPE_SECRET_KEY);
+    this.isEnabled = env.STRIPE_ENABLED === 'true';
+    if (this.isEnabled) {
+      this.stripe = new Stripe(env.STRIPE_SECRET_KEY);
+    }
+  }
+
+  private checkEnabled() {
+    if (!this.isEnabled) {
+      throw new Error('Stripe機能は現在無効になっています');
+    }
   }
 
   // 遅延初期化でUserServiceを取得（循環依存を避けるため）
@@ -18,6 +28,7 @@ export class StripeService {
    * LineユーザーIDに基づいてStripeカスタマーを新規作成
    */
   async createCustomer(userId: string, name: string) {
+    this.checkEnabled();
     try {
       // 新規カスタマーを作成
       const customer = await this.stripe.customers.create({
@@ -38,6 +49,7 @@ export class StripeService {
    * @param immediate 即時解約するかどうか（trueなら即時解約、falseなら期間終了時解約）
    */
   async cancelSubscription(subscriptionId: string, immediate: boolean = false) {
+    this.checkEnabled();
     try {
       if (immediate) {
         // 即時解約
@@ -59,6 +71,7 @@ export class StripeService {
    * @param subscriptionId サブスクリプションID
    */
   async getSubscription(subscriptionId: string) {
+    this.checkEnabled();
     try {
       const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
       return subscription;
@@ -73,6 +86,7 @@ export class StripeService {
    * @param subscriptionId サブスクリプションID
    */
   async resumeSubscription(subscriptionId: string) {
+    this.checkEnabled();
     try {
       // cancel_at_period_end を false に設定して解約をキャンセル
       return await this.stripe.subscriptions.update(subscriptionId, {
@@ -88,6 +102,7 @@ export class StripeService {
    * カスタマーポータルセッションを作成（支払い方法変更など）
    */
   async createCustomerPortalSession(customerId: string, returnUrl: string) {
+    this.checkEnabled();
     try {
       const session = await this.stripe.billingPortal.sessions.create({
         customer: customerId,
@@ -105,6 +120,7 @@ export class StripeService {
    * プライスIDから商品価格情報を取得
    */
   async getPriceDetails(priceId: string) {
+    this.checkEnabled();
     try {
       const price = await this.stripe.prices.retrieve(priceId, {
         expand: ['product'],
@@ -142,6 +158,7 @@ export class StripeService {
     cancelUrl: string;
     metadata?: Record<string, string>;
   }) {
+    this.checkEnabled();
     try {
       const session = await this.stripe.checkout.sessions.create({
         mode: 'subscription',
@@ -169,6 +186,7 @@ export class StripeService {
    * チェックアウトセッション情報を取得
    */
   async getCheckoutSession(sessionId: string) {
+    this.checkEnabled();
     return this.stripe.checkout.sessions.retrieve(sessionId);
   }
 
@@ -178,6 +196,7 @@ export class StripeService {
    * @returns 有効なサブスクリプションがあればtrue、なければfalseを返します。
    */
   async checkSubscriptionStatus(userId: string): Promise<boolean> {
+    this.checkEnabled();
     try {
       // 1. userId から Stripe の顧客ID (stripeCustomerId) を取得する
       //    userService を利用してアプリケーションのユーザーデータベースから取得
