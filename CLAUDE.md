@@ -42,7 +42,6 @@ This is a Next.js application that provides AI-powered marketing copy generation
 - **Database**: Supabase with Row Level Security policies
 - **Payments**: Stripe subscription management with feature gating
 - **AI**: OpenAI API with fine-tuned models for keyword categorization
-- **Search**: Google Custom Search + SEMrush for competitive research
 
 ### Authentication Flow
 
