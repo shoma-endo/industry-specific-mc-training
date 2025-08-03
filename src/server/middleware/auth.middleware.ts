@@ -5,6 +5,7 @@ import { userService } from '@/server/services/userService';
 import { isUnavailable } from '@/lib/auth-utils';
 import Stripe from 'stripe';
 import { StripeService } from '@/server/services/stripeService';
+import { env } from '@/env';
 
 export type AuthMiddlewareResult = {
   lineUserId: string;
@@ -91,6 +92,16 @@ export async function authMiddleware(
     if (isUnavailable(user.role)) {
       return {
         error: 'サービスの利用が停止されています',
+        lineUserId: lineProfile.userId,
+        userId: user.id,
+        requiresSubscription: false,
+        subscription: null,
+      };
+    }
+
+    // Stripe無効時は課金チェックをスキップ
+    if (env.STRIPE_ENABLED !== 'true') {
+      return {
         lineUserId: lineProfile.userId,
         userId: user.id,
         requiresSubscription: false,

@@ -7,6 +7,7 @@ import type {
 } from '@/domain/interfaces/ISubscriptionService';
 import { SubscriptionError } from '@/domain/errors/SubscriptionError';
 import type { SubscriptionHook, SubscriptionDetails } from '@/types/hooks';
+import { env } from '@/env';
 
 export type { SubscriptionHook, SubscriptionDetails };
 
@@ -15,7 +16,9 @@ export const useSubscriptionStatus = (
   getAccessToken: () => Promise<string>,
   isLoggedIn: boolean
 ): SubscriptionHook => {
-  const [subscriptionStatus, setSubscriptionStatus] = useState<DomainSubscriptionStatus | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<DomainSubscriptionStatus | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +30,17 @@ export const useSubscriptionStatus = (
 
   // ✅ useEffectを排除 - 明示的な関数呼び出しベース
   const checkSubscription = useCallback(async () => {
+    // Stripe無効時は無料アクセスを許可
+    if (env.NEXT_PUBLIC_STRIPE_ENABLED !== 'true') {
+      setSubscriptionStatus({
+        hasActiveSubscription: true,
+        requiresSubscription: false,
+        error: undefined,
+      });
+      setHasInitialized(true);
+      return;
+    }
+
     if (!isLoggedIn) {
       setSubscriptionStatus({
         hasActiveSubscription: false,
