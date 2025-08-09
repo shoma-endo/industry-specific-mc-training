@@ -46,6 +46,7 @@ class ChatService {
     requiresSubscription?: boolean;
   }> {
     try {
+      // 制限チェックは呼び出し元（サーバーアクション）でロールに応じて実施
       let aiResponse: ChatResponse;
       let userMessageString: string;
       if (typeof userMessage === 'string') {
@@ -158,6 +159,7 @@ class ChatService {
     requiresSubscription?: boolean;
   }> {
     try {
+      // 制限チェックは呼び出し元（サーバーアクション）でロールに応じて実施
       // ✅ デバッグログ: 履歴の確認
       if (process.env.NODE_ENV === 'development') {
         console.log(

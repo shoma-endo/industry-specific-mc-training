@@ -6,6 +6,8 @@ import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
 import { canUseServices } from '@/lib/auth-utils';
 import { userService } from '@/server/services/userService';
+import { SupabaseService } from '@/server/services/supabaseService';
+import type { UserRole } from '@/types/user';
 import {
   startChatSchema,
   continueChatSchema,
@@ -15,8 +17,13 @@ import {
 
 const modelHandler = new ModelHandlerService();
 
-// 認証チェックを共通化
-async function checkAuth(liffAccessToken: string) {
+// 認証チェックを共通化（ロールも返す）
+async function checkAuth(
+  liffAccessToken: string
+): Promise<
+  | { isError: true; error: string | undefined; requiresSubscription?: boolean }
+  | { isError: false; userId: string; role: UserRole }
+> {
   const authResult = await authMiddleware(liffAccessToken);
   if (authResult.error || authResult.requiresSubscription) {
     return {
@@ -36,6 +43,7 @@ async function checkAuth(liffAccessToken: string) {
         requiresSubscription: false,
       };
     }
+    return { isError: false as const, userId: authResult.userId!, role: user?.role ?? 'user' };
   } catch (error) {
     console.error('User role check failed in checkAuth:', error);
     return {
@@ -44,8 +52,6 @@ async function checkAuth(liffAccessToken: string) {
       requiresSubscription: false,
     };
   }
-
-  return { isError: false as const, userId: authResult.userId! };
 }
 
 export async function startChat(data: StartChatInput): Promise<ChatResponse> {
@@ -60,6 +66,39 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
         error: auth.error,
         requiresSubscription: auth.requiresSubscription,
       };
+    }
+
+    // 1日3回の送信制限（JST）: user 権限のみ適用
+    if (auth.role === 'user') {
+      const supabase = new SupabaseService();
+      const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+      const nowUtc = new Date();
+      const nowJst = new Date(nowUtc.getTime() + JST_OFFSET_MS);
+      const startOfJstUtcMs = Date.UTC(
+        nowJst.getUTCFullYear(),
+        nowJst.getUTCMonth(),
+        nowJst.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      );
+      const fromUtcMs = startOfJstUtcMs - JST_OFFSET_MS; // JST 00:00 を UTC に補正
+      const toUtcMs = fromUtcMs + 24 * 60 * 60 * 1000;
+
+      const sentCountToday = await supabase.countUserMessagesBetween(
+        auth.userId,
+        fromUtcMs,
+        toUtcMs
+      );
+      if (sentCountToday >= 3) {
+        return {
+          message: '',
+          error:
+            '本日のチャット利用上限（3回）に達しました。上限は日本時間の00:00にリセットされます。',
+          requiresSubscription: false,
+        };
+      }
     }
 
     // モデル処理に委譲
@@ -86,6 +125,39 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
         error: auth.error,
         requiresSubscription: auth.requiresSubscription,
       };
+    }
+
+    // 1日3回の送信制限（JST）: user 権限のみ適用
+    if (auth.role === 'user') {
+      const supabase = new SupabaseService();
+      const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+      const nowUtc = new Date();
+      const nowJst = new Date(nowUtc.getTime() + JST_OFFSET_MS);
+      const startOfJstUtcMs = Date.UTC(
+        nowJst.getUTCFullYear(),
+        nowJst.getUTCMonth(),
+        nowJst.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      );
+      const fromUtcMs = startOfJstUtcMs - JST_OFFSET_MS; // JST 00:00 を UTC に補正
+      const toUtcMs = fromUtcMs + 24 * 60 * 60 * 1000;
+
+      const sentCountToday = await supabase.countUserMessagesBetween(
+        auth.userId,
+        fromUtcMs,
+        toUtcMs
+      );
+      if (sentCountToday >= 3) {
+        return {
+          message: '',
+          error:
+            '本日のチャット利用上限（3回）に達しました。上限は日本時間の00:00にリセットされます。',
+          requiresSubscription: false,
+        };
+      }
     }
 
     // モデル処理に委譲

@@ -219,6 +219,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           <ErrorAlert error={subscription.error} />
         )}
 
+        {chatSession.state.error && <ErrorAlert error={chatSession.state.error} />}
+
         <MessageArea
           messages={chatSession.state.messages}
           isLoading={chatSession.state.isLoading}
@@ -231,7 +233,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           disabled={chatSession.state.isLoading}
           canvasOpen={canvasPanelOpen}
           currentSessionTitle={
-            chatSession.state.sessions.find((s) => s.id === chatSession.state.currentSessionId)
+            chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
               ?.title || '新しいチャット'
           }
           isMobile={isMobile}
