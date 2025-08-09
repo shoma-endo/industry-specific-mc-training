@@ -9,11 +9,6 @@
     "lint": "next lint",
     "ngrok": "ngrok http --region=jp --subdomain=industry-specific-mc-training 3000",
     "prepare": "husky",
-    "rag:sample": "node scripts/initialize-rag-data.js sample",
-    "rag:convert": "node scripts/initialize-rag-data.js convert",
-    "rag:stats": "node scripts/initialize-rag-data.js stats",
-    "rag:reset": "node scripts/initialize-rag-data.js reset --confirm",
-    "rag:test": "node scripts/test-csv-parsing.js",
     "rag:clean": "node scripts/clean-csv-data.js"
   },
   "dependencies": {
