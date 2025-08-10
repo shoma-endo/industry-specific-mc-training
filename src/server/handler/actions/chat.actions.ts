@@ -8,6 +8,7 @@ import { canUseServices } from '@/lib/auth-utils';
 import { userService } from '@/server/services/userService';
 import { SupabaseService } from '@/server/services/supabaseService';
 import type { UserRole } from '@/types/user';
+import { ERROR_MESSAGES } from '@/lib/constants';
 import {
   startChatSchema,
   continueChatSchema,
@@ -94,8 +95,7 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
       if (sentCountToday >= 3) {
         return {
           message: '',
-          error:
-            '本日のチャット利用上限（3回）に達しました。上限は日本時間の00:00にリセットされます。',
+          error: ERROR_MESSAGES.daily_chat_limit,
           requiresSubscription: false,
         };
       }
@@ -153,8 +153,7 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
       if (sentCountToday >= 3) {
         return {
           message: '',
-          error:
-            '本日のチャット利用上限（3回）に達しました。上限は日本時間の00:00にリセットされます。',
+          error: ERROR_MESSAGES.daily_chat_limit,
           requiresSubscription: false,
         };
       }

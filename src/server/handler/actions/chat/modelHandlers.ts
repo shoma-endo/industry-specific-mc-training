@@ -109,13 +109,22 @@ export class ModelHandlerService {
       const { immediate, later } = this.processor.extractKeywordSections(classificationKeywords);
 
       if (immediate.length === 0) {
-        return { message: result.message, error: '', requiresSubscription: false };
+        // ユーザー入力 + AI応答を分離して保存
+        return await chatService.continueChat(
+          userId,
+          sessionId,
+          [userMessage.trim(), result.message],
+          systemPrompt,
+          [],
+          model
+        );
       }
 
+      const assistantReply = `【今すぐ客キーワード】\n${immediate.join('\n')}\n\n【後から客キーワード】\n${later.join('\n')}`;
       return await chatService.continueChat(
         userId,
         sessionId,
-        `【今すぐ客キーワード】\n${immediate.join('\n')}\n\n【後から客キーワード】\n${later.join('\n')}`,
+        [userMessage.trim(), assistantReply],
         systemPrompt,
         [],
         model
@@ -294,13 +303,22 @@ export class ModelHandlerService {
     const { immediate, later } = this.processor.extractKeywordSections(classificationKeywords);
 
     if (immediate.length === 0) {
-      return { message: result.message, error: '', requiresSubscription: false };
+      // ユーザー入力はそのまま、AI応答として分類結果のみを返す
+      return await chatService.startChat(
+        userId,
+        systemPrompt,
+        [userMessage.trim(), result.message],
+        model
+      );
     }
 
+    // ユーザー入力はそのまま、AI応答として分類結果を返す
+    const assistantReply = `【今すぐ客キーワード】\n${immediate.join('\n')}\n\n【後から客キーワード】\n${later.join('\n')}`;
     return await chatService.startChat(
       userId,
       systemPrompt,
-      `${userMessage}\n\n【今すぐ客キーワード】\n${immediate.join('\n')}\n\n【後から客キーワード】\n${later.join('\n')}`
+      [userMessage.trim(), assistantReply],
+      model
     );
   }
 

@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ERROR_MESSAGES } from '@/lib/constants';
 import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';
@@ -63,15 +64,25 @@ const SubscriptionAlert: React.FC<{
   </div>
 );
 
-const ErrorAlert: React.FC<{ error: string }> = ({ error }) => (
-  <div className="bg-red-50 border-l-4 border-red-400 p-4 m-3">
+const ErrorAlert: React.FC<{ error: string; onClose?: () => void }> = ({ error, onClose }) => (
+  <div className="bg-red-50 border-l-4 border-red-400 p-4 m-3" role="alert" aria-live="polite">
     <div className="flex">
       <div className="flex-shrink-0">
         <AlertCircle className="h-5 w-5 text-red-400" />
       </div>
-      <div className="ml-3">
-        <p className="text-sm text-red-700">{error}</p>
+      <div className="ml-3 flex-1 break-words">
+        <p className="text-sm text-red-700 break-words">{error}</p>
       </div>
+      {onClose && (
+        <button
+          type="button"
+          className="text-sm text-red-600 ml-4 hover:text-red-800 focus-visible:ring-2 focus-visible:ring-red-300 rounded"
+          onClick={onClose}
+          aria-label="閉じる"
+        >
+          ×
+        </button>
+      )}
     </div>
   </div>
 );
@@ -106,6 +117,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ✅ 手動編集フラグを追加
   const [isManualEdit, setIsManualEdit] = useState(false);
 
+  // エラーのローカル dismiss 制御
+  const [isErrorDismissed, setIsErrorDismissed] = useState(false);
+  const isQuotaLimitError = chatSession.state.error === ERROR_MESSAGES.daily_chat_limit;
+
   // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く）
   useEffect(() => {
     // 手動編集中は自動更新をスキップ
@@ -122,6 +137,19 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
     }
   }, [chatSession.state.messages, canvasContent, canvasPanelOpen, isManualEdit]);
+
+  // 新しいエラーメッセージが来たら再表示
+  useEffect(() => {
+    setIsErrorDismissed(false);
+  }, [chatSession.state.error]);
+
+  // 任意: 自動クローズ（約7秒）
+  useEffect(() => {
+    if (!chatSession.state.error) return;
+    if (isQuotaLimitError) return; // 日次上限エラーは自動で消さない
+    const t = setTimeout(() => setIsErrorDismissed(true), 7000);
+    return () => clearTimeout(t);
+  }, [chatSession.state.error, isQuotaLimitError]);
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {
@@ -219,7 +247,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           <ErrorAlert error={subscription.error} />
         )}
 
-        {chatSession.state.error && <ErrorAlert error={chatSession.state.error} />}
+        {chatSession.state.error && !isErrorDismissed && (
+          <ErrorAlert error={chatSession.state.error} onClose={() => setIsErrorDismissed(true)} />
+        )}
 
         <MessageArea
           messages={chatSession.state.messages}

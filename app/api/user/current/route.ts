@@ -9,7 +9,7 @@ export async function GET() {
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
 
   if (!accessToken) {
-    return NextResponse.json({ userId: null });
+    return NextResponse.json({ userId: null, user: null });
   }
 
   try {
@@ -34,9 +34,18 @@ export async function GET() {
     const tokenToUse = authResult.newAccessToken || accessToken;
     const user = await userService.getUserFromLiffToken(tokenToUse);
 
-    // レスポンスを一度だけ作成
+    // レスポンスを一度だけ作成（最小限のユーザー情報を含める）
     const response = NextResponse.json({
       userId: user?.id || null,
+      user: user
+        ? {
+            id: user.id,
+            fullName: user.fullName ?? null,
+            role: user.role,
+            lineDisplayName: user.lineDisplayName,
+            linePictureUrl: user.linePictureUrl ?? null,
+          }
+        : null,
       tokenRefreshed: !!authResult.newAccessToken, // newAccessToken があれば true
     });
 
@@ -63,6 +72,6 @@ export async function GET() {
     return response;
   } catch (error) {
     console.error('[User Current API] Error:', error);
-    return NextResponse.json({ userId: null });
+    return NextResponse.json({ userId: null, user: null });
   }
 }
