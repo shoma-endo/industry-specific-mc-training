@@ -1,29 +1,10 @@
-export async function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const Sentry = await import('@sentry/nextjs');
-    
-    const dsn = process.env.SENTRY_DSN;
-    
-    if (dsn) {
-      Sentry.init({
-        dsn,
-        tracesSampleRate: 1,
-        debug: false,
-      });
-    }
-  }
+export function onRequestError(err: unknown, request: unknown, context: unknown) {
+  import('@sentry/nextjs')
+    .then(Sentry => {
+      type CaptureRequestError = typeof Sentry.captureRequestError;
+      type RequestParam = Parameters<CaptureRequestError>[1];
+      type ContextParam = Parameters<CaptureRequestError>[2];
 
-  if (process.env.NEXT_RUNTIME === 'edge') {
-    const Sentry = await import('@sentry/nextjs');
-    
-    const dsn = process.env.SENTRY_DSN;
-    
-    if (dsn) {
-      Sentry.init({
-        dsn,
-        tracesSampleRate: 1,
-        debug: false,
-      });
-    }
-  }
+      Sentry.captureRequestError(err, request as RequestParam, context as ContextParam);
+    });
 }

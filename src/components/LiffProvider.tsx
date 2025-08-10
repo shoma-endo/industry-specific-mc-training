@@ -5,7 +5,6 @@ import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { verifyLineTokenServer } from '@/server/handler/actions/login.actions';
-import { userService } from '@/server/services/userService';
 import type { LiffContextType } from '@/types/components';
 import type { User } from '@/types/user';
 
@@ -62,7 +61,9 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     }
 
     try {
-      const token = await (currentLiff as unknown as { getAccessToken: () => Promise<string> }).getAccessToken();
+      const token = await (
+        currentLiff as unknown as { getAccessToken: () => Promise<string> }
+      ).getAccessToken();
       if (token) return token;
       throw new Error('Failed to get access token from LIFF');
     } catch (error) {
@@ -77,11 +78,19 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
       try {
         const token = await getAccessToken();
         await verifyLineTokenServer(token);
-        
-        // ユーザー情報を取得してstateに設定
-        const userData = await userService.getUserFromLiffToken(token);
-        setUser(userData);
-        
+
+        // サーバーAPIから現在のユーザー情報を取得
+        const res = await fetch('/api/user/current', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.user) {
+            setUser(data.user as User);
+          } else if (data && data.userId) {
+            // 最低限の情報のみ
+            setUser({ id: data.userId } as User);
+          }
+        }
+
         setSyncedWithServer(true);
       } catch (error) {
         console.error('Failed to sync user ID with server:', error);
@@ -134,7 +143,11 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   }
 
   // 非ログイン状態でブラウザ環境の場合はログインボタンを表示
-  if (!isLoggedIn && liffObject && !(liffObject as unknown as { isInClient: () => boolean }).isInClient()) {
+  if (
+    !isLoggedIn &&
+    liffObject &&
+    !(liffObject as unknown as { isInClient: () => boolean }).isInClient()
+  ) {
     return (
       <Card className="max-w-md mx-auto mt-8">
         <CardHeader>
