@@ -32,6 +32,7 @@ export async function GET() {
 
     // トークンがリフレッシュされたか、または元のトークンが有効
     const tokenToUse = authResult.newAccessToken || accessToken;
+    // ここでユーザー取得/作成・更新を集中実施
     const user = await userService.getUserFromLiffToken(tokenToUse);
 
     // レスポンスを一度だけ作成（最小限のユーザー情報を含める）
