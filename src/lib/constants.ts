@@ -24,15 +24,15 @@ interface ModelConfig {
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': {
     provider: 'openai',
-    maxTokens: 1500,
-    temperature: 0.3, // Claude推奨値に調整
+    maxTokens: 4500,
+    temperature: 0.3,
     actualModel: 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2',
-    seed: 42, // 再現性向上
-    top_p: 0.95, // Claude準拠
+    seed: 42,
+    top_p: 0.95,
   },
   ad_copy_creation: {
     provider: 'anthropic',
-    maxTokens: 1500,
+    maxTokens: 4500,
     temperature: 0.3,
     actualModel: 'claude-sonnet-4-20250514',
     seed: 42,
@@ -40,7 +40,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
   ad_copy_finishing: {
     provider: 'anthropic',
-    maxTokens: 1500,
+    maxTokens: 4500,
     temperature: 0.3,
     actualModel: 'claude-sonnet-4-20250514',
     seed: 42,
@@ -48,7 +48,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
   lp_draft_creation: {
     provider: 'anthropic',
-    maxTokens: 12000,
+    maxTokens: 20000,
     temperature: 0.3,
     actualModel: 'claude-sonnet-4-20250514',
     seed: 42,
@@ -56,7 +56,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
   lp_improvement: {
     provider: 'anthropic',
-    maxTokens: 3000,
+    maxTokens: 6000,
     temperature: 0.3,
     actualModel: 'claude-sonnet-4-20250514',
     seed: 42,
