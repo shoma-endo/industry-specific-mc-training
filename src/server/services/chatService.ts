@@ -24,6 +24,8 @@ interface ChatResponse {
 
 class ChatService {
   private supabaseService: SupabaseService;
+  // 必要最低限のトークン管理: 直近の履歴のみ保持（約6往復）
+  private static readonly MAX_HISTORY_MESSAGES: number = 12;
 
   constructor() {
     this.supabaseService = new SupabaseService();
@@ -184,9 +186,31 @@ class ChatService {
         const llmModel = config.actualModel;
 
         try {
+          // Kターン制限 + 古い履歴の簡易要約
+          let recentMessages = messages;
+          let finalSystemPrompt = systemPrompt;
+
+          if (messages.length > ChatService.MAX_HISTORY_MESSAGES) {
+            const numToTrim = messages.length - ChatService.MAX_HISTORY_MESSAGES;
+            const olderMessages = messages.slice(0, numToTrim);
+            recentMessages = messages.slice(-ChatService.MAX_HISTORY_MESSAGES);
+
+            try {
+              const summary = await this.summarizeHistory(olderMessages);
+              if (summary && summary.trim().length > 0) {
+                finalSystemPrompt = `${systemPrompt}\n\n【直前までの会話要約】\n${summary}`;
+              }
+            } catch {
+              // 要約に失敗しても直近K件のみで続行
+            }
+          }
+
           const llmMessages = [
-            { role: 'system' as const, content: systemPrompt },
-            ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+            { role: 'system' as const, content: finalSystemPrompt },
+            ...recentMessages.map(m => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+            })),
             { role: 'user' as const, content: userMessage },
           ];
 
@@ -399,6 +423,37 @@ class ChatService {
         error,
       });
     }
+  }
+
+  /**
+   * 古い履歴を簡易要約（日本語・箇条書き・約300文字）
+   */
+  private async summarizeHistory(messages: OpenAIMessage[]): Promise<string> {
+    const target = messages.slice(-8);
+    const serialized = target
+      .map(
+        m =>
+          `${m.role === 'user' ? 'ユーザー' : m.role === 'assistant' ? 'アシスタント' : 'システム'}: ${m.content}`
+      )
+      .join('\n');
+
+    const system =
+      'あなたは会話要約のアシスタントです。過去の会話を日本語で最重要ポイントのみ、箇条書きで3〜6項目、合計300文字程度で要約してください。前置きや蛇足は不要です。';
+
+    const summarizerModel =
+      MODEL_CONFIGS['ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2']?.actualModel || 'gpt-4o-mini';
+
+    const text = await llmChat(
+      'openai',
+      summarizerModel,
+      [
+        { role: 'system', content: system },
+        { role: 'user', content: serialized.slice(0, 4000) },
+      ],
+      { temperature: 0.2, maxTokens: 600 }
+    );
+
+    return text;
   }
 }
 
