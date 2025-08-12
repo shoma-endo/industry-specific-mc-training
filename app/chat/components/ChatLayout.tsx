@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ERROR_MESSAGES } from '@/lib/constants';
 import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';
@@ -118,6 +119,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // エラーのローカル dismiss 制御
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
+  const isQuotaLimitError = chatSession.state.error === ERROR_MESSAGES.daily_chat_limit;
   const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
 
   // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く）
@@ -141,6 +143,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   useEffect(() => {
     setIsErrorDismissed(false);
   }, [chatSession.state.error]);
+
+  // サブスクリプションエラーが変わったら再表示
+  useEffect(() => {
+    if (!chatSession.state.error) return;
+    if (isQuotaLimitError) return; // 日次上限エラーは自動で消さない
+    const t = setTimeout(() => setIsErrorDismissed(true), 7000);
+    return () => clearTimeout(t);
+  }, [chatSession.state.error, isQuotaLimitError]);
 
   // サブスクリプションエラーが変わったら再表示
   useEffect(() => {

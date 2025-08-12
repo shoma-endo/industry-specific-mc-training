@@ -165,6 +165,27 @@ export class SupabaseService {
   }
 
   /**
+   * 指定したユーザーのメッセージ数を、時間範囲でカウント
+   * role は 'user' のみを対象（送信回数としてカウントするため）
+   */
+  async countUserMessagesBetween(userId: string, fromMs: number, toMs: number): Promise<number> {
+    const { count, error } = await this.supabase
+      .from('chat_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('role', 'user')
+      .gte('created_at', fromMs)
+      .lt('created_at', toMs);
+
+    if (error) {
+      console.error('Failed to count user messages:', error);
+      return 0;
+    }
+
+    return count ?? 0;
+  }
+
+  /**
    * Google検索結果を一括で保存
    */
   async createSearchResults(results: DbSearchResult[]): Promise<void> {
@@ -213,9 +234,6 @@ export class SupabaseService {
       throw new Error('検索結果の削除に失敗しました');
     }
   }
-
-
-
 
   /**
    * wordpress_settingsテーブルからユーザーのWordPress設定を取得（セルフホスト対応版）
@@ -315,9 +333,6 @@ export class SupabaseService {
       throw new Error(`セルフホストWordPress設定の保存または更新に失敗しました: ${error.message}`);
     }
   }
-
-
-
 
   /**
    * チャットセッションとそれに紐づくすべてのメッセージを削除
