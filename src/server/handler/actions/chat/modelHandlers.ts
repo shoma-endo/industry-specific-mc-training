@@ -399,7 +399,7 @@ export class ModelHandlerService {
       const finalSystemPrompt = PromptService.replaceVariables(ragSystemPrompt, variables);
 
       // チャットサービス経由でセッション保存とRAG版生成
-      // 論理キー "lp_draft_creation" を渡すことで maxTokens=5000 が適用される
+      // 論理キー "lp_draft_creation" を渡すことで maxTokens=20000 が適用される
       return await chatService.startChat(
         userId,
         finalSystemPrompt,

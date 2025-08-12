@@ -119,6 +119,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // エラーのローカル dismiss 制御
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
+  const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
   const isQuotaLimitError = chatSession.state.error === ERROR_MESSAGES.daily_chat_limit;
 
   // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く）
@@ -150,6 +151,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     const t = setTimeout(() => setIsErrorDismissed(true), 7000);
     return () => clearTimeout(t);
   }, [chatSession.state.error, isQuotaLimitError]);
+
+  // サブスクリプションエラーが変わったら再表示
+  useEffect(() => {
+    setIsSubscriptionErrorDismissed(false);
+  }, [subscription.error]);
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {
@@ -243,9 +249,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           <SubscriptionAlert error={subscription.error} onGoToSubscription={goToSubscription} />
         )}
 
-        {subscription.error && !subscription.requiresSubscription && (
-          <ErrorAlert error={subscription.error} />
-        )}
+        {subscription.error &&
+          !subscription.requiresSubscription &&
+          !isSubscriptionErrorDismissed && (
+            <ErrorAlert
+              error={subscription.error}
+              onClose={() => setIsSubscriptionErrorDismissed(true)}
+            />
+          )}
 
         {chatSession.state.error && !isErrorDismissed && (
           <ErrorAlert error={chatSession.state.error} onClose={() => setIsErrorDismissed(true)} />
