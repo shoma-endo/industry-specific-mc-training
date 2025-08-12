@@ -119,8 +119,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // エラーのローカル dismiss 制御
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
-  const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
   const isQuotaLimitError = chatSession.state.error === ERROR_MESSAGES.daily_chat_limit;
+  const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
 
   // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く）
   useEffect(() => {
@@ -144,7 +144,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setIsErrorDismissed(false);
   }, [chatSession.state.error]);
 
-  // 任意: 自動クローズ（約7秒）
+  // サブスクリプションエラーが変わったら再表示
   useEffect(() => {
     if (!chatSession.state.error) return;
     if (isQuotaLimitError) return; // 日次上限エラーは自動で消さない
