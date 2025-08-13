@@ -50,13 +50,13 @@ function unauthorized(message: string) {
   return new NextResponse(message, { status: 403 });
 }
 
-function getVercelVerificationHeader(req: NextRequest): [string, string] | null {
+function getVercelVerificationHeader(req: NextRequest): string | null {
   // 1) Header-based verification (primary)
   for (const [k, v] of req.headers) {
     const name = k.toLowerCase();
     if (!name.startsWith('x-vercel-')) continue;
     if (name.includes('verify') || name.includes('verification') || name.includes('challenge')) {
-      return [k, v];
+      return v;
     }
   }
   // 2) Query param fallback (defensive)
@@ -64,7 +64,7 @@ function getVercelVerificationHeader(req: NextRequest): [string, string] | null 
     const url = new URL(req.url);
     const qp = url.searchParams.get('x-vercel-verify') || url.searchParams.get('vercel-verify');
     if (qp) {
-      return ['x-vercel-verify', qp];
+      return qp;
     }
   } catch {}
   return null;
@@ -75,8 +75,8 @@ export async function POST(req: NextRequest) {
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
-    headers.set(verification[0], verification[1]);
-    return new NextResponse('OK', { status: 200, headers });
+    headers.set('x-vercel-verify', verification);
+    return new NextResponse(null, { status: 200, headers });
   }
 
   const FORWARD_URL = env.BASE_WEBHOOK_URL;
@@ -131,8 +131,8 @@ export function GET(req: NextRequest) {
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
-    headers.set(verification[0], verification[1]);
-    return new NextResponse('OK', { status: 200, headers });
+    headers.set('x-vercel-verify', verification);
+    return new NextResponse(null, { status: 200, headers });
   }
   return new NextResponse('Method Not Allowed', { status: 405 });
 }
@@ -141,7 +141,17 @@ export function HEAD(req: NextRequest) {
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
-    headers.set(verification[0], verification[1]);
+    headers.set('x-vercel-verify', verification);
+    return new NextResponse(null, { status: 200, headers });
+  }
+  return new NextResponse(null, { status: 405 });
+}
+
+export function OPTIONS(req: NextRequest) {
+  const verification = getVercelVerificationHeader(req);
+  if (verification) {
+    const headers = new Headers();
+    headers.set('x-vercel-verify', verification);
     return new NextResponse(null, { status: 200, headers });
   }
   return new NextResponse(null, { status: 405 });
