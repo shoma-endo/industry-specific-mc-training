@@ -50,14 +50,24 @@ function unauthorized(message: string) {
   return new NextResponse(message, { status: 403 });
 }
 
+function getVercelVerificationHeader(req: NextRequest): [string, string] | null {
+  for (const [k, v] of req.headers) {
+    const name = k.toLowerCase();
+    if (!name.startsWith('x-vercel-')) continue;
+    if (name.includes('verify') || name.includes('verification') || name.includes('challenge')) {
+      return [k, v];
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   // Vercel Log Drain URL verification: echo x-vercel-verify and return 200 before auth
-  const vercelVerify = req.headers.get('x-vercel-verify');
-  if (vercelVerify) {
+  const verification = getVercelVerificationHeader(req);
+  if (verification) {
     const headers = new Headers();
-    headers.set('x-vercel-verify', vercelVerify);
-    headers.set('content-type', 'application/json');
-    return new NextResponse(JSON.stringify({ ok: true }), { status: 200, headers });
+    headers.set(verification[0], verification[1]);
+    return new NextResponse('OK', { status: 200, headers });
   }
 
   const FORWARD_URL = env.BASE_WEBHOOK_URL;
@@ -108,10 +118,22 @@ export async function POST(req: NextRequest) {
   );
 }
 
-export function GET() {
+export function GET(req: NextRequest) {
+  const verification = getVercelVerificationHeader(req);
+  if (verification) {
+    const headers = new Headers();
+    headers.set(verification[0], verification[1]);
+    return new NextResponse('OK', { status: 200, headers });
+  }
   return new NextResponse('Method Not Allowed', { status: 405 });
 }
 
-export function HEAD() {
+export function HEAD(req: NextRequest) {
+  const verification = getVercelVerificationHeader(req);
+  if (verification) {
+    const headers = new Headers();
+    headers.set(verification[0], verification[1]);
+    return new NextResponse(null, { status: 200, headers });
+  }
   return new NextResponse(null, { status: 405 });
 }
