@@ -22,6 +22,8 @@ export const env = createEnv({
     SENTRY_DSN: z.string().url().optional(),
     SENTRY_ORG: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
+    BASE_WEBHOOK_URL: z.string().url(),
+    RELAY_BEARER_TOKEN: z.string().min(1),
   },
   /*
    * Environment variables available on the client (and server).
@@ -65,5 +67,7 @@ export const env = createEnv({
     SENTRY_ORG: process.env.SENTRY_ORG,
     SENTRY_PROJECT: process.env.SENTRY_PROJECT,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    BASE_WEBHOOK_URL: process.env.BASE_WEBHOOK_URL,
+    RELAY_BEARER_TOKEN: process.env.RELAY_BEARER_TOKEN,
   },
 });
