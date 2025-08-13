@@ -51,6 +51,7 @@ function unauthorized(message: string) {
 }
 
 function getVercelVerificationHeader(req: NextRequest): [string, string] | null {
+  // 1) Header-based verification (primary)
   for (const [k, v] of req.headers) {
     const name = k.toLowerCase();
     if (!name.startsWith('x-vercel-')) continue;
@@ -58,6 +59,14 @@ function getVercelVerificationHeader(req: NextRequest): [string, string] | null 
       return [k, v];
     }
   }
+  // 2) Query param fallback (defensive)
+  try {
+    const url = new URL(req.url);
+    const qp = url.searchParams.get('x-vercel-verify') || url.searchParams.get('vercel-verify');
+    if (qp) {
+      return ['x-vercel-verify', qp];
+    }
+  } catch {}
   return null;
 }
 
