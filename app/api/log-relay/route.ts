@@ -51,6 +51,15 @@ function unauthorized(message: string) {
 }
 
 export async function POST(req: NextRequest) {
+  // Vercel Log Drain URL verification: echo x-vercel-verify and return 200 before auth
+  const vercelVerify = req.headers.get('x-vercel-verify');
+  if (vercelVerify) {
+    const headers = new Headers();
+    headers.set('x-vercel-verify', vercelVerify);
+    headers.set('content-type', 'application/json');
+    return new NextResponse(JSON.stringify({ ok: true }), { status: 200, headers });
+  }
+
   const FORWARD_URL = env.BASE_WEBHOOK_URL;
   const RELAY_BEARER = env.RELAY_BEARER_TOKEN;
 
