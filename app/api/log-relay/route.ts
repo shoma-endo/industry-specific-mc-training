@@ -47,33 +47,83 @@ async function readEvents(req: NextRequest): Promise<LogEvent[]> {
     });
 }
 
+// ---------------
+// Extract verification token from Header / Query / Body
+// ---------------
+// Debug helper: truncate long strings
+function head(s: string, n = 256) {
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+// Deep search for verification keys in nested JSON
+function findValueDeep(obj: unknown, keys: string[]): string | null {
+  if (obj && typeof obj === 'object') {
+    const record = obj as Record<string, unknown>;
+    for (const k of Object.keys(record)) {
+      const v = record[k];
+      if (typeof v === 'string' && keys.includes(k)) return v;
+      const inner = findValueDeep(v, keys);
+      if (inner) return inner;
+    }
+  }
+  return null;
+}
+
 async function extractVerifyValue(req: NextRequest): Promise<string | null> {
-  // 3) Body（検証リクエストのみ、Authorizationヘッダーが無い場合）
-  if (!req.headers.has('authorization')) {
-    const ct = req.headers.get('content-type') || '';
-    try {
-      if (ct.includes('application/json')) {
-        const j = await req.json().catch(() => null);
-        if (j && typeof j === 'object') {
-          // よくあるキー名を総当り
-          const candidates = [
-            'x-vercel-verify',
-            'xVercelVerify',
-            'verify',
-            'verification',
-            'challenge',
-          ];
-          for (const key of candidates) {
-            const val = (j as Record<string, unknown>)[key];
-            if (typeof val === 'string' && val) return val;
-          }
-        }
-      } else {
-        const text = await req.text().catch(() => '');
-        const m = text.match(/[a-f0-9]{32,64}/i);
-        if (m) return m[0];
+  // 1) Headers
+  for (const [k, v] of req.headers) {
+    const name = k.toLowerCase();
+    if (
+      name.startsWith('x-vercel-') &&
+      (name.includes('verify') || name.includes('verification') || name.includes('challenge'))
+    ) {
+      return v;
+    }
+  }
+  // 2) Query params
+  try {
+    const url = new URL(req.url);
+    const qp =
+      url.searchParams.get('x-vercel-verify') ||
+      url.searchParams.get('xVercelVerify') ||
+      url.searchParams.get('vercel-verify') ||
+      url.searchParams.get('challenge') ||
+      url.searchParams.get('verification') ||
+      url.searchParams.get('verify');
+    if (qp) return qp;
+  } catch {}
+  // 3) Body (always clone)
+  try {
+    const r = req.clone();
+    const ct = (r.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('json')) {
+      const raw = await r.text();
+      log('VERIFY BODY(JSON head)', head(raw));
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = null;
       }
-    } catch {}
+      const val = findValueDeep(parsed, [
+        'x-vercel-verify',
+        'xVercelVerify',
+        'vercelVerify',
+        'verify',
+        'verification',
+        'challenge',
+      ]);
+      if (val) return val;
+      const m = raw.match(/[a-f0-9]{16,64}/i);
+      if (m) return m[0];
+    } else {
+      const text = await r.text();
+      log('VERIFY BODY(TEXT head)', head(text));
+      const m = text.match(/[a-f0-9]{16,64}/i);
+      if (m) return m[0];
+    }
+  } catch (e) {
+    log('VERIFY BODY read error', String(e));
   }
   return null;
 }
