@@ -134,7 +134,8 @@ export function GET(req: NextRequest) {
     headers.set(verification[0], verification[1]);
     return new NextResponse('OK', { status: 200, headers });
   }
-  return new NextResponse('Method Not Allowed', { status: 405 });
+  // Endpoint availability check
+  return new NextResponse(null, { status: 200 });
 }
 
 export function HEAD(req: NextRequest) {
@@ -144,7 +145,8 @@ export function HEAD(req: NextRequest) {
     headers.set(verification[0], verification[1]);
     return new NextResponse(null, { status: 200, headers });
   }
-  return new NextResponse(null, { status: 405 });
+  // Endpoint availability check
+  return new NextResponse(null, { status: 200 });
 }
 
 export function OPTIONS(req: NextRequest) {
@@ -154,5 +156,6 @@ export function OPTIONS(req: NextRequest) {
     headers.set(verification[0], verification[1]);
     return new NextResponse(null, { status: 200, headers });
   }
-  return new NextResponse(null, { status: 405 });
+  // CORS preflight or availability check
+  return new NextResponse(null, { status: 200 });
 }
