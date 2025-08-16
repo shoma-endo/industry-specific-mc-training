@@ -71,11 +71,13 @@ function getVercelVerificationHeader(req: NextRequest): [string, string] | null 
 }
 
 export async function POST(req: NextRequest) {
-  // Vercel Log Drain URL verification: echo x-vercel-verify and return 200 before auth
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
+    // 固定名で検証用トークンを返却
     headers.set('x-vercel-verify', verification[1]);
+    // 他のx-vercel-*ヘッダーも全部エコー
+    echoVercelHeadersInto(headers, req);
     return new NextResponse('OK', { status: 200, headers });
   }
 
