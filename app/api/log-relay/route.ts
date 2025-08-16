@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
-    headers.set(verification[0], verification[1]);
+    headers.set('x-vercel-verify', verification[1]);
     return new NextResponse('OK', { status: 200, headers });
   }
 
@@ -131,7 +131,7 @@ export function GET(req: NextRequest) {
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
-    headers.set(verification[0], verification[1]);
+    headers.set('x-vercel-verify', verification[1]);
     return new NextResponse('OK', { status: 200, headers });
   }
   // Endpoint availability check
@@ -142,7 +142,7 @@ export function HEAD(req: NextRequest) {
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
-    headers.set(verification[0], verification[1]);
+    headers.set('x-vercel-verify', verification[1]);
     return new NextResponse(null, { status: 200, headers });
   }
   // Endpoint availability check
@@ -153,7 +153,7 @@ export function OPTIONS(req: NextRequest) {
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
-    headers.set(verification[0], verification[1]);
+    headers.set('x-vercel-verify', verification[1]);
     return new NextResponse(null, { status: 200, headers });
   }
   // CORS preflight or availability check
