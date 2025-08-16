@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { env } from '@/env';
 
 export const runtime = 'nodejs';
+// Disable caching and force dynamic for debugging
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+// Simple logger for debug
+function log(...args: unknown[]) {
+  console.log('[log-relay]', ...args);
+}
 
 interface LogEvent {
   level?: string;
@@ -71,13 +78,21 @@ function getVercelVerificationHeader(req: NextRequest): [string, string] | null 
 }
 
 export async function POST(req: NextRequest) {
+  // Debug: log incoming verification check
+  log('VERIFY CHECK', {
+    method: 'POST',
+    host: req.headers.get('host'),
+    url: req.url,
+    verifyInReq: req.headers.get('x-vercel-verify') || '(none)',
+  });
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
     // 固定名で検証用トークンを返却
     headers.set('x-vercel-verify', verification[1]);
-    // 他のx-vercel-*ヘッダーも全部エコー
+    // 他の x-vercel-* ヘッダーもエコー
     echoVercelHeadersInto(headers, req);
+    log('VERIFY ECHO', { verifyValue: verification[1] });
     return new NextResponse('OK', { status: 200, headers });
   }
 
@@ -130,10 +145,19 @@ export async function POST(req: NextRequest) {
 }
 
 export function GET(req: NextRequest) {
+  // Debug: log incoming GET verification check
+  log('VERIFY CHECK', {
+    method: 'GET',
+    host: req.headers.get('host'),
+    url: req.url,
+    verifyInReq: req.headers.get('x-vercel-verify') || '(none)',
+  });
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
     headers.set('x-vercel-verify', verification[1]);
+    echoVercelHeadersInto(headers, req);
+    log('VERIFY ECHO', { verifyValue: verification[1] });
     return new NextResponse('OK', { status: 200, headers });
   }
   // Endpoint availability check
@@ -141,10 +165,19 @@ export function GET(req: NextRequest) {
 }
 
 export function HEAD(req: NextRequest) {
+  // Debug: log incoming HEAD verification check
+  log('VERIFY CHECK', {
+    method: 'HEAD',
+    host: req.headers.get('host'),
+    url: req.url,
+    verifyInReq: req.headers.get('x-vercel-verify') || '(none)',
+  });
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
     headers.set('x-vercel-verify', verification[1]);
+    echoVercelHeadersInto(headers, req);
+    log('VERIFY ECHO', { verifyValue: verification[1] });
     return new NextResponse(null, { status: 200, headers });
   }
   // Endpoint availability check
@@ -152,10 +185,19 @@ export function HEAD(req: NextRequest) {
 }
 
 export function OPTIONS(req: NextRequest) {
+  // Debug: log incoming OPTIONS verification check
+  log('VERIFY CHECK', {
+    method: 'OPTIONS',
+    host: req.headers.get('host'),
+    url: req.url,
+    verifyInReq: req.headers.get('x-vercel-verify') || '(none)',
+  });
   const verification = getVercelVerificationHeader(req);
   if (verification) {
     const headers = new Headers();
     headers.set('x-vercel-verify', verification[1]);
+    echoVercelHeadersInto(headers, req);
+    log('VERIFY ECHO', { verifyValue: verification[1] });
     return new NextResponse(null, { status: 200, headers });
   }
   // CORS preflight or availability check
