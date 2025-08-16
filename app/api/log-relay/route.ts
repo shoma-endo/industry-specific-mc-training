@@ -47,6 +47,37 @@ async function readEvents(req: NextRequest): Promise<LogEvent[]> {
     });
 }
 
+async function extractVerifyValue(req: NextRequest): Promise<string | null> {
+  // 3) Body（検証リクエストのみ、Authorizationヘッダーが無い場合）
+  if (!req.headers.has('authorization')) {
+    const ct = req.headers.get('content-type') || '';
+    try {
+      if (ct.includes('application/json')) {
+        const j = await req.json().catch(() => null);
+        if (j && typeof j === 'object') {
+          // よくあるキー名を総当り
+          const candidates = [
+            'x-vercel-verify',
+            'xVercelVerify',
+            'verify',
+            'verification',
+            'challenge',
+          ];
+          for (const key of candidates) {
+            const val = (j as Record<string, unknown>)[key];
+            if (typeof val === 'string' && val) return val;
+          }
+        }
+      } else {
+        const text = await req.text().catch(() => '');
+        const m = text.match(/[a-f0-9]{32,64}/i);
+        if (m) return m[0];
+      }
+    } catch {}
+  }
+  return null;
+}
+
 function echoVercelHeadersInto(res: Headers, req: NextRequest) {
   for (const [k, v] of req.headers) {
     if (k.toLowerCase().startsWith('x-vercel-')) res.set(k, v);
@@ -85,14 +116,14 @@ export async function POST(req: NextRequest) {
     url: req.url,
     verifyInReq: req.headers.get('x-vercel-verify') || '(none)',
   });
-  const verification = getVercelVerificationHeader(req);
-  if (verification) {
+  const verifyValue = await extractVerifyValue(req);
+  if (verifyValue) {
     const headers = new Headers();
     // 固定名で検証用トークンを返却
-    headers.set('x-vercel-verify', verification[1]);
+    headers.set('x-vercel-verify', verifyValue);
     // 他の x-vercel-* ヘッダーもエコー
     echoVercelHeadersInto(headers, req);
-    log('VERIFY ECHO', { verifyValue: verification[1] });
+    log('VERIFY ECHO', { verifyValue });
     return new NextResponse('OK', { status: 200, headers });
   }
 
