@@ -80,7 +80,12 @@ async function extractVerifyValue(req: NextRequest): Promise<string | null> {
 
 function echoVercelHeadersInto(res: Headers, req: NextRequest) {
   for (const [k, v] of req.headers) {
-    if (k.toLowerCase().startsWith('x-vercel-')) res.set(k, v);
+    const name = k.toLowerCase();
+    // Skip x-vercel-verify to avoid overriding fixed verification header
+    if (name === 'x-vercel-verify') continue;
+    if (name.startsWith('x-vercel-')) {
+      res.set(k, v);
+    }
   }
 }
 
