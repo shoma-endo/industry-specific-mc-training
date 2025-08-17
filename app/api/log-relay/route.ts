@@ -9,6 +9,20 @@ export const revalidate = 0;
 function log(...args: unknown[]) {
   console.log('[log-relay]', ...args);
 }
+// Decode base64 JWT payload (to extract OIDC token project info)
+function decodeJwtPayload(token?: string | null): Record<string, unknown> | null {
+  try {
+    if (!token) return null;
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = parts[1];
+    if (!payload) return null;
+    const decoded = Buffer.from(payload, 'base64').toString('utf8');
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
 
 interface LogEvent {
   level?: string;
@@ -178,8 +192,32 @@ export async function POST(req: NextRequest) {
     headers.set('x-vercel-verify', verifyValue);
     // 他の x-vercel-* ヘッダーもエコー
     echoVercelHeadersInto(headers, req);
+    // Prevent caching of verification response
+    headers.set('cache-control', 'no-store');
     log('VERIFY ECHO', { verifyValue });
     return new NextResponse('OK', { status: 200, headers });
+  }
+  // Pre-processing: payload size and count limit
+  const MAX_BYTES = 512 * 1024; // 512KB
+  const MAX_EVENTS = 500;
+  const cl = Number(req.headers.get('content-length') || 0);
+  if (cl > MAX_BYTES) {
+    return new NextResponse('payload too large', { status: 413 });
+  }
+  // Self-loop guard: ensure RELAY_PROJECT_ID is set
+  if (!process.env.RELAY_PROJECT_ID) {
+    log('WARN: RELAY_PROJECT_ID not set; self-loop guard may not work');
+  }
+  // Self-loop guard: ignore logs originating from this relay project
+  const oidcToken = req.headers.get('x-vercel-oidc-token');
+  const oidc = decodeJwtPayload(oidcToken);
+  const senderProject =
+    (oidc?.['project_id'] as string) ||
+    (oidc?.['projectId'] as string) ||
+    ((oidc?.['project'] as Record<string, unknown>)?.['id'] as string);
+  if (process.env.RELAY_PROJECT_ID && senderProject === process.env.RELAY_PROJECT_ID) {
+    log('SELF LOOP IGNORE', { senderProject });
+    return new NextResponse('ignore self', { status: 204 });
   }
 
   const FORWARD_URL = env.BASE_WEBHOOK_URL;
@@ -202,7 +240,9 @@ export async function POST(req: NextRequest) {
   }
 
   // 3) 本文取得（JSON/NDJSON両対応）
-  const events = await readEvents(req);
+  let events = await readEvents(req);
+  // Limit number of events to prevent abuse
+  events = events.slice(0, MAX_EVENTS);
 
   // 4) フィルタ（error レベル or 5xx ステータス）
   const alerts = events.filter(e => {
