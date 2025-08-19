@@ -44,6 +44,10 @@ export class ChatService implements IChatService {
 
       return response;
     } catch (error) {
+      // 既に意味のある ChatError であれば、そのままのユーザー向け文言を保つため再送出
+      if (error instanceof ChatError) {
+        throw error;
+      }
       const errorMessage = this.handleError(error);
       throw new ChatError(errorMessage, ChatErrorCode.MESSAGE_SEND_FAILED, { params, error });
     }
