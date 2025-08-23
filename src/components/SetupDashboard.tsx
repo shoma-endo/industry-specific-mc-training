@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, AlertCircle, Settings, Plug, ArrowRight, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { CheckCircle, AlertCircle, Settings, Plug, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
 
@@ -18,7 +17,6 @@ interface WordPressStatus {
 }
 
 export default function SetupDashboard({ wordpressSettings }: SetupDashboardProps) {
-  const router = useRouter();
   const [wpStatus, setWpStatus] = useState<WordPressStatus | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
@@ -73,7 +71,7 @@ export default function SetupDashboard({ wordpressSettings }: SetupDashboardProp
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-4">設定</h1>
-        <p className="text-gray-600">各種サービス連携や公開に必要な設定を管理します</p>
+        <p className="text-gray-600">各種サービス連携に必要な設定を管理します</p>
       </div>
 
       {/* 全体のステータス */}
@@ -94,45 +92,9 @@ export default function SetupDashboard({ wordpressSettings }: SetupDashboardProp
           </div>
           <p className="text-gray-600 mb-4">
             {isSetupComplete
-              ? 'すべての設定が完了しています。ランディングページ作成機能をご利用いただけます。'
+              ? 'すべての設定が完了しています。'
               : '一部の設定が未完了です。下記の設定項目を確認してください。'}
           </p>
-
-          {/* 利用可能な機能 */}
-          <div className="space-y-3">
-            {wordpressSettings.hasSettings && (
-              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <div className="flex items-center gap-3">
-                  <Plug className="text-purple-500" size={20} />
-                  <div>
-                    <span className="font-medium text-purple-800">ランディングページ作成</span>
-                    <p className="text-sm text-purple-600">WordPress公開機能が利用可能</p>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => router.push('/ad-form')}
-                  size="sm"
-                  variant="outline"
-                  className="border-purple-300 text-purple-700 hover:bg-purple-100"
-                >
-                  開始
-                  <ArrowRight size={16} className="ml-1" />
-                </Button>
-              </div>
-            )}
-
-            {isSetupComplete && (
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="text-green-500" size={20} />
-                  <div>
-                    <span className="font-medium text-green-800">フル機能</span>
-                    <p className="text-sm text-green-600">すべての機能が利用可能です</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
         </CardContent>
       </Card>
 
@@ -234,16 +196,6 @@ export default function SetupDashboard({ wordpressSettings }: SetupDashboardProp
                     {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
                   </Button>
                 </Link>
-                {wordpressSettings.hasSettings && (
-                  <Button
-                    onClick={() => router.push('/ad-form')}
-                    variant="outline"
-                    size="sm"
-                    className="px-3"
-                  >
-                    <ArrowRight size={16} />
-                  </Button>
-                )}
               </div>
             </div>
           </CardContent>
@@ -304,9 +256,6 @@ export default function SetupDashboard({ wordpressSettings }: SetupDashboardProp
               <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
                 <li className={wordpressSettings.hasSettings ? 'line-through text-gray-400' : ''}>
                   <strong>WordPress設定</strong> - 公開先サイトの設定
-                </li>
-                <li className={isSetupComplete ? 'text-green-600 font-medium' : 'text-gray-400'}>
-                  <strong>ランディングページ作成</strong> - AIによる自動生成とWordPress公開
                 </li>
               </ol>
             </div>
