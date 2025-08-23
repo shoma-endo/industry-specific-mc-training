@@ -14,7 +14,7 @@ interface LLMOptions {
   // Note: seed/top_p are configured in MODEL_CONFIGS but not currently used
   // Future implementation: use provider(model).withSettings({ seed, topP }) if needed
   /**
-   * LLM呼び出しのタイムアウト（ミリ秒）。未指定時は 60000ms。
+   * LLM呼び出しのタイムアウト（ミリ秒）。未指定時は 120000ms。
    */
   timeoutMs?: number;
 }
@@ -51,11 +51,11 @@ export class LLMService {
         maxTokens: opts.maxTokens ?? 1000,
       });
 
-      // タイムアウト（デフォルト60秒）
+      // タイムアウト（デフォルト120秒）
       const result = await Promise.race([
         llmPromise,
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), opts.timeoutMs ?? 60000)
+          setTimeout(() => reject(new Error('timeout')), opts.timeoutMs ?? 120000)
         ),
       ]);
 
@@ -85,7 +85,7 @@ export class LLMService {
           const fallbackResult = await Promise.race([
             fallbackCall,
             new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('timeout')), opts.timeoutMs ?? 60000)
+              setTimeout(() => reject(new Error('timeout')), opts.timeoutMs ?? 120000)
             ),
           ]);
           return (fallbackResult as typeof fallbackCall extends Promise<infer R> ? R : never).text;
