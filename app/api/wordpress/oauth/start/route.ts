@@ -23,8 +23,7 @@ export async function GET() {
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'global', // 'global'スコープは投稿、メディア、サイト設定など広範なアクセスを要求します。必要に応じて調整してください。
-    state: state,
-    // blog: process.env.WORDPRESS_COM_SITE_ID || '', // 特定のサイトに限定する場合
+    state: state
   });
 
   const authorizationUrl = `https://public-api.wordpress.com/oauth2/authorize?${params.toString()}`;

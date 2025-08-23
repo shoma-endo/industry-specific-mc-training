@@ -325,6 +325,28 @@ export default function Home() {
         <ProfileDisplay />
         <AdminAccessCard />
 
+        {/* 一般ユーザー向け 設定ページ導線 */}
+        {isLoggedIn && (
+          <Card className="w-full max-w-md mb-6">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
+                <Settings className="h-5 w-5" />
+                設定
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600 text-center mb-4">
+                WordPress連携などの設定はこちらから行えます
+              </p>
+              <Link href="/setup" className="block">
+                <Button className="w-full" aria-label="設定ページへ移動" tabIndex={0}>
+                  設定を開く
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
         {/* サブスクリプション情報カード */}
         {STRIPE_ENABLED && (
           <Card className="w-full max-w-md mb-6 mt-4">
