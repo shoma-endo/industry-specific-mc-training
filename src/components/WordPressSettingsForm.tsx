@@ -414,6 +414,43 @@ export default function WordPressSettingsForm({
                 <li>管理者権限のユーザーアカウントを使用してください</li>
               </ul>
             </div>
+
+            {/* 参考リンク */}
+            <div>
+              <h4 className="font-medium mb-2">参考リンク</h4>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>
+                  <a
+                    href="https://knowledge.ablenet.jp/wordpress-initial-settings/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    WordPress初期設定マニュアル（カテゴリー・パーマリンクなど）
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://cad-kenkyujo.com/wordpress-nyuumon/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    WordPress入門ガイド（テーマ・プラグインの基本）
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.value-domain.com/media/wordpress-initial-setting/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    WordPressの初期設定 23項目（画像設定・パーマリンク等）
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
         </CardContent>
       </Card>
