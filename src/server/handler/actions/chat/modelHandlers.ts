@@ -4,17 +4,7 @@ import { ChatProcessorService } from './chatProcessors';
 import { semrushService } from '@/server/services/semrushService';
 import { formatSemrushAds } from '@/lib/adExtractor';
 import { ERROR_MESSAGES, MODEL_CONFIGS } from '@/lib/constants';
-import {
-  SYSTEM_PROMPT,
-  KEYWORD_CATEGORIZATION_PROMPT,
-  AD_COPY_PROMPT,
-  AD_COPY_FINISHING_PROMPT,
-  LP_DRAFT_PROMPT,
-  // 新しいキャッシュ戦略対応プロンプト生成関数
-  generateAdCopyPrompt,
-  generateAdCopyFinishingPrompt,
-  generateLpDraftPrompt,
-} from '@/lib/prompts';
+import { getSystemPrompt as getSystemPromptShared } from '@/lib/prompts';
 import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '../shared/validators';
 import { RAGKeywordClassifier } from '@/lib/rag-keyword-classifier';
@@ -22,35 +12,10 @@ import { PromptRetrievalService } from '@/server/services/promptRetrievalService
 import { BriefService } from '@/server/services/briefService';
 import { PromptService } from '@/services/promptService';
 
-const SYSTEM_PROMPTS: Record<string, string> = {
-  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-  rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,
-  ad_copy_creation: AD_COPY_PROMPT,
-  ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
-  lp_draft_creation: LP_DRAFT_PROMPT,
-};
-
 /**
  * モデルに応じた動的プロンプト取得（React Cache活用）
  */
-async function getSystemPrompt(model: string, liffAccessToken?: string): Promise<string> {
-  // liffAccessTokenがある場合はキャッシュ戦略を使用
-  if (liffAccessToken) {
-    switch (model) {
-      case 'ad_copy_creation':
-        return await generateAdCopyPrompt(liffAccessToken);
-      case 'ad_copy_finishing':
-        return await generateAdCopyFinishingPrompt(liffAccessToken);
-      case 'lp_draft_creation':
-        return await generateLpDraftPrompt(liffAccessToken);
-      default:
-        return SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
-    }
-  }
-
-  // フォールバック: 従来の静的プロンプト
-  return SYSTEM_PROMPTS[model] ?? SYSTEM_PROMPT;
-}
+const getSystemPrompt = getSystemPromptShared;
 
 export class ModelHandlerService {
   private processor = new ChatProcessorService();

@@ -1,7 +1,6 @@
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { ChatError } from '@/domain/errors/ChatError';
-import { createAnthropic } from '@ai-sdk/anthropic';
 import { env } from '@/env';
 
 interface LLMMessage {
@@ -22,7 +21,6 @@ interface LLMOptions {
 
 export class LLMService {
   private openai = createOpenAI({ apiKey: env.OPENAI_API_KEY });
-  private anthropic = createAnthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   async llmChat(
     providerKey: 'openai' | 'anthropic',
@@ -33,7 +31,7 @@ export class LLMService {
     const startTime = Date.now();
 
     try {
-      const provider = providerKey === 'openai' ? this.openai : this.anthropic;
+      const provider = this.openai;
 
       // 先頭に system があれば分離
       let systemPrompt: string | undefined;
@@ -49,7 +47,7 @@ export class LLMService {
         // OpenAI も system プロパティをそのまま受け取れる
         messages: chatMessages,
         temperature: opts.temperature ?? 0.7,
-        maxTokens: opts.maxTokens ?? 1000,
+        maxTokens: opts.maxTokens ?? 3000,
       });
 
       // タイムアウト（デフォルト300秒）
@@ -61,28 +59,6 @@ export class LLMService {
       ]);
 
       const latency = Date.now() - startTime;
-      // Anthropicのusageを詳細にログ（input_tokensを明示）
-      if (providerKey === 'anthropic') {
-        try {
-          const usage: unknown = (result as unknown as { usage?: unknown }).usage;
-          const inputTokens =
-            (usage as { inputTokens?: number })?.inputTokens ??
-            (usage as { input_tokens?: number })?.input_tokens;
-          const outputTokens =
-            (usage as { outputTokens?: number })?.outputTokens ??
-            (usage as { output_tokens?: number })?.output_tokens;
-          const totalTokens =
-            (usage as { totalTokens?: number })?.totalTokens ??
-            (usage as { total_tokens?: number })?.total_tokens;
-          console.log(
-            `[Anthropic] Usage - input_tokens: ${inputTokens ?? 'N/A'}, output_tokens: ${
-              outputTokens ?? 'N/A'
-            }, total_tokens: ${totalTokens ?? 'N/A'}`
-          );
-        } catch {
-          /* noop */
-        }
-      }
       console.log(
         `LLM Chat - Provider: ${providerKey}, Model: ${model}, Latency: ${latency}ms, Tokens: ${result.usage?.totalTokens || 'N/A'}`
       );
