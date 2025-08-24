@@ -3,7 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
 import { getPromptTemplates, updatePromptTemplate } from '@/server/handler/actions/prompt.actions';
@@ -59,7 +65,7 @@ export default function PromptsPage() {
     try {
       setIsSaving(true);
       const token = await getAccessToken();
-      
+
       const result = await updatePromptTemplate(
         token,
         selectedTemplate.id,
@@ -146,9 +152,7 @@ export default function PromptsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">プロンプト管理</h1>
-        <p className="mt-2 text-gray-600">
-          プロンプトテンプレートを選択して内容を編集します
-        </p>
+        <p className="mt-2 text-gray-600">プロンプトテンプレートを選択して内容を編集します</p>
       </div>
 
       {/* エラーメッセージ */}
@@ -173,7 +177,7 @@ export default function PromptsPage() {
               <SelectValue placeholder="編集するプロンプトテンプレートを選択してください" />
             </SelectTrigger>
             <SelectContent>
-              {templates.map((template) => (
+              {templates.map(template => (
                 <SelectItem key={template.id} value={template.id}>
                   {template.display_name}
                 </SelectItem>
@@ -188,23 +192,35 @@ export default function PromptsPage() {
         <Card>
           <CardHeader>
             <CardTitle>{selectedTemplate.display_name}</CardTitle>
+            <div className="text-xs text-gray-500 mt-1">
+              最終更新: {new Date(selectedTemplate.updated_at).toLocaleString('ja-JP')}
+            </div>
             {promptDescription && (
               <div className="text-sm text-gray-600 space-y-2">
-                <p><strong>説明:</strong> {promptDescription.description}</p>
-                <p><strong>使用場面:</strong> {promptDescription.usage}</p>
-                <p><strong>変数情報:</strong> {promptDescription.variables}</p>
+                <p>
+                  <strong>説明:</strong> {promptDescription.description}
+                </p>
+                <p>
+                  <strong>使用場面:</strong> {promptDescription.usage}
+                </p>
+                <p>
+                  <strong>変数情報:</strong> {promptDescription.variables}
+                </p>
               </div>
             )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label htmlFor="prompt-content" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="prompt-content"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 プロンプト内容
               </label>
               <Textarea
                 id="prompt-content"
                 value={editedContent}
-                onChange={(e) => setEditedContent(e.target.value)}
+                onChange={e => setEditedContent(e.target.value)}
                 rows={15}
                 className="w-full"
                 placeholder="プロンプト内容を入力してください"
@@ -243,9 +259,7 @@ export default function PromptsPage() {
                       <div className="font-mono text-sm text-blue-600">
                         {`{{${variable.name}}}`}
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {variable.description}
-                      </div>
+                      <div className="text-sm text-gray-600 mt-1">{variable.description}</div>
                     </div>
                   ))}
                 </div>
@@ -254,7 +268,6 @@ export default function PromptsPage() {
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }

@@ -72,10 +72,12 @@ class ChatService {
           aiResponse = { message: aiReply };
         } catch (error) {
           console.error('LLM Chat error:', error);
-          throw new ChatError('AI通信に失敗しました', ChatErrorCode.NETWORK_ERROR, {
-            model: llmModel,
-            error,
-          });
+          // 既にChatErrorであればそのまま投げ直し（文言を上書きしない）
+          if (error instanceof ChatError) {
+            throw error;
+          }
+          // 未分類のエラーは汎用化
+          throw ChatError.fromApiError(error, { model: llmModel });
         }
       } else {
         userMessageString = userMessage[0]!;
@@ -230,11 +232,10 @@ class ChatService {
           aiResponse = { message: aiReply };
         } catch (error) {
           console.error('LLM Chat error:', error);
-          throw new ChatError('AI通信に失敗しました', ChatErrorCode.NETWORK_ERROR, {
-            model: llmModel,
-            sessionId,
-            error,
-          });
+          if (error instanceof ChatError) {
+            throw error;
+          }
+          throw ChatError.fromApiError(error, { model: llmModel, sessionId });
         }
       } else {
         userMessageString = userMessage[0]!;
