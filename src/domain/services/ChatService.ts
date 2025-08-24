@@ -14,11 +14,6 @@ import {
 } from '@/server/handler/actions/chat.actions';
 import { ChatError, ChatErrorCode } from '../errors/ChatError';
 
-interface ValidationResult {
-  isValid: boolean;
-  error?: string;
-}
-
 export class ChatService implements IChatService {
   private currentUserId: string | null = null;
   private accessTokenProvider: (() => Promise<string>) | null = null;
@@ -29,15 +24,6 @@ export class ChatService implements IChatService {
 
   async sendMessage(params: SendMessageParams): Promise<SendMessageResponse> {
     try {
-      const validation = this.validateMessage(params.content);
-      if (!validation.isValid) {
-        throw new ChatError(
-          validation.error || 'メッセージのバリデーションに失敗しました',
-          ChatErrorCode.VALIDATION_ERROR,
-          { content: params.content }
-        );
-      }
-
       const response = params.isNewSession
         ? await this.startNewChat(params)
         : await this.continueChat(params);
@@ -145,16 +131,6 @@ export class ChatService implements IChatService {
 
   startNewSession(): string {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private validateMessage(content: string): ValidationResult {
-    if (!content?.trim()) {
-      return { isValid: false, error: 'メッセージが空です' };
-    }
-    if (content.length > 4000) {
-      return { isValid: false, error: 'メッセージが長すぎます（4000文字以内）' };
-    }
-    return { isValid: true };
   }
 
   private async startNewChat(params: SendMessageParams): Promise<SendMessageResponse> {
