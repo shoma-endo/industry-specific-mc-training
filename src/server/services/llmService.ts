@@ -1,5 +1,6 @@
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { ChatError } from '@/domain/errors/ChatError';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { env } from '@/env';
 
@@ -91,11 +92,28 @@ export class LLMService {
           return (fallbackResult as typeof fallbackCall extends Promise<infer R> ? R : never).text;
         } catch (fallbackError) {
           console.error('Fallback to OpenAI also failed:', fallbackError);
-          throw new Error('AI通信に失敗しました');
+          const status =
+            ChatError.extractHttpStatus(error) ?? ChatError.extractHttpStatus(fallbackError);
+          if (status) {
+            const mapped = ChatError.anthropicStatusToCode(status);
+            throw new ChatError('AI通信に失敗しました', mapped, {
+              provider: 'anthropic',
+              model,
+              httpStatus: status,
+              error,
+              fallbackError,
+            });
+          }
+          throw new ChatError('AI通信に失敗しました', ChatError.anthropicStatusToCode(500), {
+            provider: 'anthropic',
+            model,
+            error,
+            fallbackError,
+          });
         }
       }
-
-      throw new Error('AI通信に失敗しました');
+      // OpenAI等、Anthropic以外の失敗
+      throw ChatError.fromApiError(error, { provider: providerKey, model });
     }
   }
 }
