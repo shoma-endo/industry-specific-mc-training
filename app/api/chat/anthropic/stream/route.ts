@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
           idleTimeout = setTimeout(() => {
             console.warn('[Anthropic Stream] Idle timeout reached');
             abortController?.abort();
-          }, 360000); // 360秒（6分）のアイドルタイムアウト
+          }, 300000); // 300秒（5分）のアイドルタイムアウト
         };
 
         const cleanup = () => {
