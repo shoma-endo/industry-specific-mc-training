@@ -61,6 +61,28 @@ export class LLMService {
       ]);
 
       const latency = Date.now() - startTime;
+      // Anthropicのusageを詳細にログ（input_tokensを明示）
+      if (providerKey === 'anthropic') {
+        try {
+          const usage: unknown = (result as unknown as { usage?: unknown }).usage;
+          const inputTokens =
+            (usage as { inputTokens?: number })?.inputTokens ??
+            (usage as { input_tokens?: number })?.input_tokens;
+          const outputTokens =
+            (usage as { outputTokens?: number })?.outputTokens ??
+            (usage as { output_tokens?: number })?.output_tokens;
+          const totalTokens =
+            (usage as { totalTokens?: number })?.totalTokens ??
+            (usage as { total_tokens?: number })?.total_tokens;
+          console.log(
+            `[Anthropic] Usage - input_tokens: ${inputTokens ?? 'N/A'}, output_tokens: ${
+              outputTokens ?? 'N/A'
+            }, total_tokens: ${totalTokens ?? 'N/A'}`
+          );
+        } catch {
+          /* noop */
+        }
+      }
       console.log(
         `LLM Chat - Provider: ${providerKey}, Model: ${model}, Latency: ${latency}ms, Tokens: ${result.usage?.totalTokens || 'N/A'}`
       );
@@ -73,46 +95,7 @@ export class LLMService {
         error
       );
 
-      if (providerKey === 'anthropic') {
-        console.log('Anthropic API failed, attempting fallback to OpenAI gpt-4o-mini');
-        try {
-          // フォールバック時は元のmessages配列をそのまま使用（OpenAIはsystemロール対応）
-          const fallbackCall = generateText({
-            model: this.openai('gpt-4o-mini'),
-            messages: messages,
-            temperature: opts.temperature ?? 0.7,
-            maxTokens: opts.maxTokens ?? 1000,
-          });
-          const fallbackResult = await Promise.race([
-            fallbackCall,
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('timeout')), opts.timeoutMs ?? 120000)
-            ),
-          ]);
-          return (fallbackResult as typeof fallbackCall extends Promise<infer R> ? R : never).text;
-        } catch (fallbackError) {
-          console.error('Fallback to OpenAI also failed:', fallbackError);
-          const status =
-            ChatError.extractHttpStatus(error) ?? ChatError.extractHttpStatus(fallbackError);
-          if (status) {
-            const mapped = ChatError.anthropicStatusToCode(status);
-            throw new ChatError('AI通信に失敗しました', mapped, {
-              provider: 'anthropic',
-              model,
-              httpStatus: status,
-              error,
-              fallbackError,
-            });
-          }
-          throw new ChatError('AI通信に失敗しました', ChatError.anthropicStatusToCode(500), {
-            provider: 'anthropic',
-            model,
-            error,
-            fallbackError,
-          });
-        }
-      }
-      // OpenAI等、Anthropic以外の失敗
+      // すべてのプロバイダでフォールバックは行わず、発生したエラーをそのままユーザー向けにマッピング
       throw ChatError.fromApiError(error, { provider: providerKey, model });
     }
   }

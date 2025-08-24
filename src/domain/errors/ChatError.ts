@@ -56,8 +56,8 @@ export class ChatError extends DomainError {
 
   private static getUserMessage(code: ChatErrorCode): string {
     const messages: Record<ChatErrorCode, string> = {
-      [ChatErrorCode.NETWORK_ERROR]: 'AI通信に失敗しました',
-      [ChatErrorCode.CONNECTION_TIMEOUT]: '接続がタイムアウトしました。再度お試しください。',
+      [ChatErrorCode.NETWORK_ERROR]: 'ネットワークエラーが発生しました。接続環境をご確認ください。',
+      [ChatErrorCode.CONNECTION_TIMEOUT]: 'AI通信でタイムアウトしました。再度お試しください。',
       [ChatErrorCode.AUTHENTICATION_FAILED]: 'ログインが必要です。LINEで再ログインしてください。',
       [ChatErrorCode.TOKEN_EXPIRED]: 'セッションが期限切れです。再ログインしてください。',
       [ChatErrorCode.SUBSCRIPTION_REQUIRED]: 'この機能を利用するにはサブスクリプションが必要です。',
