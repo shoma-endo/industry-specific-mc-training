@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { updatePromptTemplate, createPromptTemplate } from '@/server/handler/actions/prompt.actions';
+import {
+  updatePromptTemplate,
+  createPromptTemplate,
+} from '@/server/handler/actions/prompt.actions';
 import { useLiffContext } from '@/components/ClientLiffProvider';
 import { PromptTemplateWithVersions, PromptVariable } from '@/types/prompt';
 import { getPromptDescription } from '@/lib/prompt-descriptions';
@@ -21,16 +24,16 @@ interface Props {
 export function PromptEditor({ template, isEdit = false }: Props) {
   const router = useRouter();
   const { getAccessToken } = useLiffContext();
-  
+
   // フォームの状態
   const [formData, setFormData] = useState({
     name: template?.name || '',
     display_name: template?.display_name || '',
     content: template?.content || '',
-    variables: template?.variables || [] as PromptVariable[],
-    is_active: template?.is_active ?? true
+    variables: template?.variables || ([] as PromptVariable[]),
+    is_active: template?.is_active ?? true,
   });
-  
+
   const [changeSummary, setChangeSummary] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showVariableForm, setShowVariableForm] = useState(false);
@@ -40,20 +43,20 @@ export function PromptEditor({ template, isEdit = false }: Props) {
   // バリデーション
   const validateForm = useCallback(() => {
     const errors: string[] = [];
-    
+
     if (!formData.name.trim()) errors.push('プロンプト名は必須です');
     if (!formData.display_name.trim()) errors.push('表示名は必須です');
     if (!formData.content.trim()) errors.push('プロンプト内容は必須です');
-    
+
     // 変数の整合性チェック
     const contentVariables = formData.content.match(/{{(\w+)}}/g) || [];
     const definedVariables = formData.variables.map(v => `{{${v.name}}}`);
     const undefinedVariables = contentVariables.filter(v => !definedVariables.includes(v));
-    
+
     if (undefinedVariables.length > 0) {
       errors.push(`未定義の変数があります: ${undefinedVariables.join(', ')}`);
     }
-    
+
     setValidationErrors(errors);
     return errors.length === 0;
   }, [formData]);
@@ -75,12 +78,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
       let result;
 
       if (isEdit && template) {
-        result = await updatePromptTemplate(
-          token,
-          template.id,
-          formData,
-          changeSummary
-        );
+        result = await updatePromptTemplate(token, template.id, formData, changeSummary);
       } else {
         result = await createPromptTemplate(token, formData);
       }
@@ -117,9 +115,9 @@ export function PromptEditor({ template, isEdit = false }: Props) {
 
     setFormData(prev => ({
       ...prev,
-      variables: [...prev.variables, newVariable]
+      variables: [...prev.variables, newVariable],
     }));
-    
+
     setNewVariable({ name: '', description: '' });
     setShowVariableForm(false);
   };
@@ -128,7 +126,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
   const handleRemoveVariable = (name: string) => {
     setFormData(prev => ({
       ...prev,
-      variables: prev.variables.filter(v => v.name !== name)
+      variables: prev.variables.filter(v => v.name !== name),
     }));
   };
 
@@ -160,12 +158,15 @@ export function PromptEditor({ template, isEdit = false }: Props) {
               <p className="text-gray-600">
                 {template.display_name} (v{template.version})
               </p>
+              <p className="text-xs text-gray-500 mt-1">
+                最終更新: {new Date(template.updated_at).toLocaleString('ja-JP')}
+              </p>
               {(() => {
                 const promptDescription = getPromptDescription(template.name);
-                return promptDescription && (
-                  <p className="text-sm text-blue-600 mt-1">
-                    {promptDescription.description}
-                  </p>
+                return (
+                  promptDescription && (
+                    <p className="text-sm text-blue-600 mt-1">{promptDescription.description}</p>
+                  )
                 );
               })()}
             </div>
@@ -175,10 +176,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
           <Button variant="outline" onClick={() => router.back()}>
             キャンセル
           </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={isSaving || validationErrors.length > 0}
-          >
+          <Button onClick={handleSave} disabled={isSaving || validationErrors.length > 0}>
             {isSaving ? '保存中...' : '保存'}
           </Button>
         </div>
@@ -210,38 +208,30 @@ export function PromptEditor({ template, isEdit = false }: Props) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  プロンプト名 (ID) *
-                </label>
+                <label className="block text-sm font-medium mb-2">プロンプト名 (ID) *</label>
                 <Input
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="ad_copy_creation"
                   className="font-mono"
                 />
-                <div className="text-xs text-gray-500 mt-1">
-                  英数字とアンダースコアのみ使用可能
-                </div>
+                <div className="text-xs text-gray-500 mt-1">英数字とアンダースコアのみ使用可能</div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  表示名 *
-                </label>
+                <label className="block text-sm font-medium mb-2">表示名 *</label>
                 <Input
                   value={formData.display_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
+                  onChange={e => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
                   placeholder="広告コピー作成プロンプト"
                 />
               </div>
-
-
 
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="is_active"
                   checked={formData.is_active}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={checked =>
                     setFormData(prev => ({ ...prev, is_active: !!checked }))
                   }
                 />
@@ -275,7 +265,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
                       <label className="block text-sm font-medium mb-1">変数名</label>
                       <Input
                         value={newVariable.name}
-                        onChange={(e) => setNewVariable(prev => ({ ...prev, name: e.target.value }))}
+                        onChange={e => setNewVariable(prev => ({ ...prev, name: e.target.value }))}
                         placeholder="service_name"
                         className="font-mono"
                       />
@@ -284,7 +274,9 @@ export function PromptEditor({ template, isEdit = false }: Props) {
                       <label className="block text-sm font-medium mb-1">説明</label>
                       <Input
                         value={newVariable.description}
-                        onChange={(e) => setNewVariable(prev => ({ ...prev, description: e.target.value }))}
+                        onChange={e =>
+                          setNewVariable(prev => ({ ...prev, description: e.target.value }))
+                        }
                         placeholder="提供サービス名"
                       />
                     </div>
@@ -292,9 +284,9 @@ export function PromptEditor({ template, isEdit = false }: Props) {
                       <Button size="sm" onClick={handleAddVariable}>
                         追加
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setShowVariableForm(false)}
                       >
                         キャンセル
@@ -307,14 +299,15 @@ export function PromptEditor({ template, isEdit = false }: Props) {
               {/* 変数一覧 */}
               <div className="space-y-2">
                 {formData.variables.map(variable => (
-                  <div key={variable.name} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                  <div
+                    key={variable.name}
+                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                  >
                     <div className="flex-1">
                       <div className="font-mono text-sm text-blue-600">
                         {`{{${variable.name}}}`}
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {variable.description}
-                      </div>
+                      <div className="text-sm text-gray-600">{variable.description}</div>
                     </div>
                     <Button
                       variant="outline"
@@ -325,7 +318,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
                     </Button>
                   </div>
                 ))}
-                
+
                 {formData.variables.length === 0 && (
                   <div className="text-center py-4 text-gray-500 text-sm">
                     変数が設定されていません
@@ -346,7 +339,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
             <CardContent>
               <Textarea
                 value={formData.content}
-                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                onChange={e => setFormData(prev => ({ ...prev, content: e.target.value }))}
                 className="min-h-[400px] font-mono text-sm"
                 placeholder="プロンプト内容を入力してください..."
               />
@@ -363,9 +356,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
             </CardHeader>
             <CardContent>
               <div className="bg-gray-50 p-4 rounded-lg border">
-                <pre className="text-sm whitespace-pre-wrap">
-                  {generatePreview()}
-                </pre>
+                <pre className="text-sm whitespace-pre-wrap">{generatePreview()}</pre>
               </div>
             </CardContent>
           </Card>
@@ -379,7 +370,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
               <CardContent>
                 <Textarea
                   value={changeSummary}
-                  onChange={(e) => setChangeSummary(e.target.value)}
+                  onChange={e => setChangeSummary(e.target.value)}
                   placeholder="何を変更したかを簡潔に説明してください"
                   rows={3}
                 />
@@ -404,9 +395,7 @@ export function PromptEditor({ template, isEdit = false }: Props) {
                         </div>
                       </div>
                       {version.change_summary && (
-                        <div className="text-sm text-gray-600 mt-1">
-                          {version.change_summary}
-                        </div>
+                        <div className="text-sm text-gray-600 mt-1">{version.change_summary}</div>
                       )}
                     </div>
                   ))}
