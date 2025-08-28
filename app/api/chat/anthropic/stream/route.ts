@@ -8,6 +8,7 @@ import { ChatError } from '@/domain/errors/ChatError';
 import { getSystemPrompt } from '@/lib/prompts';
 
 export const runtime = 'nodejs';
+export const maxDuration = 800;
 
 interface StreamRequest {
   sessionId?: string;
@@ -22,13 +23,14 @@ const anthropic = new Anthropic({
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
+  let eventId = 0;
 
   const sendSSE = (event: string, data: unknown) => {
-    return encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    return encoder.encode(`id: ${++eventId}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
   const sendPing = () => {
-    return encoder.encode(`event: ping\ndata: {}\n\n`);
+    return encoder.encode(`id: ${++eventId}\nevent: ping\ndata: {}\n\n`);
   };
 
   try {
@@ -71,6 +73,9 @@ export async function POST(req: NextRequest) {
         let idleTimeout: ReturnType<typeof setTimeout> | null = null;
         let pingInterval: ReturnType<typeof setInterval> | null = null;
 
+        // 初回バイト送出（SSEタイムアウト回避）
+        controller.enqueue(encoder.encode(`: open\n\n`));
+
         const resetIdleTimeout = () => {
           if (idleTimeout) clearTimeout(idleTimeout);
           idleTimeout = setTimeout(() => {
@@ -86,12 +91,13 @@ export async function POST(req: NextRequest) {
         };
 
         try {
-          // ping送信でアイドル切断を防ぐ
+          // ping送信でアイドル切断を防ぐ（送信毎にアイドル更新）
           pingInterval = setInterval(() => {
             if (!abortController?.signal.aborted) {
               controller.enqueue(sendPing());
+              resetIdleTimeout();
             }
-          }, 30000);
+          }, 20000);
 
           resetIdleTimeout();
 
@@ -121,6 +127,16 @@ export async function POST(req: NextRequest) {
               signal: abortController.signal,
             }
           );
+
+          // クライアント切断時のクリーンアップ
+          const onAbort = () => {
+            if (pingInterval) clearInterval(pingInterval);
+            cleanup();
+            try {
+              controller.close();
+            } catch {}
+          };
+          req.signal.addEventListener('abort', onAbort);
 
           for await (const chunk of anthropicStream) {
             if (abortController?.signal.aborted) break;
@@ -213,7 +229,7 @@ export async function POST(req: NextRequest) {
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-store',
+        'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',

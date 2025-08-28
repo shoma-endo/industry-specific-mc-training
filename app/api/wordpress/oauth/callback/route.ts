@@ -79,17 +79,21 @@ export async function GET(request: NextRequest) {
     // ユーザー認証を確認
     const refreshToken = request.cookies.get('line_refresh_token')?.value;
     const authResult = await authMiddleware(liffAccessToken, refreshToken);
-    
+
     if (authResult.error || !authResult.userId) {
       console.error('User authentication failed in OAuth callback:', authResult.error);
       return NextResponse.json({ error: 'ユーザー認証に失敗しました' }, { status: 401 });
     }
 
     // WordPress.com のサイト情報を取得
-    let siteId = process.env.WORDPRESS_COM_SITE_ID || '';
-    
     try {
-      // もしサイトIDが設定されていない場合は、WordPress.com APIからサイト一覧を取得
+      // 1) まず既存のユーザー設定からサイトIDを参照
+      const existingSettings = await supabaseService.getWordPressSettingsByUserId(
+        authResult.userId
+      );
+      let siteId = existingSettings?.wpSiteId || '';
+
+      // 2) 未設定の場合は、WordPress.com APIからサイト一覧を取得して先頭を利用
       if (!siteId) {
         const sitesResponse = await fetch('https://public-api.wordpress.com/rest/v1.1/me/sites', {
           headers: {
@@ -100,12 +104,12 @@ export async function GET(request: NextRequest) {
         if (sitesResponse.ok) {
           const sitesData = await sitesResponse.json();
           if (sitesData.sites && sitesData.sites.length > 0) {
-            siteId = sitesData.sites[0].ID.toString(); // 最初のサイトを使用
+            siteId = sitesData.sites[0].ID.toString();
           }
         }
       }
 
-      // WordPress設定をデータベースに保存
+      // 3) WordPress設定をデータベースに保存（クライアントID/シークレットと合わせて）
       if (siteId && clientId && clientSecret) {
         await supabaseService.createOrUpdateWordPressSettings(
           authResult.userId,

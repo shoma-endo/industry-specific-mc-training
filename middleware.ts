@@ -3,8 +3,7 @@ import type { NextRequest } from 'next/server';
 import { getUserRoleWithRefresh, isAdmin, isUnavailable } from '@/lib/auth-utils';
 import type { UserRole } from '@/types/user';
 
-// 管理者権限が必要なパスの定義
-const ADMIN_REQUIRED_PATHS = ['/setup', '/admin'] as const;
+const ADMIN_REQUIRED_PATHS = ['/admin'] as const;
 
 // 認証不要なパスの定義
 const PUBLIC_PATHS = ['/login', '/unauthorized', '/', '/landingPage'] as const;
@@ -45,10 +44,12 @@ export async function middleware(request: NextRequest) {
     }
 
     // 🔍 4. ユーザーロールの取得（リフレッシュトークン対応キャッシュ考慮）
-    const authResult = await getUserRoleWithCacheAndRefresh(accessToken, refreshToken).catch((error) => {
-      console.error('[Middleware] Error in getUserRoleWithCacheAndRefresh:', error);
-      return { role: null, needsReauth: true };
-    });
+    const authResult = await getUserRoleWithCacheAndRefresh(accessToken, refreshToken).catch(
+      error => {
+        console.error('[Middleware] Error in getUserRoleWithCacheAndRefresh:', error);
+        return { role: null, needsReauth: true };
+      }
+    );
 
     if (!authResult.role) {
       if ('needsReauth' in authResult && authResult.needsReauth) {
@@ -59,7 +60,7 @@ export async function middleware(request: NextRequest) {
         response.cookies.delete('line_refresh_token');
         return response;
       }
-      
+
       logMiddleware(pathname, 'INVALID_TOKEN', Date.now() - startTime);
       return NextResponse.redirect(new URL('/login', request.url));
     }
@@ -79,7 +80,12 @@ export async function middleware(request: NextRequest) {
     // 🔍 6. 管理者権限チェック
     if (requiresAdminAccess(pathname)) {
       if (!isAdmin(authResult.role)) {
-        logMiddleware(pathname, 'INSUFFICIENT_PERMISSIONS', Date.now() - startTime, authResult.role);
+        logMiddleware(
+          pathname,
+          'INSUFFICIENT_PERMISSIONS',
+          Date.now() - startTime,
+          authResult.role
+        );
         return NextResponse.redirect(new URL('/unauthorized', request.url));
       }
     }
@@ -156,7 +162,7 @@ async function getUserRoleWithCacheAndRefresh(accessToken: string, refreshToken?
       console.error('[Middleware] getUserRoleWithRefresh is not a function');
       return { role: null, needsReauth: true };
     }
-    
+
     const result = await getUserRoleWithRefresh(accessToken, refreshToken);
 
     if (result.role) {
@@ -203,7 +209,9 @@ function logMiddleware(
   // プロダクション環境では構造化ログ
   if (
     process.env.NODE_ENV === 'production' &&
-    (result === 'ERROR' || result === 'INSUFFICIENT_PERMISSIONS' || result === 'SERVICE_UNAVAILABLE')
+    (result === 'ERROR' ||
+      result === 'INSUFFICIENT_PERMISSIONS' ||
+      result === 'SERVICE_UNAVAILABLE')
   ) {
     console.warn(
       JSON.stringify({
@@ -223,6 +231,6 @@ export const config = {
     /*
      * Match all request paths except static files and API routes
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/).*)' 
-  ]
-}
+    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
+  ],
+};

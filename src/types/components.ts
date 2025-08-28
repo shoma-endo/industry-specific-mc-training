@@ -62,7 +62,7 @@ export interface WordPressSettingsState {
 export interface SetupPageClientProps {
   liffAccessToken: string;
   hasWordPressSettings: boolean;
-  wordpressType?: WordPressType | undefined;
+  // wordpressType は未使用のため削除
 }
 
 /**
