@@ -143,6 +143,7 @@ export default function Home() {
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // フルネーム関連ステート
   const [showFullNameDialog, setShowFullNameDialog] = useState(false);
@@ -161,6 +162,25 @@ export default function Home() {
       setShowFullNameDialog(true);
     }
   }, [isLoggedIn, user, isLoading]);
+
+  // 管理者権限チェック（設定カード用）
+  useEffect(() => {
+    if (!isLoggedIn || isLoading) return;
+
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        const result = await checkUserRole(token);
+        if (result.success && result.role === 'admin') {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch {
+        setIsAdmin(false);
+      }
+    })();
+  }, [getAccessToken, isLoggedIn, isLoading]);
 
   // サブスク情報取得
   useEffect(() => {
@@ -325,11 +345,11 @@ export default function Home() {
         <ProfileDisplay />
         <AdminAccessCard />
 
-        {/* 一般ユーザー向け 設定ページ導線 */}
-        {isLoggedIn && (
+        {/* 管理者のみ 設定ページ導線 */}
+        {isLoggedIn && isAdmin && (
           <Card className="w-full max-w-md mb-6">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
+              <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
                 <Settings className="h-5 w-5" />
                 設定
               </CardTitle>
