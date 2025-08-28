@@ -5,39 +5,63 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ArrowLeft, Plug, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { WordPressType } from '@/types/wordpress';
 import type { WordPressSettingsFormProps } from '@/types/components';
 
-export default function WordPressSettingsForm({ liffAccessToken, existingSettings }: WordPressSettingsFormProps) {
+export default function WordPressSettingsForm({
+  liffAccessToken,
+  existingSettings,
+}: WordPressSettingsFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  } | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionTestResult, setConnectionTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   // フォームの状態
   const [wpType, setWpType] = useState<WordPressType>(existingSettings?.wpType || 'wordpress_com');
-  
+
   // WordPress.com用
   const [wpSiteId, setWpSiteId] = useState(existingSettings?.wpSiteId || '');
-  
+
   // セルフホスト用
   const [wpSiteUrl, setWpSiteUrl] = useState(existingSettings?.wpSiteUrl || '');
   const [wpUsername, setWpUsername] = useState(existingSettings?.wpUsername || '');
-  const [wpApplicationPassword, setWpApplicationPassword] = useState(existingSettings?.wpApplicationPassword || '');
+  const [wpApplicationPassword, setWpApplicationPassword] = useState(
+    existingSettings?.wpApplicationPassword || ''
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // バリデーション
     if (wpType === 'wordpress_com' && !wpSiteId) {
       setResult({ success: false, error: 'WordPress.comのサイトIDが必要です' });
       return;
     }
-    
+
     if (wpType === 'self_hosted' && (!wpSiteUrl || !wpUsername || !wpApplicationPassword)) {
-      setResult({ success: false, error: 'セルフホスト版では、サイトURL、ユーザー名、アプリケーションパスワードがすべて必要です' });
+      setResult({
+        success: false,
+        error:
+          'セルフホスト版では、サイトURL、ユーザー名、アプリケーションパスワードがすべて必要です',
+      });
       return;
     }
 
@@ -54,15 +78,17 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
         body: JSON.stringify({
           liffAccessToken,
           wpType,
-          ...(wpType === 'wordpress_com' ? { wpSiteId } : {
-            wpSiteUrl,
-            wpUsername,
-            wpApplicationPassword,
-          }),
+          ...(wpType === 'wordpress_com'
+            ? { wpSiteId }
+            : {
+                wpSiteUrl,
+                wpUsername,
+                wpApplicationPassword,
+              }),
         }),
         credentials: 'include',
       });
-      
+
       const data = await response.json();
 
       if (data.success) {
@@ -70,7 +96,7 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
           success: true,
           message: existingSettings ? 'WordPress設定を更新しました' : 'WordPress設定を保存しました',
         });
-        
+
         // 少し遅延してからダッシュボードに戻る
         setTimeout(() => {
           router.push('/setup');
@@ -95,11 +121,79 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
     window.location.href = '/api/wordpress/oauth/start';
   };
 
+  const handleTestConnection = async () => {
+    // バリデーション
+    if (wpType === 'wordpress_com' && !wpSiteId) {
+      setConnectionTestResult({
+        success: false,
+        message: 'WordPress.comのサイトIDが必要です',
+      });
+      return;
+    }
+
+    if (wpType === 'self_hosted' && (!wpSiteUrl || !wpUsername || !wpApplicationPassword)) {
+      setConnectionTestResult({
+        success: false,
+        message:
+          'セルフホスト版では、サイトURL、ユーザー名、アプリケーションパスワードがすべて必要です',
+      });
+      return;
+    }
+
+    setIsTestingConnection(true);
+    setConnectionTestResult(null);
+
+    try {
+      const response = await fetch('/api/wordpress/test-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          liffAccessToken,
+          wpType,
+          ...(wpType === 'wordpress_com'
+            ? { wpSiteId }
+            : {
+                wpSiteUrl,
+                wpUsername,
+                wpApplicationPassword,
+              }),
+        }),
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setConnectionTestResult({
+          success: true,
+          message: data.message || 'WordPress接続テストが成功しました',
+        });
+      } else {
+        setConnectionTestResult({
+          success: false,
+          message: data.error || '接続テストに失敗しました',
+        });
+      }
+    } catch (error) {
+      setConnectionTestResult({
+        success: false,
+        message: `接続テストでエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       {/* ヘッダー */}
       <div className="mb-8">
-        <Link href="/setup" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4">
+        <Link
+          href="/setup"
+          className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4"
+        >
           <ArrowLeft size={20} className="mr-2" />
           設定ダッシュボードに戻る
         </Link>
@@ -115,9 +209,7 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
       {/* メインフォーム */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            {existingSettings ? 'WordPress設定を編集' : 'WordPress設定を追加'}
-          </CardTitle>
+          <CardTitle>{existingSettings ? 'WordPress設定を編集' : 'WordPress設定を追加'}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -145,14 +237,15 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
                     WordPress.com サイトID <span className="text-red-500">*</span>
                   </label>
                   <Input
-                    placeholder="例: 123456789"
+                    placeholder="例: 123456789 または example.wordpress.com"
                     value={wpSiteId}
-                    onChange={(e) => setWpSiteId(e.target.value)}
+                    onChange={e => setWpSiteId(e.target.value)}
                     className="w-full"
                     required
                   />
                   <p className="text-xs text-gray-500">
-                    WordPress.com管理画面で確認できるサイトIDを入力してください
+                    数値のサイトID または サイトドメイン（example.wordpress.com /
+                    example.com）のどちらでも入力できます
                   </p>
                 </div>
 
@@ -162,9 +255,9 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
                     WordPress.comとの連携には、OAuth認証が必要です。
                     サイトIDを設定後、OAuth認証を行ってください。
                   </p>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={redirectToWordPressOAuth}
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
                   >
@@ -184,7 +277,7 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
                   <Input
                     placeholder="https://example.com"
                     value={wpSiteUrl}
-                    onChange={(e) => setWpSiteUrl(e.target.value)}
+                    onChange={e => setWpSiteUrl(e.target.value)}
                     className="w-full"
                     required
                   />
@@ -200,7 +293,7 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
                   <Input
                     placeholder="admin"
                     value={wpUsername}
-                    onChange={(e) => setWpUsername(e.target.value)}
+                    onChange={e => setWpUsername(e.target.value)}
                     className="w-full"
                     required
                   />
@@ -217,7 +310,7 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
                     type="password"
                     placeholder="例: abcd efgh ijkl mnop qrst uvwx"
                     value={wpApplicationPassword}
-                    onChange={(e) => setWpApplicationPassword(e.target.value)}
+                    onChange={e => setWpApplicationPassword(e.target.value)}
                     className="w-full"
                     required
                   />
@@ -228,9 +321,27 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
               </div>
             )}
 
+            {/* 接続テスト結果表示 */}
+            {connectionTestResult && (
+              <div
+                className={`p-4 rounded-lg ${connectionTestResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+              >
+                <div className="flex items-center gap-2">
+                  {connectionTestResult.success ? (
+                    <CheckCircle size={20} />
+                  ) : (
+                    <AlertCircle size={20} />
+                  )}
+                  <p>{connectionTestResult.message}</p>
+                </div>
+              </div>
+            )}
+
             {/* 結果表示 */}
             {result && (
-              <div className={`p-4 rounded-lg ${result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+              <div
+                className={`p-4 rounded-lg ${result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+              >
                 <div className="flex items-center gap-2">
                   {result.success ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
                   <p>{result.success ? result.message : result.error}</p>
@@ -239,19 +350,27 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
             )}
 
             {/* アクションボタン */}
-            <div className="flex gap-4">
-              <Link href="/setup" className="flex-1">
-                <Button type="button" variant="outline" className="w-full">
-                  キャンセル
-                </Button>
-              </Link>
-              <Button type="submit" disabled={isLoading} className="flex-1">
-                {isLoading
-                  ? '保存中...'
-                  : existingSettings
-                  ? '設定を更新'
-                  : '設定を保存'}
+            <div className="space-y-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleTestConnection}
+                disabled={isTestingConnection}
+                className="w-full"
+              >
+                {isTestingConnection ? '接続テスト中...' : '接続テスト'}
               </Button>
+
+              <div className="flex gap-4">
+                <Link href="/setup" className="flex-1">
+                  <Button type="button" variant="outline" className="w-full">
+                    キャンセル
+                  </Button>
+                </Link>
+                <Button type="submit" disabled={isLoading} className="flex-1">
+                  {isLoading ? '保存中...' : existingSettings ? '設定を更新' : '設定を保存'}
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>
@@ -293,6 +412,43 @@ export default function WordPressSettingsForm({ liffAccessToken, existingSetting
                 <li>アプリケーションパスワードは通常のログインパスワードとは異なります</li>
                 <li>セルフホスト版では、サイトでREST APIが有効になっている必要があります</li>
                 <li>管理者権限のユーザーアカウントを使用してください</li>
+              </ul>
+            </div>
+
+            {/* 参考リンク */}
+            <div>
+              <h4 className="font-medium mb-2">参考リンク</h4>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>
+                  <a
+                    href="https://knowledge.ablenet.jp/wordpress-initial-settings/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    WordPress初期設定マニュアル（カテゴリー・パーマリンクなど）
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://cad-kenkyujo.com/wordpress-nyuumon/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    WordPress入門ガイド（テーマ・プラグインの基本）
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.value-domain.com/media/wordpress-initial-setting/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    WordPressの初期設定 23項目（画像設定・パーマリンク等）
+                  </a>
+                </li>
               </ul>
             </div>
           </div>

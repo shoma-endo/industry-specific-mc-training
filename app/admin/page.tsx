@@ -7,9 +7,7 @@ export default function AdminDashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">管理者ダッシュボード</h1>
-        <p className="mt-2 text-gray-600">
-          AI Marketing Assistantの管理機能にアクセスできます
-        </p>
+        <p className="mt-2 text-gray-600">AI Marketing Assistantの管理機能にアクセスできます</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -25,9 +23,7 @@ export default function AdminDashboard() {
               AIが使用するプロンプトテンプレートを作成・編集・管理します
             </p>
             <Link href="/admin/prompts">
-              <Button className="w-full">
-                プロンプト管理画面へ
-              </Button>
+              <Button className="w-full">プロンプト管理画面へ</Button>
             </Link>
           </CardContent>
         </Card>
@@ -44,15 +40,11 @@ export default function AdminDashboard() {
               登録ユーザーの管理とサブスクリプション状況を確認します
             </p>
             <Link href="/admin/users">
-              <Button className="w-full">
-                ユーザー管理画面へ
-              </Button>
+              <Button className="w-full">ユーザー管理画面へ</Button>
             </Link>
           </CardContent>
         </Card>
-
       </div>
-
     </div>
   );
 }

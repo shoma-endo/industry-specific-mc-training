@@ -12,8 +12,9 @@ export class SupabaseService {
   protected readonly supabase: SupabaseClient;
 
   constructor() {
-    // シングルトンの最適化されたSupabaseクライアントを取得
-    this.supabase = SupabaseClientManager.getInstance().getClient();
+    // サーバーサイドの特権操作に対応するため、Service Roleクライアントを使用
+    // （RLSをバイパスして安全にサーバー側でのみ実行）
+    this.supabase = SupabaseClientManager.getInstance().getServiceRoleClient();
   }
 
   /**
