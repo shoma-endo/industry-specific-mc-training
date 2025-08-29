@@ -68,14 +68,21 @@ export class WordPressService {
    * 認証ヘッダーを取得
    */
   private getAuthHeaders(): Record<string, string> {
+    const commonHeaders: Record<string, string> = {
+      Accept: 'application/json',
+      'User-Agent': 'IndustrySpecificMC/1.0 (+app)',
+    };
+
     if (this.type === 'wordpress_com') {
       return {
+        ...commonHeaders,
         Authorization: `Bearer ${this.accessToken}`,
       };
     } else {
       // セルフホスト版：Basic認証
       const credentials = btoa(`${this.username}:${this.applicationPassword}`);
       return {
+        ...commonHeaders,
         Authorization: `Basic ${credentials}`,
       };
     }
@@ -94,7 +101,34 @@ export class WordPressService {
           headers: this.getAuthHeaders(),
         });
       } else {
-        // セルフホスト用：設定エンドポイントまたはルートエンドポイントをテスト
+        // セルフホスト用：段階テスト（到達 -> 認証 -> 権限）
+        // 1) 到達確認
+        const rootUrl = `${(this.siteUrl || '').replace(/\/$/, '')}/wp-json/`;
+        const reachabilityResp = await fetch(rootUrl, {
+          headers: { Accept: 'application/json', 'User-Agent': 'IndustrySpecificMC/1.0 (+app)' },
+        });
+        if (!reachabilityResp.ok) {
+          const bodyText = await reachabilityResp.text().catch(() => reachabilityResp.statusText);
+          return {
+            success: false,
+            error: `[reachability] HTTP ${reachabilityResp.status}: ${bodyText || reachabilityResp.statusText}`,
+          };
+        }
+
+        // 2) 認証確認（ユーザー情報取得）
+        const authResp = await fetch(`${this.baseUrl}/users/me`, {
+          headers: this.getAuthHeaders(),
+        });
+        if (!authResp.ok) {
+          const authErrBody = await authResp.text().catch(() => authResp.statusText);
+          const stage = authResp.status === 401 ? 'authentication' : 'auth_or_waf';
+          return {
+            success: false,
+            error: `[${stage}] HTTP ${authResp.status}: ${authErrBody || authResp.statusText}`,
+          };
+        }
+
+        // 3) 権限確認（設定エンドポイント）
         response = await fetch(`${this.baseUrl}/settings`, {
           headers: this.getAuthHeaders(),
         });
