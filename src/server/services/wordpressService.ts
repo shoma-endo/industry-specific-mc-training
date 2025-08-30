@@ -108,11 +108,19 @@ export class WordPressService {
           headers: { Accept: 'application/json', 'User-Agent': 'IndustrySpecificMC/1.0 (+app)' },
         });
         if (!reachabilityResp.ok) {
-          const bodyText = await reachabilityResp.text().catch(() => reachabilityResp.statusText);
-          return {
-            success: false,
-            error: `[reachability] HTTP ${reachabilityResp.status}: ${bodyText || reachabilityResp.statusText}`,
-          };
+          // Xserver等で /wp-json/ がブロックされる場合のフォールバック
+          const altRoot = `${(this.siteUrl || '').replace(/\/$/, '')}/index.php?rest_route=/`;
+          const altResp = await fetch(altRoot, {
+            headers: { Accept: 'application/json', 'User-Agent': 'IndustrySpecificMC/1.0 (+app)' },
+          });
+          if (!altResp.ok) {
+            const bodyText = await reachabilityResp.text().catch(() => reachabilityResp.statusText);
+            const altText = await altResp.text().catch(() => altResp.statusText);
+            return {
+              success: false,
+              error: `[reachability] HTTP ${reachabilityResp.status}: ${bodyText || reachabilityResp.statusText} | alt HTTP ${altResp.status}: ${altText || altResp.statusText}`,
+            };
+          }
         }
 
         // 2) 認証確認（ユーザー情報取得）
