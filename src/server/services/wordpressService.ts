@@ -128,18 +128,42 @@ export class WordPressService {
           headers: this.getAuthHeaders(),
         });
         if (!authResp.ok) {
-          const authErrBody = await authResp.text().catch(() => authResp.statusText);
-          const stage = authResp.status === 401 ? 'authentication' : 'auth_or_waf';
-          return {
-            success: false,
-            error: `[${stage}] HTTP ${authResp.status}: ${authErrBody || authResp.statusText}`,
-          };
+          // フォールバック: index.php?rest_route=
+          const altAuthUrl = `${(this.siteUrl || '').replace(/\/$/, '')}/index.php?rest_route=/wp/v2/users/me`;
+          const altAuthResp = await fetch(altAuthUrl, { headers: this.getAuthHeaders() });
+          if (!altAuthResp.ok) {
+            const authErrBody = await authResp.text().catch(() => authResp.statusText);
+            const altAuthBody = await altAuthResp.text().catch(() => altAuthResp.statusText);
+            const stage =
+              authResp.status === 401 || altAuthResp.status === 401
+                ? 'authentication'
+                : 'auth_or_waf';
+            return {
+              success: false,
+              error: `[${stage}] HTTP ${authResp.status}: ${authErrBody || authResp.statusText} | alt HTTP ${altAuthResp.status}: ${altAuthBody || altAuthResp.statusText}`,
+            };
+          }
         }
 
         // 3) 権限確認（設定エンドポイント）
         response = await fetch(`${this.baseUrl}/settings`, {
           headers: this.getAuthHeaders(),
         });
+        if (!response.ok) {
+          // フォールバック: index.php?rest_route=
+          const altSettingsUrl = `${(this.siteUrl || '').replace(/\/$/, '')}/index.php?rest_route=/wp/v2/settings`;
+          const altSettingsResp = await fetch(altSettingsUrl, { headers: this.getAuthHeaders() });
+          if (!altSettingsResp.ok) {
+            const bodyText = await response.text().catch(() => response.statusText);
+            const altText = await altSettingsResp.text().catch(() => altSettingsResp.statusText);
+            return {
+              success: false,
+              error: `[permission_or_waf] HTTP ${response.status}: ${bodyText || response.statusText} | alt HTTP ${altSettingsResp.status}: ${altText || altSettingsResp.statusText}`,
+            };
+          }
+          // フォールバック成功時は以降の処理で altSettingsResp を使う
+          response = altSettingsResp as unknown as Response;
+        }
       }
 
       if (!response.ok) {
