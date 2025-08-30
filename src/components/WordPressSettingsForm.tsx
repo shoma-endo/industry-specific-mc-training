@@ -108,6 +108,9 @@ export default function WordPressSettingsForm({
     existingSettings?.wpApplicationPassword || ''
   );
 
+  // 保存済み設定が存在するか（接続テストは保存後のみ許可）
+  const hasSavedSettings = Boolean(existingSettings);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -517,11 +520,17 @@ export default function WordPressSettingsForm({
                 type="button"
                 variant="secondary"
                 onClick={handleTestConnection}
-                disabled={isTestingConnection}
+                disabled={isTestingConnection || !hasSavedSettings}
                 className="w-full"
+                title={hasSavedSettings ? undefined : '先に設定を保存してください'}
               >
                 {isTestingConnection ? '接続テスト中...' : '接続テスト'}
               </Button>
+              {!hasSavedSettings && (
+                <p className="text-xs text-gray-500">
+                  接続テストを行うには、先に設定を保存してください。
+                </p>
+              )}
 
               <div className="flex gap-4">
                 <Link href="/setup" className="flex-1">
