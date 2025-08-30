@@ -232,7 +232,7 @@ erDiagram
 - **AI**: OPENAI_API_KEY, ANTHROPIC_API_KEY
 - **検索**: GOOGLE_CUSTOM_SEARCH_KEY, GOOGLE_CSE_ID
 - **LINE**: LINE_CHANNEL_ID, LINE_CHANNEL_SECRET
-- **監視**: SENTRY_DSN, SENTRY_ORG, SENTRY_PROJECT
+
 - **Webhook**: BASE_WEBHOOK_URL, RELAY_BEARER_TOKEN
 
 ### クライアントサイド環境変数
@@ -240,7 +240,7 @@ erDiagram
 - **LINE**: NEXT_PUBLIC_LIFF_ID, NEXT_PUBLIC_LIFF_CHANNEL_ID
 - **データベース**: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
 - **サイト**: NEXT_PUBLIC_SITE_URL
-- **監視**: NEXT_PUBLIC_SENTRY_DSN
+
 - **決済**: NEXT_PUBLIC_STRIPE_ENABLED
 
 ## 🚀 環境構築手順

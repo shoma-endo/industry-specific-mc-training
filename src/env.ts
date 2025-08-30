@@ -19,9 +19,7 @@ export const env = createEnv({
     GOOGLE_CSE_ID: z.string().min(1),
     LINE_CHANNEL_ID: z.string().min(1),
     LINE_CHANNEL_SECRET: z.string().min(1),
-    SENTRY_DSN: z.string().url().optional(),
-    SENTRY_ORG: z.string().optional(),
-    SENTRY_PROJECT: z.string().optional(),
+
     BASE_WEBHOOK_URL: z.string().url(),
     RELAY_BEARER_TOKEN: z.string().min(1),
   },
@@ -36,7 +34,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
     NEXT_PUBLIC_SITE_URL: z.string().url(),
-    NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+
     NEXT_PUBLIC_STRIPE_ENABLED: z.string().default('false'),
   },
   /*
@@ -63,10 +61,7 @@ export const env = createEnv({
     LINE_CHANNEL_ID: process.env.LINE_CHANNEL_ID,
     LINE_CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-    SENTRY_DSN: process.env.SENTRY_DSN,
-    SENTRY_ORG: process.env.SENTRY_ORG,
-    SENTRY_PROJECT: process.env.SENTRY_PROJECT,
-    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+
     BASE_WEBHOOK_URL: process.env.BASE_WEBHOOK_URL,
     RELAY_BEARER_TOKEN: process.env.RELAY_BEARER_TOKEN,
   },
