@@ -1,9 +1,7 @@
 import { chatService } from '@/server/services/chatService';
 import { openAiService } from '@/server/services/openAiService';
 import { ChatProcessorService } from './chatProcessors';
-import { semrushService } from '@/server/services/semrushService';
-import { formatSemrushAds } from '@/lib/adExtractor';
-import { ERROR_MESSAGES, MODEL_CONFIGS } from '@/lib/constants';
+import { MODEL_CONFIGS } from '@/lib/constants';
 import { getSystemPrompt as getSystemPromptShared } from '@/lib/prompts';
 import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '../shared/validators';
@@ -31,8 +29,6 @@ export class ModelHandlerService {
         return this.handleFTModel(userId, systemPrompt, userMessage, model);
       case 'rag_keyword_classifier':
         return this.handleRAGModel(userId, systemPrompt, userMessage);
-      case 'semrush_search':
-        return this.handleSemrushModel(userId, systemPrompt, userMessage);
       case 'ad_copy_creation':
         return this.handleAdCopyModel(userId, systemPrompt, userMessage);
       case 'gpt-4.1-nano':
@@ -123,28 +119,6 @@ export class ModelHandlerService {
         systemPrompt,
         [],
         model
-      );
-    } else if (model === 'semrush_search') {
-      const searchResult = await this.handleSemrushSearch(userMessage);
-      if (
-        searchResult === ERROR_MESSAGES['ad_not_found'] ||
-        searchResult === ERROR_MESSAGES['ad_acquisition']
-      ) {
-        return { message: searchResult, error: '', requiresSubscription: false };
-      }
-
-      const adItems = this.processor.parseAdItems(
-        searchResult.replace(/^ドメイン：.*\r?\n?/gm, '')
-      );
-      return await chatService.continueChat(
-        userId,
-        sessionId,
-        JSON.stringify(adItems),
-        systemPrompt,
-        [],
-        'gpt-4.1-nano',
-        userMessage.trim(),
-        searchResult
       );
     } else if (
       model === 'ad_copy_creation' ||
@@ -287,30 +261,6 @@ export class ModelHandlerService {
     );
   }
 
-  private async handleSemrushModel(
-    userId: string,
-    systemPrompt: string,
-    userMessage: string
-  ): Promise<ChatResponse> {
-    const searchResult = await this.handleSemrushSearch(userMessage);
-    if (
-      searchResult === ERROR_MESSAGES['ad_not_found'] ||
-      searchResult === ERROR_MESSAGES['ad_acquisition']
-    ) {
-      return { message: searchResult, error: '', requiresSubscription: false };
-    }
-
-    const adItems = this.processor.parseAdItems(searchResult.replace(/^ドメイン：.*\r?\n?/gm, ''));
-    return await chatService.startChat(
-      userId,
-      systemPrompt,
-      JSON.stringify(adItems),
-      'gpt-4.1-nano',
-      userMessage.trim(),
-      searchResult
-    );
-  }
-
   private async handleAdCopyModel(
     userId: string,
     systemPrompt: string,
@@ -394,28 +344,6 @@ export class ModelHandlerService {
     model?: string
   ): Promise<ChatResponse> {
     return await chatService.startChat(userId, systemPrompt, userMessage.trim(), model);
-  }
-
-  private async handleSemrushSearch(userMessage: string): Promise<string> {
-    let reply: string;
-    let fetchError: string | undefined = undefined;
-
-    try {
-      const ads = await semrushService.fetchAds(userMessage);
-      reply = formatSemrushAds(ads);
-      if (ads.length === 0) {
-        reply = ERROR_MESSAGES['ad_not_found'] ?? '';
-      }
-    } catch (error: unknown) {
-      console.error('Error fetching ads from Semrush:', error);
-      if (error instanceof Error && error.message === '該当する広告主が見つかりませんでした') {
-        reply = ERROR_MESSAGES['ad_not_found'] ?? '';
-      } else {
-        fetchError = ERROR_MESSAGES['ad_acquisition'] ?? '';
-        reply = fetchError;
-      }
-    }
-    return reply;
   }
 
   /**

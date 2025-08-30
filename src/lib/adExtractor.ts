@@ -4,12 +4,6 @@ export type RawItem = {
   snippet: string;
 };
 
-export type SemrushAd = {
-  domain: string;
-  title: string;
-  description: string;
-};
-
 /**
  * items 配列から link, title, snippet を抽出し、
  * 1) snippet の先頭行にある英語日付パターン (e.g. "Jan 9, 2025") を除去
@@ -38,22 +32,4 @@ export function formatAdItems(items: RawItem[]): string {
  */
 export function formatAdTitles(items: RawItem[]): string {
   return items.map(({ title }) => title).join('\n');
-}
-
-/**
- * Semrush広告データの配列を受け取り、
- * 各広告を
- *   domain
- *   見出し：title
- *   説明文：description
- * の形式に変換し、
- * 各アイテム間を空行で区切った文字列を返す
- */
-export function formatSemrushAds(ads: SemrushAd[]): string {
-  return ads
-    .map(({ domain, title, description }) => {
-      const desc = description || '';
-      return ['ドメイン：' + domain, '見出し：' + title, '説明文：' + desc].join('\n');
-    })
-    .join('\n\n'); // アイテム間に空行
 }

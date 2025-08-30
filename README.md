@@ -5,29 +5,34 @@ LINE認証をベースとした業界特化型AIマーケティング支援プ�
 ## 🚀 主要機能
 
 ### 📱 LINE LIFF認証
+
 - LINE Loginによるシームレスな認証
 - アクセストークンの自動リフレッシュ・メモリキャッシュ
 - 管理者権限による階層化ユーザー管理
 - Row Level Security（RLS）による厳格なデータ分離
 
 ### 🤖 AIマーケティング支援機能
+
 - **Fine-tuned AIモデル**：`ft:gpt-4.1-nano-2025-04-14` によるキーワード分類
 - **3つの専門プロンプト**：広告文作成・仕上げ、16パートLP作成（5W2H準拠）
 - **プロンプト管理**：管理者専用リアルタイム編集・バージョン履歴・18項目動的変数置換
-- **外部API統合**：SEMrush競合分析、Google検索（使用量制限付き）
+- **外部API統合**：Google検索（使用量制限付き）
 - **チャット機能**：履歴永続化・セッション管理・AIモデル選択
 
 ### 🎨 ランディングページ作成・WordPress連携
+
 - **WordPress.com / セルフホスト WordPress**：両方式対応
 - **プレビュー機能**：リアルタイムプレビュー・下書きモード
 - **OAuth認証**：WordPress.com 連携
 - **Application Password**：セルフホスト WordPress 対応
 
 ### 🖼️ Canvas描画機能
+
 - **TipTap 3.0.7**：マークダウン・テーブル・リンク・画像・コードハイライト
 - **AI統合**：チャット返信の直接挿入・見出しナビゲーション・多形式エクスポート
 
 ### 💳 サブスクリプション・権限管理
+
 - **Stripe Checkout**：サブスクリプション管理
 - **使用量制限**：Google検索回数制限・プラン別機能制御
 - **管理者ダッシュボード**：ユーザー・プロンプト管理
@@ -42,39 +47,39 @@ graph TB
         C[Custom Hooks]
         D[Canvas API]
     end
-    
+
     subgraph "Authentication"
         E[LINE LIFF 2.25]
         F[JWT Token Auto-Refresh]
     end
-    
+
     subgraph "Business Logic"
         G[Server Actions]
         H[Domain Services]
         I[RAG System]
         J[Middleware]
     end
-    
+
     subgraph "Data Layer"
         K[Supabase PostgreSQL + RLS]
         M[Vector Embeddings]
     end
-    
+
     subgraph "AI Models"
         N[Fine-tuned OpenAI GPT-4]
         O[Claude Sonnet-4]
         P[RAG Retrieval]
         Q[Embedding Models]
     end
-    
+
     subgraph "External APIs"
         R[Stripe 17.7]
         S[WordPress APIs]
         T[Google Search API]
-        U[SEMrush API]
+
         V[LINE Platform API]
     end
-    
+
     A --> E
     A --> G
     B --> C
@@ -91,7 +96,6 @@ graph TB
     H --> R
     H --> S
     H --> T
-    H --> U
     H --> V
 ```
 
@@ -104,7 +108,7 @@ sequenceDiagram
     participant L as LINE Platform
     participant S as Server
     participant DB as Supabase
-    
+
     U->>C: アプリアクセス
     C->>L: LIFF初期化
     alt 未認証の場合
@@ -125,7 +129,7 @@ sequenceDiagram
 **フロントエンド**: Next.js 15.3.1 + React 19 + TypeScript 5 + Tailwind CSS 4 + Radix UI + TipTap 3.0.7
 **バックエンド**: Supabase 2.49.1（PostgreSQL + RLS）+ プロンプト管理システム
 **AI**: OpenAI GPT-4（Fine-tuned）+ Anthropic Claude Sonnet-4
-**外部API**: SEMrush + Google Search + LINE LIFF 2.25.1 + Stripe 17.7 + WordPress API
+**外部API**: Google Search + LINE LIFF 2.25.1 + Stripe 17.7 + WordPress API
 **開発**: Vercel + Husky + ESLint 9 + Prettier + tsc-watch + ngrok
 
 ## 📊 データベーススキーマ
@@ -148,7 +152,7 @@ erDiagram
         bigint created_at
         bigint updated_at
     }
-    
+
     chat_sessions {
         text id PK
         uuid user_id FK
@@ -157,7 +161,7 @@ erDiagram
         bigint last_message_at
         bigint created_at
     }
-    
+
     chat_messages {
         text id PK
         uuid user_id FK
@@ -167,7 +171,7 @@ erDiagram
         text model
         bigint created_at
     }
-    
+
     wordpress_settings {
         uuid id PK
         uuid user_id FK
@@ -181,8 +185,8 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
-    
+
+
     prompt_templates {
         uuid id PK
         text name UK
@@ -192,7 +196,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
+
     prompt_versions {
         uuid id PK
         uuid template_id FK
@@ -200,7 +204,7 @@ erDiagram
         text change_description
         timestamp created_at
     }
-    
+
     briefs {
         uuid id PK
         uuid user_id FK
@@ -209,8 +213,8 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
-    
+
+
     users ||--o{ chat_sessions : has
     users ||--o{ chat_messages : owns
     users ||--o{ briefs : creates
@@ -222,6 +226,7 @@ erDiagram
 ## 📋 環境変数設定（全27項目）
 
 ### サーバーサイド環境変数
+
 - **データベース**: DBPASS, SUPABASE_SERVICE_ROLE
 - **決済**: STRIPE_ENABLED, STRIPE_SECRET_KEY, STRIPE_PRICE_ID
 - **AI**: OPENAI_API_KEY, ANTHROPIC_API_KEY
@@ -231,6 +236,7 @@ erDiagram
 - **Webhook**: BASE_WEBHOOK_URL, RELAY_BEARER_TOKEN
 
 ### クライアントサイド環境変数
+
 - **LINE**: NEXT_PUBLIC_LIFF_ID, NEXT_PUBLIC_LIFF_CHANNEL_ID
 - **データベース**: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
 - **サイト**: NEXT_PUBLIC_SITE_URL
@@ -240,6 +246,7 @@ erDiagram
 ## 🚀 環境構築手順
 
 ### 1. 前提条件
+
 - Node.js 18.x 以上
 - npm または yarn
 - Supabase アカウント
@@ -247,6 +254,7 @@ erDiagram
 - Stripe アカウント（決済機能使用時）
 
 ### クイックスタート
+
 ```bash
 git clone <repository-url> && cd industry-specific-mc-training
 npm install
@@ -257,6 +265,7 @@ npm run ngrok             # LINE LIFF用HTTPSトンネル（別ターミナル�
 ```
 
 ### WordPress連携設定
+
 **WordPress.com**: [Developer Console](https://developer.wordpress.com/apps/) でClient ID/Secret取得
 **セルフホスト**: 管理画面からApplication Password生成
 
@@ -269,7 +278,7 @@ npm run ngrok             # LINE LIFF用HTTPSトンネル（別ターミナル�
 │   │   └── layout.tsx       # 管理者レイアウト
 │   ├── api/                 # API Routes
 │   │   ├── line/           # LINE認証API
-│   │   ├── wordpress/      # WordPress連携API  
+│   │   ├── wordpress/      # WordPress連携API
 │   │   ├── user/           # ユーザー管理API
 │   │   └── ad-form/        # LP作成API
 │   ├── chat/               # チャット機能
@@ -301,18 +310,18 @@ npm run ngrok             # LINE LIFF用HTTPSトンネル（別ターミナル�
 
 ## 🔧 主要なAPIエンドポイント
 
-| エンドポイント | 機能 | 新機能 |
-|---|---|---|
-| `/api/line/callback` | LINE認証コールバック | - |
-| `/api/refresh` | トークンリフレッシュ | - |
-| `/api/user/current` | 現在のユーザー情報・権限 | - |
-| `/api/user/search-count` | Google検索使用量確認 | - |
-| `/api/wordpress/test-connection` | WordPress接続テスト | - |
-| `/api/wordpress/oauth/start` | WordPress.com OAuth開始 | - |
-| `/api/wordpress/oauth/callback` | WordPress.com OAuth コールバック | - |
-| `/api/ad-form/create-landing-page` | ランディングページ作成 | - |
-| `/api/admin/rebuild-chunks` | RAGチャンク再構築 | ✨ 新機能 |
-| `/api/rag/*` | RAG検索・拡張生成 | ✨ 新機能 |
+| エンドポイント                     | 機能                             | 新機能    |
+| ---------------------------------- | -------------------------------- | --------- |
+| `/api/line/callback`               | LINE認証コールバック             | -         |
+| `/api/refresh`                     | トークンリフレッシュ             | -         |
+| `/api/user/current`                | 現在のユーザー情報・権限         | -         |
+| `/api/user/search-count`           | Google検索使用量確認             | -         |
+| `/api/wordpress/test-connection`   | WordPress接続テスト              | -         |
+| `/api/wordpress/oauth/start`       | WordPress.com OAuth開始          | -         |
+| `/api/wordpress/oauth/callback`    | WordPress.com OAuth コールバック | -         |
+| `/api/ad-form/create-landing-page` | ランディングページ作成           | -         |
+| `/api/admin/rebuild-chunks`        | RAGチャンク再構築                | ✨ 新機能 |
+| `/api/rag/*`                       | RAG検索・拡張生成                | ✨ 新機能 |
 
 ## 🛡️ セキュリティ機能
 
@@ -326,12 +335,14 @@ npm run ngrok             # LINE LIFF用HTTPSトンネル（別ターミナル�
 ## 📱 デプロイメント
 
 ### Vercel デプロイ
+
 1. Vercel アカウント作成
 2. プロジェクト接続
 3. 環境変数設定
 4. 自動デプロイ実行
 
 ### 環境固有設定
+
 - **開発環境**: ngrok + ローカル開発
 - **ステージング**: Vercel プレビュー環境
 - **本番環境**: Vercel 本番デプロイ
