@@ -16,6 +16,10 @@ import { ArrowLeft, Plug, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { WordPressType } from '@/types/wordpress';
 import type { WordPressSettingsFormProps } from '@/types/components';
+import {
+  saveWordPressSettingsAction,
+  testWordPressConnectionAction,
+} from '@/server/handler/actions/wordpress.action';
 
 type ResultState = {
   success: boolean;
@@ -35,6 +39,13 @@ type ConnectionTestState = {
   details?: string;
   needsOAuth?: boolean;
 } | null;
+
+type TestConnectionActionResult = {
+  success: boolean;
+  message?: string;
+  error?: string;
+  needsWordPressAuth?: boolean;
+};
 
 function diagnoseErrorDetails(raw: string) {
   const lower = (raw || '').toLowerCase();
@@ -133,27 +144,13 @@ export default function WordPressSettingsForm({
     setResult(null);
 
     try {
-      // WordPress設定保存APIを呼び出し
-      const response = await fetch('/api/wordpress/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          liffAccessToken,
-          wpType,
-          ...(wpType === 'wordpress_com'
-            ? { wpSiteId }
-            : {
-                wpSiteUrl,
-                wpUsername,
-                wpApplicationPassword,
-              }),
-        }),
-        credentials: 'include',
+      const data = await saveWordPressSettingsAction({
+        liffAccessToken,
+        wpType,
+        ...(wpType === 'wordpress_com'
+          ? { wpSiteId }
+          : { wpSiteUrl, wpUsername, wpApplicationPassword }),
       });
-
-      const data = await response.json();
 
       if (data.success) {
         setResult({
@@ -218,26 +215,7 @@ export default function WordPressSettingsForm({
     setConnectionTestResult(null);
 
     try {
-      const response = await fetch('/api/wordpress/test-connection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          liffAccessToken,
-          wpType,
-          ...(wpType === 'wordpress_com'
-            ? { wpSiteId }
-            : {
-                wpSiteUrl,
-                wpUsername,
-                wpApplicationPassword,
-              }),
-        }),
-        credentials: 'include',
-      });
-
-      const data = await response.json();
+      const data: TestConnectionActionResult = await testWordPressConnectionAction(liffAccessToken);
 
       if (data.success) {
         setConnectionTestResult({
