@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { upsertContentAnnotation } from '@/server/handler/actions/wordpress.action';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 type Props = {
   wpPostId: number;
@@ -21,6 +22,9 @@ type Props = {
 export default function AnnotationEditButton({ wpPostId, canonicalUrl, initial }: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [saveDone, setSaveDone] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState('');
   const [form, setForm] = React.useState({
     main_kw: initial?.main_kw ?? '',
     kw: initial?.kw ?? '',
@@ -31,23 +35,31 @@ export default function AnnotationEditButton({ wpPostId, canonicalUrl, initial }
   });
 
   const handleSave = async () => {
-    const res = await upsertContentAnnotation({
-      wp_post_id: wpPostId,
-      canonical_url: canonicalUrl || null,
-      main_kw: form.main_kw,
-      kw: form.kw,
-      impressions: form.impressions,
-      persona: form.persona,
-      needs: form.needs,
-      goal: form.goal,
-    });
-    if ((res as { success?: boolean }).success) {
-      setOpen(false);
-      router.refresh();
-    } else {
-      alert(
-        `保存に失敗しました${(res as { error?: string }).error ? `: ${(res as { error?: string }).error}` : ''}`
-      );
+    try {
+      setIsSaving(true);
+      setErrorMsg('');
+      const res = await upsertContentAnnotation({
+        wp_post_id: wpPostId,
+        canonical_url: canonicalUrl || null,
+        main_kw: form.main_kw,
+        kw: form.kw,
+        impressions: form.impressions,
+        persona: form.persona,
+        needs: form.needs,
+        goal: form.goal,
+      });
+      if ((res as { success?: boolean }).success) {
+        setSaveDone(true);
+        setTimeout(() => {
+          setOpen(false);
+          router.refresh();
+          setSaveDone(false);
+        }, 900);
+      } else {
+        setErrorMsg((res as { error?: string }).error || '保存に失敗しました');
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -64,7 +76,12 @@ export default function AnnotationEditButton({ wpPostId, canonicalUrl, initial }
       {open && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 text-left">
           <div className="bg-white w-full max-w-2xl p-4 rounded shadow text-left">
-            <h3 className="text-lg font-semibold mb-3">アノテーションを編集</h3>
+            <h3 className="text-lg font-semibold mb-3">メモ・補足情報を編集</h3>
+            {errorMsg && (
+              <div className="mb-3 p-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded">
+                {errorMsg}
+              </div>
+            )}
             <div className="space-y-3">
               <div>
                 <label className="block text-sm mb-1">主軸kw</label>
@@ -122,11 +139,24 @@ export default function AnnotationEditButton({ wpPostId, canonicalUrl, initial }
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOpen(false)}
+                disabled={isSaving || saveDone}
+              >
                 キャンセル
               </Button>
-              <Button size="sm" onClick={handleSave}>
-                保存
+              <Button size="sm" onClick={handleSave} disabled={isSaving || saveDone}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 保存中...
+                  </>
+                ) : saveDone ? (
+                  '保存完了'
+                ) : (
+                  '保存'
+                )}
               </Button>
             </div>
           </div>
