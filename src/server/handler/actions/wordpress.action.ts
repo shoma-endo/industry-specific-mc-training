@@ -284,6 +284,75 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
 }
 
 // ==========================================
+// Annotations (ユーザー入力) CRUD
+// ==========================================
+
+export type ContentAnnotationPayload = {
+  wp_post_id: number;
+  canonical_url?: string | null;
+  main_kw?: string | null;
+  kw?: string | null;
+  impressions?: string | null;
+  persona?: string | null; // デモグラ・ペルソナ
+  needs?: string | null; // ニーズ
+  goal?: string | null; // ゴール
+};
+
+export async function upsertContentAnnotation(payload: ContentAnnotationPayload) {
+  const cookieStore = await cookies();
+  const liffAccessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  const authResult = await authMiddleware(liffAccessToken, refreshToken);
+  if (authResult.error || !authResult.userId) {
+    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+  }
+
+  const supabaseServiceLocal = new SupabaseService();
+  const client = supabaseServiceLocal.getClient();
+
+  const { error } = await client.from('content_annotations').upsert(
+    {
+      user_id: authResult.userId,
+      wp_post_id: payload.wp_post_id,
+      canonical_url: payload.canonical_url ?? null,
+      main_kw: payload.main_kw ?? null,
+      kw: payload.kw ?? null,
+      impressions: payload.impressions ?? null,
+      persona: payload.persona ?? null,
+      needs: payload.needs ?? null,
+      goal: payload.goal ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,wp_post_id' }
+  );
+
+  if (error) {
+    return { success: false as const, error: error.message };
+  }
+
+  return { success: true as const };
+}
+
+export async function getContentAnnotationsForUser() {
+  const cookieStore = await cookies();
+  const liffAccessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  const authResult = await authMiddleware(liffAccessToken, refreshToken);
+  if (authResult.error || !authResult.userId) {
+    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+  }
+
+  const client = new SupabaseService().getClient();
+  const { data, error } = await client
+    .from('content_annotations')
+    .select('*')
+    .eq('user_id', authResult.userId);
+
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const, data };
+}
+
+// ==========================================
 // WordPress 設定の保存（サーバーアクション）
 // ==========================================
 
