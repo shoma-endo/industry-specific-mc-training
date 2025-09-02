@@ -99,19 +99,161 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
     headers = { ...commonHeaders, Authorization: `Basic ${credentials}` };
   }
 
-  const postsUrl = `${baseUrl}/posts?_embed=true&per_page=${perPage}&page=${page}`;
-  const resp = await fetch(postsUrl, { headers, cache: 'no-store' });
-  if (!resp.ok) {
-    const txt = await resp.text().catch(() => resp.statusText);
-    console.error('[WP posts] Fetch failed', { url: postsUrl, status: resp.status, txt });
+  // フォールバック戦略（主に self_hosted 向けのWAF/制限回避）
+  const siteUrlClean = (wpSettings.wpSiteUrl || '').replace(/\/$/, '');
+  const candidates: string[] =
+    wpSettings.wpType === 'self_hosted'
+      ? [
+          `${siteUrlClean}/wp-json/wp/v2/posts?_embed=true&per_page=${perPage}&page=${page}`,
+          `${siteUrlClean}/wp-json/wp/v2/posts?per_page=${perPage}&page=${page}`,
+          `${siteUrlClean}/index.php?rest_route=/wp/v2/posts&_embed=true&per_page=${perPage}&page=${page}`,
+          `${siteUrlClean}/index.php?rest_route=/wp/v2/posts&per_page=${perPage}&page=${page}`,
+        ]
+      : [
+          `${baseUrl}/posts?_embed=true&per_page=${perPage}&page=${page}`,
+          `${baseUrl}/posts?per_page=${perPage}&page=${page}`,
+        ];
+
+  let resp: Response | null = null;
+  let lastErrorText = '';
+  let lastStatus = 0;
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url, { headers, cache: 'no-store' });
+      if (r.ok) {
+        resp = r;
+        baseUrl = url; // for logging/debug
+        break;
+      }
+      lastStatus = r.status;
+      lastErrorText = await r.text().catch(() => r.statusText);
+      console.error('[WP posts] Fetch failed candidate', {
+        url,
+        status: r.status,
+        txt: lastErrorText,
+      });
+    } catch (e) {
+      lastErrorText = e instanceof Error ? e.message : 'Unknown fetch error';
+      console.error('[WP posts] Fetch exception candidate', { url, error: lastErrorText });
+    }
+  }
+
+  if (!resp) {
+    // RSS フォールバック（self_hosted のみ）
+    if (wpSettings.wpType === 'self_hosted' && siteUrlClean) {
+      const rssCandidates = [`${siteUrlClean}/feed/`, `${siteUrlClean}/?feed=rss2`];
+
+      for (const rssUrl of rssCandidates) {
+        try {
+          const rssHeaders: HeadersInit = {
+            'User-Agent': 'IndustrySpecificMC/1.0 (+app)',
+            Accept: 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
+          };
+          const rssResp = await fetch(rssUrl, { headers: rssHeaders, cache: 'no-store' });
+          if (!rssResp.ok) {
+            lastStatus = rssResp.status;
+            lastErrorText = await rssResp.text().catch(() => rssResp.statusText);
+            console.error('[WP posts] RSS fetch failed candidate', {
+              url: rssUrl,
+              status: lastStatus,
+            });
+            continue;
+          }
+          const xml = await rssResp.text();
+
+          // 簡易RSSパース（依存追加なし）
+          const items: Array<{
+            title?: string;
+            link?: string;
+            pubDate?: string;
+            description?: string;
+            categories?: string[];
+          }> = [];
+
+          const itemRegex = /<item[\s\S]*?<\/item>/g;
+          const titleRegex = /<title>([\s\S]*?)<\/title>/i;
+          const linkRegex = /<link>([\s\S]*?)<\/link>/i;
+          const pubDateRegex = /<pubDate>([\s\S]*?)<\/pubDate>/i;
+          const descRegex = /<description>([\s\S]*?)<\/description>/i;
+          const catRegex = /<category[^>]*>([\s\S]*?)<\/category>/gi;
+
+          const decodeCdata = (v: string) =>
+            v
+              .replace(/^\s*<!\[CDATA\[/, '')
+              .replace(/\]\]>\s*$/, '')
+              .trim();
+          const stripTags = (v: string) => v.replace(/<[^>]+>/g, '').trim();
+
+          const matches = xml.match(itemRegex) || [];
+          for (const raw of matches) {
+            const titleMatch = titleRegex.exec(raw)?.[1];
+            const linkMatch = linkRegex.exec(raw)?.[1];
+            const pubDateMatch = pubDateRegex.exec(raw)?.[1];
+            const descriptionMatch = descRegex.exec(raw)?.[1];
+            const cats: string[] = [];
+            let m: RegExpExecArray | null;
+            while ((m = catRegex.exec(raw)) !== null) {
+              if (m[1]) cats.push(stripTags(decodeCdata(m[1])));
+            }
+            const item: {
+              title?: string;
+              link?: string;
+              pubDate?: string;
+              description?: string;
+              categories?: string[];
+            } = {};
+            if (titleMatch) item.title = stripTags(decodeCdata(titleMatch));
+            if (linkMatch) item.link = linkMatch.trim();
+            if (pubDateMatch) item.pubDate = pubDateMatch.trim();
+            if (descriptionMatch) item.description = stripTags(decodeCdata(descriptionMatch));
+            if (cats.length > 0) item.categories = cats;
+            items.push(item);
+          }
+
+          // ページング（RSSは全件返る前提）
+          const start = (page - 1) * perPage;
+          const end = start + perPage;
+          const sliced = items.slice(start, end);
+
+          const normalizedFromRss = sliced.map((it, idx) => ({
+            id: (start + idx + 1) as number,
+            date: it.pubDate,
+            title: it.title,
+            link: it.link,
+            categories: undefined as number[] | undefined,
+            categoryNames: it.categories || [],
+            excerpt: it.description,
+          }));
+
+          return {
+            success: true as const,
+            data: { posts: normalizedFromRss, total: items.length },
+          };
+        } catch (e) {
+          lastErrorText = e instanceof Error ? e.message : 'Unknown RSS fetch error';
+          console.error('[WP posts] RSS exception candidate', {
+            url: rssUrl,
+            error: lastErrorText,
+          });
+          continue;
+        }
+      }
+    }
+
     return {
       success: false as const,
-      error: `WordPress投稿取得エラー: HTTP ${resp.status} ${txt}`,
+      error: `WordPress投稿取得エラー: HTTP ${lastStatus} ${lastErrorText}`,
     };
   }
 
   const postsJson: unknown = await resp.json();
-  const total = parseInt(resp.headers.get('X-WP-Total') || '0', 10);
+  const headerTotal = parseInt(resp.headers.get('X-WP-Total') || '0', 10);
+  const total =
+    Number.isFinite(headerTotal) && headerTotal > 0
+      ? headerTotal
+      : Array.isArray(postsJson)
+        ? (postsJson as unknown[]).length
+        : 0;
   const posts: WpRestPost[] = Array.isArray(postsJson) ? (postsJson as WpRestPost[]) : [];
 
   const normalized = posts.map(p => {
