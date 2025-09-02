@@ -1,7 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getWordPressPostsForCurrentUser } from '@/server/handler/actions/wordpress.action';
-import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,12 +25,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const perPage = 100; // 1ページ最大100件（WP RESTの上限）
 
   const result = await getWordPressPostsForCurrentUser(page, perPage);
-  if (!result.success) {
-    redirect('/login');
-  }
 
-  const posts: PostRow[] = (result.data.posts || []) as PostRow[];
-  const total = result.data.total || 0;
+  const posts: PostRow[] = (result.data?.posts || []) as PostRow[];
+  const total = result.data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
