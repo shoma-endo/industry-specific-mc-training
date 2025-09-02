@@ -26,8 +26,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   const result = await getWordPressPostsForCurrentUser(page, perPage);
 
-  const posts: PostRow[] = (result.data?.posts || []) as PostRow[];
-  const total = result.data?.total || 0;
+  const isError: boolean = (result as { success?: boolean }).success === false;
+  const errorMessage: string | undefined = (result as { error?: string }).error;
+  const posts: PostRow[] = (!isError ? result.data?.posts || [] : []) as PostRow[];
+  const total = !isError ? result.data?.total || 0 : 0;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
@@ -39,7 +41,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <CardTitle>投稿一覧</CardTitle>
         </CardHeader>
         <CardContent>
-          {posts.length === 0 ? (
+          {isError ? (
+            <div className="text-center py-8 text-red-600">
+              取得に失敗しました{errorMessage ? `: ${errorMessage}` : ''}
+            </div>
+          ) : posts.length === 0 ? (
             <div className="text-center py-8 text-gray-500">投稿が見つかりません</div>
           ) : (
             <div className="overflow-x-auto">
