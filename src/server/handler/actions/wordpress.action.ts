@@ -80,6 +80,15 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
     baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${wpSettings.wpSiteId || ''}`;
     const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
     const accessToken = cookieStore.get(tokenCookieName)?.value || '';
+    if (!accessToken) {
+      console.error('[WP posts] Missing WordPress.com access token cookie', {
+        tokenCookieName,
+      });
+      return {
+        success: false as const,
+        error: 'WordPress.comのアクセストークンが見つかりません（OAuth連携が必要です）',
+      };
+    }
     headers = { ...commonHeaders, Authorization: `Bearer ${accessToken}` };
   } else {
     const siteUrl = (wpSettings.wpSiteUrl || '').replace(/\/$/, '');
@@ -94,6 +103,7 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
   const resp = await fetch(postsUrl, { headers, cache: 'no-store' });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => resp.statusText);
+    console.error('[WP posts] Fetch failed', { url: postsUrl, status: resp.status, txt });
     return {
       success: false as const,
       error: `WordPress投稿取得エラー: HTTP ${resp.status} ${txt}`,
