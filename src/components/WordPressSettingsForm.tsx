@@ -16,6 +16,83 @@ import { ArrowLeft, Plug, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { WordPressType } from '@/types/wordpress';
 import type { WordPressSettingsFormProps } from '@/types/components';
+import {
+  saveWordPressSettingsAction,
+  testWordPressConnectionAction,
+} from '@/server/handler/actions/wordpress.action';
+
+type ResultState = {
+  success: boolean;
+  message?: string;
+  error?: string;
+  cause?: string;
+  hints?: string[];
+  details?: string;
+  needsOAuth?: boolean;
+} | null;
+
+type ConnectionTestState = {
+  success: boolean;
+  message: string;
+  cause?: string;
+  hints?: string[];
+  details?: string;
+  needsOAuth?: boolean;
+} | null;
+
+type TestConnectionActionResult = {
+  success: boolean;
+  message?: string;
+  error?: string;
+  needsWordPressAuth?: boolean;
+};
+
+function diagnoseErrorDetails(raw: string) {
+  const lower = (raw || '').toLowerCase();
+  if (!raw) {
+    return {
+      cause: '不明なエラー',
+      hints: ['時間をおいて再試行してください', '状況が続く場合はサポートへ連絡してください'],
+    };
+  }
+  if (lower.includes('401') || lower.includes('unauthorized') || lower.includes('token')) {
+    return {
+      cause: '認証エラー（トークンの欠如・期限切れ・無効）',
+      hints: [
+        'WordPress.comのOAuth認証をやり直してください',
+        'セルフホストの場合はユーザー名/アプリパスワードを再確認してください',
+      ],
+    };
+  }
+  if (lower.includes('404') || lower.includes('not found')) {
+    return {
+      cause: 'エンドポイント未検出またはサイトID/URL誤り',
+      hints: [
+        'WordPressサイトID（.com）またはサイトURL（セルフホスト）を確認してください',
+        'REST APIが有効か（セルフホスト）確認してください',
+      ],
+    };
+  }
+  if (lower.includes('http') && lower.includes('settings')) {
+    return {
+      cause: 'REST API設定エンドポイントにアクセスできません',
+      hints: [
+        'Basic認証情報（ユーザー名/アプリパスワード）を確認してください',
+        'セキュリティプラグイン等でREST APIがブロックされていないか確認してください',
+      ],
+    };
+  }
+  if (lower.includes('failed to fetch') || lower.includes('network') || lower.includes('timeout')) {
+    return {
+      cause: 'ネットワークエラー（接続失敗/タイムアウト）',
+      hints: [
+        'サイトURLのスペルやHTTPS有無を確認してください',
+        '一時的な障害の可能性があります。時間を置いて再試行してください',
+      ],
+    };
+  }
+  return { cause: 'エラーが発生しました', hints: ['入力内容を確認し、再度お試しください'] };
+}
 
 export default function WordPressSettingsForm({
   liffAccessToken,
@@ -23,16 +100,11 @@ export default function WordPressSettingsForm({
 }: WordPressSettingsFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<{
-    success: boolean;
-    message?: string;
-    error?: string;
-  } | null>(null);
+  const [result, setResult] = useState<ResultState>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [connectionTestResult, setConnectionTestResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
+  const [connectionTestResult, setConnectionTestResult] = useState<ConnectionTestState>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showConnDetails, setShowConnDetails] = useState(false);
 
   // フォームの状態
   const [wpType, setWpType] = useState<WordPressType>(existingSettings?.wpType || 'wordpress_com');
@@ -46,6 +118,9 @@ export default function WordPressSettingsForm({
   const [wpApplicationPassword, setWpApplicationPassword] = useState(
     existingSettings?.wpApplicationPassword || ''
   );
+
+  // 保存済み設定が存在するか（接続テストは保存後のみ許可）
+  const hasSavedSettings = Boolean(existingSettings);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,27 +144,13 @@ export default function WordPressSettingsForm({
     setResult(null);
 
     try {
-      // WordPress設定保存APIを呼び出し
-      const response = await fetch('/api/wordpress/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          liffAccessToken,
-          wpType,
-          ...(wpType === 'wordpress_com'
-            ? { wpSiteId }
-            : {
-                wpSiteUrl,
-                wpUsername,
-                wpApplicationPassword,
-              }),
-        }),
-        credentials: 'include',
+      const data = await saveWordPressSettingsAction({
+        liffAccessToken,
+        wpType,
+        ...(wpType === 'wordpress_com'
+          ? { wpSiteId }
+          : { wpSiteUrl, wpUsername, wpApplicationPassword }),
       });
-
-      const data = await response.json();
 
       if (data.success) {
         setResult({
@@ -102,15 +163,25 @@ export default function WordPressSettingsForm({
           router.push('/setup');
         }, 1500);
       } else {
+        const details = data.error || '';
+        const { cause, hints } = diagnoseErrorDetails(details);
         setResult({
           success: false,
           error: data.error || 'WordPress設定の保存に失敗しました',
+          details,
+          cause,
+          hints,
         });
       }
     } catch (error) {
+      const details = error instanceof Error ? error.message : 'Unknown error';
+      const { cause, hints } = diagnoseErrorDetails(details);
       setResult({
         success: false,
-        error: `エラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `エラーが発生しました: ${details}`,
+        details,
+        cause,
+        hints,
       });
     } finally {
       setIsLoading(false);
@@ -144,26 +215,7 @@ export default function WordPressSettingsForm({
     setConnectionTestResult(null);
 
     try {
-      const response = await fetch('/api/wordpress/test-connection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          liffAccessToken,
-          wpType,
-          ...(wpType === 'wordpress_com'
-            ? { wpSiteId }
-            : {
-                wpSiteUrl,
-                wpUsername,
-                wpApplicationPassword,
-              }),
-        }),
-        credentials: 'include',
-      });
-
-      const data = await response.json();
+      const data: TestConnectionActionResult = await testWordPressConnectionAction(liffAccessToken);
 
       if (data.success) {
         setConnectionTestResult({
@@ -171,15 +223,26 @@ export default function WordPressSettingsForm({
           message: data.message || 'WordPress接続テストが成功しました',
         });
       } else {
+        const details = data.error || '';
+        const { cause, hints } = diagnoseErrorDetails(details);
         setConnectionTestResult({
           success: false,
           message: data.error || '接続テストに失敗しました',
+          details,
+          cause,
+          hints,
+          needsOAuth: Boolean(data.needsWordPressAuth),
         });
       }
     } catch (error) {
+      const details = error instanceof Error ? error.message : 'Unknown error';
+      const { cause, hints } = diagnoseErrorDetails(details);
       setConnectionTestResult({
         success: false,
-        message: `接続テストでエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `接続テストでエラーが発生しました: ${details}`,
+        details,
+        cause,
+        hints,
       });
     } finally {
       setIsTestingConnection(false);
@@ -334,6 +397,51 @@ export default function WordPressSettingsForm({
                   )}
                   <p>{connectionTestResult.message}</p>
                 </div>
+                {!connectionTestResult.success && (
+                  <div className="mt-2 space-y-2">
+                    {connectionTestResult.cause && (
+                      <p className="text-sm">
+                        <span className="font-semibold">原因:</span> {connectionTestResult.cause}
+                      </p>
+                    )}
+                    {connectionTestResult.hints && connectionTestResult.hints.length > 0 && (
+                      <div className="text-sm">
+                        <p className="font-semibold">対処方法:</p>
+                        <ul className="list-disc list-inside">
+                          {connectionTestResult.hints.map((h, i) => (
+                            <li key={i}>{h}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {connectionTestResult.needsOAuth && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={redirectToWordPressOAuth}
+                        className="mt-2"
+                      >
+                        WordPress.com OAuth認証を開始
+                      </Button>
+                    )}
+                    {connectionTestResult.details && (
+                      <div className="text-xs mt-2">
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => setShowConnDetails(v => !v)}
+                        >
+                          {showConnDetails ? '詳細を隠す' : '詳細を表示'}
+                        </button>
+                        {showConnDetails && (
+                          <pre className="whitespace-pre-wrap break-words mt-1">
+                            {connectionTestResult.details}
+                          </pre>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -346,6 +454,41 @@ export default function WordPressSettingsForm({
                   {result.success ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
                   <p>{result.success ? result.message : result.error}</p>
                 </div>
+                {!result.success && (
+                  <div className="mt-2 space-y-2">
+                    {result.cause && (
+                      <p className="text-sm">
+                        <span className="font-semibold">原因:</span> {result.cause}
+                      </p>
+                    )}
+                    {result.hints && result.hints.length > 0 && (
+                      <div className="text-sm">
+                        <p className="font-semibold">対処方法:</p>
+                        <ul className="list-disc list-inside">
+                          {result.hints.map((h, i) => (
+                            <li key={i}>{h}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {result.details && (
+                      <div className="text-xs mt-2">
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => setShowDetails(v => !v)}
+                        >
+                          {showDetails ? '詳細を隠す' : '詳細を表示'}
+                        </button>
+                        {showDetails && (
+                          <pre className="whitespace-pre-wrap break-words mt-1">
+                            {result.details}
+                          </pre>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -355,11 +498,17 @@ export default function WordPressSettingsForm({
                 type="button"
                 variant="secondary"
                 onClick={handleTestConnection}
-                disabled={isTestingConnection}
+                disabled={isTestingConnection || !hasSavedSettings}
                 className="w-full"
+                title={hasSavedSettings ? undefined : '先に設定を保存してください'}
               >
                 {isTestingConnection ? '接続テスト中...' : '接続テスト'}
               </Button>
+              {!hasSavedSettings && (
+                <p className="text-xs text-gray-500">
+                  接続テストを行うには、先に設定を保存してください。
+                </p>
+              )}
 
               <div className="flex gap-4">
                 <Link href="/setup" className="flex-1">

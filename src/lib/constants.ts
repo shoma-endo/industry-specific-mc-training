@@ -1,6 +1,4 @@
 export const ERROR_MESSAGES = {
-  ad_acquisition:
-    'SEMrushから広告情報の取得に失敗しました。しばらく時間をおいてから再度お試しください。',
   ad_not_found: 'この検索キーワードでは広告情報が見つかりませんでした。',
   daily_chat_limit:
     '本日のチャット利用上限（3回）に達しました。上限は日本時間の00:00にリセットされます。',

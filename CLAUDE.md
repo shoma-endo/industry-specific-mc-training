@@ -1,4 +1,5 @@
 # CLAUDE.md
+
 必ず日本語で回答してください。
 タスクを終えたら npx ccusage@latest を叩いて、コストを表示してください。
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -57,8 +58,7 @@ The chat system uses multiple AI models in sequence:
 
 1. **Fine-tuned Model**: `ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2` classifies keywords
 2. **Google Search**: Validates and researches keywords
-3. **SEMrush API**: Fetches competitor advertising data
-4. **Standard GPT**: Generates marketing copy based on research
+3. **Standard GPT**: Generates marketing copy based on research
 
 All chat sessions are persisted in Supabase with user isolation.
 
@@ -71,7 +71,6 @@ Environment variables are type-safe using `@t3-oss/env-nextjs` in `src/env.ts`. 
 - Stripe: Product/price IDs and API keys
 - OpenAI: API key for chat completions
 - Google: Search API key and Custom Search Engine ID
-- SEMrush: API key for competitive research
 
 ### Key Code Patterns
 
@@ -108,10 +107,11 @@ Supabase migrations in `supabase/migrations/` define:
 ### Code Implementation Guidelines
 
 Follow these rules when you write code:
+
 - Use early returns whenever possible to make the code more readable.
 - Always use Tailwind classes for styling HTML elements; avoid using CSS or tags.
 - Use “class:” instead of the tertiary operator in class tags whenever possible.
 - Use descriptive variable and function/const names. Also, event functions should be named with a “handle” prefix, like “handleClick” for onClick and “handleKeyDown” for onKeyDown.
 - Implement accessibility features on elements. For example, a tag should have a tabindex=“0”, aria-label, on:click, and on:keydown, and similar attributes.
 - Use consts instead of functions, for example, “const toggle = () =>”. Also, define a type if possible.
-- Never use any in a type definition. 
+- Never use any in a type definition.

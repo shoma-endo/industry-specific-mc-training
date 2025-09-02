@@ -68,14 +68,21 @@ export class WordPressService {
    * 認証ヘッダーを取得
    */
   private getAuthHeaders(): Record<string, string> {
+    const commonHeaders: Record<string, string> = {
+      Accept: 'application/json',
+      'User-Agent': 'IndustrySpecificMC/1.0 (+app)',
+    };
+
     if (this.type === 'wordpress_com') {
       return {
+        ...commonHeaders,
         Authorization: `Bearer ${this.accessToken}`,
       };
     } else {
       // セルフホスト版：Basic認証
       const credentials = btoa(`${this.username}:${this.applicationPassword}`);
       return {
+        ...commonHeaders,
         Authorization: `Basic ${credentials}`,
       };
     }
@@ -94,10 +101,69 @@ export class WordPressService {
           headers: this.getAuthHeaders(),
         });
       } else {
-        // セルフホスト用：設定エンドポイントまたはルートエンドポイントをテスト
+        // セルフホスト用：段階テスト（到達 -> 認証 -> 権限）
+        // 1) 到達確認
+        const rootUrl = `${(this.siteUrl || '').replace(/\/$/, '')}/wp-json/`;
+        const reachabilityResp = await fetch(rootUrl, {
+          headers: { Accept: 'application/json', 'User-Agent': 'IndustrySpecificMC/1.0 (+app)' },
+        });
+        if (!reachabilityResp.ok) {
+          // Xserver等で /wp-json/ がブロックされる場合のフォールバック
+          const altRoot = `${(this.siteUrl || '').replace(/\/$/, '')}/index.php?rest_route=/`;
+          const altResp = await fetch(altRoot, {
+            headers: { Accept: 'application/json', 'User-Agent': 'IndustrySpecificMC/1.0 (+app)' },
+          });
+          if (!altResp.ok) {
+            const bodyText = await reachabilityResp.text().catch(() => reachabilityResp.statusText);
+            const altText = await altResp.text().catch(() => altResp.statusText);
+            return {
+              success: false,
+              error: `[reachability] HTTP ${reachabilityResp.status}: ${bodyText || reachabilityResp.statusText} | alt HTTP ${altResp.status}: ${altText || altResp.statusText}`,
+            };
+          }
+        }
+
+        // 2) 認証確認（ユーザー情報取得）
+        const authResp = await fetch(`${this.baseUrl}/users/me`, {
+          headers: this.getAuthHeaders(),
+        });
+        if (!authResp.ok) {
+          // フォールバック: index.php?rest_route=
+          const altAuthUrl = `${(this.siteUrl || '').replace(/\/$/, '')}/index.php?rest_route=/wp/v2/users/me`;
+          const altAuthResp = await fetch(altAuthUrl, { headers: this.getAuthHeaders() });
+          if (!altAuthResp.ok) {
+            const authErrBody = await authResp.text().catch(() => authResp.statusText);
+            const altAuthBody = await altAuthResp.text().catch(() => altAuthResp.statusText);
+            const stage =
+              authResp.status === 401 || altAuthResp.status === 401
+                ? 'authentication'
+                : 'auth_or_waf';
+            return {
+              success: false,
+              error: `[${stage}] HTTP ${authResp.status}: ${authErrBody || authResp.statusText} | alt HTTP ${altAuthResp.status}: ${altAuthBody || altAuthResp.statusText}`,
+            };
+          }
+        }
+
+        // 3) 権限確認（設定エンドポイント）
         response = await fetch(`${this.baseUrl}/settings`, {
           headers: this.getAuthHeaders(),
         });
+        if (!response.ok) {
+          // フォールバック: index.php?rest_route=
+          const altSettingsUrl = `${(this.siteUrl || '').replace(/\/$/, '')}/index.php?rest_route=/wp/v2/settings`;
+          const altSettingsResp = await fetch(altSettingsUrl, { headers: this.getAuthHeaders() });
+          if (!altSettingsResp.ok) {
+            const bodyText = await response.text().catch(() => response.statusText);
+            const altText = await altSettingsResp.text().catch(() => altSettingsResp.statusText);
+            return {
+              success: false,
+              error: `[permission_or_waf] HTTP ${response.status}: ${bodyText || response.statusText} | alt HTTP ${altSettingsResp.status}: ${altText || altSettingsResp.statusText}`,
+            };
+          }
+          // フォールバック成功時は以降の処理で altSettingsResp を使う
+          response = altSettingsResp as unknown as Response;
+        }
       }
 
       if (!response.ok) {

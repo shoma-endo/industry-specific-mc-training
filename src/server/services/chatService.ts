@@ -38,9 +38,7 @@ class ChatService {
     userId: string,
     systemPrompt: string,
     userMessage: string | string[],
-    model?: string,
-    semrushSearchUserMessage?: string,
-    semrushSearchResult?: string
+    model?: string
   ): Promise<{
     message: string;
     error?: string;
@@ -103,7 +101,7 @@ class ChatService {
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.USER,
-        content: semrushSearchUserMessage ?? userMessageString,
+        content: userMessageString,
         created_at: now,
       };
 
@@ -114,9 +112,7 @@ class ChatService {
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.ASSISTANT,
-        content: semrushSearchResult
-          ? aiResponse.message + '\n\n' + `【競合リサーチ結果】\n${semrushSearchResult}`
-          : aiResponse.message,
+        content: aiResponse.message,
         model: model,
         created_at: now + 1, // 順序を保証するため
       };
@@ -124,11 +120,7 @@ class ChatService {
       await this.supabaseService.createChatMessage(assistantDbMessage);
 
       return {
-        ...(semrushSearchResult
-          ? {
-              message: aiResponse.message + '\n\n' + `【競合リサーチ結果】\n${semrushSearchResult}`,
-            }
-          : aiResponse),
+        ...aiResponse,
         sessionId,
       };
     } catch (error) {
@@ -153,9 +145,7 @@ class ChatService {
     userMessage: string | string[],
     systemPrompt: string,
     messages: OpenAIMessage[],
-    model?: string,
-    semrushSearchUserMessage?: string,
-    semrushSearchResult?: string
+    model?: string
   ): Promise<{
     message: string;
     error?: string;
@@ -253,7 +243,7 @@ class ChatService {
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.USER,
-        content: semrushSearchUserMessage ?? userMessageString,
+        content: userMessageString,
         created_at: now,
       };
 
@@ -264,9 +254,7 @@ class ChatService {
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.ASSISTANT,
-        content: semrushSearchResult
-          ? aiResponse.message + '\n\n' + `【競合リサーチ結果】\n${semrushSearchResult}`
-          : aiResponse.message,
+        content: aiResponse.message,
         model: model,
         created_at: now + 1, // 順序を保証するため
       };
@@ -274,11 +262,7 @@ class ChatService {
       await this.supabaseService.createChatMessage(assistantDbMessage);
 
       return {
-        ...(semrushSearchResult
-          ? {
-              message: aiResponse.message + '\n\n' + `【競合リサーチ結果】\n${semrushSearchResult}`,
-            }
-          : aiResponse),
+        ...aiResponse,
         sessionId,
       };
     } catch (error) {
