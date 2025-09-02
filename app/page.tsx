@@ -15,7 +15,7 @@ import {
 import { updateUserFullName } from '@/server/handler/actions/user.actions';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Settings, Shield } from 'lucide-react';
+import { Settings, Shield, List } from 'lucide-react';
 import Link from 'next/link';
 import { FullNameDialog } from '@/components/FullNameDialog';
 import { env } from '@/env';
@@ -361,6 +361,28 @@ export default function Home() {
               <Link href="/setup" className="block">
                 <Button className="w-full" aria-label="設定ページへ移動" tabIndex={0}>
                   設定を開く
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 管理者のみ コンテンツ一覧導線 */}
+        {isLoggedIn && isAdmin &&  (
+          <Card className="w-full max-w-md mb-6">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
+                <List className="h-5 w-5" />
+                コンテンツ一覧
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600 text-center mb-4">
+                WordPressの投稿とメタ情報を一覧表示します（今後GSC指標を合流）
+              </p>
+              <Link href="/analytics" className="block">
+                <Button className="w-full" aria-label="コンテンツ一覧へ移動" tabIndex={0}>
+                  一覧を開く
                 </Button>
               </Link>
             </CardContent>
