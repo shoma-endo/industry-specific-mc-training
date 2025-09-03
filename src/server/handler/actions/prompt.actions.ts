@@ -5,37 +5,45 @@ import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { PromptService } from '@/services/promptService';
 import { PromptChunkService } from '@/server/services/promptChunkService';
-import { canUseServices } from '@/lib/auth-utils';
-import { 
-  CreatePromptTemplateInput, 
-  UpdatePromptTemplateInput, 
+import { canUseServices } from '@/auth-utils';
+import {
+  CreatePromptTemplateInput,
+  UpdatePromptTemplateInput,
   PromptTemplate,
-  PromptTemplateWithVersions
+  PromptTemplateWithVersions,
 } from '@/types/prompt';
 
 const promptVariableSchema = z.object({
   name: z.string().min(1, '変数名は必須です'),
-  description: z.string().min(1, '変数説明は必須です')
+  description: z.string().min(1, '変数説明は必須です'),
 });
 
 const promptSchema = z.object({
-  name: z.string().min(1, 'プロンプト名は必須です').max(255, 'プロンプト名は255文字以内で入力してください'),
-  display_name: z.string().min(1, '表示名は必須です').max(255, '表示名は255文字以内で入力してください'),
+  name: z
+    .string()
+    .min(1, 'プロンプト名は必須です')
+    .max(255, 'プロンプト名は255文字以内で入力してください'),
+  display_name: z
+    .string()
+    .min(1, '表示名は必須です')
+    .max(255, '表示名は255文字以内で入力してください'),
   content: z.string().min(1, 'プロンプト内容は必須です'),
   variables: z.array(promptVariableSchema).default([]),
-  is_active: z.boolean().default(true)
+  is_active: z.boolean().default(true),
 });
 
 type PromptActionResponse<T = unknown> = T extends void
   ? { success: true; error?: undefined } | { success: false; error: string }
-  : { success: true; data: T; error?: undefined } | { success: false; data?: undefined; error: string };
+  :
+      | { success: true; data: T; error?: undefined }
+      | { success: false; data?: undefined; error: string };
 
 /**
  * 管理者権限をチェックするヘルパー関数
  */
 async function checkAdminPermission(liffAccessToken: string) {
   const auth = await authMiddleware(liffAccessToken);
-  
+
   if (auth.error) {
     return { success: false, error: auth.error || '認証エラーが発生しました' };
   }
@@ -80,7 +88,7 @@ export async function createPromptTemplate(
 
     // データ検証
     const validatedData = promptSchema.parse(data);
-    
+
     // 重複チェック
     const existingTemplate = await PromptService.getTemplateByName(validatedData.name);
     if (existingTemplate) {
@@ -90,7 +98,7 @@ export async function createPromptTemplate(
     // テンプレート作成
     const createInput: CreatePromptTemplateInput = {
       ...validatedData,
-      created_by: adminCheck.userId!
+      created_by: adminCheck.userId!,
     };
 
     const result = await PromptService.createTemplate(createInput);
@@ -108,14 +116,14 @@ export async function createPromptTemplate(
 
     // キャッシュ無効化
     revalidatePath('/admin/prompts');
-    
+
     return { success: true, data: result };
   } catch (error) {
     console.error('プロンプト作成エラー:', error);
     if (error instanceof z.ZodError) {
-      return { 
-        success: false, 
-        error: `入力データが不正です: ${error.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `入力データが不正です: ${error.errors.map(e => e.message).join(', ')}`,
       };
     }
     return { success: false, error: 'プロンプトの作成に失敗しました' };
@@ -140,7 +148,7 @@ export async function updatePromptTemplate(
 
     // データ検証
     const validatedData = promptSchema.parse(data);
-    
+
     // 存在チェック
     const existingTemplate = await PromptService.getTemplateById(id);
     if (!existingTemplate) {
@@ -159,7 +167,7 @@ export async function updatePromptTemplate(
     const updateInput: UpdatePromptTemplateInput = {
       ...validatedData,
       updated_by: adminCheck.userId!,
-      change_summary: changeSummary || undefined
+      change_summary: changeSummary || undefined,
     };
 
     const result = await PromptService.updateTemplate(id, updateInput);
@@ -177,18 +185,18 @@ export async function updatePromptTemplate(
 
     // 全プロンプトキャッシュを無効化（即座反映）
     await PromptService.invalidateAllCaches();
-    
+
     // 画面を再検証
     revalidatePath('/admin/prompts');
     revalidatePath(`/admin/prompts/${id}`);
-    
+
     return { success: true, data: result };
   } catch (error) {
     console.error('プロンプト更新エラー:', error);
     if (error instanceof z.ZodError) {
-      return { 
-        success: false, 
-        error: `入力データが不正です: ${error.errors.map(e => e.message).join(', ')}` 
+      return {
+        success: false,
+        error: `入力データが不正です: ${error.errors.map(e => e.message).join(', ')}`,
       };
     }
     return { success: false, error: 'プロンプトの更新に失敗しました' };
@@ -268,7 +276,7 @@ export async function deletePromptTemplate(
     // キャッシュ無効化
     await PromptService.invalidateAllCaches();
     revalidatePath('/admin/prompts');
-    
+
     return { success: true };
   } catch (error) {
     console.error('プロンプト削除エラー:', error);
@@ -292,7 +300,7 @@ export async function validatePromptTemplate(
 
     // データ検証
     const validatedData = promptSchema.parse(data);
-    
+
     // 仮のプロンプトテンプレートオブジェクトを作成して検証
     const tempTemplate: PromptTemplate = {
       id: 'temp',
@@ -304,21 +312,21 @@ export async function validatePromptTemplate(
       is_active: validatedData.is_active,
       created_by: adminCheck.userId!,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
 
     const validation = PromptService.validateTemplate(tempTemplate);
-    
+
     return { success: true, data: validation };
   } catch (error) {
     console.error('プロンプト検証エラー:', error);
     if (error instanceof z.ZodError) {
-      return { 
-        success: true, 
-        data: { 
-          isValid: false, 
-          errors: error.errors.map(e => e.message) 
-        }
+      return {
+        success: true,
+        data: {
+          isValid: false,
+          errors: error.errors.map(e => e.message),
+        },
       };
     }
     return { success: false, error: 'プロンプトの検証に失敗しました' };
@@ -349,7 +357,7 @@ export async function togglePromptTemplateStatus(
     const updateInput: UpdatePromptTemplateInput = {
       is_active: !existingTemplate.is_active,
       updated_by: adminCheck.userId!,
-      change_summary: existingTemplate.is_active ? '非アクティブ化' : 'アクティブ化'
+      change_summary: existingTemplate.is_active ? '非アクティブ化' : 'アクティブ化',
     };
 
     const result = await PromptService.updateTemplate(id, updateInput);
@@ -358,7 +366,7 @@ export async function togglePromptTemplateStatus(
     await PromptService.invalidateAllCaches();
     revalidatePath('/admin/prompts');
     revalidatePath(`/admin/prompts/${id}`);
-    
+
     return { success: true, data: result };
   } catch (error) {
     console.error('プロンプトステータス切り替えエラー:', error);

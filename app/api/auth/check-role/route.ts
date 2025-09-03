@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getUserRole } from '@/lib/auth-utils';
+import { getUserRole } from '@/auth-utils';
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
     }
 
     const role = await getUserRole(lineAccessToken);
-    
+
     if (!role) {
       return NextResponse.json({ error: 'Unable to get user role' }, { status: 401 });
     }

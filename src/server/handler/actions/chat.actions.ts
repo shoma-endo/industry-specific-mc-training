@@ -4,7 +4,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
-import { canUseServices } from '@/lib/auth-utils';
+import { canUseServices } from '@/auth-utils';
 import { userService } from '@/server/services/userService';
 import { SupabaseService } from '@/server/services/supabaseService';
 import type { UserRole } from '@/types/user';

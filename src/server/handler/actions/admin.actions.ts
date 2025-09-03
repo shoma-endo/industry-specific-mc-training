@@ -3,7 +3,7 @@
 import { userService } from '@/server/services/userService';
 import { cookies } from 'next/headers';
 import { checkUserRole } from './subscription.actions';
-import { canUseServices } from '@/lib/auth-utils';
+import { canUseServices } from '@/auth-utils';
 import type { User, UserRole } from '@/types/user';
 
 export const getAllUsers = async (): Promise<{ success: boolean; users?: User[]; error?: string }> => {

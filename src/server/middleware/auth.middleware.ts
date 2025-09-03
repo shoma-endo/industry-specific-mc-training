@@ -2,7 +2,7 @@
 
 import { LineAuthService, LineTokenExpiredError } from '@/server/services/lineAuthService';
 import { userService } from '@/server/services/userService';
-import { isUnavailable } from '@/lib/auth-utils';
+import { isUnavailable } from '@/auth-utils';
 import Stripe from 'stripe';
 import { StripeService } from '@/server/services/stripeService';
 import { env } from '@/env';

@@ -5,7 +5,7 @@ import { StripeService } from '@/server/services/stripeService';
 import { LineAuthService } from '@/server/services/lineAuthService';
 import { userService } from '@/server/services/userService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { isUnavailable, canUseServices } from '@/lib/auth-utils';
+import { isUnavailable, canUseServices } from '@/auth-utils';
 
 // 遅延初期化でStripeServiceのインスタンスを取得
 const getStripeService = () => new StripeService();

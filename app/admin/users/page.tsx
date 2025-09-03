@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { getAllUsers, updateUserRole } from '@/server/handler/actions/admin.actions';
-import { getRoleDisplayName } from '@/lib/auth-utils';
+import { getRoleDisplayName } from '@/auth-utils';
 import type { User, UserRole } from '@/types/user';
 
 const formatDateTime = (timestamp: number | undefined) => {
   if (!timestamp) return '未ログイン';
-  
+
   return new Intl.DateTimeFormat('ja-JP', {
     year: 'numeric',
     month: '2-digit',
@@ -16,7 +16,7 @@ const formatDateTime = (timestamp: number | undefined) => {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    timeZone: 'Asia/Tokyo'
+    timeZone: 'Asia/Tokyo',
   }).format(new Date(timestamp));
 };
 
@@ -64,21 +64,19 @@ export default function UsersPage() {
     if (!userId || !newRole) return;
 
     setUpdatingUserId(userId);
-    
+
     try {
       const result = await updateUserRole(userId, newRole);
       if (result.success) {
         // ローカル状態を更新
-        setUsers(prevUsers => 
-          prevUsers.map(user => 
-            user.id === userId ? { ...user, role: newRole } : user
-          )
+        setUsers(prevUsers =>
+          prevUsers.map(user => (user.id === userId ? { ...user, role: newRole } : user))
         );
         setEditingUserId(null);
-        
+
         // 成功アラートを表示
         alert('ユーザー権限を更新しました');
-        
+
         // キャッシュクリア通知を送信（権限変更の即座反映のため）
         try {
           await fetch('/api/auth/clear-cache', { method: 'POST' });
@@ -172,7 +170,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((user) => (
+                  {users.map(user => (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {user.fullName || '未入力'}
@@ -191,7 +189,7 @@ export default function UsersPage() {
                           <select
                             className="border border-gray-300 rounded px-2 py-1 text-xs"
                             defaultValue={user.role}
-                            onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
+                            onChange={e => handleRoleChange(user.id, e.target.value as UserRole)}
                             disabled={updatingUserId === user.id}
                           >
                             <option value="user">一般ユーザー</option>
@@ -199,7 +197,9 @@ export default function UsersPage() {
                             <option value="unavailable">サービス利用停止</option>
                           </select>
                         ) : (
-                          <span className={`px-2 py-1 text-xs rounded-full ${getRoleColor(user.role)}`}>
+                          <span
+                            className={`px-2 py-1 text-xs rounded-full ${getRoleColor(user.role)}`}
+                          >
                             {getRoleDisplayName(user.role)}
                           </span>
                         )}

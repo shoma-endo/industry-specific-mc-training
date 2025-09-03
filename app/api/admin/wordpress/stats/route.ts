@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { getUserRole, isAdmin } from '@/lib/auth-utils';
+import { getUserRole, isAdmin } from '@/auth-utils';
 import { SupabaseService } from '@/server/services/supabaseService';
 
 type WordPressType = 'wordpress_com' | 'self_hosted';

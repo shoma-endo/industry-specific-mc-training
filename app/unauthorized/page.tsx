@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShieldX, Home } from 'lucide-react';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { getUserRole } from '@/lib/auth-utils';
+import { getUserRole } from '@/auth-utils';
 import type { UserRole } from '@/types/user';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export default async function UnauthorizedPage() {
   // 現在のユーザー情報を取得（表示用）
   let currentUserRole: UserRole | null = null;
-  
+
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('line_access_token')?.value;
@@ -40,12 +40,12 @@ export default async function UnauthorizedPage() {
             <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
               <ShieldX size={40} className="text-red-600 dark:text-red-400" aria-hidden="true" />
             </div>
-            
+
             {/* タイトル */}
             <CardTitle className="text-xl text-red-700 dark:text-red-300">
               アクセス権限がありません
             </CardTitle>
-            
+
             {/* 説明 */}
             <CardDescription className="text-base">
               このページにアクセスするには管理者権限が必要です。
@@ -56,10 +56,8 @@ export default async function UnauthorizedPage() {
             {/* 現在の権限表示 */}
             {currentUserRole && (
               <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  現在の権限:
-                </div>
-                <Badge 
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">現在の権限:</div>
+                <Badge
                   variant={currentUserRole === 'admin' ? 'default' : 'outline'}
                   className="text-sm"
                 >
