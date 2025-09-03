@@ -29,8 +29,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const page = Math.max(1, parseInt(pageParam || '1', 10));
   const perPage = 100; // 1ページ最大100件（WP RESTの上限）
 
-  const USE_SAMPLE = true;
-
   let posts: PostRow[] = [];
   let annotations: Array<{
     wp_post_id: number;
@@ -47,53 +45,24 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   let isError = false;
   let errorMessage: string | undefined = undefined;
 
-  if (USE_SAMPLE) {
-    const sampleId = 999999;
-    posts = [
-      {
-        id: sampleId,
-        date: new Date().toISOString(),
-        title: '【サンプル】クリックされやすい記事タイトルの書き方',
-        link: 'https://example.com/sample-article',
-        categoryNames: ['サンプルカテゴリ'],
-      },
-    ];
-    annotations = [
-      {
-        wp_post_id: sampleId,
-        main_kw: 'サンプル 主軸kw',
-        kw: 'サンプル キーワード',
-        impressions: '1234',
-        persona:
-          '30代後半・共働き・小学生の子ども2人\n都市近郊の持ち家・車あり\n休日は家族で外出・家計に敏感\n情報収集はスマホ、SNSと検索が中心\n仕事後の平日夜〜週末に閲覧',
-        needs:
-          'まずは全体像を短時間で把握したい（5分以内）\n価格帯とオプションの違いを具体例で知りたい\n初心者向けの失敗しない選び方がほしい\n自分のケースに合うか判断できる比較表がほしい\n問い合わせ前に不安点を解消したい',
-        goal: 'お問い合わせ送信',
-        memo: 'これは表示検証用のサンプルレコードです。',
-      },
-    ];
-    total = posts.length;
-    totalPages = 1;
-  } else {
-    const result = await getWordPressPostsForCurrentUser(page, perPage);
-    const annotationRes = await getContentAnnotationsForUser();
+  const result = await getWordPressPostsForCurrentUser(page, perPage);
+  const annotationRes = await getContentAnnotationsForUser();
 
-    isError = (result as { success?: boolean }).success === false;
-    errorMessage = (result as { error?: string }).error;
-    posts = (!isError ? result.data?.posts || [] : []) as PostRow[];
-    annotations = (annotationRes.success ? annotationRes.data : []) as Array<{
-      wp_post_id: number;
-      main_kw?: string | null;
-      kw?: string | null;
-      impressions?: string | null;
-      persona?: string | null;
-      needs?: string | null;
-      goal?: string | null;
-      memo?: string | null;
-    }>;
-    total = !isError ? result.data?.total || 0 : 0;
-    totalPages = Math.max(1, Math.ceil(total / perPage));
-  }
+  isError = (result as { success?: boolean }).success === false;
+  errorMessage = (result as { error?: string }).error;
+  posts = (!isError ? result.data?.posts || [] : []) as PostRow[];
+  annotations = (annotationRes.success ? annotationRes.data : []) as Array<{
+    wp_post_id: number;
+    main_kw?: string | null;
+    kw?: string | null;
+    impressions?: string | null;
+    persona?: string | null;
+    needs?: string | null;
+    goal?: string | null;
+    memo?: string | null;
+  }>;
+  total = !isError ? result.data?.total || 0 : 0;
+  totalPages = Math.max(1, Math.ceil(total / perPage));
 
   // 表示用: 改行保持しつつ複数行トリミング、ホバーで全文
   const TruncatedText = ({ text, lines = 2 }: { text: string; lines?: number }) => (
