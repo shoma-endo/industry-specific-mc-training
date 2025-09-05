@@ -51,78 +51,95 @@ interface WpRestPost {
   };
 }
 
-export async function getWordPressPostsForCurrentUser(page: number, perPage: number) {
-  const cookieStore = await cookies();
+// ==========================================
+// ヘルパー型
+// ==========================================
+type NormalizedPost = {
+  id: number;
+  date?: string;
+  title?: string;
+  link?: string;
+  categories?: number[];
+  categoryNames?: string[];
+  excerpt?: string;
+};
 
-  const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+type RestRequestConfig = {
+  headers: Record<string, string>;
+  candidates: string[];
+  siteUrlClean: string;
+  isSelfHosted: boolean;
+  error?: string;
+};
 
-  const authResult = await authMiddleware(liffAccessToken, refreshToken);
-  if (authResult.error || !authResult.userId) {
-    return { success: false as const, error: 'ユーザー認証に失敗しました' };
-  }
-
-  const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
-
-  if (!wpSettings) {
-    return { success: true as const, data: { posts: [], total: 0 } };
-  }
-
-  const commonHeaders: Record<string, string> = {
+// ==========================================
+// ヘルパー関数
+// ==========================================
+function buildCommonHeaders(): Record<string, string> {
+  return {
     Accept: 'application/json',
     'User-Agent': 'IndustrySpecificMC/1.0 (+app)',
   };
+}
 
-  let baseUrl: string;
-  let headers: Record<string, string>;
+async function getRestRequestConfig(
+  wpSettings: WordPressSettings,
+  getCookie: (name: string) => string | undefined,
+  page: number,
+  perPage: number
+): Promise<RestRequestConfig> {
+  const commonHeaders = buildCommonHeaders();
+  let headers: Record<string, string> = {};
+  let candidates: string[] = [];
 
   if (wpSettings.wpType === 'wordpress_com') {
-    baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${wpSettings.wpSiteId || ''}`;
+    const baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${wpSettings.wpSiteId || ''}`;
     const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
-    const accessToken = cookieStore.get(tokenCookieName)?.value || '';
+    const accessToken = getCookie(tokenCookieName) || '';
     if (!accessToken) {
-      console.error('[WP posts] Missing WordPress.com access token cookie', {
-        tokenCookieName,
-      });
       return {
-        success: false as const,
+        headers: {},
+        candidates: [],
+        siteUrlClean: '',
+        isSelfHosted: false,
         error: 'WordPress.comのアクセストークンが見つかりません（OAuth連携が必要です）',
       };
     }
     headers = { ...commonHeaders, Authorization: `Bearer ${accessToken}` };
-  } else {
-    const siteUrl = (wpSettings.wpSiteUrl || '').replace(/\/$/, '');
-    baseUrl = `${siteUrl}/wp-json/wp/v2`;
-    const username = wpSettings.wpUsername || '';
-    const appPass = wpSettings.wpApplicationPassword || '';
-    const credentials = Buffer.from(`${username}:${appPass}`).toString('base64');
-    headers = { ...commonHeaders, Authorization: `Basic ${credentials}` };
+    candidates = [
+      `${baseUrl}/posts?_embed=true&per_page=${perPage}&page=${page}`,
+      `${baseUrl}/posts?per_page=${perPage}&page=${page}`,
+    ];
+    return { headers, candidates, siteUrlClean: '', isSelfHosted: false };
   }
 
-  // フォールバック戦略（主に self_hosted 向けのWAF/制限回避）
+  // セルフホスト
   const siteUrlClean = (wpSettings.wpSiteUrl || '').replace(/\/$/, '');
-  const candidates: string[] =
-    wpSettings.wpType === 'self_hosted'
-      ? [
-          `${siteUrlClean}/wp-json/wp/v2/posts?_embed=true&per_page=${perPage}&page=${page}`,
-          `${siteUrlClean}/wp-json/wp/v2/posts?per_page=${perPage}&page=${page}`,
-          `${siteUrlClean}/index.php?rest_route=/wp/v2/posts&_embed=true&per_page=${perPage}&page=${page}`,
-          `${siteUrlClean}/index.php?rest_route=/wp/v2/posts&per_page=${perPage}&page=${page}`,
-        ]
-      : [
-          `${baseUrl}/posts?_embed=true&per_page=${perPage}&page=${page}`,
-          `${baseUrl}/posts?per_page=${perPage}&page=${page}`,
-        ];
+  const username = wpSettings.wpUsername || '';
+  const appPass = wpSettings.wpApplicationPassword || '';
+  const credentials = Buffer.from(`${username}:${appPass}`).toString('base64');
+  headers = { ...commonHeaders, Authorization: `Basic ${credentials}` };
+  candidates = [
+    `${siteUrlClean}/wp-json/wp/v2/posts?_embed=true&per_page=${perPage}&page=${page}`,
+    `${siteUrlClean}/wp-json/wp/v2/posts?per_page=${perPage}&page=${page}`,
+    `${siteUrlClean}/index.php?rest_route=/wp/v2/posts&_embed=true&per_page=${perPage}&page=${page}`,
+    `${siteUrlClean}/index.php?rest_route=/wp/v2/posts&per_page=${perPage}&page=${page}`,
+  ];
+  return { headers, candidates, siteUrlClean, isSelfHosted: true };
+}
 
+async function tryFetchCandidates(
+  candidates: string[],
+  headers: Record<string, string>
+): Promise<{ resp: Response | null; lastStatus: number; lastErrorText: string }> {
   let resp: Response | null = null;
-  let lastErrorText = '';
   let lastStatus = 0;
+  let lastErrorText = '';
   for (const url of candidates) {
     try {
       const r = await fetch(url, { headers, cache: 'no-store' });
       if (r.ok) {
         resp = r;
-        baseUrl = url; // for logging/debug
         break;
       }
       lastStatus = r.status;
@@ -137,126 +154,108 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
       console.error('[WP posts] Fetch exception candidate', { url, error: lastErrorText });
     }
   }
+  return { resp, lastStatus, lastErrorText };
+}
 
-  if (!resp) {
-    // RSS フォールバック（self_hosted のみ）
-    if (wpSettings.wpType === 'self_hosted' && siteUrlClean) {
-      const rssCandidates = [`${siteUrlClean}/feed/`, `${siteUrlClean}/?feed=rss2`];
-
-      for (const rssUrl of rssCandidates) {
-        try {
-          const rssHeaders: HeadersInit = {
-            'User-Agent': 'IndustrySpecificMC/1.0 (+app)',
-            Accept: 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
-          };
-          const rssResp = await fetch(rssUrl, { headers: rssHeaders, cache: 'no-store' });
-          if (!rssResp.ok) {
-            lastStatus = rssResp.status;
-            lastErrorText = await rssResp.text().catch(() => rssResp.statusText);
-            console.error('[WP posts] RSS fetch failed candidate', {
-              url: rssUrl,
-              status: lastStatus,
-            });
-            continue;
-          }
-          const xml = await rssResp.text();
-
-          // 簡易RSSパース（依存追加なし）
-          const items: Array<{
-            title?: string;
-            link?: string;
-            pubDate?: string;
-            description?: string;
-            categories?: string[];
-          }> = [];
-
-          const itemRegex = /<item[\s\S]*?<\/item>/g;
-          const titleRegex = /<title>([\s\S]*?)<\/title>/i;
-          const linkRegex = /<link>([\s\S]*?)<\/link>/i;
-          const pubDateRegex = /<pubDate>([\s\S]*?)<\/pubDate>/i;
-          const descRegex = /<description>([\s\S]*?)<\/description>/i;
-          const catRegex = /<category[^>]*>([\s\S]*?)<\/category>/gi;
-
-          const decodeCdata = (v: string) =>
-            v
-              .replace(/^\s*<!\[CDATA\[/, '')
-              .replace(/\]\]>\s*$/, '')
-              .trim();
-          const stripTags = (v: string) => v.replace(/<[^>]+>/g, '').trim();
-
-          const matches = xml.match(itemRegex) || [];
-          for (const raw of matches) {
-            const titleMatch = titleRegex.exec(raw)?.[1];
-            const linkMatch = linkRegex.exec(raw)?.[1];
-            const pubDateMatch = pubDateRegex.exec(raw)?.[1];
-            const descriptionMatch = descRegex.exec(raw)?.[1];
-            const cats: string[] = [];
-            let m: RegExpExecArray | null;
-            while ((m = catRegex.exec(raw)) !== null) {
-              if (m[1]) cats.push(stripTags(decodeCdata(m[1])));
-            }
-            const item: {
-              title?: string;
-              link?: string;
-              pubDate?: string;
-              description?: string;
-              categories?: string[];
-            } = {};
-            if (titleMatch) item.title = stripTags(decodeCdata(titleMatch));
-            if (linkMatch) item.link = linkMatch.trim();
-            if (pubDateMatch) item.pubDate = pubDateMatch.trim();
-            if (descriptionMatch) item.description = stripTags(decodeCdata(descriptionMatch));
-            if (cats.length > 0) item.categories = cats;
-            items.push(item);
-          }
-
-          // ページング（RSSは全件返る前提）
-          const start = (page - 1) * perPage;
-          const end = start + perPage;
-          const sliced = items.slice(start, end);
-
-          const normalizedFromRss = sliced.map((it, idx) => ({
-            id: (start + idx + 1) as number,
-            date: it.pubDate,
-            title: it.title,
-            link: it.link,
-            categories: undefined as number[] | undefined,
-            categoryNames: it.categories || [],
-            excerpt: it.description,
-          }));
-
-          return {
-            success: true as const,
-            data: { posts: normalizedFromRss, total: items.length },
-          };
-        } catch (e) {
-          lastErrorText = e instanceof Error ? e.message : 'Unknown RSS fetch error';
-          console.error('[WP posts] RSS exception candidate', {
-            url: rssUrl,
-            error: lastErrorText,
-          });
-          continue;
-        }
+async function parseRssAndNormalize(
+  siteUrlClean: string,
+  page: number,
+  perPage: number
+): Promise<{ normalized: NormalizedPost[]; total: number } | null> {
+  const rssCandidates = [`${siteUrlClean}/feed/`, `${siteUrlClean}/?feed=rss2`];
+  for (const rssUrl of rssCandidates) {
+    try {
+      const rssHeaders: HeadersInit = {
+        'User-Agent': 'IndustrySpecificMC/1.0 (+app)',
+        Accept: 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
+      };
+      const rssResp = await fetch(rssUrl, { headers: rssHeaders, cache: 'no-store' });
+      if (!rssResp.ok) {
+        const lastStatus = rssResp.status;
+        const lastErrorText = await rssResp.text().catch(() => rssResp.statusText);
+        console.error('[WP posts] RSS fetch failed candidate', {
+          url: rssUrl,
+          status: lastStatus,
+          txt: lastErrorText,
+        });
+        continue;
       }
+      const xml = await rssResp.text();
+
+      const items: Array<{
+        title?: string;
+        link?: string;
+        pubDate?: string;
+        description?: string;
+        categories?: string[];
+      }> = [];
+
+      const itemRegex = /<item[\s\S]*?<\/item>/g;
+      const titleRegex = /<title>([\s\S]*?)<\/title>/i;
+      const linkRegex = /<link>([\s\S]*?)<\/link>/i;
+      const pubDateRegex = /<pubDate>([\s\S]*?)<\/pubDate>/i;
+      const descRegex = /<description>([\s\S]*?)<\/description>/i;
+      const catRegex = /<category[^>]*>([\s\S]*?)<\/category>/gi;
+
+      const decodeCdata = (v: string) =>
+        v
+          .replace(/^\s*<!\[CDATA\[/, '')
+          .replace(/\]\]>\s*$/, '')
+          .trim();
+      const stripTags = (v: string) => v.replace(/<[^>]+>/g, '').trim();
+
+      const matches = xml.match(itemRegex) || [];
+      for (const raw of matches) {
+        const titleMatch = titleRegex.exec(raw)?.[1];
+        const linkMatch = linkRegex.exec(raw)?.[1];
+        const pubDateMatch = pubDateRegex.exec(raw)?.[1];
+        const descriptionMatch = descRegex.exec(raw)?.[1];
+        const cats: string[] = [];
+        let m: RegExpExecArray | null;
+        while ((m = catRegex.exec(raw)) !== null) {
+          if (m[1]) cats.push(stripTags(decodeCdata(m[1])));
+        }
+        const item: {
+          title?: string;
+          link?: string;
+          pubDate?: string;
+          description?: string;
+          categories?: string[];
+        } = {};
+        if (titleMatch) item.title = stripTags(decodeCdata(titleMatch));
+        if (linkMatch) item.link = linkMatch.trim();
+        if (pubDateMatch) item.pubDate = pubDateMatch.trim();
+        if (descriptionMatch) item.description = stripTags(decodeCdata(descriptionMatch));
+        if (cats.length > 0) item.categories = cats;
+        items.push(item);
+      }
+
+      const start = (page - 1) * perPage;
+      const end = start + perPage;
+      const sliced = items.slice(start, end);
+
+      const normalized = sliced.map((it, idx) => {
+        const n: NormalizedPost = { id: (start + idx + 1) as number };
+        if (it.pubDate) n.date = it.pubDate;
+        if (it.title) n.title = it.title;
+        if (it.link) n.link = it.link;
+        n.categoryNames = it.categories || [];
+        if (it.description) n.excerpt = it.description;
+        return n;
+      });
+
+      return { normalized, total: items.length };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown RSS fetch error';
+      console.error('[WP posts] RSS exception candidate', { url: rssUrl, error: msg });
+      continue;
     }
-
-    return {
-      success: false as const,
-      error: `WordPress投稿取得エラー: HTTP ${lastStatus} ${lastErrorText}`,
-    };
   }
+  return null;
+}
 
-  const postsJson: unknown = await resp.json();
-  const headerTotal = parseInt(resp.headers.get('X-WP-Total') || '0', 10);
-  const total =
-    Number.isFinite(headerTotal) && headerTotal > 0
-      ? headerTotal
-      : Array.isArray(postsJson)
-        ? (postsJson as unknown[]).length
-        : 0;
-  const posts: WpRestPost[] = Array.isArray(postsJson) ? (postsJson as WpRestPost[]) : [];
-
-  const normalized = posts.map(p => {
+function normalizeFromRest(posts: WpRestPost[]): NormalizedPost[] {
+  return posts.map(p => {
     const termsNested = p._embedded?.['wp:term'] ?? [];
     const firstTaxonomy =
       Array.isArray(termsNested) && termsNested.length > 0 ? termsNested[0] : [];
@@ -275,10 +274,97 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
       categories: p.categories,
       categoryNames,
       excerpt: renderedExcerpt,
-    };
+    } as NormalizedPost;
   });
+}
 
-  // ログは不要のため出力しない
+async function ensureContentAnnotationsForPosts(
+  userId: string,
+  posts: NormalizedPost[],
+  client: ReturnType<SupabaseService['getClient']>
+): Promise<void> {
+  const postIds = posts.map(p => Number(p.id)).filter(id => Number.isFinite(id)) as number[];
+  if (postIds.length === 0) return;
+
+  const { data: existingRows, error: existsError } = await client
+    .from('content_annotations')
+    .select('wp_post_id')
+    .eq('user_id', userId)
+    .in('wp_post_id', postIds);
+
+  if (existsError) {
+    console.error('[content_annotations] fetch existing error:', existsError);
+    return;
+  }
+
+  const existing = new Set<number>((existingRows || []).map(r => Number(r.wp_post_id)));
+  const missingIds = postIds.filter(id => !existing.has(id));
+  if (missingIds.length === 0) return;
+
+  const rows = missingIds.map(id => ({ user_id: userId, wp_post_id: id }));
+  const { error: insertError } = await client.from('content_annotations').insert(rows);
+  if (insertError) {
+    console.error('[content_annotations] insert error:', insertError);
+  }
+}
+
+export async function getWordPressPostsForCurrentUser(page: number, perPage: number) {
+  const cookieStore = await cookies();
+
+  const liffAccessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+
+  const authResult = await authMiddleware(liffAccessToken, refreshToken);
+  if (authResult.error || !authResult.userId) {
+    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+  }
+
+  const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
+
+  if (!wpSettings) {
+    return { success: true as const, data: { posts: [], total: 0 } };
+  }
+
+  const getCookie = (name: string) => cookieStore.get(name)?.value;
+  const rest = await getRestRequestConfig(wpSettings, getCookie, page, perPage);
+  if (rest.error) {
+    return { success: false as const, error: rest.error };
+  }
+
+  const { resp, lastStatus, lastErrorText } = await tryFetchCandidates(
+    rest.candidates,
+    rest.headers
+  );
+
+  if (!resp) {
+    if (rest.isSelfHosted && rest.siteUrlClean) {
+      const rss = await parseRssAndNormalize(rest.siteUrlClean, page, perPage);
+      if (rss) {
+        return { success: true as const, data: { posts: rss.normalized, total: rss.total } };
+      }
+    }
+    return {
+      success: false as const,
+      error: `WordPress投稿取得エラー: HTTP ${lastStatus} ${lastErrorText}`,
+    };
+  }
+
+  const postsJson: unknown = await resp.json();
+  const headerTotal = parseInt(resp.headers.get('X-WP-Total') || '0', 10);
+  const total =
+    Number.isFinite(headerTotal) && headerTotal > 0
+      ? headerTotal
+      : Array.isArray(postsJson)
+        ? (postsJson as unknown[]).length
+        : 0;
+  const posts: WpRestPost[] = Array.isArray(postsJson) ? (postsJson as WpRestPost[]) : [];
+  const normalized = normalizeFromRest(posts);
+
+  await ensureContentAnnotationsForPosts(
+    authResult.userId,
+    normalized,
+    supabaseService.getClient()
+  );
 
   return { success: true as const, data: { posts: normalized, total } };
 }
