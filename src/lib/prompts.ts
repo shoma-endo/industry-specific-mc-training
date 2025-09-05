@@ -276,6 +276,8 @@ import { cache } from 'react';
 import { getBrief } from '@/server/handler/actions/brief.actions';
 import type { BriefInput } from '@/server/handler/actions/brief.schema';
 import { PromptService } from '@/services/promptService';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { PromptService as PromptDBService } from '@/services/promptService';
 
 /**
  * 事業者情報取得のキャッシュ化
@@ -290,6 +292,16 @@ export const getCachedBrief = cache(async (liffAccessToken: string): Promise<Bri
     return null;
   }
 });
+
+function appendInternalLinksInstruction(basePrompt: string, canonicalUrls: string[]): string {
+  const instruction = '\n\n- 関連例のある記事は内部リンクで紹介してください。';
+  if (!canonicalUrls || canonicalUrls.length === 0) {
+    return basePrompt + instruction;
+  }
+  const list = canonicalUrls.map(u => `- ${u}`).join('\n');
+  const section = `\n\n## 関連内部リンク候補\n${list}`;
+  return basePrompt + section + instruction;
+}
 
 /**
  * テンプレート変数置換関数
@@ -760,26 +772,58 @@ export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Prom
  */
 export async function getSystemPrompt(model: string, liffAccessToken?: string): Promise<string> {
   if (liffAccessToken) {
-    switch (model) {
-      case 'ad_copy_creation':
-        return await generateAdCopyPrompt(liffAccessToken);
-      case 'ad_copy_finishing':
-        return await generateAdCopyFinishingPrompt(liffAccessToken);
-      case 'lp_draft_creation':
-        return await generateLpDraftPrompt(liffAccessToken);
-      default: {
-        const STATIC_PROMPTS: Record<string, string> = {
-          'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-          rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,
-          ad_copy_creation: AD_COPY_PROMPT,
-          ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
-          lp_draft_creation: LP_DRAFT_PROMPT,
-        };
-        return STATIC_PROMPTS[model] ?? SYSTEM_PROMPT;
+    // 1) DB優先の汎用解決（テンプレ取得と変数置換のみ）
+    let base: string | undefined;
+    try {
+      const template = await PromptService.getTemplateByName(model);
+      if (template) {
+        const businessInfo = await getCachedBrief(liffAccessToken);
+        base = replaceTemplateVariables(template.content, businessInfo);
+      }
+    } catch (error) {
+      console.error(`DB プロンプトテンプレート取得エラー (${model}):`, error);
+      // フォールバックへ
+    }
+
+    // 2) 既存の個別分岐（後方互換）でベースを解決
+    if (base === undefined) {
+      switch (model) {
+        case 'ad_copy_creation':
+          base = await generateAdCopyPrompt(liffAccessToken);
+          break;
+        case 'ad_copy_finishing':
+          base = await generateAdCopyFinishingPrompt(liffAccessToken);
+          break;
+        case 'lp_draft_creation':
+          base = await generateLpDraftPrompt(liffAccessToken);
+          break;
+        default: {
+          const STATIC_PROMPTS: Record<string, string> = {
+            'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
+            rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,
+            ad_copy_creation: AD_COPY_PROMPT,
+            ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
+            lp_draft_creation: LP_DRAFT_PROMPT,
+          };
+          base = STATIC_PROMPTS[model] ?? SYSTEM_PROMPT;
+        }
       }
     }
+
+    // 3) モデル別の後処理（ここでのみ blog_creation を扱う）
+    if (model === 'blog_creation') {
+      const auth = await authMiddleware(liffAccessToken);
+      const canonicalUrls =
+        auth.error || !auth.userId
+          ? []
+          : await PromptDBService.getCanonicalUrlsByUserId(auth.userId);
+      return appendInternalLinksInstruction(base, canonicalUrls);
+    }
+
+    return base;
   }
 
+  // liffAccessToken が無い場合は静的
   const STATIC_PROMPTS: Record<string, string> = {
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
     rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,

@@ -22,6 +22,35 @@ export class PromptService extends SupabaseService {
     // 管理者機能ではサービスロールクライアントを使用
     this.serviceRoleSupabase = SupabaseClientManager.getInstance().getServiceRoleClient();
   }
+
+  /**
+   * 指定ユーザーの canonical_url 一覧を取得（重複排除・更新日時降順）
+   */
+  static async getCanonicalUrlsByUserId(userId: string): Promise<string[]> {
+    try {
+      const service = new PromptService();
+      const { data, error } = await service.serviceRoleSupabase
+        .from('content_annotations')
+        .select('canonical_url')
+        .eq('user_id', userId)
+        .not('canonical_url', 'is', null)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('canonical_url 取得エラー:', error);
+        return [];
+      }
+
+      const urls = (data || [])
+        .map((row: { canonical_url: string | null }) => row.canonical_url || '')
+        .filter(u => typeof u === 'string' && u.trim().length > 0);
+
+      return Array.from(new Set(urls));
+    } catch (error) {
+      console.error('canonical_url 取得処理エラー:', error);
+      return [];
+    }
+  }
   /**
    * プロンプトテンプレートを名前で取得（キャッシュ付き）
    */

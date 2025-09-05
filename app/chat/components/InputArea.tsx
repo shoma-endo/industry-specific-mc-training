@@ -27,6 +27,7 @@ const AVAILABLE_MODELS = {
   ad_copy_finishing: '広告文仕上げ',
   lp_draft_creation: 'LPドラフト作成',
   lp_improvement: 'LP改善',
+  blog_creation: 'ブログ作成',
 };
 
 interface InputAreaProps {
