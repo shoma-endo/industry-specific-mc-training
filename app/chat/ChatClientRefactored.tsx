@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useLiffContext } from '@/components/LiffProvider';
-import { createChatService, createSubscriptionService } from '@/di/container';
+import { ChatService } from '@/domain/services/ChatService';
+import { SubscriptionService } from '@/domain/services/SubscriptionService';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { useMobile } from '@/hooks/useMobile';
@@ -25,8 +26,8 @@ const ChatClient: React.FC = () => {
 
   // ✅ 必要なサービスのみ作成
   const { chatService, subscriptionService } = React.useMemo(() => {
-    const chat = createChatService();
-    const subscription = createSubscriptionService();
+    const chat = new ChatService();
+    const subscription = new SubscriptionService();
 
     return {
       chatService: chat,

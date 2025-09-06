@@ -807,7 +807,6 @@ export async function getSystemPrompt(model: string, liffAccessToken?: string): 
       default: {
         const STATIC_PROMPTS: Record<string, string> = {
           'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-          rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,
           ad_copy_creation: AD_COPY_PROMPT,
           ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
           lp_draft_creation: LP_DRAFT_PROMPT,
@@ -820,7 +819,6 @@ export async function getSystemPrompt(model: string, liffAccessToken?: string): 
   // liffAccessToken が無い場合は静的
   const STATIC_PROMPTS: Record<string, string> = {
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-    rag_keyword_classifier: KEYWORD_CATEGORIZATION_PROMPT,
     ad_copy_creation: AD_COPY_PROMPT,
     ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
     lp_draft_creation: LP_DRAFT_PROMPT,
