@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
 import { getPromptTemplates, updatePromptTemplate } from '@/server/handler/actions/prompt.actions';
 import { useLiffContext } from '@/components/ClientLiffProvider';
-import { getPromptDescription } from '@/lib/prompt-descriptions';
+import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
 
 export default function PromptsPage() {
   const { getAccessToken } = useLiffContext();
@@ -201,9 +201,6 @@ export default function PromptsPage() {
                   <strong>説明:</strong> {promptDescription.description}
                 </p>
                 <p>
-                  <strong>使用場面:</strong> {promptDescription.usage}
-                </p>
-                <p>
                   <strong>変数情報:</strong> {promptDescription.variables}
                 </p>
               </div>
@@ -250,21 +247,36 @@ export default function PromptsPage() {
             </div>
 
             {/* 変数一覧 */}
-            {selectedTemplate.variables && selectedTemplate.variables.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-3">使用可能な変数</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {selectedTemplate.variables.map((variable, index) => (
-                    <div key={index} className="p-3 bg-gray-50 rounded-md">
-                      <div className="font-mono text-sm text-blue-600">
-                        {`{{${variable.name}}}`}
+            {(() => {
+              const baseVariables = selectedTemplate.variables || [];
+              const needsCanonical =
+                selectedTemplate.name === 'blog_creation' &&
+                !baseVariables.some(v => v.name === 'canonicalUrls');
+              const displayedVariables = needsCanonical
+                ? [
+                    ...baseVariables,
+                    {
+                      name: 'canonicalUrls',
+                      description: getVariableDescription('canonicalUrls'),
+                    },
+                  ]
+                : baseVariables;
+              return displayedVariables.length > 0 ? (
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">使用可能な変数</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {displayedVariables.map((variable, index) => (
+                      <div key={index} className="p-3 bg-gray-50 rounded-md">
+                        <div className="font-mono text-sm text-blue-600">
+                          {`{{${variable.name}}}`}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">{variable.description}</div>
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">{variable.description}</div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : null;
+            })()}
           </CardContent>
         </Card>
       )}
