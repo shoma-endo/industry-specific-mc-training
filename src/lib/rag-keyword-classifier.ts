@@ -1,20 +1,101 @@
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import crypto from 'crypto';
-import type {
-  ClassifyKeywordsResponse,
-  ClassificationOptions,
-  KeywordResult,
-  Evidence,
-  SearchResultByKeyword,
-  HybridSearchResult,
-} from '@/types/rag';
-import {
-  RAGClassificationError,
-  EmbeddingGenerationError,
-  DatabaseError,
-  ClassificationError,
-} from '@/types/rag';
+
+// === 内製化した型・エラー定義（@/types/rag を削除したため） ===
+interface ClassificationOptions {
+  includeEvidence?: boolean;
+  confidenceThreshold?: number;
+  includeDiversity?: boolean;
+  userContext?: {
+    preferred_region?: string;
+    service_type?: string;
+    user_type?: string;
+  };
+}
+
+interface HybridSearchResult {
+  keyword: string;
+  classification: 'immediate' | 'later';
+  combined_score: number;
+}
+
+interface SearchResultByKeyword {
+  keyword: string;
+  similarExamples: HybridSearchResult[];
+}
+
+interface KeywordResult {
+  keyword: string;
+  classification: 'immediate' | 'later' | 'unclassified';
+  confidence: number;
+  similarKeywords?: string[];
+}
+
+interface EvidenceItem {
+  keyword: string;
+  classification: string;
+  similarity: number;
+}
+
+interface Evidence {
+  keyword: string;
+  similarExamples: EvidenceItem[];
+}
+
+interface ClassifyKeywordsResponse {
+  results: {
+    immediate_customer: KeywordResult[];
+    later_customer: KeywordResult[];
+    unclassified: KeywordResult[];
+  };
+  evidence?: Evidence[];
+  metadata: {
+    totalProcessed: number;
+    processingTime: number;
+    confidence: number;
+    performance?:
+      | {
+          totalRequests: number;
+          embeddingApiCalls: number;
+          cacheHitRate: number;
+          averageResponseTime: number;
+          errorRate: number;
+          uptimeMs: number;
+          cacheSize: number;
+        }
+      | undefined;
+  };
+}
+
+class RAGClassificationError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public details?: unknown
+  ) {
+    super(message);
+    this.name = 'RAGClassificationError';
+  }
+}
+
+class EmbeddingGenerationError extends RAGClassificationError {
+  constructor(message: string, details?: unknown) {
+    super(message, 'EMBEDDING_ERROR', details);
+  }
+}
+
+class DatabaseError extends RAGClassificationError {
+  constructor(message: string, details?: unknown) {
+    super(message, 'DATABASE_ERROR', details);
+  }
+}
+
+class ClassificationError extends RAGClassificationError {
+  constructor(message: string, details?: unknown) {
+    super(message, 'CLASSIFICATION_ERROR', details);
+  }
+}
 
 /**
  * RAGベースキーワード分類システム

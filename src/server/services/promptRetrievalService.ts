@@ -4,7 +4,6 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { env } from '@/env';
 import { OpenAIReranker } from '@/lib/reranker'; // リランカーをインポート
-import { QueryExpansionService } from './queryExpansionService';
 import { cache } from 'react';
 
 const openaiProvider = createOpenAI({
@@ -85,79 +84,6 @@ export class PromptRetrievalService {
         return chunks.map(chunk => chunk.chunk_text);
       }
       return [];
-    }
-  }
-
-  /**
-   * マルチクエリ検索対応版のチャンク取得
-   */
-  static async getChunksWithMultiQuery(
-    templateName: string,
-    queryText: string,
-    limit: number = 8
-  ): Promise<string[]> {
-    try {
-      // 初期取得数を最適化（50 → 20に削減）
-      const initialRetrieveCount = Math.max(20, limit * 2);
-
-      // テンプレートIDを取得
-      const template = await PromptService.getTemplateByName(templateName);
-      if (!template) {
-        console.warn(`テンプレート '${templateName}' が見つかりません`);
-        return [];
-      }
-
-      // 1. 関連クエリを生成
-      const expandedQueries = await QueryExpansionService.generateRelatedQueries(queryText, 2);
-
-      // 2. 検索関数を定義（template対応ハイブリッド検索）
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const searchFunction = async (searchQuery: string, _embedding: number[]) => {
-        // template対応ハイブリッド検索を直接使用（post-filter不要）
-        return await PromptChunkService.searchSimilarChunks(
-          template.id,
-          searchQuery,
-          initialRetrieveCount,
-          true // ハイブリッド検索を有効化
-        );
-      };
-
-      // 3. マルチクエリ検索を実行
-      const chunks = await QueryExpansionService.performMultiQuerySearch(
-        queryText,
-        expandedQueries,
-        searchFunction
-      );
-
-      const chunkTexts = chunks.map(chunk => chunk.content);
-      if (chunkTexts.length === 0) {
-        return [];
-      }
-
-      // 4. リランキング処理を条件付きで実行（軽量化）
-      if (chunkTexts.length <= limit) {
-        // 取得チャンク数が必要数以下の場合はリランキングをスキップ
-        console.log(`[MultiQuery Reranker Skip] チャンク数${chunkTexts.length}件、リランキングをスキップします`);
-        return chunkTexts;
-      }
-
-      // 5. OpenAIRerankerで再ランキング（必要な場合のみ）
-      const reranker = new OpenAIReranker();
-      console.log(`[MultiQuery Reranker] ${chunkTexts.length}件のチャンクをリランキングします...`);
-      const rerankedResults = await reranker.rerank(queryText, chunkTexts, {
-        topK: limit,
-      });
-
-      console.log(
-        '[MultiQuery Reranker] リランキング後のスコア:',
-        rerankedResults.map(r => r.score)
-      );
-
-      return rerankedResults.map(result => result.document);
-    } catch (error) {
-      console.error('マルチクエリ検索エラー:', error);
-      // フォールバック：通常の検索
-      return await this.getChunks(templateName, queryText, limit);
     }
   }
 
