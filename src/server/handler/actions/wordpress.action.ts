@@ -46,6 +46,9 @@ interface WpRestPost {
   link?: string;
   categories?: number[];
   excerpt?: WpPostExcerpt;
+  yoast_head_json?: {
+    canonical?: string;
+  };
   _embedded?: {
     'wp:term'?: Array<Array<WpRestTerm>>;
   };
@@ -59,6 +62,7 @@ type NormalizedPost = {
   date?: string;
   title?: string;
   link?: string;
+  canonical_url?: string;
   categories?: number[];
   categoryNames?: string[];
   excerpt?: string;
@@ -238,7 +242,10 @@ async function parseRssAndNormalize(
         const n: NormalizedPost = { id: (start + idx + 1) as number };
         if (it.pubDate) n.date = it.pubDate;
         if (it.title) n.title = it.title;
-        if (it.link) n.link = it.link;
+        if (it.link) {
+          n.link = it.link;
+          n.canonical_url = it.link;
+        }
         n.categoryNames = it.categories || [];
         if (it.description) n.excerpt = it.description;
         return n;
@@ -266,11 +273,13 @@ function normalizeFromRest(posts: WpRestPost[]): NormalizedPost[] {
     const renderedTitle = typeof p.title === 'string' ? p.title : p.title?.rendered;
     const renderedExcerpt = typeof p.excerpt === 'string' ? p.excerpt : p.excerpt?.rendered;
 
+    const canonicalFromYoast = p.yoast_head_json?.canonical;
     return {
       id: (p.id ?? p.ID) as number,
       date: p.date ?? p.modified,
       title: renderedTitle,
       link: p.link,
+      canonical_url: canonicalFromYoast ?? p.link,
       categories: p.categories,
       categoryNames,
       excerpt: renderedExcerpt,
@@ -301,7 +310,19 @@ async function ensureContentAnnotationsForPosts(
   const missingIds = postIds.filter(id => !existing.has(id));
   if (missingIds.length === 0) return;
 
-  const rows = missingIds.map(id => ({ user_id: userId, wp_post_id: id }));
+  const idToCanonical = new Map<number, string | null>();
+  for (const p of posts) {
+    const idNum = Number(p.id);
+    if (!Number.isFinite(idNum)) continue;
+    const canonical = p.canonical_url ?? p.link ?? null;
+    idToCanonical.set(idNum, canonical ?? null);
+  }
+
+  const rows = missingIds.map(id => ({
+    user_id: userId,
+    wp_post_id: id,
+    canonical_url: idToCanonical.get(id) ?? null,
+  }));
   const { error: insertError } = await client.from('content_annotations').insert(rows);
   if (insertError) {
     console.error('[content_annotations] insert error:', insertError);
