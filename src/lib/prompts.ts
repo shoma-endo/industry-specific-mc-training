@@ -756,7 +756,7 @@ export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Prom
 
 /**
  * ブログ作成用プロンプト生成（キャッシュ付き）
- * DBテンプレート + 事業者情報 + canonicalUrls 変数埋め込み
+ * DBテンプレート + canonicalUrls 変数埋め込み
  */
 export const generateBlogCreationPrompt = cache(
   async (liffAccessToken: string): Promise<string> => {
