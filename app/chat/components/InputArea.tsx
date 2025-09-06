@@ -30,6 +30,16 @@ const AVAILABLE_MODELS = {
   blog_creation: 'ブログ作成',
 };
 
+// モデルごとのプレースホルダー文言
+const MODEL_PLACEHOLDERS: Record<string, string> = {
+  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': 'SEOキーワードを改行区切りで入力してください',
+  ad_copy_creation: '競合の広告文を入力してください',
+  ad_copy_finishing: '広告文の改善・修正指示などを入力してください',
+  lp_draft_creation: '広告見出しと説明文を入力してください',
+  lp_improvement: 'LPの改善・修正指示などを入力してください',
+  blog_creation: 'SEOキーワードを改行区切りで入力してください',
+};
+
 interface InputAreaProps {
   onSendMessage: (content: string, model: string) => Promise<void>;
   onToggleCanvas: () => void;
@@ -160,7 +170,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                 <RichEditor
                   value={input}
                   onChange={setInput}
-                  placeholder="メッセージを入力..."
+                  placeholder={MODEL_PLACEHOLDERS[selectedModel] ?? 'メッセージを入力...'}
                   disabled={disabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
@@ -173,7 +183,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}
-                  placeholder="メッセージを入力..."
+                  placeholder={MODEL_PLACEHOLDERS[selectedModel] ?? 'メッセージを入力...'}
                   disabled={disabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
