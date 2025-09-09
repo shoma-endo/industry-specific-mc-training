@@ -15,6 +15,13 @@ import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { FEATURE_FLAGS } from '@/lib/constants';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  BLOG_HINTS_DETAIL,
+  BLOG_HINTS_SHORT,
+  BLOG_PLACEHOLDERS,
+  BLOG_STEP_IDS,
+  BLOG_STEP_LABELS,
+} from '@/lib/constants';
 
 const RichEditor = dynamic(() => import('../components/RichEditor'), {
   ssr: false,
@@ -38,7 +45,7 @@ const MODEL_HINTS_SHORT: Record<string, string> = {
   ad_copy_finishing: '変数: 事業者情報',
   lp_draft_creation: '変数: 事業者情報',
   lp_improvement: '変数: 事業者情報',
-  blog_creation: '変数: コンテンツURL一覧',
+  ...BLOG_HINTS_SHORT,
 };
 
 // モデルごとの詳細ツールチップ
@@ -53,8 +60,7 @@ const MODEL_HINTS_DETAIL: Record<string, string> = {
     '登録済みの事業者情報（プロフィール/5W2H/ペルソナ など）をプロンプト変数として使用します。',
   lp_improvement:
     '登録済みの事業者情報（プロフィール/5W2H/ペルソナ など）をプロンプト変数として使用します。',
-  blog_creation:
-    'コンテンツURLの一覧をプロンプト変数として使用します。関連例の内部リンク候補に活用されます。',
+  ...BLOG_HINTS_DETAIL,
 };
 
 // モデルごとのプレースホルダー文言
@@ -64,7 +70,7 @@ const MODEL_PLACEHOLDERS: Record<string, string> = {
   ad_copy_finishing: '広告文の改善・修正指示などを入力してください',
   lp_draft_creation: '広告見出しと説明文を入力してください',
   lp_improvement: 'LPの改善・修正指示などを入力してください',
-  blog_creation: 'SEOキーワードを改行区切りで入力してください',
+  ...BLOG_PLACEHOLDERS,
 };
 
 interface InputAreaProps {
@@ -90,8 +96,15 @@ const InputArea: React.FC<InputAreaProps> = ({
   const [selectedModel, setSelectedModel] = useState<string>(
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
   );
+  const [selectedBlogStep, setSelectedBlogStep] = useState<
+    'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7' | 'step8'
+  >('step1');
   const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // UI表示用のモデルキー（ブログ作成時はステップを反映）
+  const displayModelKey =
+    selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
 
   // モバイル画面の検出（propsから渡された値を優先、フォールバックで独自検出）
   useEffect(() => {
@@ -142,6 +155,8 @@ const InputArea: React.FC<InputAreaProps> = ({
     if (!input.trim() || disabled) return;
 
     const originalMessage = input.trim();
+    const effectiveModel =
+      selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
 
     setInput('');
 
@@ -150,7 +165,7 @@ const InputArea: React.FC<InputAreaProps> = ({
       await onToggleCanvas();
     }
 
-    await onSendMessage(originalMessage, selectedModel);
+    await onSendMessage(originalMessage, effectiveModel);
   };
 
   return (
@@ -185,9 +200,39 @@ const InputArea: React.FC<InputAreaProps> = ({
               </SelectContent>
             </Select>
 
+            {selectedModel === 'blog_creation' && (
+              <Select
+                value={selectedBlogStep}
+                onValueChange={v =>
+                  setSelectedBlogStep(
+                    v as
+                      | 'step1'
+                      | 'step2'
+                      | 'step3'
+                      | 'step4'
+                      | 'step5'
+                      | 'step6'
+                      | 'step7'
+                      | 'step8'
+                  )
+                }
+              >
+                <SelectTrigger className="w-[160px] md:w-[220px] min-w-[140px] h-9 text-xs md:text-sm border-gray-200">
+                  <SelectValue placeholder="ステップを選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BLOG_STEP_IDS.map(stepId => (
+                    <SelectItem key={stepId} value={stepId}>
+                      {BLOG_STEP_LABELS[stepId]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             {/* モデル補足（短文 + ツールチップ） */}
             <div className="hidden md:flex items-center gap-1 text-xs text-gray-500">
-              <span>{MODEL_HINTS_SHORT[selectedModel] ?? ''}</span>
+              <span>{MODEL_HINTS_SHORT[displayModelKey] ?? ''}</span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -196,7 +241,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                     </button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-[360px] text-xs leading-relaxed">
-                    <p>{MODEL_HINTS_DETAIL[selectedModel] ?? ''}</p>
+                    <p>{MODEL_HINTS_DETAIL[displayModelKey] ?? ''}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -214,7 +259,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                 <RichEditor
                   value={input}
                   onChange={setInput}
-                  placeholder={MODEL_PLACEHOLDERS[selectedModel] ?? 'メッセージを入力...'}
+                  placeholder={MODEL_PLACEHOLDERS[displayModelKey] ?? 'メッセージを入力...'}
                   disabled={disabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
@@ -227,7 +272,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}
-                  placeholder={MODEL_PLACEHOLDERS[selectedModel] ?? 'メッセージを入力...'}
+                  placeholder={MODEL_PLACEHOLDERS[displayModelKey] ?? 'メッセージを入力...'}
                   disabled={disabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',

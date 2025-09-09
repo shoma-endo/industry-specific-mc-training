@@ -70,4 +70,155 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     seed: 42,
     top_p: 0.1,
   },
+  blog_creation_step1: {
+    provider: 'anthropic',
+    maxTokens: 5000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.1,
+  },
+  blog_creation_step2: {
+    provider: 'anthropic',
+    maxTokens: 5000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.1,
+  },
+  blog_creation_step3: {
+    provider: 'anthropic',
+    maxTokens: 5000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.1,
+  },
+  blog_creation_step4: {
+    provider: 'anthropic',
+    maxTokens: 5000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.1,
+  },
+  blog_creation_step5: {
+    provider: 'anthropic',
+    maxTokens: 5000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.1,
+  },
+  blog_creation_step6: {
+    provider: 'anthropic',
+    maxTokens: 5000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.1,
+  },
+  blog_creation_step7: {
+    provider: 'anthropic',
+    maxTokens: 5000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.1,
+  },
+  blog_creation_step8: {
+    provider: 'anthropic',
+    maxTokens: 15000,
+    temperature: 0.3,
+    actualModel: 'claude-sonnet-4-20250514',
+    seed: 42,
+    top_p: 0.1,
+  },
 };
+
+// =============================================================================
+// Blog Creation Steps (centralized definitions)
+// =============================================================================
+
+export type BlogStepId =
+  | 'step1'
+  | 'step2'
+  | 'step3'
+  | 'step4'
+  | 'step5'
+  | 'step6'
+  | 'step7'
+  | 'step8';
+
+export const BLOG_STEP_IDS: BlogStepId[] = [
+  'step1',
+  'step2',
+  'step3',
+  'step4',
+  'step5',
+  'step6',
+  'step7',
+  'step8',
+];
+
+export const BLOG_STEP_LABELS: Record<BlogStepId, string> = {
+  step1: '1. キーワードチェック',
+  step2: '2. 顕在ニーズ・潜在ニーズ確認',
+  step3: '3. ペルソナ・デモグラチェック',
+  step4: '4. ユーザーのゴール',
+  step5: '5. PREPチェック',
+  step6: '6. 構成案確認',
+  step7: '7. 書き出し案',
+  step8: '8. 本文作成',
+};
+
+// モデルキー解決（UI表示用/送信用ともに一貫）
+export const toBlogModelKey = (step: BlogStepId) => `blog_creation_${step}` as const;
+
+// Step8判定（canonicalUrlsの適用/表示で利用）
+export const isStep8 = (stepOrModel: string) =>
+  stepOrModel === 'step8' ||
+  stepOrModel === 'blog_creation_step8' ||
+  stepOrModel.endsWith('/step8');
+
+// UI向けヒント/詳細/プレースホルダー（集中定義）
+export const BLOG_HINTS_SHORT: Record<string, string> = {
+  blog_creation: '変数: なし（ステップ選択式）',
+  blog_creation_step1: '変数: なし（キーワードチェック）',
+  blog_creation_step2: '変数: なし（顕在/潜在ニーズ確認）',
+  blog_creation_step3: '変数: なし（ペルソナ・デモグラ）',
+  blog_creation_step4: '変数: なし（ユーザーのゴール）',
+  blog_creation_step5: '変数: なし（PREP確認）',
+  blog_creation_step6: '変数: なし（構成案確認）',
+  blog_creation_step7: '変数: なし（書き出し案）',
+  blog_creation_step8: '変数: コンテンツURL一覧（内部リンク候補）',
+};
+
+export const BLOG_HINTS_DETAIL: Record<string, string> = {
+  blog_creation: '8ステップのブログ作成フローを、セカンダリのセレクトで選択して進めます。',
+  blog_creation_step1: 'Step1: 入力キーワードをチェックします（重複・表記ゆれ・意図の近さなど）。',
+  blog_creation_step2: 'Step2: 想定読者の顕在ニーズ/潜在ニーズを確認し、訴求観点を整理します。',
+  blog_creation_step3:
+    'Step3: ペルソナ・デモグラ（属性）を確認し、文体/語彙/適切な深さを調整します。',
+  blog_creation_step4: 'Step4: 読了時に達成したいユーザーのゴールを明確化します。',
+  blog_creation_step5: 'Step5: PREP（結論→理由→具体例→結論）観点で主張の骨子を点検します。',
+  blog_creation_step6: 'Step6: 記事の見出し/章立ての構成案を確認・微調整します。',
+  blog_creation_step7: 'Step7: 導入（書き出し）案を複数パターンで検討します。',
+  blog_creation_step8:
+    'Step8: 本文を作成します。canonicalUrls（内部リンク候補）を変数で利用可能です。',
+};
+
+export const BLOG_PLACEHOLDERS: Record<string, string> = {
+  blog_creation: '実行するステップを選択してください（入力は任意）',
+  blog_creation_step1: 'SEOキーワードを改行区切りで入力してください',
+  blog_creation_step2: '顕在/潜在ニーズのメモを入力してください',
+  blog_creation_step3: '想定ペルソナ/デモグラのメモを入力してください',
+  blog_creation_step4: 'ユーザーのゴールに関するメモを入力してください',
+  blog_creation_step5: 'PREP（主張・理由・具体例・結論）の確認事項を入力してください',
+  blog_creation_step6: '見出し案や章立ての希望があれば入力してください',
+  blog_creation_step7: '導入文のトーン/要素を入力してください',
+  blog_creation_step8: '本文作成の要件/トーンを入力してください',
+};
+
+// prompts.ts 用のテンプレ名解決
+export const toTemplateName = (step: BlogStepId) => `blog_creation_${step}`;

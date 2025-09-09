@@ -43,31 +43,51 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
     );
   };
 
-  // URLを検出してリンクに変換する関数
+  // URLを検出してリンクに変換する関数（行内のURLのみをhrefに使用）
   const formatMessageContent = (content: string) => {
-    const urlPattern = /https?:\/\/[^\s\n]+/g;
+    const urlPattern = /https?:\/\/[^\s\n]+/g; // 絶対URLのみ
     const lines = content.split('\n');
     const processedContent: React.ReactNode[] = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      if (!line) {
+        if (i < lines.length - 1) processedContent.push(<br key={`br-${i}`} />);
+        continue;
+      }
 
-      if (line && urlPattern.test(line)) {
-        processedContent.push(
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      const localRegex = new RegExp(urlPattern); // 新しいRegExpでlastIndexを独立
+      localRegex.lastIndex = 0;
+
+      const segments: React.ReactNode[] = [];
+      while ((match = urlPattern.exec(line)) !== null) {
+        const start = match.index;
+        const end = start + match[0].length;
+        if (start > lastIndex) {
+          segments.push(<span key={`text-${i}-${lastIndex}`}>{line.slice(lastIndex, start)}</span>);
+        }
+        const href = match[0];
+        segments.push(
           <a
-            key={`link-${i}`}
-            href={line}
+            key={`link-${i}-${start}`}
+            href={href}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 hover:underline break-all"
           >
-            {line}
+            {href}
           </a>
         );
-      } else if (line) {
-        processedContent.push(<span key={`text-${i}`}>{line}</span>);
+        lastIndex = end;
       }
 
+      if (lastIndex < line.length) {
+        segments.push(<span key={`tail-${i}`}>{line.slice(lastIndex)}</span>);
+      }
+
+      processedContent.push(...segments);
       if (i < lines.length - 1) {
         processedContent.push(<br key={`br-${i}`} />);
       }
@@ -76,30 +96,61 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
     return processedContent;
   };
 
-  const LoadingIndicator = () => (
-    <div className="flex flex-col items-center justify-center h-full">
-      <div className="bg-white p-6 rounded-xl shadow-sm flex flex-col items-center">
-        <div className="w-10 h-10 rounded-full bg-[#06c755] flex items-center justify-center mb-4">
-          <Bot size={24} className="text-white" />
+  const Dots: React.FC<{ size?: 'sm' | 'md'; colorClass?: string }> = ({
+    size = 'md',
+    colorClass = 'bg-[#06c755]',
+  }) => {
+    const dim = size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2';
+    return (
+      <div className="flex gap-2 items-center">
+        <div
+          className={`${dim} ${colorClass} rounded-full animate-bounce`}
+          style={{ animationDelay: '0ms' }}
+        />
+        <div
+          className={`${dim} ${colorClass} rounded-full animate-bounce`}
+          style={{ animationDelay: '200ms' }}
+        />
+        <div
+          className={`${dim} ${colorClass} rounded-full animate-bounce`}
+          style={{ animationDelay: '400ms' }}
+        />
+      </div>
+    );
+  };
+
+  const ActivityIndicator: React.FC<{ variant: 'full' | 'inline'; label?: string }> = ({
+    variant,
+    label,
+  }) => {
+    if (variant === 'inline') {
+      return (
+        <div className="flex items-start gap-2 mb-3 animate-in fade-in">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
+            <Bot size={18} className="text-[#06c755]" />
+          </div>
+          <div className="bg-white text-foreground p-3 rounded-2xl border border-gray-100">
+            <div className="flex gap-2 items-center">
+              <Dots size="sm" />
+              <span className="text-sm text-gray-500">{label ?? 'メッセージを取得中です...'}</span>
+            </div>
+          </div>
         </div>
-        <h3 className="text-lg font-medium mb-3">メッセージを取得中です</h3>
-        <div className="flex gap-2 items-center">
-          <div
-            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-            style={{ animationDelay: '0ms' }}
-          />
-          <div
-            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-            style={{ animationDelay: '200ms' }}
-          />
-          <div
-            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-            style={{ animationDelay: '400ms' }}
-          />
+      );
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="bg-white p-6 rounded-xl shadow-sm flex flex-col items-center">
+          <div className="w-10 h-10 rounded-full bg-[#06c755] flex items-center justify-center mb-4">
+            <Bot size={24} className="text-white" />
+          </div>
+          <h3 className="text-lg font-medium mb-3">{label ?? 'メッセージを取得中です'}</h3>
+          <Dots size="md" />
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center h-full text-center px-4">
@@ -111,37 +162,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
     </div>
   );
 
-  const TypingIndicator = () => (
-    <div className="flex items-start gap-2 mb-3 animate-in fade-in">
-      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
-        <Bot size={18} className="text-[#06c755]" />
-      </div>
-      <div className="bg-white text-foreground p-3 rounded-2xl border border-gray-100">
-        <div className="flex gap-2 items-center">
-          <div className="flex gap-1 items-center">
-            <div
-              className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
-              style={{ animationDelay: '0ms' }}
-            />
-            <div
-              className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
-              style={{ animationDelay: '200ms' }}
-            />
-            <div
-              className="w-1.5 h-1.5 bg-[#06c755] rounded-full animate-bounce"
-              style={{ animationDelay: '400ms' }}
-            />
-          </div>
-          <span className="text-sm text-gray-500">メッセージを取得中です...</span>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex-1 overflow-y-auto p-3 bg-slate-100">
       {isLoading && messages.length === 0 ? (
-        <LoadingIndicator />
+        <ActivityIndicator variant="full" label="メッセージを取得中です" />
       ) : messages.length === 0 ? (
         <EmptyState />
       ) : (
@@ -171,33 +195,35 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
                       ? 'bg-[#06c755] text-white'
                       : 'bg-white text-gray-800 border border-gray-100',
                     // アシスタントメッセージのホバー効果
-                    message.role === 'assistant' && onEditInCanvas && [
-                      'hover:shadow-md hover:border-blue-200',
-                      hoveredMessageId === (message.id || index.toString()) && 'shadow-lg border-blue-300 ring-2 ring-blue-100'
-                    ]
+                    message.role === 'assistant' &&
+                      onEditInCanvas && [
+                        'hover:shadow-md hover:border-blue-200',
+                        hoveredMessageId === (message.id || index.toString()) &&
+                          'shadow-lg border-blue-300 ring-2 ring-blue-100',
+                      ]
                   )}
                 >
                   <div className="whitespace-pre-wrap text-sm">
                     {formatMessageContent(message.content)}
                   </div>
-                  
+
                   {/* Canvas編集ボタン - アシスタントメッセージのみに表示 */}
-                  {message.role === 'assistant' && 
-                   onEditInCanvas && 
-                   hoveredMessageId === (message.id || index.toString()) && (
-                    <div className="absolute -top-2 -right-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => onEditInCanvas(message.content)}
-                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg border border-white/20 px-3 py-1 text-xs h-8 transition-all duration-200 hover:scale-105 hover:shadow-xl backdrop-blur-sm rounded-full"
-                        title="Canvasで編集して文章を改善"
-                      >
-                        <Edit3 size={12} className="mr-1.5" />
-                        Canvas
-                      </Button>
-                    </div>
-                  )}
+                  {message.role === 'assistant' &&
+                    onEditInCanvas &&
+                    hoveredMessageId === (message.id || index.toString()) && (
+                      <div className="absolute -top-2 -right-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => onEditInCanvas(message.content)}
+                          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg border border-white/20 px-3 py-1 text-xs h-8 transition-all duration-200 hover:scale-105 hover:shadow-xl backdrop-blur-sm rounded-full"
+                          title="Canvasで編集して文章を改善"
+                        >
+                          <Edit3 size={12} className="mr-1.5" />
+                          Canvas
+                        </Button>
+                      </div>
+                    )}
                 </div>
                 {message.role === 'user' && <div className="opacity-0 w-8 h-8" />}
               </div>
@@ -217,7 +243,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
 
           <div ref={messagesEndRef} />
 
-          {isLoading && <TypingIndicator />}
+          {isLoading && <ActivityIndicator variant="inline" label="メッセージを取得中です..." />}
         </>
       )}
     </div>

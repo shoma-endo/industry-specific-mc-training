@@ -276,6 +276,7 @@ import { cache } from 'react';
 import { getBrief } from '@/server/handler/actions/brief.actions';
 import type { BriefInput } from '@/server/handler/actions/brief.schema';
 import { PromptService } from '@/services/promptService';
+import { BLOG_STEP_IDS, BlogStepId, isStep8 as isBlogStep8, toTemplateName } from '@/lib/constants';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 
 /**
@@ -786,6 +787,74 @@ export const generateBlogCreationPrompt = cache(
   }
 );
 
+export const generateBlogCreationPromptByStep = cache(
+  async (liffAccessToken: string, step: BlogStepId): Promise<string> => {
+    try {
+      const templateName = toTemplateName(step);
+      console.log('[BlogPrompt] Fetching step template', { step, templateName });
+
+      const [template, auth] = await Promise.all([
+        PromptService.getTemplateByName(templateName),
+        authMiddleware(liffAccessToken),
+      ]);
+
+      const userId = auth.error ? undefined : auth.userId;
+      const isStep8 = isBlogStep8(step);
+      const canonicalUrls =
+        isStep8 && userId ? await PromptService.getCanonicalUrlsByUserId(userId) : [];
+      if (isStep8) {
+        console.log('[BlogPrompt] Step8 canonicalUrls loaded', {
+          step,
+          templateName,
+          userIdLoaded: Boolean(userId),
+          canonicalUrlCount: canonicalUrls.length,
+        });
+      }
+      const vars: Record<string, string> = isStep8
+        ? { canonicalUrls: canonicalUrls.join('\n') }
+        : {};
+
+      if (template?.content) {
+        console.log('[BlogPrompt] Using step template from DB', {
+          step,
+          templateName,
+          withVariables: isStep8,
+          contentLength: template.content.length,
+        });
+        return isStep8 ? PromptService.replaceVariables(template.content, vars) : template.content;
+      }
+
+      // フォールバック: 共通ブログ作成テンプレート（blog_creation）を参照し、必要に応じて置換
+      const baseTemplate = await PromptService.getTemplateByName('blog_creation');
+      console.warn('[BlogPrompt] Step template not found. Falling back to base template', {
+        step,
+        templateName,
+        baseExists: Boolean(baseTemplate?.content),
+        withVariables: isStep8,
+      });
+      const base = baseTemplate?.content
+        ? isStep8
+          ? PromptService.replaceVariables(baseTemplate.content, vars)
+          : baseTemplate.content
+        : SYSTEM_PROMPT;
+      const stepInstructionMap: Record<BlogStepId, string> = {
+        step1: 'この出力では「キーワードチェック」のみを実行してください。',
+        step2: 'この出力では「顕在ニーズ・潜在ニーズ確認」のみを実行してください。',
+        step3: 'この出力では「ペルソナ・デモグラチェック」のみを実行してください。',
+        step4: 'この出力では「ユーザーのゴール」のみを実行してください。',
+        step5: 'この出力では「PREPチェック」のみを実行してください。',
+        step6: 'この出力では「構成案確認」のみを実行してください。',
+        step7: 'この出力では「書き出し案」のみを実行してください。',
+        step8: 'この出力では「本文作成」のみを実行してください。',
+      };
+      return `${base}\n\n# ステップ指示\n${stepInstructionMap[step]}`;
+    } catch (error) {
+      console.error('ブログ作成ステッププロンプト生成エラー:', error);
+      return SYSTEM_PROMPT;
+    }
+  }
+);
+
 // =============================================================================
 // 共通：モデル別システムプロンプト解決
 // =============================================================================
@@ -795,6 +864,14 @@ export const generateBlogCreationPrompt = cache(
  */
 export async function getSystemPrompt(model: string, liffAccessToken?: string): Promise<string> {
   if (liffAccessToken) {
+    if (model.startsWith('blog_creation_')) {
+      const step = model.substring('blog_creation_'.length) as BlogStepId;
+      if (!BLOG_STEP_IDS.includes(step)) {
+        console.warn('[BlogPrompt] Unknown step id, falling back to base', { model, step });
+        return await generateBlogCreationPrompt(liffAccessToken);
+      }
+      return await generateBlogCreationPromptByStep(liffAccessToken, step);
+    }
     switch (model) {
       case 'ad_copy_creation':
         return await generateAdCopyPrompt(liffAccessToken);

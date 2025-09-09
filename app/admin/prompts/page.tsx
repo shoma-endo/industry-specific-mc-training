@@ -15,6 +15,7 @@ import { PromptTemplate } from '@/types/prompt';
 import { getPromptTemplates, updatePromptTemplate } from '@/server/handler/actions/prompt.actions';
 import { useLiffContext } from '@/components/ClientLiffProvider';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
+import { isStep8 as isBlogStep8 } from '@/lib/constants';
 
 export default function PromptsPage() {
   const { getAccessToken } = useLiffContext();
@@ -147,6 +148,10 @@ export default function PromptsPage() {
   }
 
   const promptDescription = selectedTemplate ? getPromptDescription(selectedTemplate.name) : null;
+  const variablesInfoText =
+    selectedTemplate?.name && isBlogStep8(selectedTemplate.name)
+      ? getVariableDescription('canonicalUrls')
+      : null;
 
   return (
     <div className="space-y-6">
@@ -195,14 +200,18 @@ export default function PromptsPage() {
             <div className="text-xs text-gray-500 mt-1">
               最終更新: {new Date(selectedTemplate.updated_at).toLocaleString('ja-JP')}
             </div>
-            {promptDescription && (
+            {(promptDescription || variablesInfoText) && (
               <div className="text-sm text-gray-600 space-y-2">
-                <p>
-                  <strong>説明:</strong> {promptDescription.description}
-                </p>
-                <p>
-                  <strong>変数情報:</strong> {promptDescription.variables}
-                </p>
+                {promptDescription?.description && (
+                  <p>
+                    <strong>説明:</strong> {promptDescription.description}
+                  </p>
+                )}
+                {variablesInfoText && (
+                  <p>
+                    <strong>使用可能な変数:</strong> {variablesInfoText}
+                  </p>
+                )}
               </div>
             )}
           </CardHeader>
@@ -249,18 +258,23 @@ export default function PromptsPage() {
             {/* 変数一覧 */}
             {(() => {
               const baseVariables = selectedTemplate.variables || [];
+              console.log('baseVariables', baseVariables);
+              console.log('selectedTemplate.name', selectedTemplate.name);
+              const isStep8 = isBlogStep8(selectedTemplate.name);
+              const filteredBaseVariables = isStep8
+                ? baseVariables
+                : baseVariables.filter(v => v.name !== 'canonicalUrls');
               const needsCanonical =
-                selectedTemplate.name === 'blog_creation' &&
-                !baseVariables.some(v => v.name === 'canonicalUrls');
+                isStep8 && !filteredBaseVariables.some(v => v.name === 'canonicalUrls');
               const displayedVariables = needsCanonical
                 ? [
-                    ...baseVariables,
+                    ...filteredBaseVariables,
                     {
                       name: 'canonicalUrls',
                       description: getVariableDescription('canonicalUrls'),
                     },
                   ]
-                : baseVariables;
+                : filteredBaseVariables;
               return displayedVariables.length > 0 ? (
                 <div className="mt-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">使用可能な変数</h3>
