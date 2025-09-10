@@ -51,6 +51,66 @@ export class PromptService extends SupabaseService {
       return [];
     }
   }
+
+  /**
+   * ユーザー最新の content_annotations を1件取得
+   */
+  static async getLatestContentAnnotationByUserId(userId: string): Promise<{
+    canonical_url: string | null;
+    main_kw: string | null;
+    kw: string | null;
+    impressions: string | null;
+    persona: string | null;
+    needs: string | null;
+    goal: string | null;
+  } | null> {
+    try {
+      const service = new PromptService();
+      const { data, error } = await service.serviceRoleSupabase
+        .from('content_annotations')
+        .select('canonical_url, main_kw, kw, impressions, persona, needs, goal')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('content_annotations 取得エラー:', error);
+        return null;
+      }
+      return data || null;
+    } catch (error) {
+      console.error('content_annotations 取得処理エラー:', error);
+      return null;
+    }
+  }
+
+  /**
+   * content_annotations からテンプレ置換用の変数レコードを作成
+   * テンプレ側は {{contentPersona}} / {{contentNeeds}} / {{contentGoal}}
+   * {{contentMainKw}} / {{contentKw}} / {{contentImpressions}} を使用可能
+   */
+  static buildContentVariables(
+    annotation: {
+      canonical_url: string | null;
+      main_kw: string | null;
+      kw: string | null;
+      impressions: string | null;
+      persona: string | null;
+      needs: string | null;
+      goal: string | null;
+    } | null
+  ): Record<string, string> {
+    if (!annotation) return {};
+    return {
+      contentPersona: annotation.persona || '',
+      contentNeeds: annotation.needs || '',
+      contentGoal: annotation.goal || '',
+      contentMainKw: annotation.main_kw || '',
+      contentKw: annotation.kw || '',
+      contentImpressions: annotation.impressions || '',
+    };
+  }
   /**
    * プロンプトテンプレートを名前で取得（キャッシュ付き）
    */

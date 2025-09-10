@@ -97,7 +97,7 @@ const InputArea: React.FC<InputAreaProps> = ({
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
   );
   const [selectedBlogStep, setSelectedBlogStep] = useState<
-    'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7' | 'step8'
+    'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7'
   >('step1');
   const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -205,15 +205,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                 value={selectedBlogStep}
                 onValueChange={v =>
                   setSelectedBlogStep(
-                    v as
-                      | 'step1'
-                      | 'step2'
-                      | 'step3'
-                      | 'step4'
-                      | 'step5'
-                      | 'step6'
-                      | 'step7'
-                      | 'step8'
+                    v as 'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7'
                   )
                 }
               >

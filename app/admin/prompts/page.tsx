@@ -15,7 +15,6 @@ import { PromptTemplate } from '@/types/prompt';
 import { getPromptTemplates, updatePromptTemplate } from '@/server/handler/actions/prompt.actions';
 import { useLiffContext } from '@/components/ClientLiffProvider';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
-import { isStep8 as isBlogStep8 } from '@/lib/constants';
 
 export default function PromptsPage() {
   const { getAccessToken } = useLiffContext();
@@ -148,10 +147,11 @@ export default function PromptsPage() {
   }
 
   const promptDescription = selectedTemplate ? getPromptDescription(selectedTemplate.name) : null;
-  const variablesInfoText =
-    selectedTemplate?.name && isBlogStep8(selectedTemplate.name)
-      ? getVariableDescription('canonicalUrls')
-      : null;
+  const variablesInfoText = (selectedTemplate?.variables || []).some(
+    v => v.name === 'canonicalUrls'
+  )
+    ? getVariableDescription('canonicalUrls')
+    : null;
 
   return (
     <div className="space-y-6">
@@ -257,24 +257,7 @@ export default function PromptsPage() {
 
             {/* 変数一覧 */}
             {(() => {
-              const baseVariables = selectedTemplate.variables || [];
-              console.log('baseVariables', baseVariables);
-              console.log('selectedTemplate.name', selectedTemplate.name);
-              const isStep8 = isBlogStep8(selectedTemplate.name);
-              const filteredBaseVariables = isStep8
-                ? baseVariables
-                : baseVariables.filter(v => v.name !== 'canonicalUrls');
-              const needsCanonical =
-                isStep8 && !filteredBaseVariables.some(v => v.name === 'canonicalUrls');
-              const displayedVariables = needsCanonical
-                ? [
-                    ...filteredBaseVariables,
-                    {
-                      name: 'canonicalUrls',
-                      description: getVariableDescription('canonicalUrls'),
-                    },
-                  ]
-                : filteredBaseVariables;
+              const displayedVariables = selectedTemplate.variables || [];
               return displayedVariables.length > 0 ? (
                 <div className="mt-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">使用可能な変数</h3>

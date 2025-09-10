@@ -276,7 +276,7 @@ import { cache } from 'react';
 import { getBrief } from '@/server/handler/actions/brief.actions';
 import type { BriefInput } from '@/server/handler/actions/brief.schema';
 import { PromptService } from '@/services/promptService';
-import { BLOG_STEP_IDS, BlogStepId, isStep8 as isBlogStep8, toTemplateName } from '@/lib/constants';
+import { BlogStepId, isStep7 as isBlogStep7, toTemplateName } from '@/lib/constants';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 
 /**
@@ -759,93 +759,71 @@ export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Prom
  * ブログ作成用プロンプト生成（キャッシュ付き）
  * DBテンプレート + canonicalUrls 変数埋め込み
  */
-export const generateBlogCreationPrompt = cache(
-  async (liffAccessToken: string): Promise<string> => {
-    try {
-      const [template, auth] = await Promise.all([
-        PromptService.getTemplateByName('blog_creation'),
-        authMiddleware(liffAccessToken),
-      ]);
-
-      const userId = auth.error ? undefined : auth.userId;
-      const canonicalUrls = userId ? await PromptService.getCanonicalUrlsByUserId(userId) : [];
-
-      // canonicalUrls のみをテンプレ変数として埋め込み
-      const vars: Record<string, string> = {};
-      vars['canonicalUrls'] = canonicalUrls.join('\n');
-
-      if (!template?.content) {
-        // テンプレ未登録時は静的プロンプトにフォールバック
-        return SYSTEM_PROMPT;
-      }
-
-      return PromptService.replaceVariables(template.content, vars);
-    } catch (error) {
-      console.error('ブログ作成プロンプト生成エラー:', error);
-      return SYSTEM_PROMPT;
-    }
-  }
-);
-
 export const generateBlogCreationPromptByStep = cache(
   async (liffAccessToken: string, step: BlogStepId): Promise<string> => {
     try {
       const templateName = toTemplateName(step);
       console.log('[BlogPrompt] Fetching step template', { step, templateName });
 
-      const [template, auth] = await Promise.all([
+      const [template, auth, businessInfo] = await Promise.all([
         PromptService.getTemplateByName(templateName),
         authMiddleware(liffAccessToken),
+        getCachedBrief(liffAccessToken),
       ]);
 
       const userId = auth.error ? undefined : auth.userId;
-      const isStep8 = isBlogStep8(step);
+      const isStep7 = isBlogStep7(step); // 現step7を本文作成として扱う
       const canonicalUrls =
-        isStep8 && userId ? await PromptService.getCanonicalUrlsByUserId(userId) : [];
-      if (isStep8) {
-        console.log('[BlogPrompt] Step8 canonicalUrls loaded', {
+        isStep7 && userId ? await PromptService.getCanonicalUrlsByUserId(userId) : [];
+      if (isStep7) {
+        console.log('[BlogPrompt] Step7 canonicalUrls loaded', {
           step,
           templateName,
           userIdLoaded: Boolean(userId),
           canonicalUrlCount: canonicalUrls.length,
         });
       }
-      const vars: Record<string, string> = isStep8
-        ? { canonicalUrls: canonicalUrls.join('\n') }
+      // content_annotations も取得し、テンプレ変数としてマージ
+      const contentAnnotation = userId
+        ? await PromptService.getLatestContentAnnotationByUserId(userId)
+        : null;
+      const contentVars = PromptService.buildContentVariables(contentAnnotation);
+
+      // コンテンツ変数はStep7のみ適用（Step1〜6では適用しない）
+      const vars: Record<string, string> = isStep7
+        ? { ...contentVars, canonicalUrls: canonicalUrls.join('\n') }
         : {};
 
       if (template?.content) {
         console.log('[BlogPrompt] Using step template from DB', {
           step,
           templateName,
-          withVariables: isStep8,
+          withVariables: isStep7,
           contentLength: template.content.length,
         });
-        return isStep8 ? PromptService.replaceVariables(template.content, vars) : template.content;
+        // 1) 事業者情報（{{...}}）を置換 → 2) コンテンツ/Step7変数を置換
+        const afterBusiness = replaceTemplateVariables(template.content, businessInfo);
+        return PromptService.replaceVariables(afterBusiness, vars);
       }
 
-      // フォールバック: 共通ブログ作成テンプレート（blog_creation）を参照し、必要に応じて置換
-      const baseTemplate = await PromptService.getTemplateByName('blog_creation');
-      console.warn('[BlogPrompt] Step template not found. Falling back to base template', {
-        step,
-        templateName,
-        baseExists: Boolean(baseTemplate?.content),
-        withVariables: isStep8,
-      });
-      const base = baseTemplate?.content
-        ? isStep8
-          ? PromptService.replaceVariables(baseTemplate.content, vars)
-          : baseTemplate.content
-        : SYSTEM_PROMPT;
+      console.warn(
+        '[BlogPrompt] Step template not found. Using generic fallback with step instruction',
+        {
+          step,
+          templateName,
+          withVariables: isStep7,
+        }
+      );
+      const base = SYSTEM_PROMPT;
+
       const stepInstructionMap: Record<BlogStepId, string> = {
-        step1: 'この出力では「キーワードチェック」のみを実行してください。',
-        step2: 'この出力では「顕在ニーズ・潜在ニーズ確認」のみを実行してください。',
-        step3: 'この出力では「ペルソナ・デモグラチェック」のみを実行してください。',
-        step4: 'この出力では「ユーザーのゴール」のみを実行してください。',
-        step5: 'この出力では「PREPチェック」のみを実行してください。',
-        step6: 'この出力では「構成案確認」のみを実行してください。',
-        step7: 'この出力では「書き出し案」のみを実行してください。',
-        step8: 'この出力では「本文作成」のみを実行してください。',
+        step1: 'この出力では「顕在ニーズ・潜在ニーズ確認」のみを実行してください。',
+        step2: 'この出力では「ペルソナ・デモグラチェック」のみを実行してください。',
+        step3: 'この出力では「ユーザーのゴール」のみを実行してください。',
+        step4: 'この出力では「PREPチェック」のみを実行してください。',
+        step5: 'この出力では「構成案確認」のみを実行してください。',
+        step6: 'この出力では「書き出し案」のみを実行してください。',
+        step7: 'この出力では「本文作成」のみを実行してください。',
       };
       return `${base}\n\n# ステップ指示\n${stepInstructionMap[step]}`;
     } catch (error) {
@@ -866,10 +844,6 @@ export async function getSystemPrompt(model: string, liffAccessToken?: string): 
   if (liffAccessToken) {
     if (model.startsWith('blog_creation_')) {
       const step = model.substring('blog_creation_'.length) as BlogStepId;
-      if (!BLOG_STEP_IDS.includes(step)) {
-        console.warn('[BlogPrompt] Unknown step id, falling back to base', { model, step });
-        return await generateBlogCreationPrompt(liffAccessToken);
-      }
       return await generateBlogCreationPromptByStep(liffAccessToken, step);
     }
     switch (model) {
@@ -879,8 +853,6 @@ export async function getSystemPrompt(model: string, liffAccessToken?: string): 
         return await generateAdCopyFinishingPrompt(liffAccessToken);
       case 'lp_draft_creation':
         return await generateLpDraftPrompt(liffAccessToken);
-      case 'blog_creation':
-        return await generateBlogCreationPrompt(liffAccessToken);
       default: {
         const STATIC_PROMPTS: Record<string, string> = {
           'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
