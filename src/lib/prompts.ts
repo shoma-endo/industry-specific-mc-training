@@ -319,15 +319,21 @@ export function replaceTemplateVariables(
   return (
     template
       .replace(/\{\{(\w+)\}\}/g, (match, key) => {
-        const value = businessInfo[key as keyof BriefInput];
+        // 既知の事業者情報のみを置換し、未知の変数は保持して後段の置換へ委譲
+        const value = (businessInfo as unknown as Record<string, unknown>)[key];
+
+        // 未定義・null は置換せずプレースホルダを残す
+        if (value === undefined || value === null) {
+          return match;
+        }
 
         // 配列の場合は文字列に変換
         if (Array.isArray(value)) {
           return value.join('、');
         }
 
-        // 文字列の場合はそのまま、undefined/nullは空文字
-        return value || '';
+        // それ以外は文字列化して返す
+        return String(value);
       })
       // 置換後に残ったプレースホルダをログ出力
       .replace(/([\s\S]*)/, full => {
@@ -783,6 +789,25 @@ export const generateBlogCreationPromptByStep = cache(
           canonicalUrlCount: canonicalUrls.length,
         });
       }
+      // DBテンプレの変数定義と本文内のプレースホルダを可視化
+      const dbVarNames = (template?.variables || []).map(v => v.name);
+      const contentVarNames = Array.from(
+        new Set(
+          ((template?.content || '').match(/\{\{(\w+)\}\}/g) || []).map(m => m.replace(/[{}]/g, ''))
+        )
+      );
+      const varsDiff = {
+        missingInDB: contentVarNames.filter(n => !dbVarNames.includes(n)),
+        extraInDB: dbVarNames.filter(n => !contentVarNames.includes(n)),
+      };
+      console.log('[BlogPrompt][Vars] テンプレ変数確認', {
+        step,
+        templateName,
+        isStep7,
+        dbVarNames,
+        contentVarNames,
+        varsDiff,
+      });
       // content_annotations も取得し、テンプレ変数としてマージ
       const contentAnnotation = userId
         ? await PromptService.getLatestContentAnnotationByUserId(userId)
@@ -793,6 +818,14 @@ export const generateBlogCreationPromptByStep = cache(
       const vars: Record<string, string> = isStep7
         ? { ...contentVars, canonicalUrls: canonicalUrls.join('\n') }
         : {};
+      console.log('[BlogPrompt][Vars] 置換に使用する変数ソース', {
+        step,
+        isStep7,
+        applyBusinessInfo: true,
+        applyContentVars: isStep7,
+        contentVarsKeys: Object.keys(contentVars),
+        canonicalUrlCount: canonicalUrls.length,
+      });
 
       if (template?.content) {
         console.log('[BlogPrompt] Using step template from DB', {
