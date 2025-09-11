@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { PromptService } from '@/services/promptService';
+import { PromptService } from '@/server/services/promptService';
 import { PromptChunkService } from '@/server/services/promptChunkService';
 import { canUseServices } from '@/auth-utils';
 import {

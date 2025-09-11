@@ -1,5 +1,5 @@
 import { PromptChunkService } from './promptChunkService';
-import { PromptService } from '@/services/promptService';
+import { PromptService } from '@/server/services/promptService';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { env } from '@/env';
@@ -15,13 +15,11 @@ export class PromptRetrievalService {
    * キャッシュ化されたチャンク取得関数
    * 同じクエリに対しては同一リクエスト中で結果を再利用
    */
-  static getCachedChunks = cache(async (
-    templateName: string,
-    queryText: string,
-    limit: number = 6
-  ): Promise<string[]> => {
-    return this.getChunks(templateName, queryText, limit);
-  });
+  static getCachedChunks = cache(
+    async (templateName: string, queryText: string, limit: number = 6): Promise<string[]> => {
+      return this.getChunks(templateName, queryText, limit);
+    }
+  );
 
   /**
    * 指定されたプロンプトテンプレートから関連チャンクを取得（リランキング対応）
@@ -57,7 +55,9 @@ export class PromptRetrievalService {
       // 2. リランキング処理を条件付きで実行（軽量化）
       if (chunkTexts.length <= limit) {
         // 取得チャンク数が必要数以下の場合はリランキングをスキップ
-        console.log(`[Reranker Skip] チャンク数${chunkTexts.length}件、リランキングをスキップします`);
+        console.log(
+          `[Reranker Skip] チャンク数${chunkTexts.length}件、リランキングをスキップします`
+        );
         return chunkTexts;
       }
 
@@ -109,7 +109,8 @@ export class PromptRetrievalService {
           // 高速化オプション: クエリ最適化をスキップ
           if (options.skipQueryOptimization) {
             console.log('[Fast Mode] クエリ最適化をスキップ、事前定義クエリを使用');
-            retrievalQuery = 'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
+            retrievalQuery =
+              'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
           } else {
             try {
               // HTTP fetchを廃止し、ここで直接 generateText を呼び出す
@@ -133,7 +134,8 @@ export class PromptRetrievalService {
             } catch (error) {
               console.error('クエリ生成(generateText)でエラー:', error);
               // エラー時は固定文字列にフォールバック
-              retrievalQuery = 'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
+              retrievalQuery =
+                'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
             }
           }
         }
@@ -142,7 +144,8 @@ export class PromptRetrievalService {
       // クエリを組み立て（ユーザー入力 + 広告見出し + 最優先指示）
       if (templateName === 'lp_draft_creation') {
         // LP作成の場合は必ず「最優先指示」を検索クエリに含める
-        retrievalQuery += ' 最優先指示 省略・違反不可 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
+        retrievalQuery +=
+          ' 最優先指示 省略・違反不可 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
       }
 
       if (adHeadlines && adHeadlines.length > 0) {

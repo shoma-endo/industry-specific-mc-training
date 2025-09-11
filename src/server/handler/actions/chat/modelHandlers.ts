@@ -7,7 +7,7 @@ import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '../chat.actions';
 import { PromptRetrievalService } from '@/server/services/promptRetrievalService';
 import { BriefService } from '@/server/services/briefService';
-import { PromptService } from '@/services/promptService';
+import { PromptService } from '@/server/services/promptService';
 
 /**
  * モデルに応じた動的プロンプト取得（React Cache活用）

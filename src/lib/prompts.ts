@@ -275,7 +275,7 @@ kw = キーワード
 import { cache } from 'react';
 import { getBrief } from '@/server/handler/actions/brief.actions';
 import type { BriefInput } from '@/server/handler/actions/brief.schema';
-import { PromptService } from '@/services/promptService';
+import { PromptService } from '@/server/services/promptService';
 import { BlogStepId, isStep7 as isBlogStep7, toTemplateName } from '@/lib/constants';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 
