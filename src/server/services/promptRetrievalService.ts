@@ -3,7 +3,7 @@ import { PromptService } from '@/server/services/promptService';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { env } from '@/env';
-import { OpenAIReranker } from '@/lib/reranker'; // リランカーをインポート
+// リランカー（OpenAI依存）は仕様変更により削除
 import { cache } from 'react';
 
 const openaiProvider = createOpenAI({
@@ -52,29 +52,8 @@ export class PromptRetrievalService {
         return [];
       }
 
-      // 2. リランキング処理を条件付きで実行（軽量化）
-      if (chunkTexts.length <= limit) {
-        // 取得チャンク数が必要数以下の場合はリランキングをスキップ
-        console.log(
-          `[Reranker Skip] チャンク数${chunkTexts.length}件、リランキングをスキップします`
-        );
-        return chunkTexts;
-      }
-
-      // 3. OpenAIRerankerで再ランキング（必要な場合のみ）
-      const reranker = new OpenAIReranker();
-      console.log(`[Reranker] ${chunkTexts.length}件のチャンクをリランキングします...`);
-      const rerankedResults = await reranker.rerank(queryText, chunkTexts, {
-        topK: limit, // 最終的に必要な数だけ選択
-      });
-
-      console.log(
-        '[Reranker] リランキング後のスコア:',
-        rerankedResults.map(r => r.score)
-      );
-
-      // 4. スコアの高いチャンクテキストのみを抽出
-      return rerankedResults.map(result => result.document);
+      // 2. リランキング処理を廃止し、先頭から必要数のみ返す
+      return chunkTexts.slice(0, limit);
     } catch (error) {
       console.error('RAGチャンク取得・リランクエラー:', error);
       // エラー時はフォールバックとして、単純な検索結果を返す
