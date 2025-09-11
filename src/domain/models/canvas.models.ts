@@ -48,8 +48,11 @@ export const initialCanvasToolState: CanvasToolState = {
   opacity: 1.0,
 };
 
+export const generateCanvasId = (): string =>
+  `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 export const createEmptyCanvas = (): CanvasData => ({
-  id: `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  id: generateCanvasId(),
   imageData: '',
   paths: [],
   shapes: [],
@@ -67,9 +70,6 @@ export const initialCanvasState: CanvasState = {
   currentPath: null,
   selectedShape: null,
 };
-
-export const generateCanvasId = (): string => 
-  `canvas_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export const generatePathId = (): string =>
   `path_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
