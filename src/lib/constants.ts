@@ -146,9 +146,6 @@ export const BLOG_STEP_LABELS: Record<BlogStepId, string> = {
   step7: '7. 本文作成',
 };
 
-// モデルキー解決（UI表示用/送信用ともに一貫）
-export const toBlogModelKey = (step: BlogStepId) => `blog_creation_${step}` as const;
-
 // Step7判定（canonicalUrlsの適用/表示で利用）
 export const isStep7 = (stepOrModel: string) =>
   stepOrModel === 'step7' ||
