@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SupabaseClientManager } from '@/lib/supabase/client-manager';
+import { SupabaseClientManager } from '@/lib/client-manager';
 import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 

@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { SupabaseClientManager } from '@/lib/supabase/client-manager';
+import { SupabaseClientManager } from '@/lib/client-manager';
 import {
   PromptTemplate,
   CreatePromptTemplateInput,
