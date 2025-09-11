@@ -19,17 +19,6 @@ export const verifyLineTokenServer = async (accessToken: string): Promise<void> 
   });
 };
 
-export const setRefreshTokenCookie = async (refreshToken: string): Promise<void> => {
-  const cookieStore = await cookies();
-  cookieStore.set('line_refresh_token', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30日
-  });
-};
-
 export interface getLineProfileServerResponse {
   userId: string;
   displayName: string;
