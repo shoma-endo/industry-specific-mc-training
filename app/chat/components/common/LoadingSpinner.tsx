@@ -80,82 +80,16 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   return spinner;
 };
 
-// 各種用途別のプリセット
-export const MessageLoadingSpinner: React.FC<{ text?: string }> = ({ 
-  text = 'メッセージを送信中...' 
+export const FullscreenLoadingSpinner: React.FC<{ text?: string }> = ({
+  text = '読み込み中...'
 }) => (
-  <LoadingSpinner 
-    size="sm" 
-    variant="primary" 
-    text={text}
-    className="py-2"
-  />
-);
-
-export const CanvasLoadingSpinner: React.FC<{ text?: string }> = ({ 
-  text = 'Canvas を読み込み中...' 
-}) => (
-  <LoadingSpinner 
-    size="md" 
-    variant="secondary" 
-    text={text}
-    className="py-4"
-  />
-);
-
-export const SessionLoadingSpinner: React.FC<{ text?: string }> = ({ 
-  text = 'セッションを読み込み中...' 
-}) => (
-  <LoadingSpinner 
-    size="sm" 
-    variant="ghost" 
-    text={text}
-    className="py-3"
-  />
-);
-
-export const FullscreenLoadingSpinner: React.FC<{ text?: string }> = ({ 
-  text = '読み込み中...' 
-}) => (
-  <LoadingSpinner 
-    size="xl" 
-    variant="primary" 
+  <LoadingSpinner
+    size="xl"
+    variant="primary"
     text={text}
     fullscreen
     overlay
   />
 );
-
-// ローディング用のラッパーコンポーネント
-interface LoadingWrapperProps {
-  isLoading: boolean;
-  loadingText?: string | undefined;
-  loadingSize?: 'sm' | 'md' | 'lg' | 'xl' | undefined;
-  overlay?: boolean | undefined;
-  children: React.ReactNode;
-}
-
-export const LoadingWrapper: React.FC<LoadingWrapperProps> = ({
-  isLoading,
-  loadingText,
-  loadingSize = 'md',
-  overlay = false,
-  children,
-}) => {
-  if (!isLoading) {
-    return <>{children}</>;
-  }
-
-  return (
-    <div className="relative">
-      {children}
-      <LoadingSpinner
-        size={loadingSize}
-        text={loadingText}
-        overlay={overlay}
-      />
-    </div>
-  );
-};
 
 export default LoadingSpinner;
