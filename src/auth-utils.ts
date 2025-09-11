@@ -15,14 +15,6 @@ export function canUseServices(role: UserRole | null): boolean {
   return role !== 'unavailable' && role !== null;
 }
 
-export function canAccess(userRole: UserRole | null, requiredRole: UserRole): boolean {
-  if (!userRole) return false;
-
-  if (userRole === 'unavailable') return false;
-  if (userRole === 'admin') return true;
-  return userRole === requiredRole;
-}
-
 export function getRoleDisplayName(role: UserRole | null): string {
   switch (role) {
     case 'admin':
