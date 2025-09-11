@@ -320,7 +320,6 @@ npm run ngrok             # LINE LIFF用HTTPSトンネル（別ターミナル�
 | `/api/wordpress/oauth/start`       | WordPress.com OAuth開始          | -         |
 | `/api/wordpress/oauth/callback`    | WordPress.com OAuth コールバック | -         |
 | `/api/ad-form/create-landing-page` | ランディングページ作成           | -         |
-| `/api/admin/rebuild-chunks`        | RAGチャンク再構築                | ✨ 新機能 |
 | `/api/rag/*`                       | RAG検索・拡張生成                | ✨ 新機能 |
 
 ## 🛡️ セキュリティ機能
