@@ -3,7 +3,7 @@
 import * as React from 'react';
 import FieldConfigurator from '@/components/FieldConfigurator';
 import AnnotationEditButton from '@/components/AnnotationEditButton';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import TruncatedText from '@/components/TruncatedText';
 
 type PostRow = {
   id: number | string;
@@ -45,28 +45,6 @@ const columns = [
   { id: 'memo', label: 'メモ' },
   { id: 'rank', label: '順位' },
 ];
-
-const TruncatedText = ({ text, lines = 2 }: { text: string; lines?: number }) => (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div
-          className="whitespace-pre-wrap break-words cursor-help overflow-hidden"
-          style={{
-            display: '-webkit-box',
-            WebkitLineClamp: lines,
-            WebkitBoxOrient: 'vertical' as const,
-          }}
-        >
-          {text}
-        </div>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-[520px] whitespace-pre-wrap break-words">
-        {text}
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-);
 
 export default function AnalyticsTable({ posts, annotations }: Props) {
   return (
