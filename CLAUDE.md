@@ -60,9 +60,6 @@ npm run lint
 ```bash
 # LINE LIFF開発用にngrokで外部公開
 npm run ngrok
-
-# RAG処理用CSVデータクリーンアップ
-npm run rag:clean
 ```
 
 ### ワークフロー

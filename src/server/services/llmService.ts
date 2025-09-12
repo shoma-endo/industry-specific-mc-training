@@ -1,5 +1,5 @@
-import { generateText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
+import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { ChatError } from '@/domain/errors/ChatError';
 import { env } from '@/env';
 
@@ -20,7 +20,8 @@ interface LLMOptions {
 }
 
 export class LLMService {
-  private openai = createOpenAI({ apiKey: env.OPENAI_API_KEY });
+  private openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  private anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   async llmChat(
     providerKey: 'openai' | 'anthropic',
@@ -30,28 +31,22 @@ export class LLMService {
   ): Promise<string> {
     const startTime = Date.now();
 
+    // 先頭に system があれば分離
+    let systemPrompt: string | undefined;
+    let chatMessages = messages;
+    if (messages[0]?.role === 'system') {
+      systemPrompt = messages[0].content;
+      chatMessages = messages.slice(1) as Exclude<LLMMessage, { role: 'system' }>[];
+    }
+
     try {
-      const provider = this.openai;
-
-      // 先頭に system があれば分離
-      let systemPrompt: string | undefined;
-      let chatMessages = messages;
-      if (messages[0]?.role === 'system') {
-        systemPrompt = messages[0].content;
-        chatMessages = messages.slice(1) as Exclude<LLMMessage, { role: 'system' }>[];
-      }
-
-      const llmPromise = generateText({
-        model: provider(model),
-        ...(systemPrompt && { system: systemPrompt }), // Anthropic 用
-        // OpenAI も system プロパティをそのまま受け取れる
-        messages: chatMessages,
-        temperature: opts.temperature ?? 0.7,
-        maxTokens: opts.maxTokens ?? 3000,
-      });
+      const llmPromise =
+        providerKey === 'openai'
+          ? this.callOpenAI(model, systemPrompt, chatMessages, opts)
+          : this.callAnthropic(model, systemPrompt, chatMessages, opts);
 
       // タイムアウト（デフォルト300秒）
-      const result = await Promise.race([
+      const text = await Promise.race([
         llmPromise,
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('timeout')), opts.timeoutMs ?? 300000)
@@ -59,11 +54,13 @@ export class LLMService {
       ]);
 
       const latency = Date.now() - startTime;
-      console.log(
-        `LLM Chat - Provider: ${providerKey}, Model: ${model}, Latency: ${latency}ms, Tokens: ${result.usage?.totalTokens || 'N/A'}`
-      );
+      try {
+        console.log(`LLM Chat - Provider: ${providerKey}, Model: ${model}, Latency: ${latency}ms`);
+      } catch {
+        /* noop */
+      }
 
-      return result.text;
+      return text;
     } catch (error) {
       const latency = Date.now() - startTime;
       console.error(
@@ -74,6 +71,55 @@ export class LLMService {
       // すべてのプロバイダでフォールバックは行わず、発生したエラーをそのままユーザー向けにマッピング
       throw ChatError.fromApiError(error, { provider: providerKey, model });
     }
+  }
+
+  private async callOpenAI(
+    model: string,
+    systemPrompt: string | undefined,
+    messages: LLMMessage[],
+    opts: LLMOptions
+  ): Promise<string> {
+    const completion = await this.openai.chat.completions.create({
+      model,
+      messages: [
+        ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+        ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      ],
+      temperature: opts.temperature ?? 0.7,
+      max_completion_tokens: opts.maxTokens ?? 3000,
+    });
+
+    const text = completion.choices[0]?.message?.content?.trim() ?? '';
+    if (!text) throw new Error('OpenAI: 応答が空でした');
+    return text;
+  }
+
+  private async callAnthropic(
+    model: string,
+    systemPrompt: string | undefined,
+    messages: LLMMessage[],
+    opts: LLMOptions
+  ): Promise<string> {
+    const params = {
+      model,
+      ...(systemPrompt ? { system: systemPrompt } : {}),
+      messages: messages.map(m => ({
+        role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
+        content: [{ type: 'text' as const, text: m.content }],
+      })),
+      temperature: opts.temperature ?? 0.7,
+      max_tokens: opts.maxTokens ?? 3000,
+    };
+
+    const resp = await this.anthropic.messages.create(params);
+
+    const text =
+      resp.content
+        ?.map(block => (block.type === 'text' ? block.text : ''))
+        .join('')
+        .trim() ?? '';
+    if (!text) throw new Error('Anthropic: 応答が空でした');
+    return text;
   }
 }
 

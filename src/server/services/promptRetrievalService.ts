@@ -1,14 +1,9 @@
 import { PromptChunkService } from './promptChunkService';
 import { PromptService } from '@/server/services/promptService';
-import { createOpenAI } from '@ai-sdk/openai';
-import { generateText } from 'ai';
-import { env } from '@/env';
 // リランカー（OpenAI依存）は仕様変更により削除
 import { cache } from 'react';
-
-const openaiProvider = createOpenAI({
-  apiKey: env.OPENAI_API_KEY,
-});
+import { llmChat } from '@/server/services/llmService';
+import { MODEL_CONFIGS } from '@/lib/constants';
 
 export class PromptRetrievalService {
   /**
@@ -92,10 +87,18 @@ export class PromptRetrievalService {
               'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
           } else {
             try {
-              // HTTP fetchを廃止し、ここで直接 generateText を呼び出す
-              const { text } = await generateText({
-                model: openaiProvider('ad_copy_finishing'),
-                prompt: `あなたはRAGシステムの検索クエリ最適化専門家です。
+              const { provider, actualModel } = MODEL_CONFIGS['ad_copy_finishing'] ?? {
+                provider: 'anthropic' as const,
+                actualModel: 'claude-sonnet-4-20250514',
+              };
+
+              const text = await llmChat(
+                provider,
+                actualModel,
+                [
+                  {
+                    role: 'user',
+                    content: `あなたはRAGシステムの検索クエリ最適化専門家です。
 
 ユーザーの入力「${userQuery}」を、ベクトル検索で最高のパフォーマンスを発揮できるように、具体的で意図が明確な検索クエリに変換してください。
 
@@ -106,13 +109,13 @@ export class PromptRetrievalService {
 - 全体の出力形式、トンマナ
 
 最適化された検索クエリのみを返してください。説明は不要です。`,
-                maxTokens: 200,
-                temperature: 0.3,
-              });
+                  },
+                ],
+                { maxTokens: 200, temperature: 0.3 }
+              );
               retrievalQuery = text.trim();
             } catch (error) {
-              console.error('クエリ生成(generateText)でエラー:', error);
-              // エラー時は固定文字列にフォールバック
+              console.error('クエリ生成(llmChat)でエラー:', error);
               retrievalQuery =
                 'LPの構成 18パート構成の厳守 特徴、選ばれる理由と説明文、差別化 ベネフィットの羅列 このサービスを受けるにあたってオススメの人をピックアップする';
             }

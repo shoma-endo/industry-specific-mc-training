@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +14,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
-import { getPromptTemplates, updatePromptTemplate } from '@/server/handler/actions/prompt.actions';
 import { useLiffContext } from '@/components/ClientLiffProvider';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
 
@@ -29,19 +30,16 @@ export default function PromptsPage() {
     try {
       setIsLoading(true);
       const token = await getAccessToken();
-      const result = await getPromptTemplates(token);
-
-      // undefinedガード追加
-      if (!result) {
-        setError('サーバーエラーが発生しました');
-        return;
-      }
-
-      if (result.success && result.data) {
-        setTemplates(result.data);
+      const res = await fetch('/api/admin/prompts', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const result = await res.json();
+      if (result?.success && result?.data) {
+        setTemplates(result.data as PromptTemplate[]);
         setError(null);
       } else {
-        setError(result.error || 'プロンプトの取得に失敗しました');
+        setError(result?.error || 'プロンプトの取得に失敗しました');
       }
     } catch (error) {
       console.error('プロンプト取得エラー:', error);
@@ -65,21 +63,24 @@ export default function PromptsPage() {
     try {
       setIsSaving(true);
       const token = await getAccessToken();
-
-      const result = await updatePromptTemplate(
-        token,
-        selectedTemplate.id,
-        {
+      const res = await fetch(`/api/admin/prompts/${selectedTemplate.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
           name: selectedTemplate.name,
           display_name: selectedTemplate.display_name,
           content: editedContent,
           variables: selectedTemplate.variables,
           is_active: selectedTemplate.is_active,
-        },
-        'プロンプト内容を更新'
-      );
+          change_summary: 'プロンプト内容を更新',
+        }),
+      });
+      const result = await res.json();
 
-      if (result.success) {
+      if (result?.success) {
         // テンプレート一覧を更新
         await loadTemplates();
         // 選択中のテンプレートも更新
@@ -88,7 +89,7 @@ export default function PromptsPage() {
         setError(null);
         alert('プロンプトを保存しました');
       } else {
-        setError(result.error || '保存に失敗しました');
+        setError(result?.error || '保存に失敗しました');
       }
     } catch (error) {
       console.error('保存エラー:', error);

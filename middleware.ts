@@ -231,6 +231,6 @@ export const config = {
     /*
      * Match all request paths except static files and API routes
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
+    '/((?!_next/static|_next/image|_next|_vercel|_document|_not-found|_error|favicon.ico|api/).*)',
   ],
 };

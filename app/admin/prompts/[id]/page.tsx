@@ -1,10 +1,10 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { useParams, notFound } from 'next/navigation';
 import { PromptEditor } from '../components/PromptEditor';
 import { PromptTemplateWithVersions } from '@/types/prompt';
-import { getPromptTemplate } from '@/server/handler/actions/prompt.actions';
 import { useLiffContext } from '@/components/ClientLiffProvider';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -27,7 +27,11 @@ export default function PromptEditPage() {
 
       try {
         const token = await getAccessToken();
-        const result = await getPromptTemplate(token, id);
+        const res = await fetch(`/api/admin/prompts/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        const result = await res.json();
 
         if (result.success && result.data) {
           setTemplate(result.data);
@@ -56,7 +60,6 @@ export default function PromptEditPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">プロンプト編集</h1>
         </div>
-        
         <Card>
           <CardContent className="text-center py-12">
             <div className="text-red-500">
