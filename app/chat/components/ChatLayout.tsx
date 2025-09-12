@@ -122,7 +122,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // クオータ上限メッセージは利用しない（自動dismissを廃止したため）
   const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
 
-  // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く）
+  // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く、自動で開かない）
   useEffect(() => {
     // 手動編集中は自動更新をスキップ
     if (isManualEdit) return;
@@ -132,12 +132,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
     if (latestAIMessage && latestAIMessage !== canvasContent) {
       setCanvasContent(latestAIMessage);
-      // ✅ AIの返信があったらCanvasを自動で開く
-      if (!canvasPanelOpen) {
-        setCanvasPanelOpen(true);
-      }
+      // ✅ AIの返信があっても自動でCanvasを開かない（ユーザーがホバー→クリックした時のみ開く）
     }
-  }, [chatSession.state.messages, canvasContent, canvasPanelOpen, isManualEdit]);
+  }, [chatSession.state.messages, canvasContent, isManualEdit]);
 
   // 新しいエラーメッセージが来たら再表示
   useEffect(() => {
@@ -179,6 +176,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ✅ 過去のメッセージをCanvasで編集する関数
   const handleEditInCanvas = (content: string) => {
     setIsManualEdit(true); // 手動編集フラグを設定
+    setCanvasContent(content);
+    setCanvasPanelOpen(true);
+  };
+
+  // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
+  const handleShowCanvas = (content: string) => {
     setCanvasContent(content);
     setCanvasPanelOpen(true);
   };
@@ -260,6 +263,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           messages={chatSession.state.messages}
           isLoading={chatSession.state.isLoading}
           onEditInCanvas={handleEditInCanvas}
+          onShowCanvas={handleShowCanvas}
         />
 
         <InputArea

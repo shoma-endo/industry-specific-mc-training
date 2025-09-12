@@ -10,9 +10,10 @@ interface MessageAreaProps {
   messages: ChatMessage[];
   isLoading: boolean;
   onEditInCanvas?: (content: string) => void;
+  onShowCanvas?: (content: string) => void;
 }
 
-const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditInCanvas }) => {
+const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditInCanvas, onShowCanvas }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
 
@@ -209,13 +210,19 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
 
                   {/* Canvas編集ボタン - アシスタントメッセージのみに表示 */}
                   {message.role === 'assistant' &&
-                    onEditInCanvas &&
+                    (onEditInCanvas || onShowCanvas) &&
                     hoveredMessageId === (message.id || index.toString()) && (
                       <div className="absolute -top-2 -right-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
                         <Button
                           size="sm"
                           variant="default"
-                          onClick={() => onEditInCanvas(message.content)}
+                          onClick={() => {
+                            if (onShowCanvas) {
+                              onShowCanvas(message.content);
+                            } else if (onEditInCanvas) {
+                              onEditInCanvas(message.content);
+                            }
+                          }}
                           className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg border border-white/20 px-3 py-1 text-xs h-8 transition-all duration-200 hover:scale-105 hover:shadow-xl backdrop-blur-sm rounded-full"
                           title="Canvasで編集して文章を改善"
                         >
