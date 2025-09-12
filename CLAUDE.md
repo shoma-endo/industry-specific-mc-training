@@ -4,6 +4,29 @@
 タスクを終えたら npx ccusage@latest を叩いて、コストを表示してください。
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Last Updated**: September 12, 2025
+**Framework Versions**: Next.js 15.3.1, React 19, TypeScript 5
+
+## プロジェクト基本情報
+
+このプロジェクトは **Next.js** で構築された **AI搭載マーケティングコピー生成アプリケーション** です。LINE LIFF認証とSupabaseデータベースを統合し、マルチプロバイダAI（OpenAI + Anthropic）を使用した高度なコンテンツ生成機能を提供します。
+
+### 主要技術スタック
+
+- **Frontend**: Next.js 15.3.1 + React 19 + TypeScript 5 + Tailwind CSS v4
+- **Backend**: Next.js API Routes + Supabase (PostgreSQL)
+- **Authentication**: LINE LIFF + JWTトークン自動更新
+- **AI Services**: OpenAI GPT + Anthropic Claude（ストリーミング対応）
+- **Payments**: Stripe サブスクリプションマネジメント
+- **External APIs**: Google Custom Search + WordPress REST API
+
+### プロジェクト特性
+
+- **マルチテナント対応**: Supabase RLSによるデータ分離
+- **リアルタイム処理**: WebSocketベースのストリーミングチャット
+- **RAG統合**: ベクター検索によるコンテンツ拡張
+- **モバイル最適化**: LINE LIFFによるモバイルファースト設計
+
 - Follow the user’s requirements carefully & to the letter.
 - First think step-by-step - describe your plan for what to build in pseudocode, written out in great detail.
 - Confirm, then write code!
@@ -17,21 +40,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - If you think there might not be a correct answer, you say so.
 - If you do not know the answer, say so, instead of guessing.
 
-## Development Commands
+## 共通コマンド
+
+### 開発環境
 
 ```bash
-# Start development server with TypeScript compilation watching
+# 開発サーバー起動（TypeScript監視コンパイル）
 npm run dev
 
-# Build for production
+# 本番ビルド
 npm run build
 
-# Lint code
+# コード品質チェック
 npm run lint
-
-# Expose local development with ngrok (for LINE LIFF testing)
-npm run ngrok
 ```
+
+### テスト・デバッグ
+
+```bash
+# LINE LIFF開発用にngrokで外部公開
+npm run ngrok
+
+# RAG処理用CSVデータクリーンアップ
+npm run rag:clean
+```
+
+### ワークフロー
+
+- **開発開始時**: `npm run dev` でサーバー起動
+- **コード変更時**: 変更完了後に必ず `npm run lint` で品質チェック
+- **LINE連携テスト時**: `npm run ngrok` で外部アクセスを有効化
+- **本番デプロイ前**: `npm run build` でビルドテスト
 
 ## Architecture Overview
 
@@ -42,7 +81,10 @@ This is a Next.js application that provides AI-powered marketing copy generation
 - **Authentication**: LINE LIFF (LINE Frontend Framework) with automatic token refresh
 - **Database**: Supabase with Row Level Security policies
 - **Payments**: Stripe subscription management with feature gating
-- **AI**: OpenAI API with fine-tuned models for keyword categorization
+- **AI Services**:
+  - **OpenAI**: API with fine-tuned models for keyword categorization and text generation
+  - **Anthropic**: Claude models for advanced conversational AI with streaming support
+- **RAG System**: Retrieval-Augmented Generation using vector search for enhanced content generation
 
 ### Authentication Flow
 
@@ -54,23 +96,27 @@ This is a Next.js application that provides AI-powered marketing copy generation
 
 ### Chat System Architecture
 
-The chat system uses multiple AI models in sequence:
+The chat system uses multiple AI models and services in sequence:
 
 1. **Fine-tuned Model**: `ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2` classifies keywords
 2. **Google Search**: Validates and researches keywords
-3. **Standard GPT**: Generates marketing copy based on research
+3. **AI Generation**: Leverages multi-provider AI services for content generation
+4. **RAG Enhancement**: Integrates vector search for enhanced content retrieval
 
-All chat sessions are persisted in Supabase with user isolation.
+All chat sessions are persisted in Supabase with user isolation. The system supports real-time streaming responses from integrated AI providers.
 
 ### Environment Configuration
 
 Environment variables are type-safe using `@t3-oss/env-nextjs` in `src/env.ts`. Key integrations require:
 
-- LINE: Channel ID and secret for LIFF
-- Supabase: URL and service role key
-- Stripe: Product/price IDs and API keys
-- OpenAI: API key for chat completions
-- Google: Search API key and Custom Search Engine ID
+- **LINE**: Channel ID and secret for LIFF authentication
+- **Supabase**: URL and service role key for database operations
+- **Stripe**: Product/price IDs and API keys for subscription management
+- **AI Services**:
+  - **OpenAI**: API key for chat completions and fine-tuned models
+  - **Anthropic**: API key for Claude models and streaming
+- **Google**: Search API key and Custom Search Engine ID
+- **Webhooks**: BASE_WEBHOOK_URL and RELAY_BEARER_TOKEN for external integrations
 
 ### Key Code Patterns
 
@@ -82,6 +128,8 @@ Environment variables are type-safe using `@t3-oss/env-nextjs` in `src/env.ts`. 
 
 **Client/Server Separation**: Client components handle LIFF auth, server actions handle business logic
 
+**AI Integration**: Unified multi-provider interface through `LLMService` with streaming support
+
 ### Database Schema
 
 Supabase migrations in `supabase/migrations/` define:
@@ -89,6 +137,44 @@ Supabase migrations in `supabase/migrations/` define:
 - User profiles linked to LINE accounts
 - Chat sessions and message history
 - WordPress connection settings
+- Content annotations for RAG system
+- Prompt templates and chunks for AI generation
+- Google search count tracking
+
+### API Endpoints
+
+#### Core Chat APIs
+
+- `POST /api/chat/anthropic/stream` - Anthropic Claude streaming chat
+- `POST /api/refresh` - Token refresh and validation
+
+#### Authentication APIs
+
+- `POST /api/auth/check-role` - User role verification
+- `POST /api/auth/clear-cache` - Authentication cache clearing
+- `POST /api/line/callback` - LINE OAuth callback handling
+
+#### User Management APIs
+
+- `GET /api/user/current` - Current user profile
+- `GET /api/user/search-count` - Google search usage tracking
+
+#### WordPress Integration APIs
+
+- `GET/POST /api/wordpress/settings` - WordPress connection settings
+- `POST /api/wordpress/test-connection` - Connection testing
+- `GET /api/wordpress/posts` - Post retrieval
+- `GET/POST /api/wordpress/oauth/start` - OAuth flow initiation
+- `GET/POST /api/wordpress/oauth/callback` - OAuth callback handling
+- `GET /api/wordpress/status` - Connection status
+
+#### Admin APIs
+
+- `GET /api/admin/wordpress/stats` - WordPress usage statistics
+
+#### Utility APIs
+
+- `POST /api/log-relay` - External log forwarding
 
 ### Development Notes
 
