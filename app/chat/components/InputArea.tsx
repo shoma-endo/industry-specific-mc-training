@@ -10,11 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Bot, Send, Menu, PaintBucket, Info } from 'lucide-react';
+import { Bot, Send, Menu, PaintBucket, Info, BookOpen, Loader2, PinOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { FEATURE_FLAGS } from '@/lib/constants';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   BLOG_HINTS_DETAIL,
   BLOG_HINTS_SHORT,
@@ -22,6 +23,7 @@ import {
   BLOG_STEP_IDS,
   BLOG_STEP_LABELS,
 } from '@/lib/constants';
+import { getAllSavedMessagesSA, unsaveMessageSA } from '@/server/handler/actions/chat.actions';
 
 const RichEditor = dynamic(() => import('../components/RichEditor'), {
   ssr: false,
@@ -81,6 +83,8 @@ interface InputAreaProps {
   currentSessionTitle?: string | undefined;
   isMobile?: boolean | undefined;
   onMenuToggle?: (() => void) | undefined;
+  getAccessToken: () => Promise<string>;
+  onLoadSession?: (sessionId: string) => Promise<void>;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -91,6 +95,8 @@ const InputArea: React.FC<InputAreaProps> = ({
   currentSessionTitle,
   isMobile: propIsMobile,
   onMenuToggle,
+  getAccessToken,
+  onLoadSession,
 }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -100,6 +106,9 @@ const InputArea: React.FC<InputAreaProps> = ({
     'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7'
   >('step1');
   const [isMobile, setIsMobile] = useState(false);
+  const [savedDialogOpen, setSavedDialogOpen] = useState(false);
+  const [savedList, setSavedList] = useState<Array<{ id: string; content: string; created_at: number; session_id: string }>>([]);
+  const [isLoadingSavedList, setIsLoadingSavedList] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // UI表示用のモデルキー（ブログ作成時はステップを反映）
@@ -168,6 +177,52 @@ const InputArea: React.FC<InputAreaProps> = ({
     await onSendMessage(originalMessage, effectiveModel);
   };
 
+  // 保存一覧ダイアログを開く
+  const openSavedDialog = async () => {
+    try {
+      setIsLoadingSavedList(true);
+      setSavedDialogOpen(true);
+      const token = await getAccessToken();
+      const result = await getAllSavedMessagesSA(token);
+      setSavedList(result.items || []);
+    } catch (error) {
+      console.error('保存一覧の取得に失敗:', error);
+      setSavedList([]);
+    } finally {
+      setIsLoadingSavedList(false);
+    }
+  };
+
+  // テキスト省略用ヘルパー関数
+  const truncate = (s: string, n = 80) => (s.length > n ? s.slice(0, n) + '…' : s);
+
+  // セッション移動のハンドラ
+  const handleSessionClick = async (sessionId: string) => {
+    if (onLoadSession) {
+      try {
+        await onLoadSession(sessionId);
+        setSavedDialogOpen(false); // ダイアログを閉じる
+      } catch (error) {
+        console.error('セッションの読み込みに失敗しました:', error);
+      }
+    }
+  };
+
+  // 保存一覧から保存解除
+  const handleUnsaveFromList = async (messageId: string) => {
+    try {
+      const token = await getAccessToken();
+      const result = await unsaveMessageSA({ messageId, liffAccessToken: token });
+      if (result?.success) {
+        setSavedList(prev => prev.filter(item => item.id !== messageId));
+      } else {
+        console.error('保存解除に失敗しました:', result?.error);
+      }
+    } catch (error) {
+      console.error('保存解除に失敗しました:', error);
+    }
+  };
+
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm h-16">
@@ -180,9 +235,23 @@ const InputArea: React.FC<InputAreaProps> = ({
             )}
             <div className="flex items-center space-x-2">
               <Bot className="h-6 w-6 text-[#06c755]" />
-              <span className="font-medium text-sm md:text-base truncate max-w-[150px] md:max-w-[300px]">
+              <span className="font-medium text-sm md:text-base truncate max-w-[120px] md:max-w-[250px]">
                 {currentSessionTitle || '新しいチャット'}
               </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openSavedDialog}
+                disabled={isLoadingSavedList}
+                className="h-8 px-2 text-xs bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                {isLoadingSavedList ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <BookOpen className="h-4 w-4 mr-1" />
+                )}
+                <span className="hidden sm:inline">保存済チャット</span>
+              </Button>
             </div>
           </div>
 
@@ -305,6 +374,77 @@ const InputArea: React.FC<InputAreaProps> = ({
           </div>
         </form>
       </div>
+
+      {/* 保存チャット一覧ダイアログ */}
+      <Dialog open={savedDialogOpen} onOpenChange={setSavedDialogOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">保存したチャット一覧</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-2">
+            <TooltipProvider>
+              {isLoadingSavedList ? (
+                <div className="text-center py-12">
+                  <Loader2 className="h-8 w-8 text-gray-400 mx-auto mb-4 animate-spin" />
+                  <div className="text-gray-500 text-lg">保存チャットを読み込み中...</div>
+                </div>
+              ) : savedList.length === 0 ? (
+                <div className="text-center py-12">
+                  <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <div className="text-gray-500 text-lg">保存されたチャットはありません</div>
+                  <div className="text-gray-400 text-sm mt-2">
+                    チャットメッセージの「…」メニューから保存してください
+                  </div>
+                </div>
+              ) : (
+                savedList.map(item => (
+                  <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer" onClick={() => handleSessionClick(item.session_id)}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="text-gray-800 leading-relaxed">
+                          {truncate(item.content, 80)}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent 
+                        className="max-w-[90vw] sm:max-w-2xl max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words p-4"
+                        side="top"
+                      >
+                        {item.content}
+                      </TooltipContent>
+                    </Tooltip>
+                    <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-100">
+                      <div className="text-xs text-gray-500">
+                        {new Date(item.created_at).toLocaleString('ja-JP', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
+                          ID: {item.session_id.slice(-8)}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUnsaveFromList(item.id);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded"
+                          title="保存を解除"
+                        >
+                          <PinOff size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </TooltipProvider>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

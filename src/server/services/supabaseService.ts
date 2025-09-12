@@ -411,4 +411,62 @@ export class SupabaseService {
 
     return data?.data || null;
   }
+
+  /* === メッセージ保存機能 ================================ */
+
+  /**
+   * メッセージの保存状態を更新
+   */
+  async setMessageSaved(userId: string, messageId: string, isSaved: boolean): Promise<void> {
+    const { error } = await this.supabase
+      .from('chat_messages')
+      .update({ is_saved: isSaved })
+      .eq('id', messageId)
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error('Failed to update is_saved:', error);
+      throw new Error('メッセージの保存状態更新に失敗しました');
+    }
+  }
+
+  /**
+   * セッション内の保存済みメッセージIDを取得
+   */
+  async getSavedMessageIdsBySession(userId: string, sessionId: string): Promise<string[]> {
+    const { data, error } = await this.supabase
+      .from('chat_messages')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('session_id', sessionId)
+      .eq('is_saved', true)
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      console.error('Failed to fetch saved ids:', error);
+      return [];
+    }
+    
+    return (data || []).map(r => r.id);
+  }
+
+  /**
+   * 全保存済みメッセージを取得
+   */
+  async getAllSavedMessages(userId: string): Promise<Array<{ id: string; content: string; created_at: number; session_id: string }>> {
+    const { data, error } = await this.supabase
+      .from('chat_messages')
+      .select('id, content, created_at, session_id')
+      .eq('user_id', userId)
+      .eq('is_saved', true)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) {
+      console.error('Failed to fetch all saved messages:', error);
+      return [];
+    }
+    
+    return (data || []) as Array<{ id: string; content: string; created_at: number; session_id: string }>;
+  }
 }

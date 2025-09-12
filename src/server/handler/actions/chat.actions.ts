@@ -25,6 +25,19 @@ const continueChatSchema = z.object({
   liffAccessToken: z.string(),
 });
 
+// メッセージ保存関連のスキーマ
+const saveMessageSchema = z.object({
+  messageId: z.string(),
+  liffAccessToken: z.string(),
+});
+
+const unsaveMessageSchema = saveMessageSchema;
+
+const getSavedIdsSchema = z.object({
+  sessionId: z.string(),
+  liffAccessToken: z.string(),
+});
+
 export type StartChatInput = z.infer<typeof startChatSchema>;
 export type ContinueChatInput = z.infer<typeof continueChatSchema>;
 
@@ -219,9 +232,94 @@ export async function deleteChatSession(sessionId: string, liffAccessToken: stri
   }
 }
 
+// === メッセージ保存関連のサーバーアクション ===
+
+export async function saveMessage(data: z.infer<typeof saveMessageSchema>) {
+  const { messageId, liffAccessToken } = saveMessageSchema.parse(data);
+  const auth = await checkAuth(liffAccessToken);
+  if (auth.isError) {
+    return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
+  }
+  
+  try {
+    const supabase = new SupabaseService();
+    await supabase.setMessageSaved(auth.userId, messageId, true);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to save message:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'メッセージの保存に失敗しました',
+    };
+  }
+}
+
+export async function unsaveMessage(data: z.infer<typeof unsaveMessageSchema>) {
+  const { messageId, liffAccessToken } = unsaveMessageSchema.parse(data);
+  const auth = await checkAuth(liffAccessToken);
+  if (auth.isError) {
+    return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
+  }
+  
+  try {
+    const supabase = new SupabaseService();
+    await supabase.setMessageSaved(auth.userId, messageId, false);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to unsave message:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'メッセージの保存解除に失敗しました',
+    };
+  }
+}
+
+export async function getSavedMessageIds(data: z.infer<typeof getSavedIdsSchema>) {
+  const { sessionId, liffAccessToken } = getSavedIdsSchema.parse(data);
+  const auth = await checkAuth(liffAccessToken);
+  if (auth.isError) {
+    return { ids: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
+  }
+  
+  try {
+    const supabase = new SupabaseService();
+    const ids = await supabase.getSavedMessageIdsBySession(auth.userId, sessionId);
+    return { ids, error: null };
+  } catch (error) {
+    console.error('Failed to get saved message IDs:', error);
+    return {
+      ids: [],
+      error: error instanceof Error ? error.message : '保存済みメッセージの取得に失敗しました',
+    };
+  }
+}
+
+export async function getAllSavedMessages(liffAccessToken: string) {
+  const auth = await checkAuth(liffAccessToken);
+  if (auth.isError) {
+    return { items: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
+  }
+  
+  try {
+    const supabase = new SupabaseService();
+    const items = await supabase.getAllSavedMessages(auth.userId);
+    return { items, error: null };
+  } catch (error) {
+    console.error('Failed to get all saved messages:', error);
+    return {
+      items: [],
+      error: error instanceof Error ? error.message : '保存済みメッセージの取得に失敗しました',
+    };
+  }
+}
+
 // === Server Action aliases (for client-side import) ===
 export const startChatSA = startChat;
 export const continueChatSA = continueChat;
 export const getChatSessionsSA = getChatSessions;
 export const getSessionMessagesSA = getSessionMessages;
 export const deleteChatSessionSA = deleteChatSession;
+export const saveMessageSA = saveMessage;
+export const unsaveMessageSA = unsaveMessage;
+export const getSavedMessageIdsSA = getSavedMessageIds;
+export const getAllSavedMessagesSA = getAllSavedMessages;

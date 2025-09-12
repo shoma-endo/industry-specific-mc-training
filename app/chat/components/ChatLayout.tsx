@@ -15,6 +15,8 @@ import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';
 import CanvasPanel from './CanvasPanel';
+import { useLiffContext } from '@/components/LiffProvider';
+import { getSavedMessageIdsSA, saveMessageSA, unsaveMessageSA } from '@/server/handler/actions/chat.actions';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -108,7 +110,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [canvasContent, setCanvasContent] = useState('');
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const router = useRouter();
+  const { getAccessToken } = useLiffContext();
 
   const goToSubscription = () => {
     router.push('/subscription');
@@ -121,6 +125,30 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
   // クオータ上限メッセージは利用しない（自動dismissを廃止したため）
   const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
+
+  // ✅ セッション切り替え時に保存IDを取得
+  useEffect(() => {
+    let isActive = true;
+    (async () => {
+      const sessionId = chatSession.state.currentSessionId;
+      if (!sessionId) {
+        setSavedIds([]);
+        return;
+      }
+      try {
+        const token = await getAccessToken();
+        const result = await getSavedMessageIdsSA({ sessionId, liffAccessToken: token });
+        if (!isActive) return;
+        setSavedIds(result.ids || []);
+      } catch (error) {
+        console.error('保存IDの取得に失敗しました:', error);
+        if (isActive) setSavedIds([]);
+      }
+    })();
+    return () => {
+      isActive = false;
+    };
+  }, [chatSession.state.currentSessionId, getAccessToken]);
 
   // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く、自動で開かない）
   useEffect(() => {
@@ -185,6 +213,56 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setCanvasContent(content);
     setCanvasPanelOpen(true);
   };
+
+  // ✅ メッセージ保存状態を切り替える関数
+  const handleToggleSave = async (messageId: string, next: boolean) => {
+    try {
+      const token = await getAccessToken();
+      
+      // 楽観的更新
+      setSavedIds(prev => {
+        const set = new Set(prev);
+        if (next) {
+          set.add(messageId);
+        } else {
+          set.delete(messageId);
+        }
+        return [...set];
+      });
+      
+      // サーバーアクション実行
+      const result = next
+        ? await saveMessageSA({ messageId, liffAccessToken: token })
+        : await unsaveMessageSA({ messageId, liffAccessToken: token });
+      
+      if (!result?.success) {
+        // 失敗時はロールバック
+        setSavedIds(prev => {
+          const set = new Set(prev);
+          if (next) {
+            set.delete(messageId);
+          } else {
+            set.add(messageId);
+          }
+          return [...set];
+        });
+        console.error('保存状態の更新に失敗しました:', result?.error);
+      }
+    } catch (error) {
+      // エラー時もロールバック
+      setSavedIds(prev => {
+        const set = new Set(prev);
+        if (next) {
+          set.delete(messageId);
+        } else {
+          set.add(messageId);
+        }
+        return [...set];
+      });
+      console.error('保存状態の更新に失敗しました:', error);
+    }
+  };
+
 
   if (!isLoggedIn) {
     return <LoginPrompt onLogin={login} />;
@@ -260,10 +338,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         )}
 
         <MessageArea
+          sessionId={chatSession.state.currentSessionId}
           messages={chatSession.state.messages}
           isLoading={chatSession.state.isLoading}
           onEditInCanvas={handleEditInCanvas}
           onShowCanvas={handleShowCanvas}
+          initialSavedIds={savedIds}
+          onToggleSave={handleToggleSave}
         />
 
         <InputArea
@@ -277,6 +358,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           }
           isMobile={isMobile}
           onMenuToggle={isMobile ? () => setSidebarOpen(!sidebarOpen) : undefined}
+          getAccessToken={getAccessToken}
+          onLoadSession={chatSession.actions.loadSession}
         />
       </div>
 

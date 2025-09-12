@@ -2,25 +2,65 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
-import { Bot, Edit3 } from 'lucide-react';
+import { Bot, Edit3, MoreHorizontal, Pin, PinOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface MessageAreaProps {
+  sessionId?: string;
   messages: ChatMessage[];
   isLoading: boolean;
   onEditInCanvas?: (content: string) => void;
   onShowCanvas?: (content: string) => void;
+  initialSavedIds?: string[];
+  onToggleSave?: (messageId: string, next: boolean) => Promise<void> | void;
 }
 
-const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditInCanvas, onShowCanvas }) => {
+const MessageArea: React.FC<MessageAreaProps> = ({
+  sessionId,
+  messages,
+  isLoading,
+  onEditInCanvas,
+  onShowCanvas,
+  initialSavedIds = [],
+  onToggleSave,
+}) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+
+  // 保存状態・メニュー開閉状態
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set(initialSavedIds));
+  const [menuOpenForId, setMenuOpenForId] = useState<string | null>(null);
+
+  // sessionIdまたはinitialSavedIdsが変更されたときに保存状態をリセット
+  useEffect(() => {
+    setSavedIds(new Set(initialSavedIds));
+  }, [initialSavedIds, sessionId]);
 
   // メッセージが追加されたときに自動スクロール
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // 保存状態をトグルする関数
+  const handleToggleSave = async (messageId: string) => {
+    if (!messageId) return;
+    const next = !savedIds.has(messageId);
+    try {
+      await onToggleSave?.(messageId, next);
+      const newSavedIds = new Set(savedIds);
+      if (next) {
+        newSavedIds.add(messageId);
+      } else {
+        newSavedIds.delete(messageId);
+      }
+      setSavedIds(newSavedIds);
+    } catch (error) {
+      console.error('保存状態の更新に失敗しました:', error);
+    } finally {
+      setMenuOpenForId(null);
+    }
+  };
 
   const formatTime = (date?: Date) => {
     if (!date) return '';
@@ -176,7 +216,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
               key={message.id || index}
               className="mb-4 last:mb-2 group"
               onMouseEnter={() => setHoveredMessageId(message.id || index.toString())}
-              onMouseLeave={() => setHoveredMessageId(null)}
+              onMouseLeave={() => {
+                setHoveredMessageId(null);
+                setMenuOpenForId(null);
+              }}
             >
               <div
                 className={cn(
@@ -208,27 +251,64 @@ const MessageArea: React.FC<MessageAreaProps> = ({ messages, isLoading, onEditIn
                     {formatMessageContent(message.content)}
                   </div>
 
-                  {/* Canvas編集ボタン - アシスタントメッセージのみに表示 */}
+                  {/* 「…」メニューボタン - アシスタントメッセージのみに表示 */}
                   {message.role === 'assistant' &&
-                    (onEditInCanvas || onShowCanvas) &&
                     hoveredMessageId === (message.id || index.toString()) && (
                       <div className="absolute -top-2 -right-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
                         <Button
                           size="sm"
-                          variant="default"
-                          onClick={() => {
-                            if (onShowCanvas) {
-                              onShowCanvas(message.content);
-                            } else if (onEditInCanvas) {
-                              onEditInCanvas(message.content);
-                            }
-                          }}
-                          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg border border-white/20 px-3 py-1 text-xs h-8 transition-all duration-200 hover:scale-105 hover:shadow-xl backdrop-blur-sm rounded-full"
-                          title="Canvasで編集して文章を改善"
+                          variant="outline"
+                          onClick={() =>
+                            setMenuOpenForId(prev =>
+                              prev === (message.id || index.toString()) ? null : message.id || index.toString()
+                            )
+                          }
+                          className="h-8 w-8 p-0 bg-white shadow-md border border-gray-200 hover:shadow-lg transition-all duration-200"
+                          title="その他のオプション"
                         >
-                          <Edit3 size={12} className="mr-1.5" />
-                          Canvas
+                          <MoreHorizontal size={16} />
                         </Button>
+
+                        {/* ドロップダウンメニュー */}
+                        {menuOpenForId === (message.id || index.toString()) && (
+                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30">
+                            {/* Canvasで編集 */}
+                            {(onEditInCanvas || onShowCanvas) && (
+                              <button
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                                onClick={() => {
+                                  if (onShowCanvas) {
+                                    onShowCanvas(message.content);
+                                  } else if (onEditInCanvas) {
+                                    onEditInCanvas(message.content);
+                                  }
+                                  setMenuOpenForId(null);
+                                }}
+                              >
+                                <Edit3 size={14} className="text-blue-600" />
+                                <span>Canvasで編集</span>
+                              </button>
+                            )}
+                            
+                            {/* 保存/保存解除 */}
+                            <button
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                              onClick={() => message.id && handleToggleSave(message.id)}
+                            >
+                              {message.id && savedIds.has(message.id) ? (
+                                <>
+                                  <PinOff size={14} className="text-red-500" />
+                                  <span>保存を解除</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Pin size={14} className="text-green-600" />
+                                  <span>保存する</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                 </div>
