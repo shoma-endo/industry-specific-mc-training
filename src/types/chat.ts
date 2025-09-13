@@ -50,7 +50,6 @@ export interface DbChatMessage {
   content: string;
   model?: string | undefined;
   created_at: number;
-  is_saved?: boolean;
 }
 
 /**

@@ -2,65 +2,35 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
-import { Bot, Edit3, MoreHorizontal, Pin, PinOff } from 'lucide-react';
+import { Bot, Edit3, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface MessageAreaProps {
-  sessionId?: string;
   messages: ChatMessage[];
   isLoading: boolean;
   onEditInCanvas?: (content: string) => void;
   onShowCanvas?: (content: string) => void;
-  initialSavedIds?: string[];
-  onToggleSave?: (messageId: string, next: boolean) => Promise<void> | void;
 }
 
 const MessageArea: React.FC<MessageAreaProps> = ({
-  sessionId,
   messages,
   isLoading,
   onEditInCanvas,
   onShowCanvas,
-  initialSavedIds = [],
-  onToggleSave,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
 
-  // 保存状態・メニュー開閉状態
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set(initialSavedIds));
+  // メニュー開閉状態
   const [menuOpenForId, setMenuOpenForId] = useState<string | null>(null);
 
-  // sessionIdまたはinitialSavedIdsが変更されたときに保存状態をリセット
-  useEffect(() => {
-    setSavedIds(new Set(initialSavedIds));
-  }, [initialSavedIds, sessionId]);
 
   // メッセージが追加されたときに自動スクロール
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 保存状態をトグルする関数
-  const handleToggleSave = async (messageId: string) => {
-    if (!messageId) return;
-    const next = !savedIds.has(messageId);
-    try {
-      await onToggleSave?.(messageId, next);
-      const newSavedIds = new Set(savedIds);
-      if (next) {
-        newSavedIds.add(messageId);
-      } else {
-        newSavedIds.delete(messageId);
-      }
-      setSavedIds(newSavedIds);
-    } catch (error) {
-      console.error('保存状態の更新に失敗しました:', error);
-    } finally {
-      setMenuOpenForId(null);
-    }
-  };
 
   const formatTime = (date?: Date) => {
     if (!date) return '';
@@ -289,24 +259,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                                 <span>Canvasで編集</span>
                               </button>
                             )}
-                            
-                            {/* 保存/保存解除 */}
-                            <button
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                              onClick={() => message.id && handleToggleSave(message.id)}
-                            >
-                              {message.id && savedIds.has(message.id) ? (
-                                <>
-                                  <PinOff size={14} className="text-red-500" />
-                                  <span>保存を解除</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Pin size={14} className="text-green-600" />
-                                  <span>保存する</span>
-                                </>
-                              )}
-                            </button>
                           </div>
                         )}
                       </div>
