@@ -189,3 +189,18 @@ export const BLOG_PLACEHOLDERS: Record<string, string> = {
 
 // prompts.ts 用のテンプレ名解決
 export const toTemplateName = (step: BlogStepId) => `blog_creation_${step}`;
+
+export const ANALYTICS_COLUMNS = [
+  { id: 'main_kw', label: '主軸kw' },
+  { id: 'kw', label: 'kw（参考）' },
+  { id: 'impressions', label: '表示回数' },
+  { id: 'persona', label: 'デモグラ・ペルソナ' },
+  { id: 'needs', label: 'ニーズ' },
+  { id: 'goal', label: 'ゴール' },
+  { id: 'categories', label: 'カテゴリ' },
+  { id: 'date', label: '公開日' },
+  { id: 'title', label: 'タイトル' },
+  { id: 'url', label: 'URL' },
+  { id: 'memo', label: 'メモ' },
+  { id: 'rank', label: '順位' },
+];

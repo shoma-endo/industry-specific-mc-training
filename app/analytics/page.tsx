@@ -64,6 +64,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   total = !isError ? result.data?.total || 0 : 0;
   totalPages = Math.max(1, Math.ceil(total / perPage));
 
+  const hasUnlinkedAnnotations = annotations.some((a) => a && a.wp_post_id == null);
+  const shouldRenderTable = posts.length > 0 || hasUnlinkedAnnotations;
+
   return (
     <div className="w-full px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">コンテンツ一覧</h1>
@@ -86,10 +89,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <div className="text-center py-8 text-red-600">
               取得に失敗しました{errorMessage ? `: ${errorMessage}` : ''}
             </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">投稿が見つかりません</div>
-          ) : (
+          ) : shouldRenderTable ? (
             <AnalyticsTable posts={posts} annotations={annotations} />
+          ) : (
+            <div className="text-center py-8 text-gray-500">投稿が見つかりません</div>
           )}
 
           {/* ページネーション */}

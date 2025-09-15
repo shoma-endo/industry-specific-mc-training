@@ -15,6 +15,8 @@ import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';
 import CanvasPanel from './CanvasPanel';
+import AnnotationPanel from './AnnotationPanel';
+import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -106,6 +108,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   isMobile = false,
 }) => {
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
+  const [annotationOpen, setAnnotationOpen] = useState(false);
+  const [annotationData, setAnnotationData] = useState<{
+    main_kw?: string;
+    kw?: string;
+    impressions?: string;
+    persona?: string;
+    needs?: string;
+    goal?: string;
+  } | null>(null);
+  const [annotationLoading, setAnnotationLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [canvasContent, setCanvasContent] = useState('');
   const router = useRouter();
@@ -116,6 +128,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // ✅ 手動編集フラグを追加
   const [isManualEdit, setIsManualEdit] = useState(false);
+
+  // 最新AI本文（公開のデフォルト本文に使える）
+  const latestAIMessage = getLatestAIMessage(chatSession.state.messages);
 
   // エラーのローカル dismiss 制御
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
@@ -149,6 +164,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setIsSubscriptionErrorDismissed(false);
   }, [subscription.error]);
 
+  // ✅ セッション切り替え時にパネルを自動的に閉じる
+  useEffect(() => {
+    setCanvasPanelOpen(false);
+    setAnnotationOpen(false);
+    setAnnotationData(null);
+    setAnnotationLoading(false);
+    setIsManualEdit(false);
+  }, [chatSession.state.currentSessionId]);
+
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {
     try {
@@ -166,10 +190,19 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ✅ Canvas切り替え時に初期化を実行
   const handleToggleCanvas = async () => {
     try {
+      // Canvasを開く場合は、Annotationパネルが開いている時は同時に切り替え
+      if (!canvasPanelOpen && annotationOpen) {
+        setAnnotationOpen(false);
+        setAnnotationData(null);
+      }
       setCanvasPanelOpen(!canvasPanelOpen);
     } catch (error) {
       console.error('Canvas toggle failed:', error);
       // エラー時でもCanvas切り替えを実行
+      if (!canvasPanelOpen && annotationOpen) {
+        setAnnotationOpen(false);
+        setAnnotationData(null);
+      }
       setCanvasPanelOpen(!canvasPanelOpen);
     }
   };
@@ -178,13 +211,65 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const handleEditInCanvas = (content: string) => {
     setIsManualEdit(true); // 手動編集フラグを設定
     setCanvasContent(content);
+    
+    // Annotationパネルが開いている場合は同時に切り替え
+    if (annotationOpen) {
+      setAnnotationOpen(false);
+      setAnnotationData(null);
+    }
     setCanvasPanelOpen(true);
   };
 
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
   const handleShowCanvas = (content: string) => {
     setCanvasContent(content);
+    
+    // Annotationパネルが開いている場合は同時に切り替え
+    if (annotationOpen) {
+      setAnnotationOpen(false);
+      setAnnotationData(null);
+    }
     setCanvasPanelOpen(true);
+  };
+
+  // ✅ 保存ボタンクリック時にAnnotationPanelを表示する関数
+  const handleOpenAnnotation = async (content: string) => {
+    if (!chatSession.state.currentSessionId) return;
+    
+    setAnnotationLoading(true);
+    try {
+      // 最新AIメッセージをデフォルトHTMLコンテンツとして設定
+      setCanvasContent(content);
+      
+      // データベースから既存のアノテーションデータを取得
+      const res = await getContentAnnotationBySession(chatSession.state.currentSessionId);
+      if (res.success && res.data) {
+        setAnnotationData(res.data);
+      } else {
+        setAnnotationData(null);
+      }
+      
+      // Canvasパネルが開いている場合は同時に切り替え
+      if (canvasPanelOpen) {
+        setCanvasPanelOpen(false);
+        setIsManualEdit(false);
+      }
+      
+      // データ取得完了後にパネルを表示
+      setAnnotationOpen(true);
+    } catch (error) {
+      console.error('Failed to load annotation data:', error);
+      setAnnotationData(null);
+      
+      // エラーでも切り替えを実行
+      if (canvasPanelOpen) {
+        setCanvasPanelOpen(false);
+        setIsManualEdit(false);
+      }
+      setAnnotationOpen(true);
+    } finally {
+      setAnnotationLoading(false);
+    }
   };
 
 
@@ -245,6 +330,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           isMobile && 'pt-16' // モバイルでも同じpadding-topを使用
         )}
       >
+        {/* メモ編集ボタン */}
+        <div className="absolute top-2 right-2 z-10 flex gap-2">
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => handleOpenAnnotation('')}
+            disabled={!chatSession.state.currentSessionId || annotationLoading}
+          >
+            {annotationLoading ? '読み込み中...' : 'メモ編集'}
+          </Button>
+        </div>
         {subscription.requiresSubscription && (
           <SubscriptionAlert error={subscription.error} onGoToSubscription={goToSubscription} />
         )}
@@ -265,14 +361,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         <MessageArea
           messages={chatSession.state.messages}
           isLoading={chatSession.state.isLoading}
+          annotationLoading={annotationLoading}
           onEditInCanvas={handleEditInCanvas}
           onShowCanvas={handleShowCanvas}
+          onOpenAnnotation={handleOpenAnnotation}
         />
 
         <InputArea
           onSendMessage={handleSendMessage} // ✅ 初期化付きメッセージ送信
           onToggleCanvas={handleToggleCanvas} // ✅ 初期化付きCanvas切り替え
-          disabled={chatSession.state.isLoading}
+          disabled={chatSession.state.isLoading || annotationLoading}
           canvasOpen={canvasPanelOpen}
           currentSessionTitle={
             chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
@@ -291,6 +389,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           }}
           content={canvasContent}
           isVisible={canvasPanelOpen}
+        />
+      )}
+
+      {annotationOpen && (
+        <AnnotationPanel
+          sessionId={chatSession.state.currentSessionId || ''}
+          defaultTitle={''}
+          defaultContentHtml={canvasContent || latestAIMessage}
+          initialData={annotationData}
+          onClose={() => setAnnotationOpen(false)}
+          isVisible={annotationOpen}
         />
       )}
     </div>

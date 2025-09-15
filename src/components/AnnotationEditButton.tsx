@@ -2,12 +2,16 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { upsertContentAnnotation } from '@/server/handler/actions/wordpress.action';
+import {
+  upsertContentAnnotation,
+  upsertContentAnnotationBySession,
+} from '@/server/handler/actions/wordpress.action';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
 type Props = {
-  wpPostId: number;
+  wpPostId?: number; // 紐付け済み投稿に対する編集
+  sessionId?: string; // 未紐付け（セッション基点）に対する編集
   canonicalUrl?: string | null;
   initial?: {
     main_kw?: string | null;
@@ -19,7 +23,12 @@ type Props = {
   };
 };
 
-export default function AnnotationEditButton({ wpPostId, canonicalUrl, initial }: Props) {
+export default function AnnotationEditButton({
+  wpPostId,
+  sessionId,
+  canonicalUrl,
+  initial,
+}: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -38,16 +47,34 @@ export default function AnnotationEditButton({ wpPostId, canonicalUrl, initial }
     try {
       setIsSaving(true);
       setErrorMsg('');
-      const res = await upsertContentAnnotation({
-        wp_post_id: wpPostId,
-        canonical_url: canonicalUrl || null,
-        main_kw: form.main_kw,
-        kw: form.kw,
-        impressions: form.impressions,
-        persona: form.persona,
-        needs: form.needs,
-        goal: form.goal,
-      });
+      let res: { success?: boolean; error?: string } | undefined;
+      if (sessionId) {
+        // セッション基点で保存（WP未紐付け）
+        res = await upsertContentAnnotationBySession({
+          session_id: sessionId,
+          main_kw: form.main_kw,
+          kw: form.kw,
+          impressions: form.impressions,
+          persona: form.persona,
+          needs: form.needs,
+          goal: form.goal,
+        });
+      } else if (typeof wpPostId === 'number') {
+        // 紐付け済み投稿に対する保存
+        res = await upsertContentAnnotation({
+          wp_post_id: wpPostId,
+          canonical_url: canonicalUrl || null,
+          main_kw: form.main_kw,
+          kw: form.kw,
+          impressions: form.impressions,
+          persona: form.persona,
+          needs: form.needs,
+          goal: form.goal,
+        });
+      } else {
+        setErrorMsg('保存対象が特定できません');
+        return;
+      }
       if ((res as { success?: boolean }).success) {
         setSaveDone(true);
         setTimeout(() => {

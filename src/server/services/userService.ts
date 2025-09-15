@@ -28,16 +28,37 @@ export class UserService {
       let user = await userRepository.findByLineUserId(lineProfile.userId);
 
       if (!user) {
-        user = await userRepository.create({
-          lineUserId: lineProfile.userId,
-          lineDisplayName: lineProfile.displayName,
-          linePictureUrl: lineProfile.pictureUrl,
-          lineStatusMessage: lineProfile.statusMessage,
-          stripeCustomerId: undefined,
-          stripeSubscriptionId: undefined,
-          role: 'user',
-          lastLoginAt: Date.now(),
-        });
+        try {
+          user = await userRepository.create({
+            lineUserId: lineProfile.userId,
+            lineDisplayName: lineProfile.displayName,
+            linePictureUrl: lineProfile.pictureUrl,
+            lineStatusMessage: lineProfile.statusMessage,
+            stripeCustomerId: undefined,
+            stripeSubscriptionId: undefined,
+            role: 'user',
+            lastLoginAt: Date.now(),
+          });
+        } catch (createError: unknown) {
+          // 重複キー制約エラーの場合、再度検索を試行
+          if (
+            createError &&
+            typeof createError === 'object' &&
+            'code' in createError &&
+            'details' in createError &&
+            createError.code === '23505' &&
+            typeof createError.details === 'string' &&
+            createError.details.includes('line_user_id')
+          ) {
+            console.log('User creation failed due to duplicate key, attempting to find existing user');
+            user = await userRepository.findByLineUserId(lineProfile.userId);
+          }
+          
+          if (!user) {
+            console.error('Error creating user:', createError);
+            throw new Error('ユーザーの作成に失敗しました');
+          }
+        }
 
         if (!user) {
           throw new Error('ユーザーの作成に失敗しました');

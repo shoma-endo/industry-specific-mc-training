@@ -36,17 +36,17 @@ export function DeleteChatDialog({
           <DialogDescription className="text-left">
             「{chatTitle}」を削除してもよろしいですか？
             <br />
-            <span className="text-red-600 font-medium">
-              この操作は取り消すことができません。
-            </span>
+            <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
+            <div className="mt-3 text-xs text-gray-600 space-y-1">
+              <p>・未紐付け（WordPress未公開）のメモは同時に削除されます。</p>
+              <p>
+                ・WordPressに紐付け済みのメモは削除されません（チャットとの関連のみ解除されます）。
+              </p>
+            </div>
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isDeleting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>
             キャンセル
           </Button>
           <Button

@@ -361,8 +361,6 @@ export class WordPressService {
     }
   }
 
-  // exportPostToWordPress は削除されました（現在のフローでは不要）
-
   /**
    * フィーチャード画像をアップロード (WordPress.com API v1.1)
    * 注意: このメソッドはv1.1 APIを対象としています。

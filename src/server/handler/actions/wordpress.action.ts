@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { WordPressSettings } from '@/types/wordpress';
+import { WordPressSettings, WordPressPostResponse } from '@/types/wordpress';
 import { WordPressService, WordPressAuth } from '@/server/services/wordpressService';
 
 const supabaseService = new SupabaseService();
@@ -287,48 +287,6 @@ function normalizeFromRest(posts: WpRestPost[]): NormalizedPost[] {
   });
 }
 
-async function ensureContentAnnotationsForPosts(
-  userId: string,
-  posts: NormalizedPost[],
-  client: ReturnType<SupabaseService['getClient']>
-): Promise<void> {
-  const postIds = posts.map(p => Number(p.id)).filter(id => Number.isFinite(id)) as number[];
-  if (postIds.length === 0) return;
-
-  const { data: existingRows, error: existsError } = await client
-    .from('content_annotations')
-    .select('wp_post_id')
-    .eq('user_id', userId)
-    .in('wp_post_id', postIds);
-
-  if (existsError) {
-    console.error('[content_annotations] fetch existing error:', existsError);
-    return;
-  }
-
-  const existing = new Set<number>((existingRows || []).map(r => Number(r.wp_post_id)));
-  const missingIds = postIds.filter(id => !existing.has(id));
-  if (missingIds.length === 0) return;
-
-  const idToCanonical = new Map<number, string | null>();
-  for (const p of posts) {
-    const idNum = Number(p.id);
-    if (!Number.isFinite(idNum)) continue;
-    const canonical = p.canonical_url ?? p.link ?? null;
-    idToCanonical.set(idNum, canonical ?? null);
-  }
-
-  const rows = missingIds.map(id => ({
-    user_id: userId,
-    wp_post_id: id,
-    canonical_url: idToCanonical.get(id) ?? null,
-  }));
-  const { error: insertError } = await client.from('content_annotations').insert(rows);
-  if (insertError) {
-    console.error('[content_annotations] insert error:', insertError);
-  }
-}
-
 export async function getWordPressPostsForCurrentUser(page: number, perPage: number) {
   const cookieStore = await cookies();
 
@@ -380,12 +338,6 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
         : 0;
   const posts: WpRestPost[] = Array.isArray(postsJson) ? (postsJson as WpRestPost[]) : [];
   const normalized = normalizeFromRest(posts);
-
-  await ensureContentAnnotationsForPosts(
-    authResult.userId,
-    normalized,
-    supabaseService.getClient()
-  );
 
   return { success: true as const, data: { posts: normalized, total } };
 }
@@ -598,4 +550,224 @@ export async function testWordPressConnectionAction(liffAccessToken: string) {
       error: error instanceof Error ? error.message : '接続テスト中に予期せぬエラーが発生しました',
     };
   }
+}
+
+// ==========================================
+// セッション基盤の保存/取得/公開機能
+// ==========================================
+
+export async function getContentAnnotationBySession(session_id: string) {
+  const cookieStore = await cookies();
+  const liffAccessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  const authResult = await authMiddleware(liffAccessToken, refreshToken);
+  if (authResult.error || !authResult.userId)
+    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+
+  const client = new SupabaseService().getClient();
+  const { data, error } = await client
+    .from('content_annotations')
+    .select('*')
+    .eq('user_id', authResult.userId)
+    .eq('session_id', session_id)
+    .maybeSingle();
+
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const, data };
+}
+
+export async function upsertContentAnnotationBySession(payload: {
+  session_id: string;
+  main_kw?: string | null;
+  kw?: string | null;
+  impressions?: string | null;
+  persona?: string | null;
+  needs?: string | null;
+  goal?: string | null;
+}) {
+  const cookieStore = await cookies();
+  const liffAccessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  const authResult = await authMiddleware(liffAccessToken, refreshToken);
+  if (authResult.error || !authResult.userId)
+    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+
+  const client = new SupabaseService().getClient();
+  const { error } = await client.from('content_annotations').upsert(
+    {
+      user_id: authResult.userId,
+      session_id: payload.session_id,
+      main_kw: payload.main_kw ?? null,
+      kw: payload.kw ?? null,
+      impressions: payload.impressions ?? null,
+      persona: payload.persona ?? null,
+      needs: payload.needs ?? null,
+      goal: payload.goal ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,session_id' }
+  );
+
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const };
+}
+
+function sessionSlug(sessionId: string) {
+  return `session-${sessionId.slice(0, 12).toLowerCase()}`;
+}
+
+export async function publishFromSession(params: {
+  session_id: string;
+  title?: string;
+  contentHtml?: string;
+  excerpt?: string;
+  status: 'draft' | 'publish';
+  slug?: string;
+  forceRelink?: boolean; // 既存のwp_post_id差し替えを許可する場合のみtrue
+}) {
+  const cookieStore = await cookies();
+  const liffAccessToken = cookieStore.get('line_access_token')?.value || '';
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  const authResult = await authMiddleware(liffAccessToken, refreshToken);
+  if (authResult.error || !authResult.userId)
+    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+
+  const supaSvc = new SupabaseService();
+  const client = supaSvc.getClient();
+
+  // 対象注釈行を取得（無ければ自動生成して続行）
+  let { data: row } = await client
+    .from('content_annotations')
+    .select('*')
+    .eq('user_id', authResult.userId)
+    .eq('session_id', params.session_id)
+    .maybeSingle();
+
+  if (!row) {
+    const nowIso = new Date().toISOString();
+    const { error: upsertInitErr } = await client.from('content_annotations').upsert(
+      {
+        user_id: authResult.userId,
+        session_id: params.session_id,
+        updated_at: nowIso,
+      },
+      { onConflict: 'user_id,session_id' }
+    );
+    if (upsertInitErr) {
+      return { success: false as const, error: upsertInitErr.message };
+    }
+
+    // 生成後に再取得（後段の処理で参照するため）
+    const re = await client
+      .from('content_annotations')
+      .select('*')
+      .eq('user_id', authResult.userId)
+      .eq('session_id', params.session_id)
+      .maybeSingle();
+    row = re.data ?? null;
+    if (!row) return { success: false as const, error: '注釈の初期化に失敗しました' };
+  }
+
+  const wpSettings = await supaSvc.getWordPressSettingsByUserId(authResult.userId);
+  if (!wpSettings) return { success: false as const, error: 'WordPress設定が未登録です' };
+
+  let wpService: WordPressService;
+  if (wpSettings.wpType === 'wordpress_com') {
+    const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
+    const accessToken = cookieStore.get(tokenCookieName)?.value || '';
+    wpService = new WordPressService({
+      type: 'wordpress_com',
+      wpComAuth: { accessToken, siteId: wpSettings.wpSiteId || '' },
+    });
+  } else {
+    wpService = new WordPressService({
+      type: 'self_hosted',
+      selfHostedAuth: {
+        siteUrl: wpSettings.wpSiteUrl || '',
+        username: wpSettings.wpUsername || '',
+        applicationPassword: wpSettings.wpApplicationPassword || '',
+      },
+    });
+  }
+
+  const title = params.title && params.title.trim() ? params.title : '（無題）';
+  const contentHtml =
+    params.contentHtml && params.contentHtml.trim() ? params.contentHtml : '<p></p>';
+  const slug = params.slug && params.slug.trim() ? params.slug : sessionSlug(params.session_id);
+
+  // 既存があれば更新、無ければ slug で検索→無ければ新規
+  const exportData: {
+    title: string;
+    content: string;
+    excerpt?: string;
+    slug: string;
+    status: 'draft' | 'publish';
+    updateExisting: true;
+  } = {
+    title,
+    content: contentHtml,
+    slug,
+    status: params.status,
+    updateExisting: true, // slug一致があれば更新
+  };
+
+  if (params.excerpt) {
+    exportData.excerpt = params.excerpt;
+  }
+
+  const res = await wpService.exportPageToWordPress(exportData);
+
+  if (!res.success || !res.data) {
+    try {
+      console.error('[publishFromSession] export failed detail:', res);
+    } catch {}
+    return { success: false as const, error: res.error || 'WordPress公開に失敗しました' };
+  }
+
+  // WordPress API によりプロパティ名が異なる可能性に対応（ID or id）
+  function extractIdLink(data: unknown): { id: number; link: string } {
+    // WordPress.com (v2) 例: { ID: number, link: string, ... }
+    const wpcom = data as Partial<WordPressPostResponse>;
+    if (typeof wpcom?.ID === 'number' && typeof wpcom?.link === 'string') {
+      return { id: wpcom.ID, link: wpcom.link };
+    }
+    // Self-hosted WP REST v2 例: { id: number, link: string, ... }
+    if (
+      typeof (data as Record<string, unknown>)?.id === 'number' &&
+      typeof (data as Record<string, unknown>)?.link === 'string'
+    ) {
+      const d = data as Record<string, unknown>;
+      return { id: d.id as number, link: d.link as string };
+    }
+    throw new Error('Unexpected WordPress post response shape');
+  }
+
+  const { id: wpId, link } = extractIdLink(res.data);
+
+  try {
+    console.log('[publishFromSession] normalized export result:', { wpId, link, raw: res.data });
+  } catch {}
+
+  // 既存のwp_post_id保護: 既に設定があり、今回と異なる場合は差し替えない
+  if (row.wp_post_id && row.wp_post_id !== wpId && !params.forceRelink) {
+    return {
+      success: false as const,
+      error: '既存のリンク先と異なります。リンク変更を許可して再実行してください。',
+    };
+  }
+
+  const nextWpId = row.wp_post_id || wpId;
+
+  const { error: updErr } = await client
+    .from('content_annotations')
+    .update({
+      wp_post_id: nextWpId,
+      canonical_url: link, // canonical_url は最新で更新
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', authResult.userId)
+    .eq('session_id', params.session_id);
+  if (updErr) return { success: false as const, error: updErr.message };
+
+  return { success: true as const, wp_post_id: wpId as number, link: link as string };
 }

@@ -170,12 +170,35 @@ export class LineAuthService {
       };
     }
 
-    const response = await fetch('https://api.line.me/v2/profile', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    // ネットワークエラーに対するリトライ処理
+    let response: Response;
+    let lastError: Error | null = null;
+    const maxRetries = 3;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        response = await fetch('https://api.line.me/v2/profile', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        break; // 成功した場合、ループを抜ける
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`[LINE Profile] Fetch attempt ${attempt + 1} failed:`, error);
+        
+        if (attempt < maxRetries - 1) {
+          // 最後の試行でない場合、少し待ってからリトライ
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
+      }
+    }
+    
+    if (!response!) {
+      throw new Error(`LINE profile fetch failed after ${maxRetries} attempts: ${lastError?.message}`);
+    }
+    
     if (!response.ok) {
       // エラーレスポンスの形式が不明なため、text()で取得して詳細をログに出力することを検討
       const errorText = await response.text();

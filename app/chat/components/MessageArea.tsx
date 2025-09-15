@@ -2,22 +2,26 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
-import { Bot, Edit3, MoreHorizontal } from 'lucide-react';
+import { Bot, Edit3, MoreHorizontal, BookMarked } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface MessageAreaProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  annotationLoading?: boolean;
   onEditInCanvas?: (content: string) => void;
   onShowCanvas?: (content: string) => void;
+  onOpenAnnotation?: (content: string) => void;
 }
 
 const MessageArea: React.FC<MessageAreaProps> = ({
   messages,
   isLoading,
+  annotationLoading = false,
   onEditInCanvas,
   onShowCanvas,
+  onOpenAnnotation,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
@@ -257,6 +261,26 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                               >
                                 <Edit3 size={14} className="text-blue-600" />
                                 <span>Canvasで編集</span>
+                              </button>
+                            )}
+                            
+                            {/* 保存 */}
+                            {onOpenAnnotation && (
+                              <button
+                                className={cn(
+                                  "w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors",
+                                  annotationLoading && "opacity-50 cursor-not-allowed"
+                                )}
+                                onClick={() => {
+                                  if (!annotationLoading) {
+                                    onOpenAnnotation(message.content);
+                                    setMenuOpenForId(null);
+                                  }
+                                }}
+                                disabled={annotationLoading}
+                              >
+                                <BookMarked size={14} className="text-green-600" />
+                                <span>{annotationLoading ? '読み込み中...' : 'ブログ保存'}</span>
                               </button>
                             )}
                           </div>
