@@ -129,9 +129,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ✅ 手動編集フラグを追加
   const [isManualEdit, setIsManualEdit] = useState(false);
 
-  // 最新AI本文（公開のデフォルト本文に使える）
-  const latestAIMessage = getLatestAIMessage(chatSession.state.messages);
-
   // エラーのローカル dismiss 制御
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
   // クオータ上限メッセージは利用しない（自動dismissを廃止したため）
@@ -395,8 +392,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       {annotationOpen && (
         <AnnotationPanel
           sessionId={chatSession.state.currentSessionId || ''}
-          defaultTitle={''}
-          defaultContentHtml={canvasContent || latestAIMessage}
           initialData={annotationData}
           onClose={() => setAnnotationOpen(false)}
           isVisible={annotationOpen}

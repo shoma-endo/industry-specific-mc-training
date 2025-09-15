@@ -21,8 +21,6 @@ type AnnotationData = {
 
 type Props = {
   sessionId: string;
-  defaultTitle?: string;
-  defaultContentHtml?: string;
   initialData?: AnnotationData | null;
   onClose: () => void;
   isVisible?: boolean;
@@ -30,8 +28,6 @@ type Props = {
 
 export default function AnnotationPanel({
   sessionId,
-  defaultTitle = '',
-  defaultContentHtml = '',
   initialData,
   onClose,
   isVisible = true,
@@ -47,8 +43,8 @@ export default function AnnotationPanel({
   const [loading, setLoading] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
   const [status, setStatus] = React.useState<'draft' | 'publish'>('draft');
-  const [title, setTitle] = React.useState(defaultTitle);
-  const [contentHtml, setContentHtml] = React.useState(defaultContentHtml);
+  const [title, setTitle] = React.useState('');
+  const [contentHtml, setContentHtml] = React.useState('');
   const [error, setError] = React.useState<string>('');
   const [saveButtonMessage, setSaveButtonMessage] = React.useState<string>('');
   const [saveButtonMessageType, setSaveButtonMessageType] = React.useState<
@@ -82,10 +78,6 @@ export default function AnnotationPanel({
     }
   }, [initialData]);
 
-  React.useEffect(() => {
-    setTitle(defaultTitle);
-    setContentHtml(defaultContentHtml);
-  }, [defaultTitle, defaultContentHtml]);
 
   const save = async () => {
     setLoading(true);
@@ -132,7 +124,7 @@ export default function AnnotationPanel({
       const res = await publishFromSession({
         session_id: sessionId,
         title: title || '（無題）',
-        contentHtml: contentHtml || '<p></p>',
+        contentHtml: contentHtml || '',
         status,
       });
       if (!res.success) {
