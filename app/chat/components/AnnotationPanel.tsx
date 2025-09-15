@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   upsertContentAnnotationBySession,
   publishFromSession,
@@ -55,6 +55,19 @@ export default function AnnotationPanel({
     'success' | 'error' | ''
   >('');
 
+  // リサイザー機能のためのstate
+  const [panelWidth, setPanelWidth] = useState(() => {
+    // localStorage から保存された幅を復元（デフォルト: 450px）
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('annotation-panel-width');
+      return saved ? parseInt(saved, 10) : 450;
+    }
+    return 450;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartXRef = useRef<number>(0);
+  const initialWidthRef = useRef<number>(0);
+
   React.useEffect(() => {
     if (initialData) {
       setForm({
@@ -77,6 +90,56 @@ export default function AnnotationPanel({
       });
     }
   }, [initialData]);
+
+  // 幅変更をlocalStorageに保存
+  useEffect(() => {
+    localStorage.setItem('annotation-panel-width', panelWidth.toString());
+  }, [panelWidth]);
+
+  // リサイザーのマウスイベントハンドラー
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      setIsResizing(true);
+      resizeStartXRef.current = e.clientX;
+      initialWidthRef.current = panelWidth;
+      e.preventDefault();
+    },
+    [panelWidth]
+  );
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const deltaX = resizeStartXRef.current - e.clientX; // 左にドラッグで拡大
+      const newWidth = Math.max(320, Math.min(1000, initialWidthRef.current + deltaX)); // 320px-1000px の範囲
+      setPanelWidth(newWidth);
+    },
+    [isResizing]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  // グローバルマウスイベントの管理
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      // リサイズ中はカーソルを固定
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+    return () => {}; // falseの場合の空のcleanup関数
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
 
   const save = async () => {
@@ -161,11 +224,26 @@ export default function AnnotationPanel({
 
   return (
     <div
-      className={cn('h-full bg-gray-50 border-l flex flex-col relative', 'w-full max-w-lg')}
-      style={{ width: 450 }}
+      className={cn('h-full bg-gray-50 border-l flex flex-col relative')}
+      style={{ width: panelWidth }}
     >
+      {/* リサイザーハンドル - 固定ヘッダー下から開始 */}
+      <div
+        className={`absolute left-0 top-16 bottom-0 w-1 cursor-col-resize transition-all duration-200 group ${
+          isResizing ? 'bg-blue-500 w-2 shadow-lg' : 'bg-gray-200 hover:bg-blue-300 hover:w-1.5'
+        }`}
+        onMouseDown={handleMouseDown}
+        style={{ zIndex: 45 }} // ヘッダーより少し下のz-index
+        title="ドラッグして幅を調整"
+      >
+        {/* リサイザーハンドルの視覚的ヒント */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="w-0.5 h-8 bg-white/70 rounded-full"></div>
+        </div>
+      </div>
+
       {/* ヘッダー部分 - 固定ヘッダー分のtop位置を調整 */}
-      <div className="sticky top-16 z-40 flex items-center justify-between px-4 py-3 border-b bg-white/90 backdrop-blur-sm shadow-sm">
+      <div className="sticky top-16 z-40 flex items-center justify-between px-4 py-3 border-b bg-white/90 backdrop-blur-sm ml-2 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
@@ -185,7 +263,7 @@ export default function AnnotationPanel({
       </div>
 
       {/* コンテンツエリア - ヘッダーとの重なりを防ぐため上部パディングを調整 */}
-      <div className="flex-1 overflow-auto p-4" style={{ paddingTop: '80px' }}>
+      <div className="flex-1 overflow-auto p-4 ml-2" style={{ paddingTop: '80px' }}>
         {error && (
           <div className="mb-4 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
             {error}
