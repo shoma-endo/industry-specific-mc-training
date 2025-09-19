@@ -185,6 +185,7 @@ export const BLOG_PLACEHOLDERS: Record<string, string> = {
   blog_creation_step5: '見出し案や章立ての希望があれば入力してください',
   blog_creation_step6: '導入文のトーン/要素を入力してください',
   blog_creation_step7: '本文作成の要件/トーンを入力してください',
+  revision: '修正指示を入力してください',
 };
 
 // prompts.ts 用のテンプレ名解決

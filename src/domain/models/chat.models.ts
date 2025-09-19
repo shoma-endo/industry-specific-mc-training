@@ -16,11 +16,12 @@ export const initialChatState: ChatState = {
   error: null,
 };
 
-export const createUserMessage = (content: string): ChatMessage => ({
+export const createUserMessage = (content: string, model?: string): ChatMessage => ({
   id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
   role: 'user',
   content,
   timestamp: new Date(),
+  model: model || undefined,
 });
 
 export const createAssistantMessage = (content: string, model?: string | undefined): ChatMessage => ({

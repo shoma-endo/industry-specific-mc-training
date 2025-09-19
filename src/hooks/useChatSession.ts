@@ -29,7 +29,7 @@ export const useChatSession = (
       accessToken: string,
       recentMessages: { role: string; content: string }[]
     ) => {
-      const userMessage = createUserMessage(content);
+      const userMessage = createUserMessage(content, model);
       const assistantMessage = createAssistantMessage('', model);
 
       setState(prev => ({
@@ -192,7 +192,7 @@ export const useChatSession = (
         })),
       };
 
-      const userMessage = createUserMessage(content);
+      const userMessage = createUserMessage(content, model);
       setState(prev => ({
         ...prev,
         messages: [...prev.messages, userMessage],

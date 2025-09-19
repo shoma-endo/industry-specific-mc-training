@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ChatSessionHook } from '@/hooks/useChatSession';
 import { SubscriptionHook } from '@/hooks/useSubscriptionStatus';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
@@ -16,7 +16,11 @@ import MessageArea from './MessageArea';
 import InputArea from './InputArea';
 import CanvasPanel from './CanvasPanel';
 import AnnotationPanel from './AnnotationPanel';
+import StepActionBar from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
+import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
+import type { FlowStatus } from '@/context/BlogFlowProvider';
+import { BlogStepId } from '@/lib/constants';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -100,6 +104,382 @@ const getLatestAIMessage = (messages: ChatMessage[]) => {
   return '';
 };
 
+// 自動開始は行わず、明示ボタンで開始する
+type ChatLayoutCtx = {
+  chatSession: ChatSessionHook;
+  subscription: SubscriptionHook;
+  isMobile: boolean;
+  blogFlowActive: boolean;
+  selectedModel: string;
+  ui: {
+    sidebar: { open: boolean; setOpen: (open: boolean) => void };
+    canvas: { open: boolean; show: (content: string) => void };
+    annotation: {
+      open: boolean;
+      loading: boolean;
+      data: {
+        main_kw?: string;
+        kw?: string;
+        impressions?: string;
+        persona?: string;
+        needs?: string;
+        goal?: string;
+      } | null;
+      openWith: (content: string) => void;
+      setOpen: (open: boolean) => void;
+    };
+  };
+  onSendMessage: (content: string, model: string) => Promise<void>;
+  handleEditInCanvas: (content: string) => void;
+  handleModelChange: (model: string, step?: BlogStepId) => void;
+};
+
+const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
+  const {
+    chatSession,
+    subscription,
+    isMobile,
+    blogFlowActive,
+    selectedModel,
+    ui,
+    onSendMessage,
+    handleEditInCanvas,
+
+    handleModelChange,
+  } = ctx;
+  const { state, cancelRevision, currentIndex, totalSteps, retry, restart, restoreFlowState } =
+    useBlogFlow();
+  const router = useRouter();
+
+  // ChatLayoutContent内でのblogFlowActive再計算
+  const blogFlowActiveRecalculated =
+    !subscription.requiresSubscription &&
+    !!chatSession.state.currentSessionId &&
+    selectedModel === 'blog_creation';
+
+  // blogFlowActiveがfalseの場合は再計算値を使用
+  const effectiveBlogFlowActive = blogFlowActive || blogFlowActiveRecalculated;
+
+  const currentStep = state.current;
+  const flowStatusCurrent = state.flowStatus;
+  const steps = state.steps;
+  const currentAiId = steps[currentStep]?.aiMessageId;
+
+  const ensureFlowState = useCallback(
+    (step: BlogStepId, aiMessageId?: string, statusOverride?: FlowStatus) => {
+      const desiredStatus: FlowStatus =
+        statusOverride ?? (aiMessageId ? 'waitingAction' : 'running');
+      const stepData = steps[step];
+
+      const alreadyCurrent = currentStep === step;
+      const alreadyStatus = flowStatusCurrent === desiredStatus;
+      const alreadyAiMessage = stepData?.aiMessageId === aiMessageId;
+
+      if (alreadyCurrent && alreadyStatus && alreadyAiMessage) {
+        return;
+      }
+
+      restoreFlowState(step, aiMessageId, statusOverride);
+    },
+    [currentStep, flowStatusCurrent, restoreFlowState, steps]
+  );
+
+  // デバッグログ削除
+
+  // ブログフロー状態の復元（最新のブログ用 user を起点に復元）
+  useEffect(() => {
+    if (!effectiveBlogFlowActive) return;
+    if (!chatSession.state.currentSessionId || chatSession.state.messages.length === 0) return;
+
+    const msgs: ChatMessage[] = chatSession.state.messages;
+
+    // 1) 最新のブログ用 user メッセージを探す
+    let lastBlogUserIndex = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      const mm = typeof m?.model === 'string' ? (m.model as string) : '';
+      if (m?.role === 'user' && mm.startsWith('blog_creation_')) {
+        lastBlogUserIndex = i;
+        break;
+      }
+    }
+    if (lastBlogUserIndex < 0) return;
+
+    // 2) その user 以降の最初の assistant を探す
+    let assistantAfter: ChatMessage | undefined;
+    for (let j = lastBlogUserIndex + 1; j < msgs.length; j++) {
+      const cand = msgs[j];
+      if (cand && cand.role === 'assistant') {
+        assistantAfter = cand;
+        break;
+      }
+    }
+
+    const step = ((msgs[lastBlogUserIndex]?.model as string) || '').replace(
+      'blog_creation_',
+      ''
+    ) as BlogStepId;
+
+    if (assistantAfter) {
+      // AI返信がある → アクション待ち
+      ensureFlowState(step, assistantAfter.id, 'waitingAction');
+    } else if (flowStatusCurrent === 'idle') {
+      // まだ返信来てない → 生成中
+      ensureFlowState(step, undefined, 'running');
+    }
+  }, [
+    effectiveBlogFlowActive,
+    chatSession.state.currentSessionId,
+    chatSession.state.messages,
+    ensureFlowState,
+    flowStatusCurrent,
+  ]);
+
+  // 自動startは行わない（ユーザー送信起点）。状態復元のみ行う。
+
+  // 返信待ちの復元: running -> （対象のassistant到着後）-> waitingAction
+  useEffect(() => {
+    if (!effectiveBlogFlowActive || flowStatusCurrent !== 'running') return;
+    const msgs: ChatMessage[] = chatSession.state.messages;
+
+    // 最新のブログ用 user メッセージを探す
+    let lastBlogUserIndex = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (!m) continue;
+      const mm = typeof m.model === 'string' ? (m.model as string) : '';
+      if (m.role === 'user' && mm.startsWith('blog_creation_')) {
+        lastBlogUserIndex = i;
+        break;
+      }
+    }
+    if (lastBlogUserIndex < 0) return;
+
+    // その後で最初の assistant を探す
+    let assistantAfter: ChatMessage | undefined;
+    for (let j = lastBlogUserIndex + 1; j < msgs.length; j++) {
+      const cand = msgs[j];
+      if (cand && cand.role === 'assistant') {
+        assistantAfter = cand;
+        break;
+      }
+    }
+    if (!assistantAfter) return;
+
+    const userModel = msgs[lastBlogUserIndex]?.model ?? '';
+    const step = userModel.replace('blog_creation_', '') as BlogStepId;
+    ensureFlowState(step, assistantAfter.id, 'waitingAction');
+  }, [effectiveBlogFlowActive, flowStatusCurrent, chatSession.state.messages, ensureFlowState]);
+
+  const goToSubscription = () => {
+    router.push('/subscription');
+  };
+
+  const [isErrorDismissed, setIsErrorDismissed] = useState(false);
+  const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
+
+  // エラーの表示制御
+  useEffect(() => {
+    setIsErrorDismissed(false);
+  }, [chatSession.state.error]);
+
+  useEffect(() => {
+    setIsSubscriptionErrorDismissed(false);
+  }, [subscription.error]);
+
+  const renderAfterMessage = (message: ChatMessage) => {
+    // 最新のアシスタントメッセージIDを取得（ID比較で統一）
+    const assistants = chatSession.state.messages.filter(m => m.role === 'assistant');
+    const lastAssistantId = assistants[assistants.length - 1]?.id;
+
+    // 表示判定のみを行う
+
+    // StepActionBar表示条件: ブログフロー中 かつ アクション待ち かつ 最新のAIメッセージ直下
+    const shouldShowActionBar =
+      effectiveBlogFlowActive &&
+      state.flowStatus === 'waitingAction' &&
+      message.role === 'assistant' &&
+      message.id === lastAssistantId;
+
+    if (shouldShowActionBar) {
+      return (
+        <StepActionBar
+          step={currentStep}
+          className="px-3 py-2 border-t bg-gray-50/50"
+          disabled={chatSession.state.isLoading || ui.annotation.loading}
+        />
+      );
+    }
+
+    // エラー状態のUI表示
+    if (
+      effectiveBlogFlowActive &&
+      state.flowStatus === 'error' &&
+      message.role === 'assistant' &&
+      (currentAiId ? message.id === currentAiId : message.id === lastAssistantId)
+    ) {
+      return (
+        <div className="px-3 py-2 border-t bg-red-50 flex items-center justify-between">
+          <span className="text-red-700 text-sm">生成に失敗しました。再試行できます。</span>
+          <button
+            onClick={() => retry()}
+            className="text-xs px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+            disabled={chatSession.state.isLoading || ui.annotation.loading}
+          >
+            再試行
+          </button>
+        </div>
+      );
+    }
+
+    // 完了状態のUI表示
+    if (
+      effectiveBlogFlowActive &&
+      state.flowStatus === 'completed' &&
+      message.role === 'assistant' &&
+      (currentAiId ? message.id === currentAiId : message.id === lastAssistantId)
+    ) {
+      return (
+        <div className="px-3 py-2 border-t bg-emerald-50 flex items-center justify-between">
+          <span className="text-emerald-700 text-sm">ブログ作成フローが完了しました。</span>
+          <button
+            onClick={() => restart()}
+            className="text-xs px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
+            disabled={chatSession.state.isLoading || ui.annotation.loading}
+          >
+            最初からやり直す
+          </button>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <>
+      {/* デスクトップサイドバー */}
+      {!isMobile && (
+        <SessionSidebar
+          sessions={chatSession.state.sessions}
+          currentSessionId={chatSession.state.currentSessionId}
+          actions={chatSession.actions}
+          isLoading={chatSession.state.isLoading}
+        />
+      )}
+
+      {/* モバイルサイドバー（Sheet） */}
+      {isMobile && (
+        <Sheet open={ui.sidebar.open} onOpenChange={ui.sidebar.setOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 left-2 z-10"
+              aria-label="メニューを開く"
+            >
+              <Menu size={20} />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 max-w-[280px] sm:max-w-[280px]">
+            <SessionSidebar
+              sessions={chatSession.state.sessions}
+              currentSessionId={chatSession.state.currentSessionId}
+              actions={{
+                ...chatSession.actions,
+                loadSession: async (sessionId: string) => {
+                  await chatSession.actions.loadSession(sessionId);
+                  ui.sidebar.setOpen(false);
+                },
+                startNewSession: () => {
+                  chatSession.actions.startNewSession();
+                  ui.sidebar.setOpen(false);
+                },
+              }}
+              isLoading={chatSession.state.isLoading}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      <div className={cn('flex-1 flex flex-col pt-16', isMobile && 'pt-16')}>
+        {/* メモ編集ボタン */}
+        <div className="absolute top-2 right-2 z-10 flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => ui.annotation.openWith('')}
+            disabled={!chatSession.state.currentSessionId || ui.annotation.loading}
+          >
+            {ui.annotation.loading ? '読み込み中...' : 'メモ編集'}
+          </Button>
+        </div>
+
+        {subscription.requiresSubscription && (
+          <SubscriptionAlert error={subscription.error} onGoToSubscription={goToSubscription} />
+        )}
+
+        {subscription.error &&
+          !subscription.requiresSubscription &&
+          !isSubscriptionErrorDismissed && (
+            <ErrorAlert
+              error={subscription.error}
+              onClose={() => setIsSubscriptionErrorDismissed(true)}
+            />
+          )}
+
+        {chatSession.state.error && !isErrorDismissed && (
+          <ErrorAlert error={chatSession.state.error} onClose={() => setIsErrorDismissed(true)} />
+        )}
+
+        <MessageArea
+          messages={chatSession.state.messages}
+          isLoading={chatSession.state.isLoading}
+          annotationLoading={ui.annotation.loading}
+          onEditInCanvas={handleEditInCanvas}
+          onShowCanvas={ui.canvas.show}
+          onOpenAnnotation={ui.annotation.openWith}
+          renderAfterMessage={renderAfterMessage}
+          blogFlowActive={effectiveBlogFlowActive}
+        />
+
+        <InputArea
+          onSendMessage={onSendMessage}
+          onToggleCanvas={() => {}}
+          disabled={chatSession.state.isLoading || ui.annotation.loading}
+          canvasOpen={ui.canvas.open}
+          currentSessionTitle={
+            chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
+              ?.title || '新しいチャット'
+          }
+          isMobile={isMobile}
+          onMenuToggle={isMobile ? () => ui.sidebar.setOpen(!ui.sidebar.open) : undefined}
+          blogFlowActive={effectiveBlogFlowActive}
+          blogProgress={{ currentIndex, total: totalSteps }}
+          onModelChange={handleModelChange}
+          blogFlowStatus={state.flowStatus}
+          selectedModelExternal={selectedModel}
+        />
+      </div>
+
+      {ui.annotation.open && (
+        <AnnotationPanel
+          sessionId={chatSession.state.currentSessionId || ''}
+          initialData={ui.annotation.data}
+          onClose={() => {
+            if (state.flowStatus === 'revising') {
+              cancelRevision();
+            } else {
+              ui.annotation.setOpen(false);
+            }
+          }}
+          isVisible={ui.annotation.open}
+        />
+      )}
+    </>
+  );
+};
+
 export const ChatLayout: React.FC<ChatLayoutProps> = ({
   chatSession,
   subscription,
@@ -120,20 +500,115 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [canvasContent, setCanvasContent] = useState('');
-  const router = useRouter();
+  const [selectedModel, setSelectedModel] = useState<string>(
+    'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
+  );
+  const [, setSelectedBlogStep] = useState<BlogStepId>('step1');
 
-  const goToSubscription = () => {
-    router.push('/subscription');
+  // ブログフローの自動検出（モデル選択のみ）
+  useEffect(() => {
+    if (!chatSession.state.currentSessionId || chatSession.state.messages.length === 0) return;
+
+    // メッセージ履歴からブログ作成関連のモデル使用を検出
+    const blogMessages = chatSession.state.messages.filter(
+      msg => msg.role === 'user' && msg.model && msg.model.startsWith('blog_creation_')
+    );
+
+    if (blogMessages.length > 0 && selectedModel !== 'blog_creation') {
+      // ブログモデルに切り替え
+      setSelectedModel('blog_creation');
+    }
+  }, [chatSession.state.currentSessionId, chatSession.state.messages, selectedModel]);
+
+  // モデル変更ハンドラ
+  const handleModelChange = useCallback((model: string, step?: BlogStepId) => {
+    setSelectedModel(model);
+    if (step) setSelectedBlogStep(step);
+  }, []);
+
+  // 新しいアシスタントメッセージを待つヘルパー関数（件数とID変化の両方を監視）
+  const waitForNewAssistantMessage = (
+    prevLastId: string | undefined,
+    prevCount: number,
+    getMessages: () => ChatMessage[],
+    timeoutMs = 12000,
+    intervalMs = 120
+  ): Promise<string | undefined> => {
+    const start = Date.now();
+    return new Promise(resolve => {
+      const timer = setInterval(() => {
+        const now = Date.now();
+        if (now - start > timeoutMs) {
+          clearInterval(timer);
+          resolve(undefined);
+          return;
+        }
+
+        const assistants = getMessages().filter(m => m.role === 'assistant');
+        const cur = assistants[assistants.length - 1];
+        const increased = assistants.length > prevCount;
+        const changed = cur?.id && cur.id !== prevLastId;
+
+        if (increased || changed) {
+          clearInterval(timer);
+          resolve(cur?.id);
+        }
+      }, intervalMs);
+    });
   };
+
+  // BlogFlow用のagent実装
+  const agent = {
+    send: async (content: string, model: string) => {
+      // 送信前のアシスタントメッセージ状態を記録
+      const beforeAssistants = chatSession.state.messages.filter(m => m.role === 'assistant');
+      const prevLastId = beforeAssistants[beforeAssistants.length - 1]?.id;
+      const prevCount = beforeAssistants.length;
+
+      // メッセージ送信
+      await handleSendMessage(content, model);
+
+      // 新しいアシスタントメッセージが現れるまで待つ（件数増加またはID変化）
+      const newMessageId = await waitForNewAssistantMessage(
+        prevLastId,
+        prevCount,
+        () => chatSession.state.messages
+      );
+
+      return { messageId: newMessageId ?? String(Date.now()) };
+    },
+  };
+
+  // Revision用にCanvasパネルを開く（BlogFlow用）
+  const openRevisionPanel = () => {
+    console.log('openRevisionPanel called');
+
+    if (annotationOpen) {
+      setAnnotationOpen(false);
+      setAnnotationData(null);
+    }
+
+    // 最新のAIメッセージを取得してCanvasパネルを開く
+    const latestAIMessage = getLatestAIMessage(chatSession.state.messages);
+    console.log('Setting canvas content:', latestAIMessage?.substring(0, 100));
+    setCanvasContent(latestAIMessage);
+    setCanvasPanelOpen(true);
+    setIsManualEdit(true);
+  };
+
+  const closeCanvas = () => {
+    setCanvasPanelOpen(false);
+    setIsManualEdit(false);
+  };
+
+  // BlogFlow起動ガード（モデル選択と連動）
+  const blogFlowActive =
+    !subscription.requiresSubscription &&
+    !!chatSession.state.currentSessionId &&
+    selectedModel === 'blog_creation';
 
   // ✅ 手動編集フラグを追加
   const [isManualEdit, setIsManualEdit] = useState(false);
-
-  // エラーのローカル dismiss 制御
-  const [isErrorDismissed, setIsErrorDismissed] = useState(false);
-  // クオータ上限メッセージは利用しない（自動dismissを廃止したため）
-  const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
-
 
   // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く、自動で開かない）
   useEffect(() => {
@@ -148,18 +623,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       // ✅ AIの返信があっても自動でCanvasを開かない（ユーザーがホバー→クリックした時のみ開く）
     }
   }, [chatSession.state.messages, canvasContent, isManualEdit]);
-
-  // 新しいエラーメッセージが来たら再表示
-  useEffect(() => {
-    setIsErrorDismissed(false);
-  }, [chatSession.state.error]);
-
-  // エラーの自動dismissは行わない（ユーザーが明示的に閉じるのみ）
-
-  // サブスクリプションエラーが変わったら再表示
-  useEffect(() => {
-    setIsSubscriptionErrorDismissed(false);
-  }, [subscription.error]);
 
   // ✅ セッション切り替え時にパネルを自動的に閉じる
   useEffect(() => {
@@ -184,31 +647,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   };
 
-  // ✅ Canvas切り替え時に初期化を実行
-  const handleToggleCanvas = async () => {
-    try {
-      // Canvasを開く場合は、Annotationパネルが開いている時は同時に切り替え
-      if (!canvasPanelOpen && annotationOpen) {
-        setAnnotationOpen(false);
-        setAnnotationData(null);
-      }
-      setCanvasPanelOpen(!canvasPanelOpen);
-    } catch (error) {
-      console.error('Canvas toggle failed:', error);
-      // エラー時でもCanvas切り替えを実行
-      if (!canvasPanelOpen && annotationOpen) {
-        setAnnotationOpen(false);
-        setAnnotationData(null);
-      }
-      setCanvasPanelOpen(!canvasPanelOpen);
-    }
-  };
-
   // ✅ 過去のメッセージをCanvasで編集する関数
   const handleEditInCanvas = (content: string) => {
     setIsManualEdit(true); // 手動編集フラグを設定
     setCanvasContent(content);
-    
+
     // Annotationパネルが開いている場合は同時に切り替え
     if (annotationOpen) {
       setAnnotationOpen(false);
@@ -220,7 +663,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
   const handleShowCanvas = (content: string) => {
     setCanvasContent(content);
-    
+
     // Annotationパネルが開いている場合は同時に切り替え
     if (annotationOpen) {
       setAnnotationOpen(false);
@@ -232,12 +675,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ✅ 保存ボタンクリック時にAnnotationPanelを表示する関数
   const handleOpenAnnotation = async (content: string) => {
     if (!chatSession.state.currentSessionId) return;
-    
+
     setAnnotationLoading(true);
     try {
       // 最新AIメッセージをデフォルトHTMLコンテンツとして設定
       setCanvasContent(content);
-      
+
       // データベースから既存のアノテーションデータを取得
       const res = await getContentAnnotationBySession(chatSession.state.currentSessionId);
       if (res.success && res.data) {
@@ -245,19 +688,19 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       } else {
         setAnnotationData(null);
       }
-      
+
       // Canvasパネルが開いている場合は同時に切り替え
       if (canvasPanelOpen) {
         setCanvasPanelOpen(false);
         setIsManualEdit(false);
       }
-      
+
       // データ取得完了後にパネルを表示
       setAnnotationOpen(true);
     } catch (error) {
       console.error('Failed to load annotation data:', error);
       setAnnotationData(null);
-      
+
       // エラーでも切り替えを実行
       if (canvasPanelOpen) {
         setCanvasPanelOpen(false);
@@ -269,134 +712,54 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   };
 
-
-
   if (!isLoggedIn) {
     return <LoginPrompt onLogin={login} />;
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)]" data-testid="chat-layout">
-      {/* デスクトップサイドバー */}
-      {!isMobile && (
-        <SessionSidebar
-          sessions={chatSession.state.sessions}
-          currentSessionId={chatSession.state.currentSessionId}
-          actions={chatSession.actions}
-          isLoading={chatSession.state.isLoading} // ✅ 読み込み状態を渡す
-        />
-      )}
-
-      {/* モバイルサイドバー（Sheet） */}
-      {isMobile && (
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 left-2 z-10"
-              aria-label="メニューを開く"
-            >
-              <Menu size={20} />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 max-w-[280px] sm:max-w-[280px]">
-            <SessionSidebar
-              sessions={chatSession.state.sessions}
-              currentSessionId={chatSession.state.currentSessionId}
-              actions={{
-                ...chatSession.actions,
-                loadSession: async (sessionId: string) => {
-                  await chatSession.actions.loadSession(sessionId);
-                  setSidebarOpen(false); // ✅ モバイルでセッション選択後は閉じるのみ
-                },
-                startNewSession: () => {
-                  chatSession.actions.startNewSession();
-                  setSidebarOpen(false); // ✅ モバイルで新しいチャット後は閉じるのみ
-                },
-              }}
-              isLoading={chatSession.state.isLoading} // ✅ 読み込み状態を渡す
-            />
-          </SheetContent>
-        </Sheet>
-      )}
-
-      <div
-        className={cn(
-          'flex-1 flex flex-col pt-16', // 固定ヘッダー分のpadding-topを全体に適用
-          isMobile && 'pt-16' // モバイルでも同じpadding-topを使用
-        )}
-      >
-        {/* メモ編集ボタン */}
-        <div className="absolute top-2 right-2 z-10 flex gap-2">
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            onClick={() => handleOpenAnnotation('')}
-            disabled={!chatSession.state.currentSessionId || annotationLoading}
-          >
-            {annotationLoading ? '読み込み中...' : 'メモ編集'}
-          </Button>
-        </div>
-        {subscription.requiresSubscription && (
-          <SubscriptionAlert error={subscription.error} onGoToSubscription={goToSubscription} />
-        )}
-
-        {subscription.error &&
-          !subscription.requiresSubscription &&
-          !isSubscriptionErrorDismissed && (
-            <ErrorAlert
-              error={subscription.error}
-              onClose={() => setIsSubscriptionErrorDismissed(true)}
-            />
-          )}
-
-        {chatSession.state.error && !isErrorDismissed && (
-          <ErrorAlert error={chatSession.state.error} onClose={() => setIsErrorDismissed(true)} />
-        )}
-
-        <MessageArea
-          messages={chatSession.state.messages}
-          isLoading={chatSession.state.isLoading}
-          annotationLoading={annotationLoading}
-          onEditInCanvas={handleEditInCanvas}
-          onShowCanvas={handleShowCanvas}
-          onOpenAnnotation={handleOpenAnnotation}
-        />
-
-        <InputArea
-          onSendMessage={handleSendMessage} // ✅ 初期化付きメッセージ送信
-          onToggleCanvas={handleToggleCanvas} // ✅ 初期化付きCanvas切り替え
-          disabled={chatSession.state.isLoading || annotationLoading}
-          canvasOpen={canvasPanelOpen}
-          currentSessionTitle={
-            chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
-              ?.title || '新しいチャット'
-          }
-          isMobile={isMobile}
-          onMenuToggle={isMobile ? () => setSidebarOpen(!sidebarOpen) : undefined}
-        />
-      </div>
-
-      {canvasPanelOpen && (
-        <CanvasPanel
-          onClose={() => {
-            setCanvasPanelOpen(false);
-            setIsManualEdit(false); // Canvas閉じる時も手動編集フラグをリセット
+    <BlogFlowProvider
+      key={chatSession.state.currentSessionId || 'no-session'}
+      agent={agent}
+      canvasController={{ open: openRevisionPanel, close: closeCanvas }}
+      isActive={blogFlowActive}
+      sessionId={chatSession.state.currentSessionId || 'no-session'}
+    >
+      <div className="flex h-[calc(100vh-3rem)]" data-testid="chat-layout">
+        <ChatLayoutContent
+          ctx={{
+            chatSession,
+            subscription,
+            isMobile,
+            blogFlowActive,
+            selectedModel,
+            ui: {
+              sidebar: { open: sidebarOpen, setOpen: setSidebarOpen },
+              canvas: { open: canvasPanelOpen, show: handleShowCanvas },
+              annotation: {
+                open: annotationOpen,
+                loading: annotationLoading,
+                data: annotationData,
+                openWith: handleOpenAnnotation,
+                setOpen: setAnnotationOpen,
+              },
+            },
+            onSendMessage: handleSendMessage,
+            handleEditInCanvas,
+            handleModelChange,
           }}
-          content={canvasContent}
-          isVisible={canvasPanelOpen}
         />
-      )}
 
-      {annotationOpen && (
-        <AnnotationPanel
-          sessionId={chatSession.state.currentSessionId || ''}
-          initialData={annotationData}
-          onClose={() => setAnnotationOpen(false)}
-          isVisible={annotationOpen}
-        />
-      )}
-    </div>
+        {canvasPanelOpen && (
+          <CanvasPanel
+            onClose={() => {
+              setCanvasPanelOpen(false);
+              setIsManualEdit(false); // Canvas閉じる時も手動編集フラグをリセット
+            }}
+            content={canvasContent}
+            isVisible={canvasPanelOpen}
+          />
+        )}
+      </div>
+    </BlogFlowProvider>
   );
 };

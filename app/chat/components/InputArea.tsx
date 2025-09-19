@@ -21,6 +21,7 @@ import {
   BLOG_PLACEHOLDERS,
   BLOG_STEP_IDS,
   BLOG_STEP_LABELS,
+  BlogStepId,
 } from '@/lib/constants';
 
 const RichEditor = dynamic(() => import('../components/RichEditor'), {
@@ -81,6 +82,11 @@ interface InputAreaProps {
   currentSessionTitle?: string | undefined;
   isMobile?: boolean | undefined;
   onMenuToggle?: (() => void) | undefined;
+  blogFlowActive?: boolean;
+  blogProgress?: { currentIndex: number; total: number };
+  onModelChange?: (model: string, blogStep?: BlogStepId) => void;
+  blogFlowStatus?: string;
+  selectedModelExternal?: string;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -91,6 +97,11 @@ const InputArea: React.FC<InputAreaProps> = ({
   currentSessionTitle,
   isMobile: propIsMobile,
   onMenuToggle,
+  blogFlowActive = false,
+  blogProgress,
+  onModelChange,
+  blogFlowStatus,
+  selectedModelExternal,
 }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -105,6 +116,9 @@ const InputArea: React.FC<InputAreaProps> = ({
   // UI表示用のモデルキー（ブログ作成時はステップを反映）
   const displayModelKey =
     selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
+
+  const placeholderKey = blogFlowStatus === 'revising' ? 'revision' : displayModelKey;
+  const placeholderMessage = MODEL_PLACEHOLDERS[placeholderKey] ?? 'メッセージを入力...';
 
   // モバイル画面の検出（propsから渡された値を優先、フォールバックで独自検出）
   useEffect(() => {
@@ -122,6 +136,12 @@ const InputArea: React.FC<InputAreaProps> = ({
 
     return () => window.removeEventListener('resize', checkIsMobile);
   }, [propIsMobile]);
+
+  useEffect(() => {
+    if (selectedModelExternal && selectedModelExternal !== selectedModel) {
+      setSelectedModel(selectedModelExternal);
+    }
+  }, [selectedModelExternal, selectedModel]);
 
   // テキストエリアの高さを自動調整する関数
   const adjustTextareaHeight = useCallback(() => {
@@ -155,6 +175,7 @@ const InputArea: React.FC<InputAreaProps> = ({
     if (!input.trim() || disabled) return;
 
     const originalMessage = input.trim();
+    // ブログ作成モデルの場合、step1として送信（ユーザーが手動でstep1を開始）
     const effectiveModel =
       selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
 
@@ -167,10 +188,6 @@ const InputArea: React.FC<InputAreaProps> = ({
 
     await onSendMessage(originalMessage, effectiveModel);
   };
-
-
-
-
 
   return (
     <>
@@ -187,11 +204,22 @@ const InputArea: React.FC<InputAreaProps> = ({
               <span className="font-medium text-sm md:text-base truncate max-w-[120px] md:max-w-[250px]">
                 {currentSessionTitle || '新しいチャット'}
               </span>
+              {blogFlowActive && blogProgress && (
+                <span className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded">
+                  {blogProgress.currentIndex + 1}/{blogProgress.total}
+                </span>
+              )}
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
-            <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <Select
+              value={selectedModel}
+              onValueChange={value => {
+                setSelectedModel(value);
+                onModelChange?.(value, selectedBlogStep as BlogStepId);
+              }}
+            >
               <SelectTrigger className="w-[120px] md:w-[180px] min-w-[120px] h-9 text-xs md:text-sm border-gray-200">
                 <SelectValue placeholder="モデルを選択" />
               </SelectTrigger>
@@ -207,11 +235,13 @@ const InputArea: React.FC<InputAreaProps> = ({
             {selectedModel === 'blog_creation' && (
               <Select
                 value={selectedBlogStep}
-                onValueChange={v =>
-                  setSelectedBlogStep(
-                    v as 'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7'
-                  )
-                }
+                onValueChange={v => {
+                  const step = v as BlogStepId;
+                  setSelectedBlogStep(step);
+                  if (selectedModel === 'blog_creation') {
+                    onModelChange?.(selectedModel, step);
+                  }
+                }}
               >
                 <SelectTrigger className="w-[160px] md:w-[220px] min-w-[140px] h-9 text-xs md:text-sm border-gray-200">
                   <SelectValue placeholder="ステップを選択" />
@@ -255,7 +285,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                 <RichEditor
                   value={input}
                   onChange={setInput}
-                  placeholder={MODEL_PLACEHOLDERS[displayModelKey] ?? 'メッセージを入力...'}
+                  placeholder={placeholderMessage}
                   disabled={disabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
@@ -268,7 +298,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}
-                  placeholder={MODEL_PLACEHOLDERS[displayModelKey] ?? 'メッセージを入力...'}
+                  placeholder={placeholderMessage}
                   disabled={disabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
@@ -309,7 +339,6 @@ const InputArea: React.FC<InputAreaProps> = ({
           </div>
         </form>
       </div>
-
     </>
   );
 };

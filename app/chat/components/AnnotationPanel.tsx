@@ -141,7 +141,6 @@ export default function AnnotationPanel({
     return () => {}; // falseの場合の空のcleanup関数
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
-
   const save = async () => {
     setLoading(true);
     setError('');
