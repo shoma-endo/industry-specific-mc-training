@@ -17,9 +17,11 @@ type Props = {
     main_kw?: string | null;
     kw?: string | null;
     impressions?: string | null;
-    persona?: string | null;
     needs?: string | null;
+    persona?: string | null;
     goal?: string | null;
+    prep?: string | null;
+    basic_structure?: string | null;
   };
 };
 
@@ -38,9 +40,11 @@ export default function AnnotationEditButton({
     main_kw: initial?.main_kw ?? '',
     kw: initial?.kw ?? '',
     impressions: initial?.impressions ?? '',
-    persona: initial?.persona ?? '',
     needs: initial?.needs ?? '',
+    persona: initial?.persona ?? '',
     goal: initial?.goal ?? '',
+    prep: initial?.prep ?? '',
+    basic_structure: initial?.basic_structure ?? '',
   });
 
   const handleSave = async () => {
@@ -55,9 +59,11 @@ export default function AnnotationEditButton({
           main_kw: form.main_kw,
           kw: form.kw,
           impressions: form.impressions,
-          persona: form.persona,
           needs: form.needs,
+          persona: form.persona,
           goal: form.goal,
+          prep: form.prep,
+          basic_structure: form.basic_structure,
         });
       } else if (typeof wpPostId === 'number') {
         // 紐付け済み投稿に対する保存
@@ -67,9 +73,11 @@ export default function AnnotationEditButton({
           main_kw: form.main_kw,
           kw: form.kw,
           impressions: form.impressions,
-          persona: form.persona,
           needs: form.needs,
+          persona: form.persona,
           goal: form.goal,
+          prep: form.prep,
+          basic_structure: form.basic_structure,
         });
       } else {
         setErrorMsg('保存対象が特定できません');
@@ -138,15 +146,6 @@ export default function AnnotationEditButton({
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1">デモグラ・ペルソナ</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={3}
-                  value={form.persona}
-                  onChange={e => setForm(s => ({ ...s, persona: e.target.value }))}
-                />
-              </div>
-              <div>
                 <label className="block text-sm mb-1">ニーズ</label>
                 <textarea
                   className="w-full border p-2 rounded"
@@ -156,12 +155,39 @@ export default function AnnotationEditButton({
                 />
               </div>
               <div>
+                <label className="block text-sm mb-1">デモグラ・ペルソナ</label>
+                <textarea
+                  className="w-full border p-2 rounded"
+                  rows={3}
+                  value={form.persona}
+                  onChange={e => setForm(s => ({ ...s, persona: e.target.value }))}
+                />
+              </div>
+              <div>
                 <label className="block text-sm mb-1">ゴール</label>
                 <textarea
                   className="w-full border p-2 rounded"
                   rows={3}
                   value={form.goal}
                   onChange={e => setForm(s => ({ ...s, goal: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">PREP</label>
+                <textarea
+                  className="w-full border p-2 rounded"
+                  rows={3}
+                  value={form.prep}
+                  onChange={e => setForm(s => ({ ...s, prep: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">基本構成</label>
+                <textarea
+                  className="w-full border p-2 rounded"
+                  rows={3}
+                  value={form.basic_structure}
+                  onChange={e => setForm(s => ({ ...s, basic_structure: e.target.value }))}
                 />
               </div>
             </div>

@@ -14,9 +14,11 @@ type AnnotationData = {
   main_kw?: string;
   kw?: string;
   impressions?: string;
-  persona?: string;
   needs?: string;
+  persona?: string;
   goal?: string;
+  prep?: string;
+  basic_structure?: string;
 };
 
 type Props = {
@@ -39,6 +41,8 @@ export default function AnnotationPanel({
     needs: '',
     persona: '',
     goal: '',
+    prep: '',
+    basic_structure: '',
   });
   const [loading, setLoading] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
@@ -77,6 +81,8 @@ export default function AnnotationPanel({
         needs: initialData.needs ?? '',
         persona: initialData.persona ?? '',
         goal: initialData.goal ?? '',
+        prep: initialData.prep ?? '',
+        basic_structure: initialData.basic_structure ?? '',
       });
     } else {
       // 初期データがない場合は空のフォームにリセット
@@ -87,6 +93,8 @@ export default function AnnotationPanel({
         needs: '',
         persona: '',
         goal: '',
+        prep: '',
+        basic_structure: '',
       });
     }
   }, [initialData]);
@@ -345,6 +353,32 @@ export default function AnnotationPanel({
               value={form.goal}
               onChange={e => setForm(s => ({ ...s, goal: e.target.value }))}
               placeholder="達成したいゴールや目標"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {ANALYTICS_COLUMNS.find(c => c.id === 'prep')?.label}
+            </label>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              rows={3}
+              value={form.prep}
+              onChange={e => setForm(s => ({ ...s, prep: e.target.value }))}
+              placeholder="PREP法の要点や伝えたい流れ"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {ANALYTICS_COLUMNS.find(c => c.id === 'basic_structure')?.label}
+            </label>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              rows={3}
+              value={form.basic_structure}
+              onChange={e => setForm(s => ({ ...s, basic_structure: e.target.value }))}
+              placeholder="導入や見出し構成など基本的な流れ"
             />
           </div>
 

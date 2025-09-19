@@ -27,6 +27,8 @@ type Annotation = {
   memo?: string | null;
   session_id?: string | null;
   canonical_url?: string | null;
+  prep?: string | null;
+  basic_structure?: string | null;
 };
 
 type Props = {
@@ -113,6 +115,16 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     ゴール
                   </th>
                 )}
+                {visibleSet.has('prep') && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
+                    PREP
+                  </th>
+                )}
+                {visibleSet.has('basic_structure') && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
+                    基本構成
+                  </th>
+                )}
                 {visibleSet.has('categories') && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[200px]">
                     カテゴリ
@@ -185,6 +197,20 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           {a?.goal ? <TruncatedText text={a.goal} lines={3} /> : '—'}
                         </td>
                       )}
+                      {visibleSet.has('prep') && (
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {a?.prep ? <TruncatedText text={a.prep} lines={3} /> : '—'}
+                        </td>
+                      )}
+                      {visibleSet.has('basic_structure') && (
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {a?.basic_structure ? (
+                            <TruncatedText text={a.basic_structure} lines={3} />
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      )}
                       {visibleSet.has('categories') && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {p.categoryNames && p.categoryNames.length > 0
@@ -239,6 +265,8 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                             needs: a?.needs ?? null,
                             persona: a?.persona ?? null,
                             goal: a?.goal ?? null,
+                            prep: a?.prep ?? null,
+                            basic_structure: a?.basic_structure ?? null,
                           }}
                         />
                       </td>
@@ -276,6 +304,20 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     {visibleSet.has('goal') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {a.goal ? <TruncatedText text={a.goal} lines={3} /> : '—'}
+                      </td>
+                    )}
+                    {visibleSet.has('prep') && (
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {a.prep ? <TruncatedText text={a.prep} lines={3} /> : '—'}
+                      </td>
+                    )}
+                    {visibleSet.has('basic_structure') && (
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {a.basic_structure ? (
+                          <TruncatedText text={a.basic_structure} lines={3} />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     )}
                     {visibleSet.has('categories') && (
@@ -324,6 +366,8 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           needs: a?.needs ?? null,
                           persona: a?.persona ?? null,
                           goal: a?.goal ?? null,
+                          prep: a?.prep ?? null,
+                          basic_structure: a?.basic_structure ?? null,
                         }}
                       />
                     </td>
