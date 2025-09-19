@@ -37,7 +37,6 @@ export interface BlogFlowContextValue {
   currentIndex: number;
   totalSteps: number;
   start: () => Promise<void>;
-  next: () => Promise<void>;
   openRevision: () => void;
   applyRevision: (note: string) => Promise<void>;
   cancelRevision: () => void;
@@ -217,19 +216,7 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     await runStep(resolvedInitialStep, '');
   }, [isActive, state.flowStatus, runStep, resolvedInitialStep]);
 
-  const next = useCallback(async () => {
-    if (!isActive) return;
-    if (state.flowStatus !== 'waitingAction') return; // アクション待ち以外では進めない
-
-    const nextIdx = currentIndex + 1;
-    const nextStep = steps[nextIdx];
-    console.log('BlogFlowProvider: next called', {
-      nextIdx,
-      nextStep,
-    });
-    if (!nextStep) return;
-    await runStep(nextStep, '');
-  }, [isActive, state.flowStatus, currentIndex, steps, runStep]);
+  // nextは廃止（ユーザー送信で進行）
 
   const openRevision = useCallback(() => {
     setState(prev => ({ ...prev, flowStatus: 'revising' }));
@@ -281,7 +268,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     currentIndex,
     totalSteps,
     start,
-    next,
     openRevision,
     applyRevision,
     cancelRevision,

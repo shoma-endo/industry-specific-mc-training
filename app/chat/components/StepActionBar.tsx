@@ -11,34 +11,29 @@ type Props = {
 };
 
 const StepActionBar: React.FC<Props> = ({ className, disabled }) => {
-  const { state, next, openRevision } = useBlogFlow();
+  const { state, openRevision } = useBlogFlow();
 
   // ブログフロー中は常に表示（ChatLayout側で制御済み）
   // シンプルに: アクション待ち状態なら有効化
   const isStepReady = state.flowStatus === 'waitingAction';
   const isDisabled = disabled || !isStepReady;
 
-  // 次のステップのラベルを取得
+  // 補足テキスト用のラベル
+  const currentLabel = BLOG_STEP_LABELS[state.current] ?? '';
   const currentIndex = BLOG_STEP_IDS.indexOf(state.current);
   const nextStep = BLOG_STEP_IDS[currentIndex + 1];
-
-  const nextStepLabel =
-    isStepReady && nextStep ? BLOG_STEP_LABELS[nextStep]?.replace(/^\d+\.\s*/, '') : '';
-  const buttonText = nextStepLabel ? `次の${nextStepLabel}に進む` : '次に進む';
+  const nextStepLabel = nextStep ? BLOG_STEP_LABELS[nextStep]?.replace(/^\d+\.\s*/, '') : '';
 
   return (
     <div className={`flex items-center gap-2 mt-2 ${className ?? ''}`}>
-      <Button
-        onClick={() => {
-          console.log('StepActionBar: next button clicked');
-          next();
-        }}
-        disabled={isDisabled}
-        size="sm"
-        className="px-3 py-1 bg-[#06c755] hover:bg-[#05b64b] text-white"
-      >
-        {buttonText}
-      </Button>
+      <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
+        <span>
+          現在のステップ: {currentLabel}
+          {nextStepLabel
+            ? ` ／ 次の${nextStepLabel}に進むにはメッセージを送信してください`
+            : ''}
+        </span>
+      </div>
       <Button
         onClick={() => {
           openRevision();

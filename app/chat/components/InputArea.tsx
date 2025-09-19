@@ -117,8 +117,31 @@ const InputArea: React.FC<InputAreaProps> = ({
   const displayModelKey =
     selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
 
-  const placeholderKey = blogFlowStatus === 'revising' ? 'revision' : displayModelKey;
-  const placeholderMessage = MODEL_PLACEHOLDERS[placeholderKey] ?? 'メッセージを入力...';
+  // ブログ作成中は各ステップに応じてプレースホルダーを動的に切替
+  const placeholderMessage = (() => {
+    if (selectedModel === 'blog_creation') {
+      if (blogFlowStatus === 'revising') {
+        return BLOG_PLACEHOLDERS['revision'] ?? '修正指示を入力してください';
+      }
+      const steps = BLOG_STEP_IDS;
+      // idle: 初回ステップ、waitingAction: 次のステップ、running: 今のステップ
+      let stepIdx = 0;
+      if (blogFlowStatus === 'waitingAction') {
+        const cur = Math.max(0, (blogProgress?.currentIndex ?? -1) + 1);
+        stepIdx = Math.min(cur, steps.length - 1);
+      } else if (blogFlowStatus === 'running') {
+        stepIdx = Math.min(Math.max(0, blogProgress?.currentIndex ?? 0), steps.length - 1);
+      } else if (blogFlowStatus === 'idle') {
+        stepIdx = 0;
+      }
+      const step = steps[stepIdx];
+      const key = `blog_creation_${step}` as keyof typeof BLOG_PLACEHOLDERS;
+      return BLOG_PLACEHOLDERS[key] ?? 'メッセージを入力...';
+    }
+    // 通常モデル
+    const key = blogFlowStatus === 'revising' ? 'revision' : displayModelKey;
+    return MODEL_PLACEHOLDERS[key] ?? 'メッセージを入力...';
+  })();
 
   // モバイル画面の検出（propsから渡された値を優先、フォールバックで独自検出）
   useEffect(() => {
@@ -175,9 +198,23 @@ const InputArea: React.FC<InputAreaProps> = ({
     if (!input.trim() || disabled) return;
 
     const originalMessage = input.trim();
-    // ブログ作成モデルの場合、step1として送信（ユーザーが手動でstep1を開始）
-    const effectiveModel =
-      selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
+    // ブログ作成モデルの場合の制御：
+    // - アクション待ち（waitingAction）での通常送信は「次のステップへ進む」扱い
+    // - 修正中（revising）は同一ステップの再生成
+    let effectiveModel = selectedModel;
+    if (selectedModel === 'blog_creation') {
+      if (blogFlowStatus === 'revising') {
+        // 修正案入力中は現行ステップを維持
+        effectiveModel = `blog_creation_${selectedBlogStep}`;
+      } else {
+        // 通常送信は次ステップへ（初回はstep1）
+        const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
+        const nextIdx = Math.max(0, currentIdx + (blogFlowStatus === 'waitingAction' ? 1 : 0));
+        const targetStep = BLOG_STEP_IDS[nextIdx] ?? 'step1';
+        effectiveModel = `blog_creation_${targetStep}`;
+        setSelectedBlogStep(targetStep);
+      }
+    }
 
     setInput('');
 

@@ -177,13 +177,12 @@ export const BLOG_HINTS_DETAIL: Record<string, string> = {
 };
 
 export const BLOG_PLACEHOLDERS: Record<string, string> = {
-  blog_creation: '実行するステップを選択してください（入力は任意）',
-  blog_creation_step1: '顕在/潜在ニーズのメモを入力してください',
-  blog_creation_step2: '想定ペルソナ/デモグラのメモを入力してください',
-  blog_creation_step3: 'ユーザーのゴールに関するメモを入力してください',
+  blog_creation_step1: '顕在/潜在ニーズの内容を入力してください',
+  blog_creation_step2: '想定ペルソナ/デモグラの内容を入力してください',
+  blog_creation_step3: 'ユーザーのゴールに関する内容を入力してください',
   blog_creation_step4: 'PREP（主張・理由・具体例・結論）の確認事項を入力してください',
-  blog_creation_step5: '見出し案や章立ての希望があれば入力してください',
-  blog_creation_step6: '導入文のトーン/要素を入力してください',
+  blog_creation_step5: '構成案確認内容を入力してください',
+  blog_creation_step6: '書き出し案を入力してください',
   blog_creation_step7: '本文作成の要件/トーンを入力してください',
   revision: '修正指示を入力してください',
 };

@@ -146,8 +146,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
     handleModelChange,
   } = ctx;
-  const { state, cancelRevision, currentIndex, totalSteps, restoreFlowState } =
-    useBlogFlow();
+  const { state, cancelRevision, currentIndex, totalSteps, restoreFlowState } = useBlogFlow();
   const router = useRouter();
 
   // ChatLayoutContent内でのblogFlowActive再計算
@@ -221,8 +220,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     if (assistantAfter) {
       // AI返信がある → アクション待ち
       ensureFlowState(step, assistantAfter.id, 'waitingAction');
-    } else if (flowStatusCurrent === 'idle') {
-      // まだ返信来てない → 生成中
+    } else {
+      // まだ返信来てない → 生成中（常に最新user送信を反映）
       ensureFlowState(step, undefined, 'running');
     }
   }, [
@@ -293,7 +292,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     // StepActionBar表示条件: ブログフロー中 かつ アクション待ち かつ 最新のAIメッセージ直下
     const shouldShowActionBar =
       effectiveBlogFlowActive &&
-      state.flowStatus === 'waitingAction' &&
+      state.flowStatus !== 'completed' &&
+      state.flowStatus !== 'error' &&
       !chatSession.state.isLoading &&
       message.role === 'assistant' &&
       message.id === lastAssistantId;
