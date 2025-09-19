@@ -4,7 +4,7 @@ import { BLOG_STEP_IDS, BLOG_STEP_LABELS, BlogStepId, toTemplateName } from '@/l
 import { useBlogFlowPersist } from './blogFlowPersistStore';
 
 export type FlowStatus = 'idle' | 'running' | 'waitingAction' | 'revising' | 'completed' | 'error';
-export type StepStatus = 'pending' | 'generating' | 'ready' | 'revising' | 'done' | 'error';
+export type StepStatus = 'pending' | 'ready' | 'done' | 'error';
 
 export interface StepRun {
   step: BlogStepId;
@@ -42,8 +42,6 @@ export interface BlogFlowContextValue {
   applyRevision: (note: string) => Promise<void>;
   cancelRevision: () => void;
   reset: () => void;
-  retry: () => Promise<void>;
-  restart: () => Promise<void>;
   restoreFlowState: (step: BlogStepId, aiMessageId?: string, status?: FlowStatus) => void;
 }
 
@@ -113,7 +111,7 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
   const restoreFlowState = useCallback(
     (step: BlogStepId, aiMessageId?: string, status?: FlowStatus) => {
       const inferredFlow: FlowStatus = status ?? (aiMessageId ? 'waitingAction' : 'running');
-      const inferredStepStatus: StepStatus = aiMessageId ? 'ready' : 'generating';
+      const inferredStepStatus: StepStatus = aiMessageId ? 'ready' : 'pending';
 
       setState(prev => ({
         ...prev,
@@ -129,7 +127,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
           },
         },
       }));
-      // persist (session-scoped)
       persistStore.setFor(sessionId, { current: step, flowStatus: inferredFlow, aiMessageId });
     },
     [persistStore, sessionId]
@@ -154,7 +151,7 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
           current: step,
           steps: {
             ...prev.steps,
-            [step]: { ...prev.steps[step], status: 'generating', updatedAt: Date.now() },
+            [step]: { ...prev.steps[step], updatedAt: Date.now() },
           },
         }));
         persistStore.setFor(sessionId, { current: step, flowStatus: 'running' });
@@ -251,7 +248,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
           [step]: {
             ...prev.steps[step],
             revisionNote: note,
-            status: 'revising',
             updatedAt: Date.now(),
           },
         },
@@ -269,13 +265,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     canvasController?.close?.();
   }, [canvasController, persistStore, sessionId]);
 
-  const retry = useCallback(async () => {
-    if (state.flowStatus !== 'error') return;
-    const step = state.current;
-    const note = state.steps[step]?.revisionNote ?? '';
-    await runStep(step, note);
-  }, [state, runStep]);
-
   const reset = useCallback(() => {
     const now = Date.now();
     const initSteps = {} as Record<BlogStepId, StepRun>;
@@ -285,13 +274,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     setState({ current: resolvedInitialStep, steps: initSteps, flowStatus: 'idle' });
     persistStore.clearFor(sessionId);
   }, [steps, resolvedInitialStep, persistStore, sessionId]);
-
-  const restart = useCallback(async () => {
-    // resetは同期。念のためtickを1つ挟んでからstart
-    reset();
-    await Promise.resolve();
-    await start();
-  }, [reset, start]);
 
   const value: BlogFlowContextValue = {
     state,
@@ -304,8 +286,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     applyRevision,
     cancelRevision,
     reset,
-    retry,
-    restart,
     restoreFlowState,
   };
 

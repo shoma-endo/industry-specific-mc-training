@@ -10,7 +10,6 @@ import { Card } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-// import { ERROR_MESSAGES } from '@/lib/constants';
 import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';
@@ -147,7 +146,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
     handleModelChange,
   } = ctx;
-  const { state, cancelRevision, currentIndex, totalSteps, retry, restart, restoreFlowState } =
+  const { state, cancelRevision, currentIndex, totalSteps, restoreFlowState } =
     useBlogFlow();
   const router = useRouter();
 
@@ -163,7 +162,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const currentStep = state.current;
   const flowStatusCurrent = state.flowStatus;
   const steps = state.steps;
-  const currentAiId = steps[currentStep]?.aiMessageId;
 
   const ensureFlowState = useCallback(
     (step: BlogStepId, aiMessageId?: string, statusOverride?: FlowStatus) => {
@@ -292,8 +290,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     const assistants = chatSession.state.messages.filter(m => m.role === 'assistant');
     const lastAssistantId = assistants[assistants.length - 1]?.id;
 
-    // 表示判定のみを行う
-
     // StepActionBar表示条件: ブログフロー中 かつ アクション待ち かつ 最新のAIメッセージ直下
     const shouldShowActionBar =
       effectiveBlogFlowActive &&
@@ -309,48 +305,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           className="px-3 py-2 border-t bg-gray-50/50"
           disabled={chatSession.state.isLoading || ui.annotation.loading}
         />
-      );
-    }
-
-    // エラー状態のUI表示
-    if (
-      effectiveBlogFlowActive &&
-      state.flowStatus === 'error' &&
-      message.role === 'assistant' &&
-      (currentAiId ? message.id === currentAiId : message.id === lastAssistantId)
-    ) {
-      return (
-        <div className="px-3 py-2 border-t bg-red-50 flex items-center justify-between">
-          <span className="text-red-700 text-sm">生成に失敗しました。再試行できます。</span>
-          <button
-            onClick={() => retry()}
-            className="text-xs px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
-            disabled={chatSession.state.isLoading || ui.annotation.loading}
-          >
-            再試行
-          </button>
-        </div>
-      );
-    }
-
-    // 完了状態のUI表示
-    if (
-      effectiveBlogFlowActive &&
-      state.flowStatus === 'completed' &&
-      message.role === 'assistant' &&
-      (currentAiId ? message.id === currentAiId : message.id === lastAssistantId)
-    ) {
-      return (
-        <div className="px-3 py-2 border-t bg-emerald-50 flex items-center justify-between">
-          <span className="text-emerald-700 text-sm">ブログ作成フローが完了しました。</span>
-          <button
-            onClick={() => restart()}
-            className="text-xs px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
-            disabled={chatSession.state.isLoading || ui.annotation.loading}
-          >
-            最初からやり直す
-          </button>
-        </div>
       );
     }
 
