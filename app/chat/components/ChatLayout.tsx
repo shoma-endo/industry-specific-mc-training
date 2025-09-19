@@ -298,6 +298,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     const shouldShowActionBar =
       effectiveBlogFlowActive &&
       state.flowStatus === 'waitingAction' &&
+      !chatSession.state.isLoading &&
       message.role === 'assistant' &&
       message.id === lastAssistantId;
 
