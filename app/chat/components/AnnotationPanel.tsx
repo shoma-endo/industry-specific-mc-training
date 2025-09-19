@@ -36,8 +36,8 @@ export default function AnnotationPanel({
     main_kw: '',
     kw: '',
     impressions: '',
-    persona: '',
     needs: '',
+    persona: '',
     goal: '',
   });
   const [loading, setLoading] = React.useState(false);
@@ -74,8 +74,8 @@ export default function AnnotationPanel({
         main_kw: initialData.main_kw ?? '',
         kw: initialData.kw ?? '',
         impressions: initialData.impressions ?? '',
-        persona: initialData.persona ?? '',
         needs: initialData.needs ?? '',
+        persona: initialData.persona ?? '',
         goal: initialData.goal ?? '',
       });
     } else {
@@ -84,8 +84,8 @@ export default function AnnotationPanel({
         main_kw: '',
         kw: '',
         impressions: '',
-        persona: '',
         needs: '',
+        persona: '',
         goal: '',
       });
     }
@@ -311,19 +311,6 @@ export default function AnnotationPanel({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'persona')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={3}
-              value={form.persona}
-              onChange={e => setForm(s => ({ ...s, persona: e.target.value }))}
-              placeholder="デモグラフィック情報やペルソナ"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
               {ANALYTICS_COLUMNS.find(c => c.id === 'needs')?.label}
             </label>
             <textarea
@@ -332,6 +319,19 @@ export default function AnnotationPanel({
               value={form.needs}
               onChange={e => setForm(s => ({ ...s, needs: e.target.value }))}
               placeholder="ユーザーのニーズや課題"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {ANALYTICS_COLUMNS.find(c => c.id === 'persona')?.label}
+            </label>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              rows={3}
+              value={form.persona}
+              onChange={e => setForm(s => ({ ...s, persona: e.target.value }))}
+              placeholder="デモグラフィック情報やペルソナ"
             />
           </div>
 

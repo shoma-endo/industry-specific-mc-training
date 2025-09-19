@@ -98,14 +98,14 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     表示回数
                   </th>
                 )}
-                {visibleSet.has('persona') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
-                    デモグラ・ペルソナ
-                  </th>
-                )}
                 {visibleSet.has('needs') && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
                     ニーズ
+                  </th>
+                )}
+                {visibleSet.has('persona') && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
+                    デモグラ・ペルソナ
                   </th>
                 )}
                 {visibleSet.has('goal') && (
@@ -170,14 +170,14 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           {a?.impressions ?? '—'}
                         </td>
                       )}
-                      {visibleSet.has('persona') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.persona ? <TruncatedText text={a.persona} lines={3} /> : '—'}
-                        </td>
-                      )}
                       {visibleSet.has('needs') && (
                         <td className="px-6 py-4 text-sm text-gray-500">
                           {a?.needs ? <TruncatedText text={a.needs} lines={3} /> : '—'}
+                        </td>
+                      )}
+                      {visibleSet.has('persona') && (
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {a?.persona ? <TruncatedText text={a.persona} lines={3} /> : '—'}
                         </td>
                       )}
                       {visibleSet.has('goal') && (
@@ -236,8 +236,8 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                             main_kw: a?.main_kw ?? null,
                             kw: a?.kw ?? null,
                             impressions: a?.impressions ?? null,
-                            persona: a?.persona ?? null,
                             needs: a?.needs ?? null,
+                            persona: a?.persona ?? null,
                             goal: a?.goal ?? null,
                           }}
                         />
@@ -263,14 +263,14 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                         {a.impressions ?? '—'}
                       </td>
                     )}
-                    {visibleSet.has('persona') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.persona ? <TruncatedText text={a.persona} lines={3} /> : '—'}
-                      </td>
-                    )}
                     {visibleSet.has('needs') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {a.needs ? <TruncatedText text={a.needs} lines={3} /> : '—'}
+                      </td>
+                    )}
+                    {visibleSet.has('persona') && (
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {a.persona ? <TruncatedText text={a.persona} lines={3} /> : '—'}
                       </td>
                     )}
                     {visibleSet.has('goal') && (
@@ -321,8 +321,8 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           main_kw: a?.main_kw ?? null,
                           kw: a?.kw ?? null,
                           impressions: a?.impressions ?? null,
-                          persona: a?.persona ?? null,
                           needs: a?.needs ?? null,
+                          persona: a?.persona ?? null,
                           goal: a?.goal ?? null,
                         }}
                       />
