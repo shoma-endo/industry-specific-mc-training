@@ -20,7 +20,6 @@ import {
   BLOG_HINTS_SHORT,
   BLOG_PLACEHOLDERS,
   BLOG_STEP_IDS,
-  BLOG_STEP_LABELS,
   BlogStepId,
 } from '@/lib/constants';
 
@@ -166,6 +165,19 @@ const InputArea: React.FC<InputAreaProps> = ({
     }
   }, [selectedModelExternal, selectedModel]);
 
+  // 既存チャットルームを開いた際、フロー状態から自動でブログ作成モデルに合わせる（モデル選択に依存しない）
+  useEffect(() => {
+    if (
+      blogFlowStatus &&
+      blogFlowStatus !== 'idle' &&
+      blogFlowStatus !== 'completed' &&
+      selectedModel !== 'blog_creation'
+    ) {
+      setSelectedModel('blog_creation');
+      onModelChange?.('blog_creation', selectedBlogStep as BlogStepId);
+    }
+  }, [blogFlowStatus, selectedModel, onModelChange, selectedBlogStep]);
+
   // テキストエリアの高さを自動調整する関数
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
@@ -270,27 +282,9 @@ const InputArea: React.FC<InputAreaProps> = ({
             </Select>
 
             {selectedModel === 'blog_creation' && (
-              <Select
-                value={selectedBlogStep}
-                onValueChange={v => {
-                  const step = v as BlogStepId;
-                  setSelectedBlogStep(step);
-                  if (selectedModel === 'blog_creation') {
-                    onModelChange?.(selectedModel, step);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-[160px] md:w-[220px] min-w-[140px] h-9 text-xs md:text-sm border-gray-200">
-                  <SelectValue placeholder="ステップを選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BLOG_STEP_IDS.map(stepId => (
-                    <SelectItem key={stepId} value={stepId}>
-                      {BLOG_STEP_LABELS[stepId]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-3 py-1">
+                作成ステップは自動で進行します
+              </div>
             )}
 
             {/* モデル補足（短文 + ツールチップ） */}
