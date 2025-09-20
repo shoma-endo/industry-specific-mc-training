@@ -148,32 +148,35 @@ export const BLOG_STEP_LABELS: Record<BlogStepId, string> = {
 
 // Step7判定（canonicalUrlsの適用/表示で利用）
 export const isStep7 = (stepOrModel: string) =>
-  stepOrModel === 'step7' ||
-  stepOrModel === 'blog_creation_step7'
+  stepOrModel === 'step7' || stepOrModel === 'blog_creation_step7';
 
 // UI向けヒント/詳細/プレースホルダー（集中定義）
 export const BLOG_HINTS_SHORT: Record<string, string> = {
   blog_creation: '変数: なし（ステップ選択式）',
-  blog_creation_step1: '変数: なし（顕在/潜在ニーズ確認）',
-  blog_creation_step2: '変数: なし（ペルソナ・デモグラ）',
-  blog_creation_step3: '変数: なし（ユーザーのゴール）',
-  blog_creation_step4: '変数: なし（PREP確認）',
-  blog_creation_step5: '変数: なし（構成案確認）',
-  blog_creation_step6: '変数: なし（書き出し案）',
-  blog_creation_step7: '変数: コンテンツURL一覧（内部リンク候補）',
+  blog_creation_step1: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
+  blog_creation_step2: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
+  blog_creation_step3: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
+  blog_creation_step4: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
+  blog_creation_step5: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
+  blog_creation_step6: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
+  blog_creation_step7: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成 + コンテンツURL一覧',
 };
 
 export const BLOG_HINTS_DETAIL: Record<string, string> = {
   blog_creation: '8ステップのブログ作成フローを、セカンダリのセレクトで選択して進めます。',
-  blog_creation_step1: 'Step1: 想定読者の顕在ニーズ/潜在ニーズを確認し、訴求観点を整理します。',
+  blog_creation_step1:
+    'Step1: 顕在/潜在ニーズ。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
   blog_creation_step2:
-    'Step2: ペルソナ・デモグラ（属性）を確認し、文体/語彙/適切な深さを調整します。',
-  blog_creation_step3: 'Step3: 読了時に達成したいユーザーのゴールを明確化します。',
-  blog_creation_step4: 'Step4: PREP（結論→理由→具体例→結論）観点で主張の骨子を点検します。',
-  blog_creation_step5: 'Step5: 記事の見出し/章立ての構成案を確認・微調整します。',
-  blog_creation_step6: 'Step6: 導入（書き出し）案を複数パターンで検討します。',
-  blog_creation_step7:
-    'Step7: 本文を作成します。canonicalUrls（内部リンク候補）を変数で利用可能です。',
+    'Step2: ペルソナ・デモグラ。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
+  blog_creation_step3:
+    'Step3: ユーザーのゴール。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
+  blog_creation_step4:
+    'Step4: PREP確認。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
+  blog_creation_step5:
+    'Step5: 構成案確認。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
+  blog_creation_step6:
+    'Step6: 書き出し案。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
+  blog_creation_step7: 'Step7: 本文作成。上記に加え canonicalUrls（内部リンク候補）も利用可能。',
 };
 
 export const BLOG_PLACEHOLDERS: Record<string, string> = {

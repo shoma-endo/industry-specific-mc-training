@@ -148,11 +148,27 @@ export default function PromptsPage() {
   }
 
   const promptDescription = selectedTemplate ? getPromptDescription(selectedTemplate.name) : null;
-  const variablesInfoText = (selectedTemplate?.variables || []).some(
-    v => v.name === 'canonicalUrls'
-  )
-    ? getVariableDescription('canonicalUrls')
-    : null;
+  const variablesInfoText = (() => {
+    const names = new Set((selectedTemplate?.variables || []).map(v => v.name));
+    const extra: string[] = [];
+    // canonicalUrls は既にDB変数に含まれるケースが多いが、念のため補足
+    if (names.has('canonicalUrls')) {
+      extra.push(getVariableDescription('canonicalUrls'));
+    }
+    // ブログ作成ステップ用の content_annotations 由来の暗黙変数（テンプレ内に現れなくても説明に提示）
+    const contentVars = [
+      'contentNeeds',
+      'contentPersona',
+      'contentGoal',
+      'contentPrep',
+      'contentBasicStructure',
+    ];
+    contentVars.forEach(v => {
+      // 既にDB側variablesに定義されていない場合でも使用可能なので表示
+      extra.push(getVariableDescription(v));
+    });
+    return extra.length > 0 ? extra.join(' ／ ') : null;
+  })();
 
   return (
     <div className="space-y-6">
@@ -259,11 +275,29 @@ export default function PromptsPage() {
             {/* 変数一覧 */}
             {(() => {
               const displayedVariables = selectedTemplate.variables || [];
-              return displayedVariables.length > 0 ? (
+              const implicitContentVars = [
+                { name: 'contentNeeds', description: getVariableDescription('contentNeeds') },
+                { name: 'contentPersona', description: getVariableDescription('contentPersona') },
+                { name: 'contentGoal', description: getVariableDescription('contentGoal') },
+                { name: 'contentPrep', description: getVariableDescription('contentPrep') },
+                {
+                  name: 'contentBasicStructure',
+                  description: getVariableDescription('contentBasicStructure'),
+                },
+              ];
+              const implicitCanonical = [
+                { name: 'canonicalUrls', description: getVariableDescription('canonicalUrls') },
+              ];
+              const showImplicit = selectedTemplate.name.startsWith('blog_creation_');
+              const allVars = showImplicit
+                ? [...displayedVariables, ...implicitContentVars, ...implicitCanonical]
+                : displayedVariables;
+
+              return allVars.length > 0 ? (
                 <div className="mt-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">使用可能な変数</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {displayedVariables.map((variable, index) => (
+                    {allVars.map((variable, index) => (
                       <div key={index} className="p-3 bg-gray-50 rounded-md">
                         <div className="font-mono text-sm text-blue-600">
                           {`{{${variable.name}}}`}

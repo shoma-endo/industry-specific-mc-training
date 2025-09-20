@@ -766,7 +766,7 @@ export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Prom
  * DBテンプレート + canonicalUrls 変数埋め込み
  */
 export const generateBlogCreationPromptByStep = cache(
-  async (liffAccessToken: string, step: BlogStepId): Promise<string> => {
+  async (liffAccessToken: string, step: BlogStepId, sessionId?: string): Promise<string> => {
     try {
       const templateName = toTemplateName(step);
       console.log('[BlogPrompt] Fetching step template', { step, templateName });
@@ -808,21 +808,23 @@ export const generateBlogCreationPromptByStep = cache(
         contentVarNames,
         varsDiff,
       });
-      // content_annotations も取得し、テンプレ変数としてマージ
+      // content_annotations を取得（セッション優先、無ければユーザー最新）し、テンプレ変数としてマージ
       const contentAnnotation = userId
-        ? await PromptService.getLatestContentAnnotationByUserId(userId)
+        ? sessionId
+          ? await PromptService.getContentAnnotationBySession(userId, sessionId)
+          : await PromptService.getLatestContentAnnotationByUserId(userId)
         : null;
       const contentVars = PromptService.buildContentVariables(contentAnnotation);
 
-      // コンテンツ変数はStep7のみ適用（Step1〜6では適用しない）
+      // コンテンツ変数は全ステップで適用。canonicalUrls はStep7のみ適用
       const vars: Record<string, string> = isStep7
         ? { ...contentVars, canonicalUrls: canonicalUrls.join('\n') }
-        : {};
+        : { ...contentVars };
       console.log('[BlogPrompt][Vars] 置換に使用する変数ソース', {
         step,
         isStep7,
         applyBusinessInfo: true,
-        applyContentVars: isStep7,
+        applyContentVars: true,
         contentVarsKeys: Object.keys(contentVars),
         canonicalUrlCount: canonicalUrls.length,
       });
@@ -873,11 +875,15 @@ export const generateBlogCreationPromptByStep = cache(
 /**
  * モデルに応じたシステムプロンプトを取得する（LIFFトークンがあれば動的生成、なければ静的）
  */
-export async function getSystemPrompt(model: string, liffAccessToken?: string): Promise<string> {
+export async function getSystemPrompt(
+  model: string,
+  liffAccessToken?: string,
+  sessionId?: string
+): Promise<string> {
   if (liffAccessToken) {
     if (model.startsWith('blog_creation_')) {
       const step = model.substring('blog_creation_'.length) as BlogStepId;
-      return await generateBlogCreationPromptByStep(liffAccessToken, step);
+      return await generateBlogCreationPromptByStep(liffAccessToken, step, sessionId);
     }
     switch (model) {
       case 'ad_copy_creation':

@@ -112,7 +112,11 @@ export async function POST(req: NextRequest) {
           const resolvedMaxTokens = cfg && cfg.provider === 'anthropic' ? cfg.maxTokens : 6000;
           const resolvedTemperature = cfg && cfg.provider === 'anthropic' ? cfg.temperature : 0.3;
 
-          const systemPrompt = await getSystemPrompt(model, liffAccessToken || undefined);
+          const systemPrompt = await getSystemPrompt(
+            model,
+            liffAccessToken || undefined,
+            sessionId
+          );
 
           const anthropicStream = await anthropic.messages.stream(
             {

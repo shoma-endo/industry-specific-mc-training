@@ -90,6 +90,46 @@ export class PromptService extends SupabaseService {
   }
 
   /**
+   * 指定ユーザー・セッションに紐づく content_annotations を1件取得
+   * 2025-09 のマイグレーションで session_id が導入されたため、チャット中はこれを優先使用
+   */
+  static async getContentAnnotationBySession(
+    userId: string,
+    sessionId: string
+  ): Promise<{
+    canonical_url: string | null;
+    main_kw: string | null;
+    kw: string | null;
+    impressions: string | null;
+    persona: string | null;
+    needs: string | null;
+    goal: string | null;
+    prep: string | null;
+    basic_structure: string | null;
+  } | null> {
+    try {
+      const service = new PromptService();
+      const { data, error } = await service.serviceRoleSupabase
+        .from('content_annotations')
+        .select(
+          'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure'
+        )
+        .eq('user_id', userId)
+        .eq('session_id', sessionId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('content_annotations (by session) 取得エラー:', error);
+        return null;
+      }
+      return data || null;
+    } catch (error) {
+      console.error('content_annotations (by session) 取得処理エラー:', error);
+      return null;
+    }
+  }
+
+  /**
    * content_annotations からテンプレ置換用の変数レコードを作成
    * テンプレ側は {{contentPersona}} / {{contentNeeds}} / {{contentGoal}}
    * {{contentMainKw}} / {{contentKw}} / {{contentImpressions}} を使用可能

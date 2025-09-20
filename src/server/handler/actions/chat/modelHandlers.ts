@@ -39,7 +39,7 @@ export class ModelHandlerService {
   async handleContinue(userId: string, data: ContinueChatInput): Promise<ChatResponse> {
     const { sessionId, messages, userMessage, model, liffAccessToken } = data;
     // キャッシュ戦略を活用した動的プロンプト取得
-    const systemPrompt = await getSystemPrompt(model, liffAccessToken);
+    const systemPrompt = await getSystemPrompt(model, liffAccessToken, sessionId);
 
     if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
       const config = MODEL_CONFIGS[model];

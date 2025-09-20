@@ -66,6 +66,12 @@ export const VARIABLE_TYPE_DESCRIPTIONS: Record<string, string> = {
   benchmarkUrl: 'ベンチマークURL（参考サイト）',
   // ブログ作成用（内部リンク候補）
   canonicalUrls: '内部リンク候補のURL一覧（改行区切り）',
+  // ブログ作成用（content_annotations 由来）
+  contentNeeds: 'ユーザーのニーズ',
+  contentPersona: 'デモグラ・ペルソナ',
+  contentGoal: 'ユーザーのゴール',
+  contentPrep: 'PREP要約',
+  contentBasicStructure: '基本構成',
 };
 
 /**
