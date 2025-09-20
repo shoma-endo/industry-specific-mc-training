@@ -202,6 +202,7 @@ export const ANALYTICS_COLUMNS = [
   { id: 'goal', label: 'ゴール' },
   { id: 'prep', label: 'PREP' },
   { id: 'basic_structure', label: '基本構成' },
+  { id: 'opening_proposal', label: '書き出し案' },
   { id: 'categories', label: 'カテゴリ' },
   { id: 'date', label: '公開日' },
   { id: 'title', label: 'タイトル' },

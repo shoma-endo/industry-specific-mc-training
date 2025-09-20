@@ -19,6 +19,7 @@ type AnnotationData = {
   goal?: string;
   prep?: string;
   basic_structure?: string;
+  opening_proposal?: string;
 };
 
 type Props = {
@@ -43,6 +44,7 @@ export default function AnnotationPanel({
     goal: '',
     prep: '',
     basic_structure: '',
+    opening_proposal: '',
   });
   const [loading, setLoading] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
@@ -83,6 +85,7 @@ export default function AnnotationPanel({
         goal: initialData.goal ?? '',
         prep: initialData.prep ?? '',
         basic_structure: initialData.basic_structure ?? '',
+        opening_proposal: initialData.opening_proposal ?? '',
       });
     } else {
       // 初期データがない場合は空のフォームにリセット
@@ -95,6 +98,7 @@ export default function AnnotationPanel({
         goal: '',
         prep: '',
         basic_structure: '',
+        opening_proposal: '',
       });
     }
   }, [initialData]);
@@ -379,6 +383,19 @@ export default function AnnotationPanel({
               value={form.basic_structure}
               onChange={e => setForm(s => ({ ...s, basic_structure: e.target.value }))}
               placeholder="導入や見出し構成など基本的な流れ"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {ANALYTICS_COLUMNS.find(c => c.id === 'opening_proposal')?.label}
+            </label>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              rows={3}
+              value={form.opening_proposal}
+              onChange={e => setForm(s => ({ ...s, opening_proposal: e.target.value }))}
+              placeholder="書き出しの方向性や冒頭で伝えたい内容"
             />
           </div>
 

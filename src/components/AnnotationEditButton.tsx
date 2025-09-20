@@ -22,6 +22,7 @@ type Props = {
     goal?: string | null;
     prep?: string | null;
     basic_structure?: string | null;
+    opening_proposal?: string | null;
   };
 };
 
@@ -45,6 +46,7 @@ export default function AnnotationEditButton({
     goal: initial?.goal ?? '',
     prep: initial?.prep ?? '',
     basic_structure: initial?.basic_structure ?? '',
+    opening_proposal: initial?.opening_proposal ?? '',
   });
 
   const handleSave = async () => {
@@ -64,6 +66,7 @@ export default function AnnotationEditButton({
           goal: form.goal,
           prep: form.prep,
           basic_structure: form.basic_structure,
+          opening_proposal: form.opening_proposal,
         });
       } else if (typeof wpPostId === 'number') {
         // 紐付け済み投稿に対する保存
@@ -78,6 +81,7 @@ export default function AnnotationEditButton({
           goal: form.goal,
           prep: form.prep,
           basic_structure: form.basic_structure,
+          opening_proposal: form.opening_proposal,
         });
       } else {
         setErrorMsg('保存対象が特定できません');
@@ -188,6 +192,15 @@ export default function AnnotationEditButton({
                   rows={3}
                   value={form.basic_structure}
                   onChange={e => setForm(s => ({ ...s, basic_structure: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">書き出し案</label>
+                <textarea
+                  className="w-full border p-2 rounded"
+                  rows={3}
+                  value={form.opening_proposal}
+                  onChange={e => setForm(s => ({ ...s, opening_proposal: e.target.value }))}
                 />
               </div>
             </div>

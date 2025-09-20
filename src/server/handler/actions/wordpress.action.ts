@@ -357,6 +357,7 @@ export type ContentAnnotationPayload = {
   goal?: string | null; // ゴール
   prep?: string | null; // PREP構成メモ
   basic_structure?: string | null; // 基本構成メモ
+  opening_proposal?: string | null; // 書き出し案メモ
 };
 
 export async function upsertContentAnnotation(payload: ContentAnnotationPayload) {
@@ -384,6 +385,7 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
       goal: payload.goal ?? null,
       prep: payload.prep ?? null,
       basic_structure: payload.basic_structure ?? null,
+      opening_proposal: payload.opening_proposal ?? null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id,wp_post_id' }
@@ -590,6 +592,7 @@ export async function upsertContentAnnotationBySession(payload: {
   goal?: string | null;
   prep?: string | null;
   basic_structure?: string | null;
+  opening_proposal?: string | null;
 }) {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
@@ -611,6 +614,7 @@ export async function upsertContentAnnotationBySession(payload: {
       goal: payload.goal ?? null,
       prep: payload.prep ?? null,
       basic_structure: payload.basic_structure ?? null,
+      opening_proposal: payload.opening_proposal ?? null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id,session_id' }

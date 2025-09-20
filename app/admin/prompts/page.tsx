@@ -162,6 +162,7 @@ export default function PromptsPage() {
       'contentGoal',
       'contentPrep',
       'contentBasicStructure',
+      'contentOpeningProposal',
     ];
     contentVars.forEach(v => {
       // 既にDB側variablesに定義されていない場合でも使用可能なので表示
@@ -283,6 +284,10 @@ export default function PromptsPage() {
                 {
                   name: 'contentBasicStructure',
                   description: getVariableDescription('contentBasicStructure'),
+                },
+                {
+                  name: 'contentOpeningProposal',
+                  description: getVariableDescription('contentOpeningProposal'),
                 },
               ];
               const implicitCanonical = [

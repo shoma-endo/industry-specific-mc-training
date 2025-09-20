@@ -29,6 +29,7 @@ type Annotation = {
   canonical_url?: string | null;
   prep?: string | null;
   basic_structure?: string | null;
+  opening_proposal?: string | null;
 };
 
 type Props = {
@@ -125,6 +126,11 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     基本構成
                   </th>
                 )}
+                {visibleSet.has('opening_proposal') && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
+                    書き出し案
+                  </th>
+                )}
                 {visibleSet.has('categories') && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[200px]">
                     カテゴリ
@@ -211,6 +217,15 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           )}
                         </td>
                       )}
+                      {visibleSet.has('opening_proposal') && (
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {a?.opening_proposal ? (
+                            <TruncatedText text={a.opening_proposal} lines={3} />
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      )}
                       {visibleSet.has('categories') && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {p.categoryNames && p.categoryNames.length > 0
@@ -267,6 +282,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                             goal: a?.goal ?? null,
                             prep: a?.prep ?? null,
                             basic_structure: a?.basic_structure ?? null,
+                            opening_proposal: a?.opening_proposal ?? null,
                           }}
                         />
                       </td>
@@ -320,6 +336,15 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                         )}
                       </td>
                     )}
+                    {visibleSet.has('opening_proposal') && (
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {a.opening_proposal ? (
+                          <TruncatedText text={a.opening_proposal} lines={3} />
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                    )}
                     {visibleSet.has('categories') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">—</td>
                     )}
@@ -368,6 +393,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           goal: a?.goal ?? null,
                           prep: a?.prep ?? null,
                           basic_structure: a?.basic_structure ?? null,
+                          opening_proposal: a?.opening_proposal ?? null,
                         }}
                       />
                     </td>

@@ -72,6 +72,7 @@ export const VARIABLE_TYPE_DESCRIPTIONS: Record<string, string> = {
   contentGoal: 'ユーザーのゴール',
   contentPrep: 'PREP要約',
   contentBasicStructure: '基本構成',
+  contentOpeningProposal: '書き出し案',
 };
 
 /**

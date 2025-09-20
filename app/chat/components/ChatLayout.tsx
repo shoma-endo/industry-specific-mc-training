@@ -451,6 +451,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     persona?: string;
     needs?: string;
     goal?: string;
+    prep?: string;
+    basic_structure?: string;
+    opening_proposal?: string;
   } | null>(null);
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);

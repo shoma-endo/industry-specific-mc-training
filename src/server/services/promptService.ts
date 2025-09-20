@@ -65,13 +65,14 @@ export class PromptService extends SupabaseService {
     goal: string | null;
     prep: string | null;
     basic_structure: string | null;
+    opening_proposal: string | null;
   } | null> {
     try {
       const service = new PromptService();
       const { data, error } = await service.serviceRoleSupabase
         .from('content_annotations')
         .select(
-          'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure'
+          'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
         )
         .eq('user_id', userId)
         .order('updated_at', { ascending: false })
@@ -106,13 +107,14 @@ export class PromptService extends SupabaseService {
     goal: string | null;
     prep: string | null;
     basic_structure: string | null;
+    opening_proposal: string | null;
   } | null> {
     try {
       const service = new PromptService();
       const { data, error } = await service.serviceRoleSupabase
         .from('content_annotations')
         .select(
-          'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure'
+          'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
         )
         .eq('user_id', userId)
         .eq('session_id', sessionId)
@@ -145,6 +147,7 @@ export class PromptService extends SupabaseService {
       goal: string | null;
       prep: string | null;
       basic_structure: string | null;
+      opening_proposal: string | null;
     } | null
   ): Record<string, string> {
     if (!annotation) return {};
@@ -157,6 +160,7 @@ export class PromptService extends SupabaseService {
       contentImpressions: annotation.impressions || '',
       contentPrep: annotation.prep || '',
       contentBasicStructure: annotation.basic_structure || '',
+      contentOpeningProposal: annotation.opening_proposal || '',
     };
   }
   /**
