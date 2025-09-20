@@ -18,7 +18,6 @@ import AnnotationPanel from './AnnotationPanel';
 import StepActionBar from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
-import type { FlowStatus } from '@/context/BlogFlowProvider';
 import { BlogStepId } from '@/lib/constants';
 
 interface ChatLayoutProps {
@@ -146,7 +145,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
     handleModelChange,
   } = ctx;
-  const { state, cancelRevision, currentIndex, totalSteps, restoreFlowState } = useBlogFlow();
+  const { state, cancelRevision, currentIndex, totalSteps } = useBlogFlow();
   const router = useRouter();
 
   // ChatLayoutContent内でのblogFlowActive再計算
@@ -159,114 +158,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const effectiveBlogFlowActive = blogFlowActive || blogFlowActiveRecalculated;
 
   const currentStep = state.current;
-  const flowStatusCurrent = state.flowStatus;
-  const steps = state.steps;
-
-  const ensureFlowState = useCallback(
-    (step: BlogStepId, aiMessageId?: string, statusOverride?: FlowStatus) => {
-      const desiredStatus: FlowStatus =
-        statusOverride ?? (aiMessageId ? 'waitingAction' : 'running');
-      const stepData = steps[step];
-
-      const alreadyCurrent = currentStep === step;
-      const alreadyStatus = flowStatusCurrent === desiredStatus;
-      const alreadyAiMessage = stepData?.aiMessageId === aiMessageId;
-
-      if (alreadyCurrent && alreadyStatus && alreadyAiMessage) {
-        return;
-      }
-
-      restoreFlowState(step, aiMessageId, statusOverride);
-    },
-    [currentStep, flowStatusCurrent, restoreFlowState, steps]
-  );
-
-  // デバッグログ削除
-
-  // ブログフロー状態の復元（最新のブログ用 user を起点に復元）
-  useEffect(() => {
-    if (!effectiveBlogFlowActive) return;
-    if (!chatSession.state.currentSessionId || chatSession.state.messages.length === 0) return;
-
-    const msgs: ChatMessage[] = chatSession.state.messages;
-
-    // 1) 最新のブログ用 user メッセージを探す
-    let lastBlogUserIndex = -1;
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const m = msgs[i];
-      const mm = typeof m?.model === 'string' ? (m.model as string) : '';
-      if (m?.role === 'user' && mm.startsWith('blog_creation_')) {
-        lastBlogUserIndex = i;
-        break;
-      }
-    }
-    if (lastBlogUserIndex < 0) return;
-
-    // 2) その user 以降の最初の assistant を探す
-    let assistantAfter: ChatMessage | undefined;
-    for (let j = lastBlogUserIndex + 1; j < msgs.length; j++) {
-      const cand = msgs[j];
-      if (cand && cand.role === 'assistant') {
-        assistantAfter = cand;
-        break;
-      }
-    }
-
-    const step = ((msgs[lastBlogUserIndex]?.model as string) || '').replace(
-      'blog_creation_',
-      ''
-    ) as BlogStepId;
-
-    if (assistantAfter) {
-      // AI返信がある → アクション待ち
-      ensureFlowState(step, assistantAfter.id, 'waitingAction');
-    } else {
-      // まだ返信来てない → 生成中（常に最新user送信を反映）
-      ensureFlowState(step, undefined, 'running');
-    }
-  }, [
-    effectiveBlogFlowActive,
-    chatSession.state.currentSessionId,
-    chatSession.state.messages,
-    ensureFlowState,
-    flowStatusCurrent,
-  ]);
-
-  // 自動startは行わない（ユーザー送信起点）。状態復元のみ行う。
-
-  // 返信待ちの復元: running -> （対象のassistant到着後）-> waitingAction
-  useEffect(() => {
-    if (!effectiveBlogFlowActive || flowStatusCurrent !== 'running') return;
-    const msgs: ChatMessage[] = chatSession.state.messages;
-
-    // 最新のブログ用 user メッセージを探す
-    let lastBlogUserIndex = -1;
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const m = msgs[i];
-      if (!m) continue;
-      const mm = typeof m.model === 'string' ? (m.model as string) : '';
-      if (m.role === 'user' && mm.startsWith('blog_creation_')) {
-        lastBlogUserIndex = i;
-        break;
-      }
-    }
-    if (lastBlogUserIndex < 0) return;
-
-    // その後で最初の assistant を探す
-    let assistantAfter: ChatMessage | undefined;
-    for (let j = lastBlogUserIndex + 1; j < msgs.length; j++) {
-      const cand = msgs[j];
-      if (cand && cand.role === 'assistant') {
-        assistantAfter = cand;
-        break;
-      }
-    }
-    if (!assistantAfter) return;
-
-    const userModel = msgs[lastBlogUserIndex]?.model ?? '';
-    const step = userModel.replace('blog_creation_', '') as BlogStepId;
-    ensureFlowState(step, assistantAfter.id, 'waitingAction');
-  }, [effectiveBlogFlowActive, flowStatusCurrent, chatSession.state.messages, ensureFlowState]);
 
   const goToSubscription = () => {
     router.push('/subscription');
@@ -463,20 +354,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   );
   const [, setSelectedBlogStep] = useState<BlogStepId>('step1');
 
-  // ブログフローの自動検出（モデル選択のみ）
-  useEffect(() => {
-    if (!chatSession.state.currentSessionId || chatSession.state.messages.length === 0) return;
-
-    // メッセージ履歴からブログ作成関連のモデル使用を検出
-    const blogMessages = chatSession.state.messages.filter(
-      msg => msg.role === 'user' && msg.model && msg.model.startsWith('blog_creation_')
-    );
-
-    if (blogMessages.length > 0 && selectedModel !== 'blog_creation') {
-      // ブログモデルに切り替え
-      setSelectedModel('blog_creation');
-    }
-  }, [chatSession.state.currentSessionId, chatSession.state.messages, selectedModel]);
+  // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
 
   // モデル変更ハンドラ
   const handleModelChange = useCallback((model: string, step?: BlogStepId) => {

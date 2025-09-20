@@ -41,7 +41,6 @@ export interface BlogFlowContextValue {
   applyRevision: (note: string) => Promise<void>;
   cancelRevision: () => void;
   reset: () => void;
-  restoreFlowState: (step: BlogStepId, aiMessageId?: string, status?: FlowStatus) => void;
 }
 
 type ProviderProps = {
@@ -106,30 +105,7 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     }
   }, [persistStore, sessionId]);
 
-  // 外部から状態を復元するためのヘルパー関数
-  const restoreFlowState = useCallback(
-    (step: BlogStepId, aiMessageId?: string, status?: FlowStatus) => {
-      const inferredFlow: FlowStatus = status ?? (aiMessageId ? 'waitingAction' : 'running');
-      const inferredStepStatus: StepStatus = aiMessageId ? 'ready' : 'pending';
-
-      setState(prev => ({
-        ...prev,
-        current: step,
-        flowStatus: inferredFlow,
-        steps: {
-          ...prev.steps,
-          [step]: {
-            ...prev.steps[step],
-            status: inferredStepStatus,
-            aiMessageId,
-            updatedAt: Date.now(),
-          },
-        },
-      }));
-      persistStore.setFor(sessionId, { current: step, flowStatus: inferredFlow, aiMessageId });
-    },
-    [persistStore, sessionId]
-  );
+  // restoreFlowState は廃止（persistと実行時のrunStepに一本化）
 
   const runningRef = useRef(false);
 
@@ -272,7 +248,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     applyRevision,
     cancelRevision,
     reset,
-    restoreFlowState,
   };
 
   return <BlogFlowContext.Provider value={value}>{children}</BlogFlowContext.Provider>;
