@@ -5,23 +5,30 @@ import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 
 type Props = {
-  step: BlogStepId;
+  step?: BlogStepId;
   className?: string;
   disabled?: boolean;
+  hasDetectedBlogStep?: boolean;
 };
 
-const StepActionBar: React.FC<Props> = ({ className, disabled }) => {
+const StepActionBar: React.FC<Props> = ({ className, disabled, step, hasDetectedBlogStep }) => {
   const { state, openRevision } = useBlogFlow();
 
   // ブログフロー中は常に表示（ChatLayout側で制御済み）
   // シンプルに: アクション待ち状態なら有効化
-  const isStepReady = state.flowStatus === 'waitingAction';
+  const effectiveStep = step ?? state.current;
+  const currentIndex = BLOG_STEP_IDS.indexOf(effectiveStep);
+  const fallbackIndex = BLOG_STEP_IDS.indexOf(state.current);
+  const displayIndex = currentIndex >= 0 ? currentIndex : fallbackIndex;
+  const displayStep = BLOG_STEP_IDS[displayIndex] ?? state.current;
+  const isStepReady =
+    state.flowStatus === 'waitingAction' ||
+    (hasDetectedBlogStep && state.flowStatus === 'idle');
   const isDisabled = disabled || !isStepReady;
 
   // 補足テキスト用のラベル
-  const currentLabel = BLOG_STEP_LABELS[state.current] ?? '';
-  const currentIndex = BLOG_STEP_IDS.indexOf(state.current);
-  const nextStep = BLOG_STEP_IDS[currentIndex + 1];
+  const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
+  const nextStep = BLOG_STEP_IDS[displayIndex + 1];
   const nextStepLabel = nextStep ? BLOG_STEP_LABELS[nextStep]?.replace(/^\d+\.\s*/, '') : '';
 
   return (

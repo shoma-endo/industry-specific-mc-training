@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChatSessionHook } from '@/hooks/useChatSession';
 import { SubscriptionHook } from '@/hooks/useSubscriptionStatus';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
@@ -18,7 +18,7 @@ import AnnotationPanel from './AnnotationPanel';
 import StepActionBar from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
-import { BlogStepId } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -102,6 +102,27 @@ const getLatestAIMessage = (messages: ChatMessage[]) => {
   return '';
 };
 
+const BLOG_MODEL_PREFIX = 'blog_creation_';
+
+const isBlogStepId = (value: string): value is BlogStepId =>
+  BLOG_STEP_IDS.includes(value as BlogStepId);
+
+const extractBlogStepFromModel = (model?: string): BlogStepId | null => {
+  if (!model || !model.startsWith(BLOG_MODEL_PREFIX)) return null;
+  const candidate = model.slice(BLOG_MODEL_PREFIX.length);
+  return isBlogStepId(candidate) ? candidate : null;
+};
+
+const findLatestAssistantBlogStep = (messages: ChatMessage[]): BlogStepId | null => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.role !== 'assistant') continue;
+    const step = extractBlogStepFromModel(message.model);
+    if (step) return step;
+  }
+  return null;
+};
+
 // 自動開始は行わず、明示ボタンで開始する
 type ChatLayoutCtx = {
   chatSession: ChatSessionHook;
@@ -109,6 +130,7 @@ type ChatLayoutCtx = {
   isMobile: boolean;
   blogFlowActive: boolean;
   selectedModel: string;
+  latestBlogStep: BlogStepId | null;
   ui: {
     sidebar: { open: boolean; setOpen: (open: boolean) => void };
     canvas: { open: boolean; show: (content: string) => void };
@@ -139,6 +161,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     isMobile,
     blogFlowActive,
     selectedModel,
+    latestBlogStep,
     ui,
     onSendMessage,
     handleEditInCanvas,
@@ -158,6 +181,12 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const effectiveBlogFlowActive = blogFlowActive || blogFlowActiveRecalculated;
 
   const currentStep = state.current;
+  const displayStep = latestBlogStep ?? currentStep;
+  const hasDetectedBlogStep = latestBlogStep !== null;
+  const displayIndex = useMemo(() => {
+    const index = BLOG_STEP_IDS.indexOf(displayStep);
+    return index >= 0 ? index : currentIndex;
+  }, [displayStep, currentIndex]);
 
   const goToSubscription = () => {
     router.push('/subscription');
@@ -192,7 +221,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     if (shouldShowActionBar) {
       return (
         <StepActionBar
-          step={currentStep}
+          step={displayStep}
+          hasDetectedBlogStep={hasDetectedBlogStep}
           className="px-3 py-2 border-t bg-gray-50/50"
           disabled={chatSession.state.isLoading || ui.annotation.loading}
         />
@@ -301,10 +331,11 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           isMobile={isMobile}
           onMenuToggle={isMobile ? () => ui.sidebar.setOpen(!ui.sidebar.open) : undefined}
           blogFlowActive={effectiveBlogFlowActive}
-          blogProgress={{ currentIndex, total: totalSteps }}
+          blogProgress={{ currentIndex: displayIndex, total: totalSteps }}
           onModelChange={handleModelChange}
           blogFlowStatus={state.flowStatus}
           selectedModelExternal={selectedModel}
+          {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}
         />
       </div>
 
@@ -353,6 +384,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
   );
   const [, setSelectedBlogStep] = useState<BlogStepId>('step1');
+  const latestBlogStep = useMemo(
+    () => findLatestAssistantBlogStep(chatSession.state.messages ?? []),
+    [chatSession.state.messages]
+  );
 
   // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
 
@@ -417,8 +452,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // Revision用にCanvasパネルを開く（BlogFlow用）
   const openRevisionPanel = () => {
-    console.log('openRevisionPanel called');
-
     if (annotationOpen) {
       setAnnotationOpen(false);
       setAnnotationData(null);
@@ -426,7 +459,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
     // 最新のAIメッセージを取得してCanvasパネルを開く
     const latestAIMessage = getLatestAIMessage(chatSession.state.messages);
-    console.log('Setting canvas content:', latestAIMessage?.substring(0, 100));
     setCanvasContent(latestAIMessage);
     setCanvasPanelOpen(true);
     setIsManualEdit(true);
@@ -568,6 +600,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             isMobile,
             blogFlowActive,
             selectedModel,
+            latestBlogStep,
             ui: {
               sidebar: { open: sidebarOpen, setOpen: setSidebarOpen },
               canvas: { open: canvasPanelOpen, show: handleShowCanvas },

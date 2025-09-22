@@ -109,11 +109,21 @@ export class ChatService implements IChatService {
         return [];
       }
 
-      const uiMessages: ChatMessage[] = messagesResult.messages.map((msg, index) => ({
+      type ApiMessage = {
+        id?: string;
+        role: 'user' | 'assistant' | 'system';
+        content: string;
+        createdAt: number;
+        model?: string | undefined;
+      };
+
+      const rawMessages = messagesResult.messages as ApiMessage[];
+      const uiMessages: ChatMessage[] = rawMessages.map((msg, index) => ({
         id: `${msg.id || index}`,
         role: msg.role === 'system' ? 'assistant' : (msg.role as 'user' | 'assistant'),
         content: msg.content,
         timestamp: new Date(msg.createdAt),
+        model: msg.model,
       }));
 
       return uiMessages;
