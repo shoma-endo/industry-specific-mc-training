@@ -13,9 +13,9 @@ import {
   deleteChatSessionSA,
 } from '@/server/handler/actions/chat.actions';
 import { ChatError, ChatErrorCode } from '../errors/ChatError';
+import type { ChatMessage as ServerChatMessage } from '@/types/chat';
 
 export class ChatService implements IChatService {
-  private currentUserId: string | null = null;
   private accessTokenProvider: (() => Promise<string>) | null = null;
 
   setAccessTokenProvider(provider: () => Promise<string>) {
@@ -109,15 +109,7 @@ export class ChatService implements IChatService {
         return [];
       }
 
-      type ApiMessage = {
-        id?: string;
-        role: 'user' | 'assistant' | 'system';
-        content: string;
-        createdAt: number;
-        model?: string | undefined;
-      };
-
-      const rawMessages = messagesResult.messages as ApiMessage[];
+      const rawMessages = messagesResult.messages as ServerChatMessage[];
       const uiMessages: ChatMessage[] = rawMessages.map((msg, index) => ({
         id: `${msg.id || index}`,
         role: msg.role === 'system' ? 'assistant' : (msg.role as 'user' | 'assistant'),
