@@ -87,6 +87,8 @@ interface InputAreaProps {
   blogFlowStatus?: string;
   selectedModelExternal?: string;
   initialBlogStep?: BlogStepId;
+  manualSelectedStep?: BlogStepId | null;
+  placeholderOverride?: string | undefined;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -103,6 +105,8 @@ const InputArea: React.FC<InputAreaProps> = ({
   blogFlowStatus,
   selectedModelExternal,
   initialBlogStep,
+  manualSelectedStep,
+  placeholderOverride,
 }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -121,11 +125,28 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   // ブログ作成中は「次に進む」タイミングでは次ステップのプレースホルダーを表示
   const placeholderMessage = (() => {
-    // 修正中の場合は常に修正指示のプレースホルダーを表示
-    if (blogFlowStatus === 'revising') {
-      return BLOG_PLACEHOLDERS['revision'];
+    // placeholderOverrideが設定されている場合は最優先で使用
+    if (placeholderOverride) {
+      return placeholderOverride;
     }
+    
     if (selectedModel === 'blog_creation') {
+      // 手動でステップが選択されている場合
+      if (manualSelectedStep) {
+        // 修正中かつ手動選択の場合は修正指示
+        if (blogFlowStatus === 'revising') {
+          return BLOG_PLACEHOLDERS['revision'];
+        }
+        // 通常は選択したステップのプレースホルダー
+        const key = `blog_creation_${manualSelectedStep}` as keyof typeof BLOG_PLACEHOLDERS;
+        return BLOG_PLACEHOLDERS[key];
+      }
+      
+      // 修正中の場合は修正指示のプレースホルダーを表示
+      if (blogFlowStatus === 'revising') {
+        return BLOG_PLACEHOLDERS['revision'];
+      }
+      
       const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
       const shouldAdvanceInUi =
         blogFlowStatus === 'waitingAction' || (blogFlowStatus === 'idle' && hasDetectedBlogStep);
@@ -231,11 +252,18 @@ const InputArea: React.FC<InputAreaProps> = ({
     // ブログ作成モデルの場合の制御：
     // - アクション待ち（waitingAction）での通常送信は「次のステップへ進む」扱い
     // - 修正中（revising）は同一ステップの再生成
+    // - 手動でステップが選択されている場合はそのステップを使用
     let effectiveModel = selectedModel;
     if (selectedModel === 'blog_creation') {
       if (blogFlowStatus === 'revising') {
         // 修正案入力中は現行ステップを維持
-        effectiveModel = `blog_creation_${selectedBlogStep}`;
+        const currentStep = manualSelectedStep ?? selectedBlogStep;
+        effectiveModel = `blog_creation_${currentStep}`;
+      } else if (manualSelectedStep) {
+        // 手動でステップが選択されている場合はそのステップを使用
+        effectiveModel = `blog_creation_${manualSelectedStep}`;
+        onModelChange?.('blog_creation', manualSelectedStep);
+        setSelectedBlogStep(manualSelectedStep);
       } else {
         // 通常送信は次ステップへ（初回はstep1）
         const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);

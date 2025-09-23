@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+# 必ず日本語で回答してください。
+
 ## Project Structure & Module Organization
 - `app/` contains Next.js App Router routes; keep layouts minimal and co-locate feature-specific components.
 - `src/` hosts reusable code: `components/` (shadcn UI), `domain/` (business logic), `server/` (server actions and integrations), `lib/` helpers, `types/` shared contracts, and `hooks/` composition utilities.
