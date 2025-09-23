@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChatSessionHook } from '@/hooks/useChatSession';
 import { SubscriptionHook } from '@/hooks/useSubscriptionStatus';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
@@ -169,6 +169,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     handleModelChange,
   } = ctx;
   const { state, cancelRevision, currentIndex, totalSteps } = useBlogFlow();
+  const lastAssistantMessageIdRef = useRef<string | undefined>(undefined);
   const router = useRouter();
 
   // ChatLayoutContent内でのblogFlowActive再計算
@@ -203,6 +204,31 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   useEffect(() => {
     setIsSubscriptionErrorDismissed(false);
   }, [subscription.error]);
+
+  useEffect(() => {
+    // 新しいアシスタントの返信が届いたら、修正モードを解除してステップアクションを再び有効化する
+    const messages = chatSession.state.messages ?? [];
+    const assistants = messages.filter(m => m.role === 'assistant');
+    const lastAssistantId = assistants[assistants.length - 1]?.id;
+
+    if (state.flowStatus === 'revising') {
+      if (!lastAssistantMessageIdRef.current) {
+        lastAssistantMessageIdRef.current = lastAssistantId;
+        return;
+      }
+
+      if (lastAssistantId && lastAssistantId !== lastAssistantMessageIdRef.current) {
+        cancelRevision();
+        lastAssistantMessageIdRef.current = lastAssistantId;
+        return;
+      }
+
+      lastAssistantMessageIdRef.current = lastAssistantId;
+      return;
+    }
+
+    lastAssistantMessageIdRef.current = lastAssistantId;
+  }, [chatSession.state.messages, state.flowStatus, cancelRevision]);
 
   const renderAfterMessage = (message: ChatMessage) => {
     // 最新のアシスタントメッセージIDを取得（ID比較で統一）

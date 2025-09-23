@@ -24,7 +24,8 @@ const StepActionBar: React.FC<Props> = ({ className, disabled, step, hasDetected
   const isStepReady =
     state.flowStatus === 'waitingAction' ||
     (hasDetectedBlogStep && state.flowStatus === 'idle');
-  const isDisabled = disabled || !isStepReady;
+  const allowRevisionRetry = state.flowStatus === 'revising';
+  const isDisabled = disabled || (!isStepReady && !allowRevisionRetry);
 
   // 補足テキスト用のラベル
   const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';

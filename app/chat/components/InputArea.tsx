@@ -121,21 +121,21 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   // ブログ作成中は「次に進む」タイミングでは次ステップのプレースホルダーを表示
   const placeholderMessage = (() => {
+    // 修正中の場合は常に修正指示のプレースホルダーを表示
+    if (blogFlowStatus === 'revising') {
+      return BLOG_PLACEHOLDERS['revision'];
+    }
     if (selectedModel === 'blog_creation') {
-      if (blogFlowStatus === 'revising') {
-        return BLOG_PLACEHOLDERS['revision'] ?? '修正指示を入力してください';
-      }
       const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
       const shouldAdvanceInUi =
         blogFlowStatus === 'waitingAction' || (blogFlowStatus === 'idle' && hasDetectedBlogStep);
       const targetIdx = Math.max(0, currentIdx + (shouldAdvanceInUi ? 1 : 0));
       const targetStep = BLOG_STEP_IDS[targetIdx] ?? selectedBlogStep;
       const key = `blog_creation_${targetStep}` as keyof typeof BLOG_PLACEHOLDERS;
-      return BLOG_PLACEHOLDERS[key] ?? 'メッセージを入力...';
+      return BLOG_PLACEHOLDERS[key];
     }
     // 通常モデル
-    const key = blogFlowStatus === 'revising' ? 'revision' : displayModelKey;
-    return MODEL_PLACEHOLDERS[key] ?? 'メッセージを入力...';
+    return MODEL_PLACEHOLDERS[displayModelKey];
   })();
 
   // モバイル画面の検出（propsから渡された値を優先、フォールバックで独自検出）
@@ -345,7 +345,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                 <RichEditor
                   value={input}
                   onChange={setInput}
-                  placeholder={placeholderMessage}
+                  placeholder={placeholderMessage ?? 'メッセージを入力...'}
                   disabled={disabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
@@ -358,7 +358,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}
-                  placeholder={placeholderMessage}
+                  placeholder={placeholderMessage ?? 'メッセージを入力...'}
                   disabled={disabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
