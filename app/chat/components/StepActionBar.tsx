@@ -10,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type Props = {
   step?: BlogStepId;
@@ -104,25 +110,36 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(({
         修正案を出す
       </Button>
       {availableSteps.length >= 2 && onStepChange && (
-        <Select
-          value={selectedStep ?? effectiveStep}
-          onValueChange={(value: BlogStepId) => {
-            onStepChange(value);
-            onStepSelect?.(value);
-          }}
-          disabled={isDisabled}
-        >
-          <SelectTrigger className="w-[200px] h-8 text-xs">
-            <SelectValue placeholder="ステップを選択" />
-          </SelectTrigger>
-          <SelectContent>
-            {availableSteps.map((stepId) => (
-              <SelectItem key={stepId} value={stepId}>
-                {BLOG_STEP_LABELS[stepId]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <Select
+                  value={selectedStep ?? effectiveStep}
+                  onValueChange={(value: BlogStepId) => {
+                    onStepChange(value);
+                    onStepSelect?.(value);
+                  }}
+                  disabled={isDisabled}
+                >
+                  <SelectTrigger className="w-[200px] h-8 text-xs">
+                    <SelectValue placeholder="ステップを選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSteps.map((stepId) => (
+                      <SelectItem key={stepId} value={stepId}>
+                        {BLOG_STEP_LABELS[stepId]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>過去のステップを選択してそこから再開できます</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   );
