@@ -26,6 +26,7 @@ type Props = {
 export type StepActionBarRef = {
   triggerRevisionMode: () => void;
   triggerStepSelection: (step: BlogStepId) => void;
+  getCurrentStepInfo: () => { currentStep: BlogStepId; nextStep: BlogStepId | null };
 };
 
 const StepActionBar = forwardRef<StepActionBarRef, Props>(({ 
@@ -47,7 +48,11 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(({
     },
     triggerStepSelection: (step: BlogStepId) => {
       onStepSelect?.(step);
-    }
+    },
+    getCurrentStepInfo: () => ({
+      currentStep: displayStep,
+      nextStep: nextStep || null
+    })
   }));
 
   // ブログフロー中は常に表示（ChatLayout側で制御済み）
@@ -71,17 +76,22 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(({
   const baseIndex = BLOG_STEP_IDS.indexOf(baseStepForNext);
   const nextStep = baseIndex >= 0 ? BLOG_STEP_IDS[baseIndex + 1] : BLOG_STEP_IDS[displayIndex + 1];
   const nextStepLabel = nextStep ? BLOG_STEP_LABELS[nextStep]?.replace(/^\d+\.\s*/, '') : '';
+  
+  // Selectで過去のステップを選択している場合は情報を表示しない
+  const isManualStepSelected = selectedStep !== null;
 
   return (
     <div className={`flex items-center gap-2 mt-2 ${className ?? ''}`}>
-      <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
-        <span>
-          現在のステップ: {currentLabel}
-          {nextStepLabel
-            ? ` ／ 次の${nextStepLabel}に進むにはメッセージを送信してください`
-            : ''}
-        </span>
-      </div>
+      {!isManualStepSelected && (
+        <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
+          <span>
+            現在のステップ: {currentLabel}
+            {nextStepLabel
+              ? ` ／ 次の${nextStepLabel}に進むにはメッセージを送信してください`
+              : ''}
+          </span>
+        </div>
+      )}
       <Button
         onClick={() => {
           openRevision();

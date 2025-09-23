@@ -133,6 +133,7 @@ type ChatLayoutCtx = {
   latestBlogStep: BlogStepId | null;
   availableSteps: BlogStepId[];
   manualSelectedStep: BlogStepId | null;
+  stepActionBarRef: React.RefObject<StepActionBarRef | null>;
   ui: {
     sidebar: { open: boolean; setOpen: (open: boolean) => void };
     canvas: { open: boolean; show: (content: string) => void };
@@ -158,6 +159,7 @@ type ChatLayoutCtx = {
   handleRevisionClick: () => void;
   handleStepSelect: (step: BlogStepId) => void;
   placeholderOverride: string;
+  nextStepForPlaceholder: BlogStepId | null;
 };
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -170,6 +172,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     latestBlogStep,
     availableSteps,
     manualSelectedStep,
+    stepActionBarRef,
     ui,
     onSendMessage,
     handleEditInCanvas,
@@ -178,10 +181,10 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     handleRevisionClick,
     handleStepSelect,
     placeholderOverride,
+    nextStepForPlaceholder,
   } = ctx;
   const { state, cancelRevision, currentIndex, totalSteps } = useBlogFlow();
   const lastAssistantMessageIdRef = useRef<string | undefined>(undefined);
-  const stepActionBarRef = useRef<StepActionBarRef>(null);
   const router = useRouter();
 
   // ChatLayoutContent内でのblogFlowActive再計算
@@ -381,6 +384,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           selectedModelExternal={selectedModel}
           manualSelectedStep={manualSelectedStep}
           placeholderOverride={placeholderOverride}
+          nextStepForPlaceholder={nextStepForPlaceholder}
           {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}
         />
       </div>
@@ -432,6 +436,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [, setSelectedBlogStep] = useState<BlogStepId>('step1');
   const [manualSelectedStep, setManualSelectedStep] = useState<BlogStepId | null>(null);
   const [placeholderOverride, setPlaceholderOverride] = useState<string>('');
+  const [nextStepForPlaceholder, setNextStepForPlaceholder] = useState<BlogStepId | null>(null);
   const latestBlogStep = useMemo(
     () => findLatestAssistantBlogStep(chatSession.state.messages ?? []),
     [chatSession.state.messages]
@@ -452,6 +457,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setManualSelectedStep(step);
   }, []);
 
+  // StepActionBarのrefを定義
+  const stepActionBarRef = useRef<StepActionBarRef>(null);
+
+  // StepActionBarのnextStep情報を更新する関数
+  const updateNextStepInfo = useCallback(() => {
+    if (stepActionBarRef.current) {
+      const stepInfo = stepActionBarRef.current.getCurrentStepInfo();
+      setNextStepForPlaceholder(stepInfo.nextStep);
+    }
+  }, []);
+
   // StepActionBarのイベントハンドラ
   const handleRevisionClick = useCallback(() => {
     setPlaceholderOverride('修正指示を入力してください');
@@ -470,6 +486,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     };
     setPlaceholderOverride(placeholders[key] || '');
   }, []);
+
+  // StepActionBarの状態変更を監視してnextStep情報を更新
+  useEffect(() => {
+    updateNextStepInfo();
+  }, [manualSelectedStep, latestBlogStep, updateNextStepInfo]);
 
   // モデル変更ハンドラ
   const handleModelChange = useCallback((model: string, step?: BlogStepId) => {
@@ -581,13 +602,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setIsManualEdit(false);
     setManualSelectedStep(null);
     setPlaceholderOverride('');
+    setNextStepForPlaceholder(null);
   }, [chatSession.state.currentSessionId]);
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {
     try {
-      // 新規メッセージ送信時は手動編集フラグをリセット
+      // 新規メッセージ送信時は手動編集フラグと選択ステップをリセット
       setIsManualEdit(false);
+      setManualSelectedStep(null);
+      setPlaceholderOverride('');
+      setNextStepForPlaceholder(null);
       // 初期化を実行してからメッセージ送信
       await chatSession.actions.sendMessage(content, model);
     } catch (error) {
@@ -685,6 +710,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             latestBlogStep,
             availableSteps,
             manualSelectedStep,
+            stepActionBarRef,
             ui: {
               sidebar: { open: sidebarOpen, setOpen: setSidebarOpen },
               canvas: { open: canvasPanelOpen, show: handleShowCanvas },
@@ -703,6 +729,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             handleRevisionClick,
             handleStepSelect,
             placeholderOverride,
+            nextStepForPlaceholder,
           }}
         />
 

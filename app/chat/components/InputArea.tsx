@@ -89,6 +89,7 @@ interface InputAreaProps {
   initialBlogStep?: BlogStepId;
   manualSelectedStep?: BlogStepId | null;
   placeholderOverride?: string | undefined;
+  nextStepForPlaceholder?: BlogStepId | null;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -107,6 +108,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   initialBlogStep,
   manualSelectedStep,
   placeholderOverride,
+  nextStepForPlaceholder,
 }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -147,9 +149,16 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS['revision'];
       }
       
+      // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
+      if (nextStepForPlaceholder) {
+        const key = `blog_creation_${nextStepForPlaceholder}` as keyof typeof BLOG_PLACEHOLDERS;
+        return BLOG_PLACEHOLDERS[key];
+      }
+      
       const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
       const shouldAdvanceInUi =
         blogFlowStatus === 'waitingAction' || (blogFlowStatus === 'idle' && hasDetectedBlogStep);
+      // 通常フローでは次のステップのプレースホルダーを表示
       const targetIdx = Math.max(0, currentIdx + (shouldAdvanceInUi ? 1 : 0));
       const targetStep = BLOG_STEP_IDS[targetIdx] ?? selectedBlogStep;
       const key = `blog_creation_${targetStep}` as keyof typeof BLOG_PLACEHOLDERS;
