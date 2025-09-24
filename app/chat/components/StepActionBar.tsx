@@ -16,6 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Edit3, BookMarked } from 'lucide-react';
 
 type Props = {
   step?: BlogStepId;
@@ -27,6 +28,9 @@ type Props = {
   selectedStep?: BlogStepId | null;
   onRevisionClick?: () => void;
   onStepSelect?: (step: BlogStepId) => void;
+  onCanvasClick?: () => void;
+  onSaveClick?: () => void;
+  annotationLoading?: boolean;
 };
 
 export type StepActionBarRef = {
@@ -35,16 +39,19 @@ export type StepActionBarRef = {
   getCurrentStepInfo: () => { currentStep: BlogStepId; nextStep: BlogStepId | null };
 };
 
-const StepActionBar = forwardRef<StepActionBarRef, Props>(({ 
-  className, 
-  disabled, 
-  step, 
-  hasDetectedBlogStep, 
+const StepActionBar = forwardRef<StepActionBarRef, Props>(({
+  className,
+  disabled,
+  step,
+  hasDetectedBlogStep,
   availableSteps = [],
   onStepChange,
   selectedStep,
   onRevisionClick,
-  onStepSelect
+  onStepSelect,
+  onCanvasClick,
+  onSaveClick,
+  annotationLoading,
 }, ref) => {
   const { state, openRevision } = useBlogFlow();
 
@@ -108,6 +115,30 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(({
         variant="outline"
       >
         修正案を出す
+      </Button>
+      <Button
+        onClick={() => onCanvasClick?.()}
+        disabled={isDisabled || !onCanvasClick}
+        size="sm"
+        variant="outline"
+        className="flex items-center gap-1"
+      >
+        <Edit3 size={14} />
+        <span>Canvas</span>
+      </Button>
+      <Button
+        onClick={() => onSaveClick?.()}
+        disabled={
+          isDisabled ||
+          !onSaveClick ||
+          annotationLoading
+        }
+        size="sm"
+        variant="outline"
+        className="flex items-center gap-1"
+      >
+        <BookMarked size={14} />
+        <span>{annotationLoading ? '読み込み中...' : '保存'}</span>
       </Button>
       {availableSteps.length >= 2 && onStepChange && (
         <TooltipProvider>

@@ -153,7 +153,6 @@ type ChatLayoutCtx = {
     };
   };
   onSendMessage: (content: string, model: string) => Promise<void>;
-  handleEditInCanvas: (content: string) => void;
   handleModelChange: (model: string, step?: BlogStepId) => void;
   handleStepChange: (step: BlogStepId) => void;
   handleRevisionClick: () => void;
@@ -175,7 +174,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     stepActionBarRef,
     ui,
     onSendMessage,
-    handleEditInCanvas,
     handleModelChange,
     handleStepChange,
     handleRevisionClick,
@@ -272,6 +270,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           selectedStep={manualSelectedStep}
           onRevisionClick={handleRevisionClick}
           onStepSelect={handleStepSelect}
+          onCanvasClick={() => ui.canvas.show(message.content)}
+          onSaveClick={() => ui.annotation.openWith(message.content)}
+          annotationLoading={ui.annotation.loading}
         />
       );
     }
@@ -358,10 +359,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
         <MessageArea
           messages={chatSession.state.messages}
           isLoading={chatSession.state.isLoading}
-          annotationLoading={ui.annotation.loading}
-          onEditInCanvas={handleEditInCanvas}
-          onShowCanvas={ui.canvas.show}
-          onOpenAnnotation={ui.annotation.openWith}
           renderAfterMessage={renderAfterMessage}
           blogFlowActive={effectiveBlogFlowActive}
         />
@@ -622,19 +619,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   };
 
-  // ✅ 過去のメッセージをCanvasで編集する関数
-  const handleEditInCanvas = (content: string) => {
-    setIsManualEdit(true); // 手動編集フラグを設定
-    setCanvasContent(content);
-
-    // Annotationパネルが開いている場合は同時に切り替え
-    if (annotationOpen) {
-      setAnnotationOpen(false);
-      setAnnotationData(null);
-    }
-    setCanvasPanelOpen(true);
-  };
-
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
   const handleShowCanvas = (content: string) => {
     setCanvasContent(content);
@@ -723,7 +707,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
               },
             },
             onSendMessage: handleSendMessage,
-            handleEditInCanvas,
             handleModelChange,
             handleStepChange,
             handleRevisionClick,

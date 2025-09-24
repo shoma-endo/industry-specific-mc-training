@@ -1,19 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
-import { Bot, Edit3, MoreHorizontal, BookMarked } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { BlogFlowState } from '@/context/BlogFlowProvider';
 
 interface MessageAreaProps {
   messages: ChatMessage[];
   isLoading: boolean;
-  annotationLoading?: boolean;
-  onEditInCanvas?: (content: string) => void;
-  onShowCanvas?: (content: string) => void;
-  onOpenAnnotation?: (content: string) => void;
   renderAfterMessage?: (message: ChatMessage) => React.ReactNode;
   blogFlowActive?: boolean;
   blogFlowState?: BlogFlowState;
@@ -23,17 +18,9 @@ interface MessageAreaProps {
 const MessageArea: React.FC<MessageAreaProps> = ({
   messages,
   isLoading,
-  annotationLoading = false,
-  onEditInCanvas,
-  onShowCanvas,
-  onOpenAnnotation,
   renderAfterMessage
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
-
-  // メニュー開閉状態
-  const [menuOpenForId, setMenuOpenForId] = useState<string | null>(null);
 
   // メッセージが追加されたときに自動スクロール
   useEffect(() => {
@@ -196,11 +183,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             <React.Fragment key={message.id || index}>
               <div
                 className="mb-4 last:mb-2 group"
-                onMouseEnter={() => setHoveredMessageId(message.id || index.toString())}
-                onMouseLeave={() => {
-                  setHoveredMessageId(null);
-                  setMenuOpenForId(null);
-                }}
               >
                 <div
                   className={cn(
@@ -218,84 +200,12 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                       'max-w-[85%] p-3 rounded-2xl relative transition-all duration-200',
                       message.role === 'user'
                         ? 'bg-[#06c755] text-white'
-                        : 'bg-white text-gray-800 border border-gray-100',
-                      // アシスタントメッセージのホバー効果
-                      message.role === 'assistant' &&
-                        onEditInCanvas && [
-                          'hover:shadow-md hover:border-blue-200',
-                          hoveredMessageId === (message.id || index.toString()) &&
-                            'shadow-lg border-blue-300 ring-2 ring-blue-100',
-                        ]
+                        : 'bg-white text-gray-800 border border-gray-100'
                     )}
                   >
                     <div className="whitespace-pre-wrap text-sm">
                       {formatMessageContent(message.content)}
                     </div>
-
-                    {/* 「…」メニューボタン - アシスタントメッセージのみに表示 */}
-                    {message.role === 'assistant' &&
-                      hoveredMessageId === (message.id || index.toString()) && (
-                        <div className="absolute -top-2 -right-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              setMenuOpenForId(prev =>
-                                prev === (message.id || index.toString())
-                                  ? null
-                                  : message.id || index.toString()
-                              )
-                            }
-                            className="h-8 w-8 p-0 bg-white shadow-md border border-gray-200 hover:shadow-lg transition-all duration-200"
-                            title="その他のオプション"
-                          >
-                            <MoreHorizontal size={16} />
-                          </Button>
-
-                          {/* ドロップダウンメニュー */}
-                          {menuOpenForId === (message.id || index.toString()) && (
-                            <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30">
-                              {/* Canvasで編集 */}
-                              {(onEditInCanvas || onShowCanvas) && (
-                                <button
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                                  onClick={() => {
-                                    if (onShowCanvas) {
-                                      onShowCanvas(message.content);
-                                    } else if (onEditInCanvas) {
-                                      onEditInCanvas(message.content);
-                                    }
-                                    setMenuOpenForId(null);
-                                  }}
-                                >
-                                  <Edit3 size={14} className="text-blue-600" />
-                                  <span>Canvasで編集</span>
-                                </button>
-                              )}
-
-                              {/* 保存 */}
-                              {onOpenAnnotation && (
-                                <button
-                                  className={cn(
-                                    'w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors',
-                                    annotationLoading && 'opacity-50 cursor-not-allowed'
-                                  )}
-                                  onClick={() => {
-                                    if (!annotationLoading) {
-                                      onOpenAnnotation(message.content);
-                                      setMenuOpenForId(null);
-                                    }
-                                  }}
-                                  disabled={annotationLoading}
-                                >
-                                  <BookMarked size={14} className="text-green-600" />
-                                  <span>{annotationLoading ? '読み込み中...' : 'ブログ保存'}</span>
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
                   </div>
                   {message.role === 'user' && <div className="opacity-0 w-8 h-8" />}
                 </div>
