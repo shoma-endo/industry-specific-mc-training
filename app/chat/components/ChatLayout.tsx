@@ -13,7 +13,10 @@ import { cn } from '@/lib/utils';
 import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';
-import CanvasPanel from './CanvasPanel';
+import CanvasPanel, {
+  CanvasSelectionEditPayload,
+  CanvasSelectionEditResult,
+} from './CanvasPanel';
 import AnnotationPanel from './AnnotationPanel';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
@@ -439,6 +442,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     [chatSession.state.messages]
   );
 
+  const chatStateRef = useRef(chatSession.state);
+  const canvasEditInFlightRef = useRef(false);
+
+  useEffect(() => {
+    chatStateRef.current = chatSession.state;
+  }, [chatSession.state]);
+
   // 利用可能なステップを計算（最新AIメッセージのステップまで）
   const availableSteps = useMemo(() => {
     if (!latestBlogStep) return [];
@@ -496,18 +506,19 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   }, []);
 
   // 新しいアシスタントメッセージを待つヘルパー関数（件数とID変化の両方を監視）
-  const waitForNewAssistantMessage = (
-    prevLastId: string | undefined,
-    prevCount: number,
-    getMessages: () => ChatMessage[],
-    timeoutMs = 12000,
-    intervalMs = 120
-  ): Promise<string | undefined> => {
-    const start = Date.now();
-    return new Promise(resolve => {
-      const timer = setInterval(() => {
-        const now = Date.now();
-        if (now - start > timeoutMs) {
+  const waitForNewAssistantMessage = useCallback(
+    (
+      prevLastId: string | undefined,
+      prevCount: number,
+      getMessages: () => ChatMessage[],
+      timeoutMs = 12000,
+      intervalMs = 120
+    ): Promise<string | undefined> => {
+      const start = Date.now();
+      return new Promise(resolve => {
+        const timer = setInterval(() => {
+          const now = Date.now();
+          if (now - start > timeoutMs) {
           clearInterval(timer);
           resolve(undefined);
           return;
@@ -521,10 +532,62 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         if (increased || changed) {
           clearInterval(timer);
           resolve(cur?.id);
-        }
-      }, intervalMs);
-    });
-  };
+          }
+        }, intervalMs);
+      });
+    },
+    []
+  );
+
+  const parseCanvasEditResponse = useCallback((raw: string): CanvasSelectionEditResult => {
+    const trimmed = raw.trim();
+    const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)```/i);
+    const inner = fencedMatch?.[1];
+    const jsonCandidate = (typeof inner === 'string' && inner.length > 0 ? inner : trimmed).trim();
+    if (!jsonCandidate) {
+      throw new Error('AI応答を解析できませんでした');
+    }
+
+    const start = jsonCandidate.indexOf('{');
+    const end = jsonCandidate.lastIndexOf('}');
+
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error('AI応答を解析できませんでした');
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(jsonCandidate.slice(start, end + 1));
+    } catch (error) {
+      console.error('Failed to parse canvas edit JSON:', error, jsonCandidate);
+      throw new Error('AI応答のJSON解析に失敗しました');
+    }
+
+    const replacement = String(parsed.replacement_html ?? parsed.replacement ?? '').trim();
+    if (!replacement) {
+      throw new Error('replacement_html が空でした');
+    }
+
+    if (/<script\b/i.test(replacement) || /<iframe\b/i.test(replacement)) {
+      throw new Error('安全でないHTMLタグが含まれています');
+    }
+
+    const explanationValue = parsed.explanation;
+    const explanation =
+      typeof explanationValue === 'string' && explanationValue.trim().length > 0
+        ? explanationValue.trim()
+        : undefined;
+
+    const result: CanvasSelectionEditResult = {
+      replacementHtml: replacement,
+    };
+
+    if (explanation) {
+      return { ...result, explanation };
+    }
+
+    return result;
+  }, []);
 
   // BlogFlow用のagent実装
   const agent = {
@@ -671,6 +734,68 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   };
 
+  const handleCanvasSelectionEdit = useCallback(
+    async (payload: CanvasSelectionEditPayload): Promise<CanvasSelectionEditResult> => {
+      if (canvasEditInFlightRef.current) {
+        throw new Error('他のAI編集が進行中です。完了をお待ちください。');
+      }
+
+      canvasEditInFlightRef.current = true;
+      setIsManualEdit(true);
+
+      try {
+        const beforeMessages = (chatStateRef.current.messages ?? []).filter(
+          message => message.role === 'assistant'
+        );
+        const prevLastId = beforeMessages[beforeMessages.length - 1]?.id;
+        const prevCount = beforeMessages.length;
+
+        const editingModel = selectedModel || 'lp_improvement';
+
+        const userPrompt = [
+          '```',
+          payload.selectedText.trim(),
+          '```',
+          '',
+          payload.instruction.trim(),
+        ].join('\n');
+
+        await chatSession.actions.sendMessage(userPrompt, editingModel);
+
+        const newMessageId = await waitForNewAssistantMessage(
+          prevLastId,
+          prevCount,
+          () => chatStateRef.current.messages ?? [],
+          20000,
+          150
+        );
+
+        if (!newMessageId) {
+          throw new Error('AIからの応答がタイムアウトしました');
+        }
+
+        const assistantMessages = (chatStateRef.current.messages ?? []).filter(
+          message => message.role === 'assistant'
+        );
+        const targetMessage = assistantMessages.find(message => message.id === newMessageId);
+
+        if (!targetMessage) {
+          throw new Error('AI応答を取得できませんでした');
+        }
+
+        return parseCanvasEditResponse(targetMessage.content || '');
+      } catch (error) {
+        console.error('Canvas selection edit failed:', error);
+        throw error instanceof Error
+          ? error
+          : new Error('AI編集の処理に失敗しました');
+      } finally {
+        canvasEditInFlightRef.current = false;
+      }
+    },
+    [chatSession.actions, parseCanvasEditResponse, selectedModel, setIsManualEdit, waitForNewAssistantMessage]
+  );
+
   if (!isLoggedIn) {
     return <LoginPrompt onLogin={login} />;
   }
@@ -724,6 +849,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             }}
             content={canvasContent}
             isVisible={canvasPanelOpen}
+            onSelectionEdit={handleCanvasSelectionEdit}
           />
         )}
       </div>

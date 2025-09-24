@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Typography } from '@tiptap/extension-typography';
@@ -16,14 +16,37 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight } from 'lowlight';
-import { X, ClipboardCheck, FileDown, List, Edit3, Save, RefreshCw } from 'lucide-react';
+import { DOMSerializer } from 'prosemirror-model';
+import {
+  X,
+  ClipboardCheck,
+  FileDown,
+  List,
+  Edit3,
+  Save,
+  RefreshCw,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+export interface CanvasSelectionEditPayload {
+  instruction: string;
+  selectedText: string;
+  selectedHtml?: string;
+  action: 'improve' | 'explain';
+}
+
+export interface CanvasSelectionEditResult {
+  replacementHtml: string;
+  explanation?: string;
+}
 
 interface CanvasPanelProps {
   onClose: () => void;
   content?: string; // AIからの返信内容
   isVisible?: boolean;
+  onSelectionEdit?: (payload: CanvasSelectionEditPayload) => Promise<CanvasSelectionEditResult>;
 }
 
 // ✅ 吹き出し状態の管理
@@ -39,6 +62,12 @@ interface HeadingItem {
   level: number; // 1-6 (H1-H6)
   text: string;
   id: string;
+}
+
+interface SelectionState {
+  from: number;
+  to: number;
+  text: string;
 }
 
 // ✅ lowlightインスタンスを作成
@@ -74,7 +103,14 @@ const parseAsMarkdown = (text: string): string => {
     .join('\n');
 };
 
-const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisible = true }) => {
+const DEFAULT_EXPLANATION_PROMPT = 'このセクションについて詳しく説明していただけますか？';
+
+const CanvasPanel: React.FC<CanvasPanelProps> = ({
+  onClose,
+  content = '',
+  isVisible = true,
+  onSelectionEdit,
+}) => {
   const [markdownContent, setMarkdownContent] = useState('');
   const [bubble, setBubble] = useState<BubbleState>({
     isVisible: false,
@@ -91,6 +127,26 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   const [isEditing, setIsEditing] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSavedContent, setLastSavedContent] = useState('');
+
+  // ✅ 選択範囲編集用のstate
+  const [selectionState, setSelectionState] = useState<SelectionState | null>(null);
+  const selectionSnapshotRef = useRef<SelectionState | null>(null);
+  const [instruction, setInstruction] = useState('');
+  const [isApplyingSelectionEdit, setIsApplyingSelectionEdit] = useState(false);
+  const [selectionMode, setSelectionMode] = useState<'menu' | 'input' | null>(null);
+  const [selectionAction, setSelectionAction] = useState<'improve' | 'explain' | null>(null);
+  const [selectionMenuPosition, setSelectionMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [lastAiExplanation, setLastAiExplanation] = useState<string | null>(null);
+  const [lastAiError, setLastAiError] = useState<string | null>(null);
+  const activeSelection = useMemo(
+    () => selectionState ?? selectionSnapshotRef.current,
+    [selectionState]
+  );
+  const selectionPreview = useMemo(() => {
+    if (!activeSelection) return '';
+    const trimmed = activeSelection.text.replace(/\s+/g, ' ').trim();
+    return trimmed.length > 120 ? `${trimmed.slice(0, 120)}…` : trimmed;
+  }, [activeSelection]);
 
   // ✅ リサイザー機能のためのstate
   const [canvasWidth, setCanvasWidth] = useState(() => {
@@ -109,6 +165,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
   const markdownBtnRef = useRef<HTMLButtonElement>(null);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ✅ 見出しIDを生成する関数
   const generateHeadingId = useCallback((text: string): string => {
@@ -142,6 +199,27 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
     },
     [generateHeadingId]
   );
+
+  const updateSelectionMenuPosition = useCallback(() => {
+    const selection = typeof window !== 'undefined' ? window.getSelection() : null;
+    if (!selection || selection.rangeCount === 0) {
+      setSelectionMenuPosition(null);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const top = rect.top - containerRect.top + container.scrollTop;
+    const left = rect.right - containerRect.left + container.scrollLeft + 12;
+
+    if (Number.isFinite(top) && Number.isFinite(left)) {
+      setSelectionMenuPosition({ top, left });
+    }
+  }, []);
 
   // ✅ 幅変更をlocalStorageに保存
   useEffect(() => {
@@ -242,6 +320,66 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
     },
   });
 
+  // ✅ 選択範囲の監視（Canvas AI編集用）
+  useEffect(() => {
+    if (!editor || !onSelectionEdit) return;
+
+    const handleSelectionUpdate = () => {
+      const { from, to } = editor.state.selection;
+      const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
+
+      if (from === to || !domSelection || domSelection.isCollapsed) {
+        setSelectionState(null);
+        selectionSnapshotRef.current = null;
+        setSelectionMode(null);
+        setSelectionAction(null);
+        setSelectionMenuPosition(null);
+        setInstruction('');
+        return;
+      }
+
+      const text = editor.state.doc.textBetween(from, to, '\n', '\n').trim();
+      if (!text) {
+        setSelectionState(null);
+        selectionSnapshotRef.current = null;
+        setSelectionMode(null);
+        setSelectionAction(null);
+        setSelectionMenuPosition(null);
+        setInstruction('');
+        return;
+      }
+
+      const nextState: SelectionState = { from, to, text };
+      setSelectionState(nextState);
+      selectionSnapshotRef.current = nextState;
+      setSelectionMode('menu');
+      setSelectionAction(null);
+      setInstruction('');
+      setLastAiError(null);
+      updateSelectionMenuPosition();
+    };
+
+    editor.on('selectionUpdate', handleSelectionUpdate);
+    return () => {
+      editor.off('selectionUpdate', handleSelectionUpdate);
+    };
+  }, [editor, onSelectionEdit, updateSelectionMenuPosition]);
+
+  useEffect(() => {
+    if (!selectionMode) return;
+
+    const handle = () => updateSelectionMenuPosition();
+    const scrollEl = scrollContainerRef.current;
+
+    window.addEventListener('resize', handle);
+    scrollEl?.addEventListener('scroll', handle);
+
+    return () => {
+      window.removeEventListener('resize', handle);
+      scrollEl?.removeEventListener('scroll', handle);
+    };
+  }, [selectionMode, updateSelectionMenuPosition]);
+
   // ✅ コンテンツが更新された時の処理
   useEffect(() => {
     if (content) {
@@ -321,6 +459,22 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
     }
   }, [editor, content, extractHeadings, generateHeadingId]);
 
+  useEffect(() => {
+    setSelectionMode(null);
+    setSelectionAction(null);
+    setSelectionState(null);
+    selectionSnapshotRef.current = null;
+    setSelectionMenuPosition(null);
+    setInstruction('');
+    setLastAiError(null);
+  }, [content]);
+
+  useEffect(() => {
+    if (lastAiError && instruction.trim().length > 0) {
+      setLastAiError(null);
+    }
+  }, [instruction, lastAiError]);
+
   // ✅ Claude web版Canvas同様の編集機能
   const handleToggleEdit = useCallback(() => {
     if (isEditing && hasUnsavedChanges) {
@@ -363,6 +517,159 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       .trim();
   }, []);
 
+  const getSelectionHtml = useCallback(
+    (selection: SelectionState): string => {
+      if (!editor) return selection.text;
+      try {
+        const fragment = editor.state.doc.cut(selection.from, selection.to).content;
+        const serializer = DOMSerializer.fromSchema(editor.schema);
+        const container = document.createElement('div');
+        const serialized = serializer.serializeFragment(fragment, { document });
+        container.appendChild(serialized);
+        return container.innerHTML;
+      } catch (error) {
+        console.error('Failed to serialize selection:', error);
+        return selection.text;
+      }
+    },
+    [editor]
+  );
+
+  // ✅ 吹き出し表示関数
+  const showBubble = useCallback(
+    (
+      buttonRef: React.RefObject<HTMLButtonElement | null>,
+      message: string,
+      type: 'markdown' | 'text' | 'download'
+    ) => {
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        const containerRect =
+          buttonRef.current.closest('.canvas-panel')?.getBoundingClientRect();
+
+        if (containerRect) {
+          // コンテナ内での相対位置を計算
+          const relativeTop = rect.top - containerRect.top - 60; // 吹き出しの高さ分上に表示
+          const relativeLeft = rect.left - containerRect.left + rect.width / 2 - 75; // 中央揃え
+
+          setBubble({
+            isVisible: true,
+            message,
+            type,
+            position: { top: relativeTop, left: relativeLeft },
+          });
+
+          // 3秒後に自動で消す
+          setTimeout(() => {
+            setBubble(prev => ({ ...prev, isVisible: false }));
+          }, 3000);
+        }
+      }
+    },
+    []
+  );
+
+  const handleCancelSelectionPanel = useCallback(() => {
+    if (selectionMode === 'input') {
+      setSelectionMode('menu');
+      setSelectionAction(null);
+      setInstruction('');
+      setLastAiError(null);
+      return;
+    }
+
+    setSelectionMode(null);
+    setSelectionAction(null);
+    setSelectionState(null);
+    selectionSnapshotRef.current = null;
+    setSelectionMenuPosition(null);
+    setInstruction('');
+    setLastAiError(null);
+  }, [selectionMode]);
+
+  const handleApplySelectionEdit = useCallback(async () => {
+    if (!editor || !onSelectionEdit) return;
+    const selection = activeSelection;
+    if (!selection) {
+      setLastAiError('編集対象の選択範囲が見つかりませんでした');
+      return;
+    }
+
+    if (!selectionAction) {
+      setLastAiError('改善または説明を選択してください');
+      return;
+    }
+
+    const trimmedInstruction = instruction.trim();
+    if (!trimmedInstruction) {
+      setLastAiError('指示を入力してください');
+      return;
+    }
+
+    setIsApplyingSelectionEdit(true);
+    setLastAiError(null);
+
+    try {
+      if (!isEditing) {
+        setIsEditing(true);
+        editor.setEditable(true);
+      }
+
+      const selectionHtml = getSelectionHtml(selection).slice(0, 6000);
+
+      const result = await onSelectionEdit({
+        instruction: trimmedInstruction,
+        selectedText: selection.text,
+        selectedHtml: selectionHtml,
+        action: selectionAction,
+      });
+
+      if (!result || !result.replacementHtml) {
+        throw new Error('AIの応答に replacementHtml が含まれていません');
+      }
+
+      editor
+        .chain()
+        .focus()
+        .insertContentAt({ from: selection.from, to: selection.to }, result.replacementHtml)
+        .run();
+
+      const html = editor.getHTML();
+      const markdownFromHtml = convertHtmlToMarkdown(html);
+      setMarkdownContent(markdownFromHtml);
+      setHasUnsavedChanges(true);
+      const explanation = (result.explanation ?? '').trim();
+      setLastAiExplanation(explanation || null);
+      setLastAiError(null);
+      setSelectionMode(null);
+      setSelectionAction(null);
+      setSelectionState(null);
+      selectionSnapshotRef.current = null;
+      setSelectionMenuPosition(null);
+      setInstruction('');
+      const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
+      domSelection?.removeAllRanges();
+      showBubble(saveBtnRef, '✨ AIで編集しました', 'text');
+    } catch (error) {
+      console.error('Canvas selection edit failed:', error);
+      const message =
+        error instanceof Error ? error.message : 'AIによる編集の適用に失敗しました';
+      setLastAiError(message);
+    } finally {
+      setIsApplyingSelectionEdit(false);
+    }
+  }, [
+    activeSelection,
+    convertHtmlToMarkdown,
+    editor,
+    getSelectionHtml,
+    instruction,
+    isEditing,
+    selectionAction,
+    onSelectionEdit,
+    showBubble,
+  ]);
+
   const handleSaveChanges = useCallback(() => {
     if (editor) {
       const currentContent = editor.getHTML();
@@ -375,7 +682,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
 
       showBubble(saveBtnRef, '💾 変更を\n保存しました', 'markdown');
     }
-  }, [editor, convertHtmlToMarkdown]);
+  }, [editor, convertHtmlToMarkdown, showBubble]);
 
   const handleRevertChanges = useCallback(() => {
     if (editor && lastSavedContent) {
@@ -432,36 +739,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
         }
       }
     }, 100);
-  };
-
-  // ✅ 吹き出し表示関数
-  const showBubble = (
-    buttonRef: React.RefObject<HTMLButtonElement | null>,
-    message: string,
-    type: 'markdown' | 'text' | 'download'
-  ) => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const containerRect = buttonRef.current.closest('.canvas-panel')?.getBoundingClientRect();
-
-      if (containerRect) {
-        // コンテナ内での相対位置を計算
-        const relativeTop = rect.top - containerRect.top - 60; // 吹き出しの高さ分上に表示
-        const relativeLeft = rect.left - containerRect.left + rect.width / 2 - 75; // 中央揃え
-
-        setBubble({
-          isVisible: true,
-          message,
-          type,
-          position: { top: relativeTop, left: relativeLeft },
-        });
-
-        // 3秒後に自動で消す
-        setTimeout(() => {
-          setBubble(prev => ({ ...prev, isVisible: false }));
-        }, 3000);
-      }
-    }
   };
 
   // ✅ マークダウンとしてコピー（CSS吹き出しのみ）
@@ -695,13 +972,92 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
       )}
 
       {/* エディタエリア - ChatGPT風Canvas同様のスタイル */}
-      <div className="flex-1 overflow-auto ml-2 pt-20">
+      <div className="flex-1 overflow-auto ml-2 pt-20 relative" ref={scrollContainerRef}>
+        {onSelectionEdit && selectionMode && selectionMenuPosition && (
+          <div
+            className="absolute z-50 max-w-xs"
+            style={{ top: selectionMenuPosition.top, left: selectionMenuPosition.left }}
+          >
+            {selectionMode === 'menu' ? (
+              <div className="flex items-center gap-1 rounded-md border border-gray-300 bg-white/95 px-2 py-1 shadow-sm">
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                  onClick={() => {
+                    setSelectionMode('input');
+                    setSelectionAction('improve');
+                    setInstruction('');
+                    setLastAiError(null);
+                  }}
+                >
+                  改善
+                </button>
+                <span className="h-4 w-px bg-gray-300" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                  onClick={() => {
+                    setSelectionMode('input');
+                    setSelectionAction('explain');
+                    setInstruction(DEFAULT_EXPLANATION_PROMPT);
+                    setLastAiError(null);
+                  }}
+                >
+                  説明
+                </button>
+              </div>
+            ) : (
+              <div className="w-64 rounded-md border border-gray-300 bg-white/95 p-3 shadow-sm">
+                {selectionPreview && (
+                  <p className="mb-2 line-clamp-2 text-xs text-gray-500">{selectionPreview}</p>
+                )}
+                <textarea
+                  className="h-20 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  value={instruction}
+                  onChange={event => setInstruction(event.target.value)}
+                  placeholder={
+                    selectionAction === 'explain'
+                      ? DEFAULT_EXPLANATION_PROMPT
+                      : 'どのように改善したいか入力してください'
+                  }
+                  disabled={isApplyingSelectionEdit}
+                  autoFocus
+                />
+                {lastAiError && (
+                  <p className="mt-2 text-xs text-red-600">{lastAiError}</p>
+                )}
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCancelSelectionPanel}
+                    disabled={isApplyingSelectionEdit}
+                    className="h-7 px-3 text-xs"
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 px-3 text-xs"
+                    onClick={handleApplySelectionEdit}
+                    disabled={isApplyingSelectionEdit || instruction.trim().length === 0}
+                  >
+                    {isApplyingSelectionEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '送信'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div
           className={cn(
-            'min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4 transition-all duration-300',
+            'relative min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4 transition-all duration-300',
             isEditing && [
-              'border-2 border-dashed border-blue-400 shadow-lg',
-              'bg-gradient-to-br from-white to-blue-50/30',
+              'border border-dashed border-blue-300',
+              'bg-white',
             ]
           )}
         >
@@ -743,34 +1099,31 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({ onClose, content = '', isVisi
             }}
           />
 
+          {lastAiExplanation && (
+            <div className="mt-4 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+              <div className="flex items-start justify-between gap-3">
+                <p className="flex-1 leading-relaxed">
+                  <span className="font-medium text-gray-800">AIメモ:</span> {lastAiExplanation}
+                </p>
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-[11px] text-gray-500 transition hover:bg-white"
+                  onClick={() => setLastAiExplanation(null)}
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 編集モード時のヘルプテキスト */}
           {isEditing && (
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl text-sm text-blue-800 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <strong className="text-blue-900">編集のヒント</strong>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">#</span>
-                    <span>見出し（# 大見出し, ## 中見出し）</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">**</span>
-                    <span>強調（**太字**, *斜体*）</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">`</span>
-                    <span>コード（`インライン`, ```ブロック```）</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">-</span>
-                    <span>リスト（- 項目, 1. 番号付き）</span>
-                  </div>
-                </div>
+            <div className="mt-6 rounded border border-gray-200 bg-gray-50 px-3 py-3 text-xs text-gray-600">
+              <p className="mb-2 font-medium text-gray-700">編集のヒント</p>
+              <div className="space-y-1">
+                <p># 見出し、## 小見出し で構造を調整できます</p>
+                <p>**強調** や *斜体* を使って重要な部分を目立たせましょう</p>
+                <p>- リスト や 1. 番号付き で要点を整理できます</p>
               </div>
             </div>
           )}
