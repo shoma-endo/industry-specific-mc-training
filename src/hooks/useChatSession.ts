@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { IChatService, SendMessageParams } from '@/domain/interfaces/IChatService';
+import { ChatMessage, ChatSession, IChatService } from '@/domain/interfaces/IChatService';
 import {
   ChatState,
   initialChatState,
@@ -10,11 +10,36 @@ import {
 } from '@/domain/models/chat.models';
 import { ChatError } from '@/domain/errors/ChatError';
 import type { ChatSessionActions, ChatSessionHook } from '@/types/hooks';
-import { MODEL_CONFIGS } from '@/lib/constants';
 
 export type { ChatSessionActions, ChatSessionHook };
 
 const MAX_MESSAGES = 10;
+
+type SerializableMessage = { role: string; content: string };
+
+const createRequestMessages = (messages: ChatMessage[]): SerializableMessage[] =>
+  messages.slice(-MAX_MESSAGES).map(({ role, content }) => ({ role, content }));
+
+const createSessionPreview = (content: string, sessionId: string): ChatSession => ({
+  id: sessionId,
+  title: content.length > 30 ? `${content.slice(0, 30)}...` : content,
+  updatedAt: new Date(),
+  messageCount: 1,
+  lastMessage: content,
+});
+
+const createStreamingMessagePair = (content: string, model: string) => ({
+  userMessage: createUserMessage(content, model),
+  assistantMessage: createAssistantMessage('', model),
+});
+
+type StreamingParams = {
+  content: string;
+  model: string;
+  accessToken: string;
+  currentSessionId: string;
+  recentMessages: SerializableMessage[];
+};
 
 export const useChatSession = (
   chatService: IChatService,
@@ -23,14 +48,8 @@ export const useChatSession = (
   const [state, setState] = useState<ChatState>(initialChatState);
 
   const handleStreamingMessage = useCallback(
-    async (
-      content: string,
-      model: string,
-      accessToken: string,
-      recentMessages: { role: string; content: string }[]
-    ) => {
-      const userMessage = createUserMessage(content, model);
-      const assistantMessage = createAssistantMessage('', model);
+    async ({ content, model, accessToken, currentSessionId, recentMessages }: StreamingParams) => {
+      const { userMessage, assistantMessage } = createStreamingMessagePair(content, model);
 
       setState(prev => ({
         ...prev,
@@ -45,7 +64,7 @@ export const useChatSession = (
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            sessionId: state.currentSessionId || undefined,
+            sessionId: currentSessionId || undefined,
             messages: recentMessages.map(msg => ({
               role: msg.role,
               content: msg.content,
@@ -128,14 +147,8 @@ export const useChatSession = (
                     isLoading: false,
                   }));
 
-                  if (!state.currentSessionId && data.sessionId) {
-                    const newSession = {
-                      id: data.sessionId,
-                      title: content.slice(0, 30) + (content.length > 30 ? '...' : ''),
-                      updatedAt: new Date(),
-                      messageCount: 1,
-                      lastMessage: content,
-                    };
+                  if (!currentSessionId && data.sessionId) {
+                    const newSession = createSessionPreview(content, data.sessionId);
                     setState(prev => ({
                       ...prev,
                       sessions: [newSession, ...prev.sessions],
@@ -170,71 +183,7 @@ export const useChatSession = (
         }));
       }
     },
-    [state.currentSessionId]
-  );
-
-  const handleNonStreamingMessage = useCallback(
-    async (
-      content: string,
-      model: string,
-      accessToken: string,
-      recentMessages: { role: string; content: string }[]
-    ) => {
-      const params: SendMessageParams = {
-        content,
-        model,
-        accessToken,
-        sessionId: state.currentSessionId ? state.currentSessionId : undefined,
-        isNewSession: !state.currentSessionId,
-        messages: recentMessages.map(msg => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-        })),
-      };
-
-      const userMessage = createUserMessage(content, model);
-      setState(prev => ({
-        ...prev,
-        messages: [...prev.messages, userMessage],
-      }));
-
-      const response = await chatService.sendMessage(params);
-
-      if (response.error) {
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: response.error || '送信に失敗しました',
-        }));
-        return;
-      }
-
-      const assistantMessage = createAssistantMessage(response.message, model);
-
-      setState(prev => ({
-        ...prev,
-        messages: [...prev.messages, assistantMessage],
-        currentSessionId: response.sessionId || prev.currentSessionId,
-        isLoading: false,
-      }));
-
-      // 新しいチャット開始時にセッション一覧を更新
-      if (params.isNewSession && response.sessionId) {
-        const newSession = {
-          id: response.sessionId,
-          title: content.slice(0, 30) + (content.length > 30 ? '...' : ''),
-          updatedAt: new Date(),
-          messageCount: 1,
-          lastMessage: content,
-        };
-
-        setState(prev => ({
-          ...prev,
-          sessions: [newSession, ...prev.sessions],
-        }));
-      }
-    },
-    [chatService, state.currentSessionId]
+    []
   );
 
   const sendMessage = useCallback(
@@ -243,17 +192,13 @@ export const useChatSession = (
 
       try {
         const accessToken = await getAccessToken();
-        const recentMessages = state.messages.slice(-MAX_MESSAGES);
-
-        // Anthropicモデルの場合はストリーミングを使用
-        const modelConfig = MODEL_CONFIGS[model];
-        const isAnthropicModel = modelConfig?.provider === 'anthropic';
-
-        if (isAnthropicModel) {
-          await handleStreamingMessage(content, model, accessToken, recentMessages);
-        } else {
-          await handleNonStreamingMessage(content, model, accessToken, recentMessages);
-        }
+        await handleStreamingMessage({
+          content,
+          model,
+          accessToken,
+          currentSessionId: state.currentSessionId,
+          recentMessages: createRequestMessages(state.messages),
+        });
       } catch (error) {
         console.error('Send message error:', error);
         const errorMessage =
@@ -270,7 +215,7 @@ export const useChatSession = (
         }));
       }
     },
-    [state.messages, getAccessToken, handleStreamingMessage, handleNonStreamingMessage]
+    [state.currentSessionId, state.messages, getAccessToken, handleStreamingMessage]
   );
 
   const loadSessions = useCallback(async () => {
