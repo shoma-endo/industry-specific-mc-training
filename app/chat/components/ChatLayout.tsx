@@ -13,10 +13,8 @@ import { cn } from '@/lib/utils';
 import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';
-import CanvasPanel, {
-  CanvasSelectionEditPayload,
-  CanvasSelectionEditResult,
-} from './CanvasPanel';
+import CanvasPanel from './CanvasPanel';
+import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/types/canvas';
 import AnnotationPanel from './AnnotationPanel';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';

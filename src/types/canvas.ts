@@ -144,3 +144,36 @@ export interface CanvasState {
   historyIndex: number;
   clipboard: CanvasElement | null;
 }
+
+export type CanvasSelectionAction = 'improve' | 'explain';
+
+export interface CanvasSelectionEditPayload {
+  instruction: string;
+  selectedText: string;
+  selectedHtml?: string;
+  action: CanvasSelectionAction;
+}
+
+export interface CanvasSelectionEditResult {
+  replacementHtml: string;
+  explanation?: string;
+}
+
+export interface CanvasBubbleState {
+  isVisible: boolean;
+  message: string;
+  type: 'markdown' | 'text' | 'download';
+  position: { top: number; left: number };
+}
+
+export interface CanvasHeadingItem {
+  level: number;
+  text: string;
+  id: string;
+}
+
+export interface CanvasSelectionState {
+  from: number;
+  to: number;
+  text: string;
+}

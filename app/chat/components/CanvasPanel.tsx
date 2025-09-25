@@ -29,18 +29,14 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-export interface CanvasSelectionEditPayload {
-  instruction: string;
-  selectedText: string;
-  selectedHtml?: string;
-  action: 'improve' | 'explain';
-}
-
-export interface CanvasSelectionEditResult {
-  replacementHtml: string;
-  explanation?: string;
-}
+import type {
+  CanvasSelectionEditPayload,
+  CanvasSelectionEditResult,
+  CanvasBubbleState,
+  CanvasHeadingItem,
+  CanvasSelectionState,
+  CanvasSelectionAction,
+} from '@/types/canvas';
 
 interface CanvasPanelProps {
   onClose: () => void;
@@ -49,28 +45,6 @@ interface CanvasPanelProps {
   onSelectionEdit?: (payload: CanvasSelectionEditPayload) => Promise<CanvasSelectionEditResult>;
 }
 
-// ✅ 吹き出し状態の管理
-interface BubbleState {
-  isVisible: boolean;
-  message: string;
-  type: 'markdown' | 'text' | 'download';
-  position: { top: number; left: number };
-}
-
-// ✅ 見出し情報の型定義
-interface HeadingItem {
-  level: number; // 1-6 (H1-H6)
-  text: string;
-  id: string;
-}
-
-interface SelectionState {
-  from: number;
-  to: number;
-  text: string;
-}
-
-// ✅ lowlightインスタンスを作成
 const lowlight = createLowlight();
 
 // ✅ プレーンテキストからマークダウンへの変換
@@ -116,7 +90,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   onSelectionEdit,
 }) => {
   const [markdownContent, setMarkdownContent] = useState('');
-  const [bubble, setBubble] = useState<BubbleState>({
+  const [bubble, setBubble] = useState<CanvasBubbleState>({
     isVisible: false,
     message: '',
     type: 'markdown',
@@ -125,7 +99,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   // ✅ アウトラインパネル用のstate
   const [outlineVisible, setOutlineVisible] = useState(false);
-  const [headings, setHeadings] = useState<HeadingItem[]>([]);
+  const [headings, setHeadings] = useState<CanvasHeadingItem[]>([]);
 
   // ✅ Claude web版Canvas同様の編集機能
   const [isEditing, setIsEditing] = useState(false);
@@ -133,12 +107,12 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const [lastSavedContent, setLastSavedContent] = useState('');
 
   // ✅ 選択範囲編集用のstate
-  const [selectionState, setSelectionState] = useState<SelectionState | null>(null);
-  const selectionSnapshotRef = useRef<SelectionState | null>(null);
+  const [selectionState, setSelectionState] = useState<CanvasSelectionState | null>(null);
+  const selectionSnapshotRef = useRef<CanvasSelectionState | null>(null);
   const [instruction, setInstruction] = useState('');
   const [isApplyingSelectionEdit, setIsApplyingSelectionEdit] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'menu' | 'input' | null>(null);
-  const [selectionAction, setSelectionAction] = useState<'improve' | 'explain' | null>(null);
+  const [selectionAction, setSelectionAction] = useState<CanvasSelectionAction | null>(null);
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [lastAiExplanation, setLastAiExplanation] = useState<string | null>(null);
   const [lastAiError, setLastAiError] = useState<string | null>(null);
@@ -183,9 +157,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   // ✅ マークダウンから見出しを抽出する関数
   const extractHeadings = useCallback(
-    (markdown: string): HeadingItem[] => {
+    (markdown: string): CanvasHeadingItem[] => {
       const lines = markdown.split('\n');
-      const headingItems: HeadingItem[] = [];
+      const headingItems: CanvasHeadingItem[] = [];
 
       lines.forEach((line, index) => {
         const trimmed = line.trim();
@@ -388,7 +362,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         left: rect.right - containerRect.left + container.scrollLeft + 12,
       };
 
-      const nextState: SelectionState = { from, to, text };
+      const nextState: CanvasSelectionState = { from, to, text };
       setSelectionState(nextState);
       selectionSnapshotRef.current = nextState;
       selectionAnchorRef.current = anchor;
@@ -565,7 +539,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   }, []);
 
   const getSelectionHtml = useCallback(
-    (selection: SelectionState): string => {
+    (selection: CanvasSelectionState): string => {
       if (!editor) return selection.text;
       try {
         const fragment = editor.state.doc.cut(selection.from, selection.to).content;
