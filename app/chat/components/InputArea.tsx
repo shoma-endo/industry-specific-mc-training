@@ -10,14 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Bot, Send, Menu, PaintBucket, Info } from 'lucide-react';
+import { Bot, Send, Menu, PaintBucket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { FEATURE_FLAGS } from '@/lib/constants';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  BLOG_HINTS_DETAIL,
-  BLOG_HINTS_SHORT,
   BLOG_PLACEHOLDERS,
   BLOG_STEP_IDS,
   BlogStepId,
@@ -36,31 +33,6 @@ const AVAILABLE_MODELS = {
   lp_draft_creation: 'LPドラフト作成',
   lp_improvement: 'LP改善',
   blog_creation: 'ブログ作成',
-};
-
-// モデルごとの補足説明（短文）
-const MODEL_HINTS_SHORT: Record<string, string> = {
-  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': '変数: なし（分類専用）',
-  ad_copy_creation: '変数: 事業者情報',
-  ad_copy_finishing: '変数: 事業者情報',
-  lp_draft_creation: '変数: 事業者情報',
-  lp_improvement: '変数: 事業者情報',
-  ...BLOG_HINTS_SHORT,
-};
-
-// モデルごとの詳細ツールチップ
-const MODEL_HINTS_DETAIL: Record<string, string> = {
-  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2':
-    '入力キーワードの分類に特化したモデルで、プロンプト変数は使用しません。',
-  ad_copy_creation:
-    '登録済みの事業者情報（プロフィール/5W2H/ペルソナ など）をプロンプト変数として使用します。',
-  ad_copy_finishing:
-    '登録済みの事業者情報（プロフィール/5W2H/ペルソナ など）をプロンプト変数として使用します。',
-  lp_draft_creation:
-    '登録済みの事業者情報（プロフィール/5W2H/ペルソナ など）をプロンプト変数として使用します。',
-  lp_improvement:
-    '登録済みの事業者情報（プロフィール/5W2H/ペルソナ など）をプロンプト変数として使用します。',
-  ...BLOG_HINTS_DETAIL,
 };
 
 // モデルごとのプレースホルダー文言
@@ -352,23 +324,6 @@ const InputArea: React.FC<InputAreaProps> = ({
                 作成ステップは自動で進行します
               </div>
             )}
-
-            {/* モデル補足（短文 + ツールチップ） */}
-            <div className="hidden md:flex items-center gap-1 text-xs text-gray-500">
-              <span>{MODEL_HINTS_SHORT[displayModelKey] ?? ''}</span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button type="button" aria-label="モデル補足説明" className="inline-flex">
-                      <Info className="h-4 w-4 text-gray-400" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[360px] text-xs leading-relaxed">
-                    <p>{MODEL_HINTS_DETAIL[displayModelKey] ?? ''}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
           </div>
         </div>
       </header>
