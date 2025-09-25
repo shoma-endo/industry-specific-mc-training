@@ -1,9 +1,9 @@
-import { PromptChunkService } from './promptChunkService';
-import { PromptService } from '@/server/services/promptService';
-// リランカー（OpenAI依存）は仕様変更により削除
 import { cache } from 'react';
-import { llmChat } from '@/server/services/llmService';
+
 import { MODEL_CONFIGS } from '@/lib/constants';
+import { llmChat } from '@/server/services/llmService';
+import { PromptService } from '@/server/services/promptService';
+import { PromptChunkService } from './promptChunkService';
 
 export class PromptRetrievalService {
   /**
@@ -11,8 +11,8 @@ export class PromptRetrievalService {
    * 同じクエリに対しては同一リクエスト中で結果を再利用
    */
   static getCachedChunks = cache(
-    async (templateName: string, queryText: string, limit: number = 6): Promise<string[]> => {
-      return this.getChunks(templateName, queryText, limit);
+    async (templateId: string, queryText: string, limit: number = 6): Promise<string[]> => {
+      return this.getChunks(templateId, queryText, limit);
     }
   );
 
@@ -20,24 +20,22 @@ export class PromptRetrievalService {
    * 指定されたプロンプトテンプレートから関連チャンクを取得（リランキング対応）
    */
   static async getChunks(
-    templateName: string,
+    templateId: string,
     queryText: string,
     limit: number = 8 // 最終的に必要なチャンク数
   ): Promise<string[]> {
+    if (!templateId) {
+      console.warn('テンプレートIDが未指定のため、チャンク検索をスキップします');
+      return [];
+    }
+
     try {
       // 初期取得数を最適化（50 → 20に削減）
       const initialRetrieveCount = Math.max(20, limit * 2);
 
-      // テンプレートIDを取得
-      const template = await PromptService.getTemplateByName(templateName);
-      if (!template) {
-        console.warn(`テンプレート '${templateName}' が見つかりません`);
-        return [];
-      }
-
       // 1. 初期検索で関連性が高そうなチャンクを取得
       const initialChunks = await PromptChunkService.searchSimilarChunks(
-        template.id,
+        templateId,
         queryText,
         initialRetrieveCount
       );
@@ -52,12 +50,13 @@ export class PromptRetrievalService {
     } catch (error) {
       console.error('RAGチャンク取得・リランクエラー:', error);
       // エラー時はフォールバックとして、単純な検索結果を返す
-      const template = await PromptService.getTemplateByName(templateName);
-      if (template) {
-        const chunks = await PromptChunkService.searchSimilarChunks(template.id, queryText, limit);
+      try {
+        const chunks = await PromptChunkService.searchSimilarChunks(templateId, queryText, limit);
         return chunks.map(chunk => chunk.chunk_text);
+      } catch (fallbackError) {
+        console.error('フォールバック検索でもエラーが発生しました:', fallbackError);
+        return [];
       }
-      return [];
     }
   }
 
@@ -70,6 +69,13 @@ export class PromptRetrievalService {
     adHeadlines?: string[],
     options: { skipQueryOptimization?: boolean } = {}
   ): Promise<string> {
+    const template = await PromptService.getTemplateByName(templateName);
+    const originalTemplate = template?.content ?? '';
+
+    if (!template) {
+      console.warn(`テンプレート '${templateName}' が見つからないため、RAG検索をスキップします`);
+    }
+
     try {
       let retrievalQuery = userQuery;
 
@@ -134,11 +140,8 @@ export class PromptRetrievalService {
         retrievalQuery += '\n広告見出し：' + adHeadlines.join(', ');
       }
 
-      // 旧テンプレートを取得（詳細フォーマット指示を保持）
-      const originalTemplate = (await PromptService.getTemplateByName(templateName))?.content ?? '';
-
       // 関連チャンクを取得（キャッシュ化、件数を6に最適化）
-      const chunks = await this.getCachedChunks(templateName, retrievalQuery, 6);
+      const chunks = template ? await this.getCachedChunks(template.id, retrievalQuery, 6) : [];
 
       // ===== デバッグログ =====
       try {
@@ -198,14 +201,11 @@ ${originalTemplate}
     } catch (error) {
       console.error('RAGシステムメッセージ構築エラー:', error);
 
-      // エラー時のフォールバック
-      try {
-        const template = await PromptService.getTemplateByName(templateName);
-        return template?.content || '18パートでLPを生成してください。';
-      } catch (fallbackError) {
-        console.error('フォールバック取得エラー:', fallbackError);
-        return '18パートでLPを生成してください。';
+      if (originalTemplate) {
+        return originalTemplate;
       }
+
+      return '18パートでLPを生成してください。';
     }
   }
 }

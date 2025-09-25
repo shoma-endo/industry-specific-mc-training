@@ -24,6 +24,34 @@ export class SupabaseService {
     return this.supabase;
   }
 
+  protected static async withServiceRoleClient<T>(
+    handler: (client: SupabaseClient) => Promise<T>,
+    options?: {
+      logMessage?: string | null;
+      logLevel?: 'error' | 'warn' | 'info' | 'debug';
+      onError?: (error: unknown) => T;
+    }
+  ): Promise<T> {
+    const client = SupabaseClientManager.getInstance().getServiceRoleClient();
+
+    try {
+      return await handler(client);
+    } catch (error) {
+      const { logLevel = 'error', logMessage = 'Supabase service role operation error' } =
+        options ?? {};
+
+      if (logMessage) {
+        console[logLevel](logMessage, error);
+      }
+
+      if (options?.onError) {
+        return options.onError(error);
+      }
+
+      throw error;
+    }
+  }
+
   /**
    * ユーザープロフィールを保存または更新
    */
