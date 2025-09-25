@@ -1,7 +1,5 @@
 import { cache } from 'react';
-import { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { SupabaseClientManager } from '@/lib/client-manager';
 import {
   PromptTemplate,
   CreatePromptTemplateInput,
@@ -14,42 +12,35 @@ import {
  * React Cacheを活用した高速取得とバックグラウンド更新機能を提供
  */
 export class PromptService extends SupabaseService {
-  // サービスロール用のクライアントを追加
-  protected readonly serviceRoleSupabase: SupabaseClient;
-
-  constructor() {
-    super();
-    // 管理者機能ではサービスロールクライアントを使用
-    this.serviceRoleSupabase = SupabaseClientManager.getInstance().getServiceRoleClient();
-  }
 
   /**
    * 指定ユーザーの canonical_url 一覧を取得（重複排除・更新日時降順）
    */
   static async getCanonicalUrlsByUserId(userId: string): Promise<string[]> {
-    try {
-      const service = new PromptService();
-      const { data, error } = await service.serviceRoleSupabase
-        .from('content_annotations')
-        .select('canonical_url')
-        .eq('user_id', userId)
-        .not('canonical_url', 'is', null)
-        .order('updated_at', { ascending: false });
+    return this.withServiceRoleClient(
+      async client => {
+        const { data, error } = await client
+          .from('content_annotations')
+          .select('canonical_url')
+          .eq('user_id', userId)
+          .not('canonical_url', 'is', null)
+          .order('updated_at', { ascending: false });
 
-      if (error) {
-        console.error('canonical_url 取得エラー:', error);
-        return [];
+        if (error) {
+          throw error;
+        }
+
+        const urls = (data || [])
+          .map((row: { canonical_url: string | null }) => row.canonical_url || '')
+          .filter(u => typeof u === 'string' && u.trim().length > 0);
+
+        return Array.from(new Set(urls));
+      },
+      {
+        logMessage: 'canonical_url 取得処理エラー:',
+        onError: () => [],
       }
-
-      const urls = (data || [])
-        .map((row: { canonical_url: string | null }) => row.canonical_url || '')
-        .filter(u => typeof u === 'string' && u.trim().length > 0);
-
-      return Array.from(new Set(urls));
-    } catch (error) {
-      console.error('canonical_url 取得処理エラー:', error);
-      return [];
-    }
+    );
   }
 
   /**
@@ -67,27 +58,29 @@ export class PromptService extends SupabaseService {
     basic_structure: string | null;
     opening_proposal: string | null;
   } | null> {
-    try {
-      const service = new PromptService();
-      const { data, error } = await service.serviceRoleSupabase
-        .from('content_annotations')
-        .select(
-          'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
-        )
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    return this.withServiceRoleClient(
+      async client => {
+        const { data, error } = await client
+          .from('content_annotations')
+          .select(
+            'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
+          )
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      if (error) {
-        console.error('content_annotations 取得エラー:', error);
-        return null;
+        if (error) {
+          throw error;
+        }
+
+        return data || null;
+      },
+      {
+        logMessage: 'content_annotations 取得処理エラー:',
+        onError: () => null,
       }
-      return data || null;
-    } catch (error) {
-      console.error('content_annotations 取得処理エラー:', error);
-      return null;
-    }
+    );
   }
 
   /**
@@ -109,26 +102,28 @@ export class PromptService extends SupabaseService {
     basic_structure: string | null;
     opening_proposal: string | null;
   } | null> {
-    try {
-      const service = new PromptService();
-      const { data, error } = await service.serviceRoleSupabase
-        .from('content_annotations')
-        .select(
-          'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
-        )
-        .eq('user_id', userId)
-        .eq('session_id', sessionId)
-        .maybeSingle();
+    return this.withServiceRoleClient(
+      async client => {
+        const { data, error } = await client
+          .from('content_annotations')
+          .select(
+            'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
+          )
+          .eq('user_id', userId)
+          .eq('session_id', sessionId)
+          .maybeSingle();
 
-      if (error) {
-        console.error('content_annotations (by session) 取得エラー:', error);
-        return null;
+        if (error) {
+          throw error;
+        }
+
+        return data || null;
+      },
+      {
+        logMessage: 'content_annotations (by session) 取得処理エラー:',
+        onError: () => null,
       }
-      return data || null;
-    } catch (error) {
-      console.error('content_annotations (by session) 取得処理エラー:', error);
-      return null;
-    }
+    );
   }
 
   /**
@@ -167,71 +162,75 @@ export class PromptService extends SupabaseService {
    * プロンプトテンプレートを名前で取得（キャッシュ付き）
    */
   static getTemplateByName = cache(async (name: string): Promise<PromptTemplate | null> => {
-    try {
-      const service = new PromptService();
-      // RLSをバイパスして確実に取得するため serviceRoleSupabase を使用
-      const { data, error } = await service.serviceRoleSupabase
-        .from('prompt_templates')
-        .select('*')
-        .eq('name', name)
-        .eq('is_active', true)
-        .single();
+    return PromptService.withServiceRoleClient(
+      async client => {
+        const { data, error } = await client
+          .from('prompt_templates')
+          .select('*')
+          .eq('name', name)
+          .eq('is_active', true)
+          .single();
 
-      if (error && error.code !== 'PGRST116') {
-        throw new Error(`プロンプト取得エラー: ${error.message}`);
+        if (error && error.code !== 'PGRST116') {
+          throw new Error(`プロンプト取得エラー: ${error.message}`);
+        }
+
+        return data || null;
+      },
+      {
+        logMessage: 'プロンプト取得エラー:',
+        onError: () => null,
       }
-
-      return data || null;
-    } catch (error) {
-      console.error('プロンプト取得エラー:', error);
-      return null;
-    }
+    );
   });
 
   /**
    * 全てのプロンプトテンプレートを取得
    */
   static async getAllTemplates(): Promise<PromptTemplate[]> {
-    try {
-      const service = new PromptService();
-      // サービスロールクライアントを使用してRLSをバイパス
-      const { data, error } = await service.serviceRoleSupabase
-        .from('prompt_templates')
-        .select('*')
-        .order('display_name', { ascending: true });
+    return this.withServiceRoleClient(
+      async client => {
+        const { data, error } = await client
+          .from('prompt_templates')
+          .select('*')
+          .order('display_name', { ascending: true });
 
-      if (error) {
-        throw new Error(`プロンプト一覧取得エラー: ${error.message}`);
+        if (error) {
+          throw new Error(`プロンプト一覧取得エラー: ${error.message}`);
+        }
+
+        return data || [];
+      },
+      {
+        logMessage: 'プロンプト一覧取得エラー:',
+        onError: () => [],
       }
-
-      return data || [];
-    } catch (error) {
-      console.error('プロンプト一覧取得エラー:', error);
-      return [];
-    }
+    );
   }
 
   /**
    * プロンプトテンプレートをIDで取得
    */
   static async getTemplateById(id: string): Promise<PromptTemplate | null> {
-    try {
-      const service = new PromptService();
-      const { data, error } = await service.serviceRoleSupabase
-        .from('prompt_templates')
-        .select('*')
-        .eq('id', id)
-        .single();
+    return this.withServiceRoleClient(
+      async client => {
+        const { data, error } = await client
+          .from('prompt_templates')
+          .select('*')
+          .eq('id', id)
+          .single();
 
-      if (error && error.code !== 'PGRST116') {
-        throw new Error(`プロンプト取得エラー: ${error.message}`);
+        if (error && error.code !== 'PGRST116') {
+          throw new Error(`プロンプト取得エラー: ${error.message}`);
+        }
+
+        return data || null;
+      },
+      {
+        logMessage: 'プロンプトID取得エラー:',
+        onError: () => null,
       }
-
-      return data || null;
-    } catch (error) {
-      console.error('プロンプトID取得エラー:', error);
-      return null;
-    }
+    );
   }
 
   /**
@@ -239,28 +238,34 @@ export class PromptService extends SupabaseService {
    */
   static async getTemplateWithVersions(id: string): Promise<PromptTemplateWithVersions | null> {
     try {
-      const service = new PromptService();
-
-      // メインテンプレートを取得
       const template = await this.getTemplateById(id);
       if (!template) return null;
 
-      // バージョン履歴を取得
-      const { data: versions, error } = await service.serviceRoleSupabase
-        .from('prompt_versions')
-        .select('*')
-        .eq('template_id', id)
-        .order('version', { ascending: false });
+      const fallback = { ...template, versions: [] };
 
-      if (error) {
-        console.warn('バージョン履歴取得エラー:', error);
-        return { ...template, versions: [] };
-      }
+      return await this.withServiceRoleClient(
+        async client => {
+          const { data: versions, error } = await client
+            .from('prompt_versions')
+            .select('*')
+            .eq('template_id', id)
+            .order('version', { ascending: false });
 
-      return {
-        ...template,
-        versions: versions || [],
-      };
+          if (error) {
+            throw error;
+          }
+
+          return {
+            ...template,
+            versions: versions || [],
+          };
+        },
+        {
+          logLevel: 'warn',
+          logMessage: 'バージョン履歴取得エラー:',
+          onError: () => fallback,
+        }
+      );
     } catch (error) {
       console.error('プロンプト詳細取得エラー:', error);
       return null;
@@ -271,22 +276,30 @@ export class PromptService extends SupabaseService {
    * 新しいプロンプトテンプレートを作成
    */
   static async createTemplate(data: CreatePromptTemplateInput): Promise<PromptTemplate> {
-    const service = new PromptService();
     const now = new Date().toISOString();
 
-    const { data: result, error } = await service.serviceRoleSupabase
-      .from('prompt_templates')
-      .insert({
-        ...data,
-        created_at: now,
-        updated_at: now,
-      })
-      .select()
-      .single();
+    const result = await this.withServiceRoleClient(
+      async client => {
+        const { data: inserted, error } = await client
+          .from('prompt_templates')
+          .insert({
+            ...data,
+            created_at: now,
+            updated_at: now,
+          })
+          .select()
+          .single();
 
-    if (error) {
-      throw new Error(`プロンプト作成エラー: ${error.message}`);
-    }
+        if (error) {
+          throw new Error(`プロンプト作成エラー: ${error.message}`);
+        }
+
+        return inserted;
+      },
+      {
+        logMessage: 'プロンプト作成エラー:',
+      }
+    );
 
     // 初期バージョンを履歴に保存
     await this.saveVersion(result.id, data.content, 1, data.created_by, '初期作成');
@@ -301,8 +314,6 @@ export class PromptService extends SupabaseService {
     id: string,
     data: UpdatePromptTemplateInput
   ): Promise<PromptTemplate> {
-    const service = new PromptService();
-
     // 現在のバージョンを取得
     const current = await this.getTemplateById(id);
     if (!current) {
@@ -327,42 +338,54 @@ export class PromptService extends SupabaseService {
     // メインテーブルを更新
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { change_summary, ...updateData } = data;
-    const { data: result, error } = await service.serviceRoleSupabase
-      .from('prompt_templates')
-      .update({
-        ...updateData,
-        version: newVersion,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    return this.withServiceRoleClient(
+      async client => {
+        const { data: result, error } = await client
+          .from('prompt_templates')
+          .update({
+            ...updateData,
+            version: newVersion,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .select()
+          .single();
 
-    if (error) {
-      throw new Error(`プロンプト更新エラー: ${error.message}`);
-    }
+        if (error) {
+          throw new Error(`プロンプト更新エラー: ${error.message}`);
+        }
 
-    return result;
+        return result;
+      },
+      {
+        logMessage: 'プロンプト更新エラー:',
+      }
+    );
   }
 
   /**
    * プロンプトテンプレートを削除（論理削除）
    */
   static async deleteTemplate(id: string, updatedBy: string): Promise<void> {
-    const service = new PromptService();
+    await this.withServiceRoleClient(
+      async client => {
+        const { error } = await client
+          .from('prompt_templates')
+          .update({
+            is_active: false,
+            updated_by: updatedBy,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
 
-    const { error } = await service.serviceRoleSupabase
-      .from('prompt_templates')
-      .update({
-        is_active: false,
-        updated_by: updatedBy,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(`プロンプト削除エラー: ${error.message}`);
-    }
+        if (error) {
+          throw new Error(`プロンプト削除エラー: ${error.message}`);
+        }
+      },
+      {
+        logMessage: 'プロンプト削除エラー:',
+      }
+    );
   }
 
   /**
@@ -375,20 +398,25 @@ export class PromptService extends SupabaseService {
     createdBy: string,
     changeSummary?: string
   ): Promise<void> {
-    const service = new PromptService();
+    await this.withServiceRoleClient(
+      async client => {
+        const { error } = await client.from('prompt_versions').insert({
+          template_id: templateId,
+          version,
+          content,
+          change_summary: changeSummary,
+          created_by: createdBy,
+          created_at: new Date().toISOString(),
+        });
 
-    const { error } = await service.serviceRoleSupabase.from('prompt_versions').insert({
-      template_id: templateId,
-      version,
-      content,
-      change_summary: changeSummary,
-      created_by: createdBy,
-      created_at: new Date().toISOString(),
-    });
-
-    if (error) {
-      throw new Error(`バージョン履歴保存エラー: ${error.message}`);
-    }
+        if (error) {
+          throw new Error(`バージョン履歴保存エラー: ${error.message}`);
+        }
+      },
+      {
+        logMessage: 'バージョン履歴保存エラー:',
+      }
+    );
   }
 
   /**
