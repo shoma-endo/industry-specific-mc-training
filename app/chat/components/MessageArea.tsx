@@ -49,57 +49,108 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     );
   };
 
-  // URLを検出してリンクに変換する関数（行内のURLのみをhrefに使用）
+  // URL/Markdownリンクを検出してリンクに変換（hrefは純粋なURLのみ）
   const formatMessageContent = (content: string) => {
-    const urlPattern = /https?:\/\/[^\s\n]+/g; // 絶対URLのみ
+    const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    const rawUrlPattern = /https?:\/\/[^\s)\]]+/g;
     const lines = content.split('\n');
-    const processedContent: React.ReactNode[] = [];
+    const processed: React.ReactNode[] = [];
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) {
-        if (i < lines.length - 1) processedContent.push(<br key={`br-${i}`} />);
-        continue;
-      }
+    const renderLine = (line: string, lineIndex: number) => {
+      if (!line) return [];
 
-      let lastIndex = 0;
+      const nodes: React.ReactNode[] = [];
+      let cursor = 0;
       let match: RegExpExecArray | null;
-      const localRegex = new RegExp(urlPattern); // 新しいRegExpでlastIndexを独立
-      localRegex.lastIndex = 0;
 
-      const segments: React.ReactNode[] = [];
-      while ((match = urlPattern.exec(line)) !== null) {
+      markdownLinkPattern.lastIndex = 0;
+      while ((match = markdownLinkPattern.exec(line)) !== null) {
+        const [fullMatch, label, href] = match;
         const start = match.index;
-        const end = start + match[0].length;
-        if (start > lastIndex) {
-          segments.push(<span key={`text-${i}-${lastIndex}`}>{line.slice(lastIndex, start)}</span>);
+        if (start > cursor) {
+          nodes.push(
+            <span key={`text-${lineIndex}-${cursor}`}>{line.slice(cursor, start)}</span>
+          );
         }
-        const href = match[0];
-        segments.push(
+        nodes.push(
           <a
-            key={`link-${i}-${start}`}
+            key={`md-${lineIndex}-${start}`}
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 hover:underline break-all"
+            className="text-blue-600 hover:underline"
           >
-            {href}
+            {label}
           </a>
         );
-        lastIndex = end;
+        cursor = start + fullMatch.length;
       }
 
-      if (lastIndex < line.length) {
-        segments.push(<span key={`tail-${i}`}>{line.slice(lastIndex)}</span>);
+      const remainder = line.slice(cursor);
+      if (remainder) {
+        let rawCursor = 0;
+        rawUrlPattern.lastIndex = 0;
+        let rawMatch: RegExpExecArray | null;
+        while ((rawMatch = rawUrlPattern.exec(remainder)) !== null) {
+          const start = rawMatch.index;
+          const end = start + rawMatch[0].length;
+          if (start > rawCursor) {
+            nodes.push(
+              <span key={`text-${lineIndex}-${cursor + rawCursor}`}>
+                {remainder.slice(rawCursor, start)}
+              </span>
+            );
+          }
+
+          let href = rawMatch[0];
+          const trailingPunctuationMatch = href.match(/[.,!?]+$/);
+          let trailing = '';
+          if (trailingPunctuationMatch) {
+            trailing = trailingPunctuationMatch[0];
+            href = href.slice(0, -trailing.length);
+          }
+
+          nodes.push(
+            <a
+              key={`url-${lineIndex}-${cursor + start}`}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline break-all"
+            >
+              {href}
+            </a>
+          );
+
+          if (trailing) {
+            nodes.push(
+              <span key={`trail-${lineIndex}-${cursor + end}`}>{trailing}</span>
+            );
+          }
+
+          rawCursor = end;
+        }
+
+        if (rawCursor < remainder.length) {
+          nodes.push(
+            <span key={`tail-${lineIndex}-${cursor + rawCursor}`}>
+              {remainder.slice(rawCursor)}
+            </span>
+          );
+        }
       }
 
-      processedContent.push(...segments);
-      if (i < lines.length - 1) {
-        processedContent.push(<br key={`br-${i}`} />);
-      }
-    }
+      return nodes;
+    };
 
-    return processedContent;
+    lines.forEach((line, index) => {
+      processed.push(...renderLine(line, index));
+      if (index < lines.length - 1) {
+        processed.push(<br key={`br-${index}`} />);
+      }
+    });
+
+    return processed;
   };
 
   const Dots: React.FC<{ size?: 'sm' | 'md'; colorClass?: string }> = ({
