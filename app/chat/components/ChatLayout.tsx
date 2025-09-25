@@ -750,7 +750,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const prevLastId = beforeMessages[beforeMessages.length - 1]?.id;
         const prevCount = beforeMessages.length;
 
-        const editingModel = selectedModel || 'lp_improvement';
+        let editingModel = selectedModel;
+        if (selectedModel === 'blog_creation') {
+          const stepInfo = stepActionBarRef.current?.getCurrentStepInfo();
+          const currentStep = manualSelectedStep ?? stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
+          editingModel = `blog_creation_${currentStep}`;
+        }
+
+        if (!editingModel) {
+          editingModel = 'lp_improvement';
+        }
 
         const userPrompt = [
           '```',
@@ -793,7 +802,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         canvasEditInFlightRef.current = false;
       }
     },
-    [chatSession.actions, parseCanvasEditResponse, selectedModel, setIsManualEdit, waitForNewAssistantMessage]
+    [
+      chatSession.actions,
+      latestBlogStep,
+      manualSelectedStep,
+      parseCanvasEditResponse,
+      selectedModel,
+      setIsManualEdit,
+      waitForNewAssistantMessage,
+    ]
   );
 
   if (!isLoggedIn) {
