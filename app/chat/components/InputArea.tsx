@@ -190,7 +190,6 @@ const InputArea: React.FC<InputAreaProps> = ({
     if (
       blogFlowStatus &&
       blogFlowStatus !== 'idle' &&
-      blogFlowStatus !== 'completed' &&
       selectedModel !== 'blog_creation'
     ) {
       setSelectedModel('blog_creation');

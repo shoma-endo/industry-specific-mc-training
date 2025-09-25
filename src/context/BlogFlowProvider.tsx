@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { BLOG_STEP_IDS, BLOG_STEP_LABELS, BlogStepId, toTemplateName } from '@/lib/constants';
 import { useBlogFlowPersist } from './blogFlowPersistStore';
 
-export type FlowStatus = 'idle' | 'running' | 'waitingAction' | 'revising' | 'completed' | 'error';
+export type FlowStatus = 'idle' | 'running' | 'waitingAction' | 'revising' | 'error';
 export type StepStatus = 'pending' | 'ready' | 'done' | 'error';
 
 export interface StepRun {
@@ -151,9 +151,10 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
         const messageId = normalizeMessageId(res);
 
         const isLastStep = step === steps[steps.length - 1];
+        const nextFlowStatus: FlowStatus = 'waitingAction';
         setState(prev => ({
           ...prev,
-          flowStatus: isLastStep ? 'completed' : 'waitingAction',
+          flowStatus: nextFlowStatus,
           steps: {
             ...prev.steps,
             [step]: {
@@ -166,7 +167,7 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
         }));
         persistStore.setFor(sessionId, {
           current: step,
-          flowStatus: isLastStep ? 'completed' : 'waitingAction',
+          flowStatus: nextFlowStatus,
           aiMessageId: messageId,
         });
       } catch (e: unknown) {

@@ -252,7 +252,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     // StepActionBar表示条件: ブログフロー中 かつ アクション待ち かつ 最新のAIメッセージ直下
     const shouldShowActionBar =
       effectiveBlogFlowActive &&
-      state.flowStatus !== 'completed' &&
       state.flowStatus !== 'error' &&
       !chatSession.state.isLoading &&
       message.role === 'assistant' &&
