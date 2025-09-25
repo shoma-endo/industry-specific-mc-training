@@ -104,6 +104,10 @@ const parseAsMarkdown = (text: string): string => {
 };
 
 const DEFAULT_EXPLANATION_PROMPT = 'このセクションについて詳しく説明していただけますか？';
+const MENU_SIZE = {
+  menu: { width: 120, height: 40 },
+  input: { width: 260, height: 190 },
+} as const;
 
 const CanvasPanel: React.FC<CanvasPanelProps> = ({
   onClose,
@@ -166,6 +170,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const selectionAnchorRef = useRef<{ top: number; left: number } | null>(null);
 
   // ✅ 見出しIDを生成する関数
   const generateHeadingId = useCallback((text: string): string => {
@@ -200,26 +205,49 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     [generateHeadingId]
   );
 
-  const updateSelectionMenuPosition = useCallback(() => {
-    const selection = typeof window !== 'undefined' ? window.getSelection() : null;
-    if (!selection || selection.rangeCount === 0) {
-      setSelectionMenuPosition(null);
-      return;
-    }
+  const updateSelectionMenuPosition = useCallback(
+    (modeOverride?: 'menu' | 'input', anchorOverride?: { top: number; left: number } | null) => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
 
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const container = scrollContainerRef.current;
-    if (!container) return;
+      let anchor = anchorOverride ?? selectionAnchorRef.current;
 
-    const containerRect = container.getBoundingClientRect();
-    const top = rect.top - containerRect.top + container.scrollTop;
-    const left = rect.right - containerRect.left + container.scrollLeft + 12;
+      if (!anchor) {
+        const selection = typeof window !== 'undefined' ? window.getSelection() : null;
+        if (!selection || selection.rangeCount === 0) {
+          setSelectionMenuPosition(null);
+          return;
+        }
 
-    if (Number.isFinite(top) && Number.isFinite(left)) {
-      setSelectionMenuPosition({ top, left });
-    }
-  }, []);
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        anchor = {
+          top: rect.top - containerRect.top + container.scrollTop,
+          left: rect.right - containerRect.left + container.scrollLeft + 12,
+        };
+        selectionAnchorRef.current = anchor;
+      }
+
+      const { top: anchorTop, left: anchorLeft } = anchor;
+      const scrollTop = container.scrollTop;
+      const scrollLeft = container.scrollLeft;
+      const mode = modeOverride ?? selectionMode ?? 'menu';
+      const size = MENU_SIZE[mode];
+
+      const minTop = scrollTop + 8;
+      const minLeft = scrollLeft + 8;
+      const maxLeft = scrollLeft + container.clientWidth - size.width - 8;
+
+      const top = Math.max(anchorTop, minTop);
+      const left = Math.min(Math.max(anchorLeft, minLeft), Math.max(minLeft, maxLeft));
+
+      if (Number.isFinite(top) && Number.isFinite(left)) {
+        setSelectionMenuPosition({ top, left });
+      }
+    },
+    [selectionMode]
+  );
 
   // ✅ 幅変更をlocalStorageに保存
   useEffect(() => {
@@ -328,13 +356,15 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const { from, to } = editor.state.selection;
       const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
 
-      if (from === to || !domSelection || domSelection.isCollapsed) {
+      const container = scrollContainerRef.current;
+      if (from === to || !domSelection || domSelection.isCollapsed || !container) {
         setSelectionState(null);
         selectionSnapshotRef.current = null;
         setSelectionMode(null);
         setSelectionAction(null);
         setSelectionMenuPosition(null);
         setInstruction('');
+        selectionAnchorRef.current = null;
         return;
       }
 
@@ -346,17 +376,27 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         setSelectionAction(null);
         setSelectionMenuPosition(null);
         setInstruction('');
+        selectionAnchorRef.current = null;
         return;
       }
+
+      const range = domSelection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const anchor = {
+        top: rect.top - containerRect.top + container.scrollTop,
+        left: rect.right - containerRect.left + container.scrollLeft + 12,
+      };
 
       const nextState: SelectionState = { from, to, text };
       setSelectionState(nextState);
       selectionSnapshotRef.current = nextState;
+      selectionAnchorRef.current = anchor;
       setSelectionMode('menu');
       setSelectionAction(null);
       setInstruction('');
       setLastAiError(null);
-      updateSelectionMenuPosition();
+      updateSelectionMenuPosition('menu', anchor);
     };
 
     editor.on('selectionUpdate', handleSelectionUpdate);
@@ -368,7 +408,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   useEffect(() => {
     if (!selectionMode) return;
 
-    const handle = () => updateSelectionMenuPosition();
+    const handle = () => updateSelectionMenuPosition(selectionMode);
     const scrollEl = scrollContainerRef.current;
 
     window.addEventListener('resize', handle);
@@ -378,6 +418,12 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       window.removeEventListener('resize', handle);
       scrollEl?.removeEventListener('scroll', handle);
     };
+  }, [selectionMode, updateSelectionMenuPosition]);
+
+  useEffect(() => {
+    if (selectionMode) {
+      updateSelectionMenuPosition(selectionMode);
+    }
   }, [selectionMode, updateSelectionMenuPosition]);
 
   // ✅ コンテンツが更新された時の処理
@@ -467,6 +513,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     setSelectionMenuPosition(null);
     setInstruction('');
     setLastAiError(null);
+    selectionAnchorRef.current = null;
   }, [content]);
 
   useEffect(() => {
@@ -575,6 +622,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       setSelectionAction(null);
       setInstruction('');
       setLastAiError(null);
+      updateSelectionMenuPosition('menu');
       return;
     }
 
@@ -585,7 +633,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     setSelectionMenuPosition(null);
     setInstruction('');
     setLastAiError(null);
-  }, [selectionMode]);
+    selectionAnchorRef.current = null;
+  }, [selectionMode, updateSelectionMenuPosition]);
 
   const handleApplySelectionEdit = useCallback(async () => {
     if (!editor || !onSelectionEdit) return;
@@ -647,6 +696,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       selectionSnapshotRef.current = null;
       setSelectionMenuPosition(null);
       setInstruction('');
+      selectionAnchorRef.current = null;
       const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
       domSelection?.removeAllRanges();
       showBubble(saveBtnRef, '✨ AIで編集しました', 'text');
@@ -988,6 +1038,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                     setSelectionAction('improve');
                     setInstruction('');
                     setLastAiError(null);
+                    updateSelectionMenuPosition('input');
                   }}
                 >
                   改善
@@ -1001,6 +1052,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                     setSelectionAction('explain');
                     setInstruction(DEFAULT_EXPLANATION_PROMPT);
                     setLastAiError(null);
+                    updateSelectionMenuPosition('input');
                   }}
                 >
                   説明
