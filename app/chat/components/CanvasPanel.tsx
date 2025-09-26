@@ -638,12 +638,15 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         editor.setEditable(true);
       }
 
+      const fullCanvasHtml = editor.getHTML();
+      const fullCanvasMarkdown = convertHtmlToMarkdown(fullCanvasHtml);
       const selectionHtml = getSelectionHtml(selection).slice(0, 6000);
 
       const result = await onSelectionEdit({
         instruction: trimmedInstruction,
         selectedText: selection.text,
         selectedHtml: selectionHtml,
+        canvasMarkdown: fullCanvasMarkdown,
         action: selectionAction,
       });
 

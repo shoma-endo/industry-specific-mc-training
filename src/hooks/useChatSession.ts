@@ -39,6 +39,7 @@ type StreamingParams = {
   accessToken: string;
   currentSessionId: string;
   recentMessages: SerializableMessage[];
+  systemPrompt?: string;
 };
 
 export const useChatSession = (
@@ -48,7 +49,14 @@ export const useChatSession = (
   const [state, setState] = useState<ChatState>(initialChatState);
 
   const handleStreamingMessage = useCallback(
-    async ({ content, model, accessToken, currentSessionId, recentMessages }: StreamingParams) => {
+    async ({
+      content,
+      model,
+      accessToken,
+      currentSessionId,
+      recentMessages,
+      systemPrompt,
+    }: StreamingParams) => {
       const { userMessage, assistantMessage } = createStreamingMessagePair(content, model);
 
       setState(prev => ({
@@ -71,6 +79,7 @@ export const useChatSession = (
             })),
             userMessage: content,
             model,
+            ...(systemPrompt ? { systemPrompt } : {}),
           }),
         });
 
@@ -187,18 +196,24 @@ export const useChatSession = (
   );
 
   const sendMessage = useCallback(
-    async (content: string, model: string) => {
+    async (content: string, model: string, options?: { systemPrompt?: string }) => {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
       try {
         const accessToken = await getAccessToken();
-        await handleStreamingMessage({
+        const streamingParams: StreamingParams = {
           content,
           model,
           accessToken,
           currentSessionId: state.currentSessionId,
           recentMessages: createRequestMessages(state.messages),
-        });
+        };
+
+        if (options?.systemPrompt) {
+          streamingParams.systemPrompt = options.systemPrompt;
+        }
+
+        await handleStreamingMessage(streamingParams);
       } catch (error) {
         console.error('Send message error:', error);
         const errorMessage =

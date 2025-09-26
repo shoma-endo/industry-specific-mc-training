@@ -759,15 +759,20 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           editingModel = 'lp_improvement';
         }
 
-        const userPrompt = [
-          '```',
-          payload.selectedText.trim(),
-          '```',
-          '',
-          payload.instruction.trim(),
-        ].join('\n');
+        const instruction = payload.instruction.trim();
+        const selectedText = payload.selectedText.trim();
+        const isImprove = payload.action === 'improve';
+        const systemPromptOverride = isImprove ? payload.canvasMarkdown : undefined;
 
-        await chatSession.actions.sendMessage(userPrompt, editingModel);
+        const userPrompt = isImprove
+          ? instruction
+          : ['```', selectedText, '```', '', instruction].join('\n');
+
+        await chatSession.actions.sendMessage(
+          userPrompt,
+          editingModel,
+          systemPromptOverride ? { systemPrompt: systemPromptOverride } : undefined
+        );
 
         const newMessageId = await waitForNewAssistantMessage(
           prevLastId,

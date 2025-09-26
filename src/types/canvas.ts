@@ -151,6 +151,7 @@ export interface CanvasSelectionEditPayload {
   instruction: string;
   selectedText: string;
   selectedHtml?: string;
+  canvasMarkdown: string;
   action: CanvasSelectionAction;
 }
 

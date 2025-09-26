@@ -15,6 +15,7 @@ interface StreamRequest {
   messages: { role: 'user' | 'assistant'; content: string }[];
   userMessage: string;
   model: string;
+  systemPrompt?: string;
 }
 
 const anthropic = new Anthropic({
@@ -34,7 +35,8 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    const { sessionId, messages, userMessage, model }: StreamRequest = await req.json();
+    const { sessionId, messages, userMessage, model, systemPrompt: systemPromptOverride }: StreamRequest =
+      await req.json();
 
     // 認証チェック
     const authHeader = req.headers.get('authorization');
@@ -112,11 +114,9 @@ export async function POST(req: NextRequest) {
           const resolvedMaxTokens = cfg && cfg.provider === 'anthropic' ? cfg.maxTokens : 6000;
           const resolvedTemperature = cfg && cfg.provider === 'anthropic' ? cfg.temperature : 0.3;
 
-          const systemPrompt = await getSystemPrompt(
-            model,
-            liffAccessToken || undefined,
-            sessionId
-          );
+          const systemPrompt = systemPromptOverride?.trim()
+            ? systemPromptOverride
+            : await getSystemPrompt(model, liffAccessToken || undefined, sessionId);
 
           const anthropicStream = await anthropic.messages.stream(
             {

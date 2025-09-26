@@ -72,7 +72,7 @@ export interface UseMobileResult {
  * チャットセッション フック関連
  */
 export interface ChatSessionActions {
-  sendMessage: (content: string, model: string) => Promise<void>;
+  sendMessage: (content: string, model: string, options?: { systemPrompt?: string }) => Promise<void>;
   loadSessions: () => Promise<void>;
   loadSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
