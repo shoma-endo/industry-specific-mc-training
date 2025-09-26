@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
-import { Bot } from 'lucide-react';
+import { Bot, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlogFlowState } from '@/context/BlogFlowProvider';
+import { Button } from '@/components/ui/button';
 
 interface MessageAreaProps {
   messages: ChatMessage[];
@@ -13,14 +14,17 @@ interface MessageAreaProps {
   blogFlowActive?: boolean;
   blogFlowState?: BlogFlowState;
   onStartBlogFlow?: () => void;
+  onOpenCanvas?: (content: string) => void;
 }
 
 const MessageArea: React.FC<MessageAreaProps> = ({
   messages,
   isLoading,
-  renderAfterMessage
+  renderAfterMessage,
+  onOpenCanvas
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
 
   // メッセージが追加されたときに自動スクロール
   useEffect(() => {
@@ -153,6 +157,13 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     return processed;
   };
 
+  // blog_creation_***モデルで生成されたメッセージかチェック
+  const isBlogMessage = (message: ChatMessage): boolean => {
+    return message.role === 'assistant' && 
+           message.model !== undefined && 
+           message.model.startsWith('blog_creation_');
+  };
+
   const Dots: React.FC<{ size?: 'sm' | 'md'; colorClass?: string }> = ({
     size = 'md',
     colorClass = 'bg-[#06c755]',
@@ -234,6 +245,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             <React.Fragment key={message.id || index}>
               <div
                 className="mb-4 last:mb-2 group"
+                onMouseEnter={() => isBlogMessage(message) && setHoveredMessageId(message.id)}
+                onMouseLeave={() => setHoveredMessageId(null)}
               >
                 <div
                   className={cn(
@@ -254,6 +267,22 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                         : 'bg-white text-gray-800 border border-gray-100'
                     )}
                   >
+                    {/* ブログメッセージ用のホバーCanvasボタン */}
+                    {isBlogMessage(message) && hoveredMessageId === message.id && onOpenCanvas && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onOpenCanvas(message.content)}
+                        className={cn(
+                          'absolute -top-2 -right-2 z-10 opacity-90 hover:opacity-100 transition-all duration-200 flex items-center gap-1 text-xs px-2 py-1 h-7 bg-white text-gray-600 hover:bg-gray-50 border-gray-300 shadow-sm'
+                        )}
+                        aria-label="Canvasで開く"
+                      >
+                        <Edit3 size={12} />
+                        <span>Canvas</span>
+                      </Button>
+                    )}
                     <div className="whitespace-pre-wrap text-sm">
                       {formatMessageContent(message.content)}
                     </div>

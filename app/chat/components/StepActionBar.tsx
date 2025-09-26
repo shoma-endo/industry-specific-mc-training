@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Edit3, BookMarked } from 'lucide-react';
+import { BookMarked } from 'lucide-react';
 
 type Props = {
   step?: BlogStepId;
@@ -28,7 +28,6 @@ type Props = {
   selectedStep?: BlogStepId | null;
   onRevisionClick?: () => void;
   onStepSelect?: (step: BlogStepId) => void;
-  onCanvasClick?: () => void;
   onSaveClick?: () => void;
   annotationLoading?: boolean;
 };
@@ -49,7 +48,6 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(({
   selectedStep,
   onRevisionClick,
   onStepSelect,
-  onCanvasClick,
   onSaveClick,
   annotationLoading,
 }, ref) => {
@@ -115,16 +113,6 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(({
         variant="outline"
       >
         修正案を出す
-      </Button>
-      <Button
-        onClick={() => onCanvasClick?.()}
-        disabled={isDisabled || !onCanvasClick}
-        size="sm"
-        variant="outline"
-        className="flex items-center gap-1"
-      >
-        <Edit3 size={14} />
-        <span>Canvas</span>
       </Button>
       <Button
         onClick={() => onSaveClick?.()}

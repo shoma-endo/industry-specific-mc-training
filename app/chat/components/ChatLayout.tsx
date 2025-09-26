@@ -270,7 +270,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           selectedStep={manualSelectedStep}
           onRevisionClick={handleRevisionClick}
           onStepSelect={handleStepSelect}
-          onCanvasClick={() => ui.canvas.show(message.content)}
           onSaveClick={() => ui.annotation.openWith(message.content)}
           annotationLoading={ui.annotation.loading}
         />
@@ -361,6 +360,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           isLoading={chatSession.state.isLoading}
           renderAfterMessage={renderAfterMessage}
           blogFlowActive={effectiveBlogFlowActive}
+          onOpenCanvas={(content) => ui.canvas.show(content)}
         />
 
         <InputArea
@@ -682,6 +682,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
   const handleShowCanvas = (content: string) => {
     setCanvasContent(content);
+    setIsManualEdit(true); // 手動編集フラグを立てて自動更新をスキップ
 
     // Annotationパネルが開いている場合は同時に切り替え
     if (annotationOpen) {
