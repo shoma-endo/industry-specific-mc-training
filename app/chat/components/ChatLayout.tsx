@@ -365,9 +365,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
         <InputArea
           onSendMessage={onSendMessage}
-          onToggleCanvas={() => {}}
           disabled={chatSession.state.isLoading || ui.annotation.loading}
-          canvasOpen={ui.canvas.open}
           currentSessionTitle={
             chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
               ?.title || '新しいチャット'

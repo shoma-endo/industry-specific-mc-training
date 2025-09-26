@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Bot, Send, Menu, PaintBucket, Edit3 } from 'lucide-react';
+import { Bot, Send, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { FEATURE_FLAGS } from '@/lib/constants';
@@ -47,9 +47,7 @@ const MODEL_PLACEHOLDERS: Record<string, string> = {
 
 interface InputAreaProps {
   onSendMessage: (content: string, model: string) => Promise<void>;
-  onToggleCanvas: () => void;
   disabled: boolean;
-  canvasOpen: boolean;
   currentSessionTitle?: string | undefined;
   isMobile?: boolean | undefined;
   onMenuToggle?: (() => void) | undefined;
@@ -66,9 +64,7 @@ interface InputAreaProps {
 
 const InputArea: React.FC<InputAreaProps> = ({
   onSendMessage,
-  onToggleCanvas,
   disabled,
-  canvasOpen,
   currentSessionTitle,
   isMobile: propIsMobile,
   onMenuToggle,
@@ -90,7 +86,6 @@ const InputArea: React.FC<InputAreaProps> = ({
     'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7'
   >(initialBlogStep ?? 'step1');
   const [isMobile, setIsMobile] = useState(false);
-  const [showCanvasButton, setShowCanvasButton] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasDetectedBlogStep = Boolean(initialBlogStep);
 
@@ -262,11 +257,6 @@ const InputArea: React.FC<InputAreaProps> = ({
 
     setInput('');
 
-    // Canvas切り替えボタンが押された時の処理
-    if (canvasOpen && onToggleCanvas) {
-      await onToggleCanvas();
-    }
-
     await onSendMessage(originalMessage, effectiveModel);
   };
 
@@ -332,11 +322,7 @@ const InputArea: React.FC<InputAreaProps> = ({
       <div className="border-t px-3 py-2 bg-white">
         <form onSubmit={handleSubmit} className="relative">
           <div className="flex flex-col gap-2">
-            <div 
-              className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30 transition-all duration-150 relative group"
-              onMouseEnter={() => selectedModel === 'blog_creation' && setShowCanvasButton(true)}
-              onMouseLeave={() => setShowCanvasButton(false)}
-            >
+            <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30 transition-all duration-150 relative">
               {FEATURE_FLAGS.USE_DYNAMIC_IMPORTS ? (
                 <RichEditor
                   value={input}
@@ -364,44 +350,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   rows={1}
                 />
               )}
-
-              {/* ブログ作成時のホバーCanvasボタン */}
-              {selectedModel === 'blog_creation' && showCanvasButton && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={onToggleCanvas}
-                  className={cn(
-                    'absolute top-2 right-2 z-10 opacity-90 hover:opacity-100 transition-all duration-200 flex items-center gap-1 text-xs px-2 py-1 h-7',
-                    canvasOpen
-                      ? 'bg-[#06c755] text-white hover:bg-[#05b64b] border-[#06c755]'
-                      : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-300'
-                  )}
-                  aria-label="Canvasを切り替え"
-                >
-                  <Edit3 size={12} />
-                  <span>Canvas</span>
-                </Button>
-              )}
-
               <div className="flex gap-1">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={onToggleCanvas}
-                  className={cn(
-                    'rounded-full size-10 mt-1',
-                    canvasOpen
-                      ? 'bg-[#06c755] text-white hover:bg-[#05b64b]'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  )}
-                  aria-label="Canvasを切り替え"
-                >
-                  <PaintBucket size={18} />
-                </Button>
-
                 <Button
                   type="submit"
                   size="icon"
