@@ -642,8 +642,15 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const fullCanvasMarkdown = convertHtmlToMarkdown(fullCanvasHtml);
       const selectionHtml = getSelectionHtml(selection).slice(0, 6000);
 
+      const selectionText = selection.text.trim();
+      const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
+      const combinedInstruction =
+        selectionAction === 'improve'
+          ? [selectionPrompt, trimmedInstruction].filter(Boolean).join('\n\n')
+          : trimmedInstruction;
+
       const result = await onSelectionEdit({
-        instruction: trimmedInstruction,
+        instruction: combinedInstruction,
         selectedText: selection.text,
         selectedHtml: selectionHtml,
         canvasMarkdown: fullCanvasMarkdown,
