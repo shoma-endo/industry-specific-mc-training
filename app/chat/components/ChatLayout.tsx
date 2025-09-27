@@ -360,7 +360,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           isLoading={chatSession.state.isLoading}
           renderAfterMessage={renderAfterMessage}
           blogFlowActive={effectiveBlogFlowActive}
-          onOpenCanvas={(content) => ui.canvas.show(content)}
+          onOpenCanvas={content => ui.canvas.show(content)}
         />
 
         <InputArea
@@ -514,19 +514,19 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const timer = setInterval(() => {
           const now = Date.now();
           if (now - start > timeoutMs) {
-          clearInterval(timer);
-          resolve(undefined);
-          return;
-        }
+            clearInterval(timer);
+            resolve(undefined);
+            return;
+          }
 
-        const assistants = getMessages().filter(m => m.role === 'assistant');
-        const cur = assistants[assistants.length - 1];
-        const increased = assistants.length > prevCount;
-        const changed = cur?.id && cur.id !== prevLastId;
+          const assistants = getMessages().filter(m => m.role === 'assistant');
+          const cur = assistants[assistants.length - 1];
+          const increased = assistants.length > prevCount;
+          const changed = cur?.id && cur.id !== prevLastId;
 
-        if (increased || changed) {
-          clearInterval(timer);
-          resolve(cur?.id);
+          if (increased || changed) {
+            clearInterval(timer);
+            resolve(cur?.id);
           }
         }, intervalMs);
       });
@@ -749,7 +749,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         let editingModel = selectedModel;
         if (selectedModel === 'blog_creation') {
           const stepInfo = stepActionBarRef.current?.getCurrentStepInfo();
-          const currentStep = manualSelectedStep ?? stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
+          const currentStep =
+            manualSelectedStep ?? stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
           editingModel = `blog_creation_${currentStep}`;
         }
 
@@ -760,7 +761,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const instruction = payload.instruction.trim();
         const selectedText = payload.selectedText.trim();
         const isImprove = payload.action === 'improve';
-        const systemPromptOverride = isImprove ? payload.canvasMarkdown : undefined;
+        const systemPromptOverride = isImprove
+          ? ['# ユーザーの指示に基づいて以下の内容を修正してください。省略しないで全文を必ず出してください。', payload.canvasMarkdown]
+              .filter(Boolean)
+              .join('\n')
+          : undefined;
 
         const userPrompt = isImprove
           ? instruction
@@ -796,9 +801,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         return parseCanvasEditResponse(targetMessage.content || '');
       } catch (error) {
         console.error('Canvas selection edit failed:', error);
-        throw error instanceof Error
-          ? error
-          : new Error('AI編集の処理に失敗しました');
+        throw error instanceof Error ? error : new Error('AI編集の処理に失敗しました');
       } finally {
         canvasEditInFlightRef.current = false;
       }
