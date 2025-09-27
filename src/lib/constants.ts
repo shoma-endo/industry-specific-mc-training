@@ -187,7 +187,7 @@ export const BLOG_PLACEHOLDERS: Record<string, string> = {
   blog_creation_step5: '構成案確認内容を入力してください',
   blog_creation_step6: '書き出し案を入力してください',
   blog_creation_step7: '本文作成の要件/トーンを入力してください',
-  revision: '修正指示を入力してください',
+  revision: '全体の修正指示を入力してください',
 };
 
 // prompts.ts 用のテンプレ名解決
