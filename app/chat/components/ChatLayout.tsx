@@ -19,7 +19,7 @@ import AnnotationPanel from './AnnotationPanel';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
-import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_IDS, BLOG_PLACEHOLDERS } from '@/lib/constants';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -157,7 +157,6 @@ type ChatLayoutCtx = {
   handleModelChange: (model: string, step?: BlogStepId) => void;
   handleStepChange: (step: BlogStepId) => void;
   handleRevisionClick: () => void;
-  handleStepSelect: (step: BlogStepId) => void;
   placeholderOverride: string;
   nextStepForPlaceholder: BlogStepId | null;
 };
@@ -178,7 +177,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     handleModelChange,
     handleStepChange,
     handleRevisionClick,
-    handleStepSelect,
     placeholderOverride,
     nextStepForPlaceholder,
   } = ctx;
@@ -269,7 +267,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onStepChange={handleStepChange}
           selectedStep={manualSelectedStep}
           onRevisionClick={handleRevisionClick}
-          onStepSelect={handleStepSelect}
           onSaveClick={() => ui.annotation.openWith(message.content)}
           annotationLoading={ui.annotation.loading}
         />
@@ -457,6 +454,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ステップ変更ハンドラ
   const handleStepChange = useCallback((step: BlogStepId) => {
     setManualSelectedStep(step);
+    const key = `blog_creation_${step}`;
+    setPlaceholderOverride(BLOG_PLACEHOLDERS[key] ?? '');
   }, []);
 
   // StepActionBarのrefを定義
@@ -472,21 +471,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // StepActionBarのイベントハンドラ
   const handleRevisionClick = useCallback(() => {
-    setPlaceholderOverride('修正指示を入力してください');
-  }, []);
-
-  const handleStepSelect = useCallback((step: BlogStepId) => {
-    const key = `blog_creation_${step}` as const;
-    const placeholders = {
-      blog_creation_step1: '顕在/潜在ニーズの内容を入力してください',
-      blog_creation_step2: '想定ペルソナ/デモグラの内容を入力してください',
-      blog_creation_step3: 'ユーザーのゴールに関する内容を入力してください',
-      blog_creation_step4: 'PREP（主張・理由・具体例・結論）の確認事項を入力してください',
-      blog_creation_step5: '構成案確認内容を入力してください',
-      blog_creation_step6: '書き出し案を入力してください',
-      blog_creation_step7: '本文作成の要件/トーンを入力してください',
-    };
-    setPlaceholderOverride(placeholders[key] || '');
+    setPlaceholderOverride(BLOG_PLACEHOLDERS.revision ?? '');
   }, []);
 
   // StepActionBarの状態変更を監視してnextStep情報を更新
@@ -762,7 +747,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const selectedText = payload.selectedText.trim();
         const isImprove = payload.action === 'improve';
         const systemPromptOverride = isImprove
-          ? ['# ユーザーの指示に基づいて以下の内容を修正してください。省略しないで全文を必ず出してください。', payload.canvasMarkdown]
+          ? [
+              '# ユーザーの指示に基づいて以下の内容を修正してください。省略しないで全文を必ず出してください。',
+              payload.canvasMarkdown,
+            ]
               .filter(Boolean)
               .join('\n')
           : undefined;
@@ -856,7 +844,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             handleModelChange,
             handleStepChange,
             handleRevisionClick,
-            handleStepSelect,
             placeholderOverride,
             nextStepForPlaceholder,
           }}
