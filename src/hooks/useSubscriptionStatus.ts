@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type {
   ISubscriptionService,
   SubscriptionStatus as DomainSubscriptionStatus,
@@ -21,11 +21,23 @@ export const useSubscriptionStatus = (
   );
   const [isLoading, setIsLoading] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // エラークリア機能
   const clearError = useCallback(() => {
-    setError(null);
+    setSubscriptionStatus((current) => {
+      if (!current) {
+        return current;
+      }
+
+      if (current.error === undefined) {
+        return current;
+      }
+
+      return {
+        ...current,
+        error: undefined,
+      };
+    });
   }, []);
 
   // ✅ useEffectを排除 - 明示的な関数呼び出しベース
@@ -56,9 +68,11 @@ export const useSubscriptionStatus = (
     try {
       const accessToken = await getAccessToken();
       const status = await subscriptionService.checkSubscription(accessToken);
-      setSubscriptionStatus(status);
+      setSubscriptionStatus({
+        ...status,
+        error: status.error,
+      });
       setHasInitialized(true);
-      setError(null);
     } catch (err) {
       console.error('Subscription check failed:', err);
 
@@ -71,7 +85,6 @@ export const useSubscriptionStatus = (
         errorMessage = 'サブスクリプションの確認に失敗しました';
       }
 
-      setError(errorMessage);
       setSubscriptionStatus({
         hasActiveSubscription: false,
         requiresSubscription: true,
@@ -82,18 +95,6 @@ export const useSubscriptionStatus = (
       setIsLoading(false);
     }
   }, [subscriptionService, getAccessToken, isLoggedIn, clearError]);
-
-  // ✅ エラー処理を外部で実行（useCallback依存配列から除外）
-  React.useEffect(() => {
-    if (error && subscriptionStatus === null) {
-      setSubscriptionStatus({
-        hasActiveSubscription: false,
-        requiresSubscription: true,
-        error: error,
-      });
-      setHasInitialized(true);
-    }
-  }, [error, subscriptionStatus]);
 
   const refreshSubscription = useCallback(async () => {
     await checkSubscription();
@@ -112,7 +113,7 @@ export const useSubscriptionStatus = (
     requiresSubscription: subscriptionStatus?.requiresSubscription ?? false,
     hasActiveSubscription: subscriptionStatus?.hasActiveSubscription ?? false,
     subscriptionDetails: (subscriptionStatus?.subscription ?? null) as SubscriptionDetails | null,
-    error: error || subscriptionStatus?.error || null,
+    error: subscriptionStatus?.error ?? null,
     actions: {
       checkSubscription: initializeIfNeeded, // ✅ 自動初期化付き
       refreshSubscription,
