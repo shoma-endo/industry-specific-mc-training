@@ -14,16 +14,16 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { BookMarked } from 'lucide-react';
 
 type Props = {
-  step?: BlogStepId;
-  className?: string;
-  disabled?: boolean;
-  hasDetectedBlogStep?: boolean;
-  availableSteps?: BlogStepId[];
-  onStepChange?: (step: BlogStepId) => void;
-  selectedStep?: BlogStepId | null;
-  onRevisionClick?: () => void;
-  onSaveClick?: () => void;
-  annotationLoading?: boolean;
+  step?: BlogStepId | undefined;
+  className?: string | undefined;
+  disabled?: boolean | undefined;
+  hasDetectedBlogStep?: boolean | undefined;
+  availableSteps?: BlogStepId[] | undefined;
+  onStepChange?: ((step: BlogStepId) => void) | undefined;
+  selectedStep?: BlogStepId | null | undefined;
+  onRevisionClick?: (() => void) | undefined;
+  onSaveClick?: (() => void) | undefined;
+  annotationLoading?: boolean | undefined;
 };
 
 export type StepActionBarRef = {
@@ -85,7 +85,7 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
     const isManualStepSelected = selectedStep !== null;
 
     return (
-      <div className={`flex items-center gap-2 mt-2 ${className ?? ''}`}>
+      <div className={`flex items-center gap-2 ${className ?? ''}`}>
         {!isManualStepSelected && (
           <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
             <span>

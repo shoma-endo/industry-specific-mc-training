@@ -10,13 +10,19 @@ import { Card } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import {
+  extractBlogStepFromModel,
+  findLatestAssistantBlogStep,
+  normalizeCanvasContent,
+  isBlogStepId,
+} from '@/lib/blog-canvas';
 import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';
 import CanvasPanel from './CanvasPanel';
 import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/types/canvas';
 import AnnotationPanel from './AnnotationPanel';
-import StepActionBar, { StepActionBarRef } from './StepActionBar';
+import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
 import { BlogStepId, BLOG_STEP_IDS, BLOG_PLACEHOLDERS, BLOG_STEP_LABELS } from '@/lib/constants';
@@ -92,27 +98,6 @@ const ErrorAlert: React.FC<{ error: string; onClose?: () => void }> = ({ error, 
   </div>
 );
 
-const BLOG_MODEL_PREFIX = 'blog_creation_';
-
-const isBlogStepId = (value: string): value is BlogStepId =>
-  BLOG_STEP_IDS.includes(value as BlogStepId);
-
-const extractBlogStepFromModel = (model?: string): BlogStepId | null => {
-  if (!model || !model.startsWith(BLOG_MODEL_PREFIX)) return null;
-  const candidate = model.slice(BLOG_MODEL_PREFIX.length);
-  return isBlogStepId(candidate) ? candidate : null;
-};
-
-const findLatestAssistantBlogStep = (messages: ChatMessage[]): BlogStepId | null => {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (!message || message.role !== 'assistant') continue;
-    const step = extractBlogStepFromModel(message.model);
-    if (step) return step;
-  }
-  return null;
-};
-
 type BlogCanvasVersion = {
   id: string;
   content: string;
@@ -123,90 +108,6 @@ type BlogCanvasVersion = {
 };
 
 type StepVersionsMap = Record<BlogStepId, BlogCanvasVersion[]>;
-
-type CanvasStructuredContent = {
-  markdown?: string;
-  html?: string;
-};
-
-const extractCanvasStructuredContent = (raw: string): CanvasStructuredContent | null => {
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)```/i);
-  const jsonCandidate = (fencedMatch?.[1] ?? trimmed).trim();
-  const start = jsonCandidate.indexOf('{');
-  const end = jsonCandidate.lastIndexOf('}');
-
-  if (start === -1 || end === -1 || end <= start) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(jsonCandidate.slice(start, end + 1));
-    const markdownCandidate =
-      parsed.markdown ?? parsed.full_markdown ?? parsed.canvas_markdown ?? null;
-    const htmlCandidate =
-      parsed.replacement_html ?? parsed.replacement ?? parsed.full_html ?? parsed.html ?? null;
-
-    const result: CanvasStructuredContent = {};
-
-    if (typeof markdownCandidate === 'string' && markdownCandidate.trim().length > 0) {
-      result.markdown = markdownCandidate.trim();
-    }
-
-    if (typeof htmlCandidate === 'string' && htmlCandidate.trim().length > 0) {
-      result.html = htmlCandidate.trim();
-    }
-
-    return Object.keys(result).length > 0 ? result : null;
-  } catch (error) {
-    console.warn('Failed to parse canvas version JSON:', error);
-  }
-
-  return null;
-};
-
-const htmlToMarkdownForCanvas = (html: string): string => {
-  return html
-    .replace(/<h1[^>]*>(.*?)<\/h1>/g, '# $1')
-    .replace(/<h2[^>]*>(.*?)<\/h2>/g, '## $1')
-    .replace(/<h3[^>]*>(.*?)<\/h3>/g, '### $1')
-    .replace(/<h4[^>]*>(.*?)<\/h4>/g, '#### $1')
-    .replace(/<h5[^>]*>(.*?)<\/h5>/g, '##### $1')
-    .replace(/<h6[^>]*>(.*?)<\/h6>/g, '###### $1')
-    .replace(/<strong[^>]*>(.*?)<\/strong>/g, '**$1**')
-    .replace(/<em[^>]*>(.*?)<\/em>/g, '*$1*')
-    .replace(/<code[^>]*>(.*?)<\/code>/g, '`$1`')
-    .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```')
-    .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/g, (match, content) => {
-      return content.replace(/<li[^>]*>(.*?)<\/li>/g, '- $1\n');
-    })
-    .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/g, (match, content) => {
-      let counter = 1;
-      return content.replace(/<li[^>]*>(.*?)<\/li>/g, () => `${counter++}. $1\n`);
-    })
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
-    .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/g, '![$2]($1)')
-    .replace(/<br\s*\/?>/g, '\n')
-    .replace(/<p[^>]*>(.*?)<\/p>/g, '$1\n\n')
-    .replace(/\n\n+/g, '\n\n')
-    .trim();
-};
-
-const normalizeCanvasContent = (raw: string): string => {
-  if (!raw) return '';
-  const structured = extractCanvasStructuredContent(raw);
-  if (!structured) {
-    return raw;
-  }
-  if (structured.markdown) {
-    return structured.markdown;
-  }
-  if (structured.html) {
-    return htmlToMarkdownForCanvas(structured.html);
-  }
-  return raw;
-};
 
 // 自動開始は行わず、明示ボタンで開始する
 type ChatLayoutCtx = {
@@ -301,11 +202,15 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     setIsSubscriptionErrorDismissed(false);
   }, [subscription.error]);
 
+  const assistantMessages = useMemo(
+    () => (chatSession.state.messages ?? []).filter(message => message.role === 'assistant'),
+    [chatSession.state.messages]
+  );
+  const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
+
   useEffect(() => {
     // 新しいアシスタントの返信が届いたら、修正モードを解除してステップアクションを再び有効化する
-    const messages = chatSession.state.messages ?? [];
-    const assistants = messages.filter(m => m.role === 'assistant');
-    const lastAssistantId = assistants[assistants.length - 1]?.id;
+    const lastAssistantId = lastAssistantMessage?.id;
 
     if (state.flowStatus === 'revising') {
       if (!lastAssistantMessageIdRef.current) {
@@ -324,41 +229,13 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     }
 
     lastAssistantMessageIdRef.current = lastAssistantId;
-  }, [chatSession.state.messages, state.flowStatus, cancelRevision]);
+  }, [lastAssistantMessage?.id, state.flowStatus, cancelRevision]);
 
-  const renderAfterMessage = (message: ChatMessage) => {
-    // 最新のアシスタントメッセージIDを取得（ID比較で統一）
-    const assistants = chatSession.state.messages.filter(m => m.role === 'assistant');
-    const lastAssistantId = assistants[assistants.length - 1]?.id;
-
-    // StepActionBar表示条件: ブログフロー中 かつ アクション待ち かつ 最新のAIメッセージ直下
-    const shouldShowActionBar =
-      effectiveBlogFlowActive &&
-      state.flowStatus !== 'error' &&
-      !chatSession.state.isLoading &&
-      message.role === 'assistant' &&
-      message.id === lastAssistantId;
-
-    if (shouldShowActionBar) {
-      return (
-        <StepActionBar
-          ref={stepActionBarRef}
-          step={displayStep}
-          hasDetectedBlogStep={hasDetectedBlogStep}
-          className="px-3 py-2 border-t bg-gray-50/50"
-          disabled={chatSession.state.isLoading || ui.annotation.loading}
-          availableSteps={availableSteps}
-          onStepChange={handleStepChange}
-          selectedStep={manualSelectedStep}
-          onRevisionClick={handleRevisionClick}
-          onSaveClick={() => ui.annotation.openWith()}
-          annotationLoading={ui.annotation.loading}
-        />
-      );
-    }
-
-    return null;
-  };
+  const shouldShowStepActionBar =
+    effectiveBlogFlowActive &&
+    state.flowStatus !== 'error' &&
+    !chatSession.state.isLoading &&
+    !!lastAssistantMessage;
 
   return (
     <>
@@ -439,7 +316,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
         <MessageArea
           messages={chatSession.state.messages}
           isLoading={chatSession.state.isLoading}
-          renderAfterMessage={renderAfterMessage}
           blogFlowActive={effectiveBlogFlowActive}
           onOpenCanvas={message => ui.canvas.show(message)}
         />
@@ -447,6 +323,17 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
         <InputArea
           onSendMessage={onSendMessage}
           disabled={chatSession.state.isLoading || ui.annotation.loading}
+          shouldShowStepActionBar={shouldShowStepActionBar}
+          stepActionBarRef={stepActionBarRef}
+          displayStep={displayStep}
+          hasDetectedBlogStep={hasDetectedBlogStep}
+          availableSteps={availableSteps}
+          onStepChange={handleStepChange}
+          onRevisionClick={handleRevisionClick}
+          onSaveClick={() => ui.annotation.openWith()}
+          annotationLoading={ui.annotation.loading}
+          stepActionBarDisabled={chatSession.state.isLoading || ui.annotation.loading}
+          manualSelectedStep={manualSelectedStep}
           currentSessionTitle={
             chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
               ?.title || '新しいチャット'
@@ -458,7 +345,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onModelChange={handleModelChange}
           blogFlowStatus={state.flowStatus}
           selectedModelExternal={selectedModel}
-          manualSelectedStep={manualSelectedStep}
           placeholderOverride={placeholderOverride}
           nextStepForPlaceholder={nextStepForPlaceholder}
           {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}

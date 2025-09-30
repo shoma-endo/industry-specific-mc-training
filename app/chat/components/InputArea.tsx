@@ -19,6 +19,7 @@ import {
   BLOG_STEP_IDS,
   BlogStepId,
 } from '@/lib/constants';
+import StepActionBar, { StepActionBarRef } from './StepActionBar';
 
 const RichEditor = dynamic(() => import('../components/RichEditor'), {
   ssr: false,
@@ -60,6 +61,17 @@ interface InputAreaProps {
   manualSelectedStep?: BlogStepId | null;
   placeholderOverride?: string | undefined;
   nextStepForPlaceholder?: BlogStepId | null;
+  // StepActionBar props
+  shouldShowStepActionBar?: boolean;
+  stepActionBarRef?: React.RefObject<StepActionBarRef | null>;
+  displayStep?: BlogStepId;
+  hasDetectedBlogStep?: boolean;
+  availableSteps?: BlogStepId[];
+  onStepChange?: (step: BlogStepId) => void;
+  onRevisionClick?: () => void;
+  onSaveClick?: () => void;
+  annotationLoading?: boolean;
+  stepActionBarDisabled?: boolean;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -77,6 +89,16 @@ const InputArea: React.FC<InputAreaProps> = ({
   manualSelectedStep,
   placeholderOverride,
   nextStepForPlaceholder,
+  shouldShowStepActionBar,
+  stepActionBarRef,
+  displayStep,
+  hasDetectedBlogStep,
+  availableSteps = [],
+  onStepChange,
+  onRevisionClick,
+  onSaveClick,
+  annotationLoading,
+  stepActionBarDisabled,
 }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -87,7 +109,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   >(initialBlogStep ?? 'step1');
   const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const hasDetectedBlogStep = Boolean(initialBlogStep);
 
   // UI表示用のモデルキー（ブログ作成時はステップを反映）
   const displayModelKey =
@@ -319,50 +340,69 @@ const InputArea: React.FC<InputAreaProps> = ({
       </header>
 
       {/* 入力エリア - レイアウトで既にpadding-topが設定されているため調整 */}
-      <div className="border-t px-3 py-2 bg-white">
-        <form onSubmit={handleSubmit} className="relative">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30 transition-all duration-150 relative">
-              {FEATURE_FLAGS.USE_DYNAMIC_IMPORTS ? (
-                <RichEditor
-                  value={input}
-                  onChange={setInput}
-                  placeholder={placeholderMessage ?? 'メッセージを入力...'}
-                  disabled={disabled}
-                  className={cn(
-                    'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
-                    isMobile ? 'min-h-8' : 'min-h-10',
-                    input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
-                  )}
-                />
-              ) : (
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={handleInputChange}
-                  placeholder={placeholderMessage ?? 'メッセージを入力...'}
-                  disabled={disabled}
-                  className={cn(
-                    'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
-                    isMobile ? 'min-h-8' : 'min-h-10',
-                    input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
-                  )}
-                  rows={1}
-                />
-              )}
-              <div className="flex gap-1">
-                <Button
-                  type="submit"
-                  size="icon"
-                  disabled={disabled || !input.trim()}
-                  className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
-                >
-                  <Send size={18} className="text-white" />
-                </Button>
+      <div className="border-t bg-white">
+        {shouldShowStepActionBar && (
+          <div className="px-3 py-3 border-b border-gray-200 bg-white shadow-sm">
+            <StepActionBar
+              ref={stepActionBarRef}
+              step={displayStep}
+              hasDetectedBlogStep={hasDetectedBlogStep}
+              className="flex-wrap gap-3"
+              disabled={stepActionBarDisabled}
+              availableSteps={availableSteps}
+              onStepChange={onStepChange}
+              selectedStep={manualSelectedStep}
+              onRevisionClick={onRevisionClick}
+              onSaveClick={onSaveClick}
+              annotationLoading={annotationLoading}
+            />
+          </div>
+        )}
+        <div className="px-3 py-2">
+          <form onSubmit={handleSubmit} className="relative">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30 transition-all duration-150 relative">
+                {FEATURE_FLAGS.USE_DYNAMIC_IMPORTS ? (
+                  <RichEditor
+                    value={input}
+                    onChange={setInput}
+                    placeholder={placeholderMessage ?? 'メッセージを入力...'}
+                    disabled={disabled}
+                    className={cn(
+                      'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
+                      isMobile ? 'min-h-8' : 'min-h-10',
+                      input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
+                    )}
+                  />
+                ) : (
+                  <Textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={handleInputChange}
+                    placeholder={placeholderMessage ?? 'メッセージを入力...'}
+                    disabled={disabled}
+                    className={cn(
+                      'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
+                      isMobile ? 'min-h-8' : 'min-h-10',
+                      input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
+                    )}
+                    rows={1}
+                  />
+                )}
+                <div className="flex gap-1">
+                  <Button
+                    type="submit"
+                    size="icon"
+                    disabled={disabled || !input.trim()}
+                    className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
+                  >
+                    <Send size={18} className="text-white" />
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </>
   );

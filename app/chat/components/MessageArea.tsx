@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
-import { Bot, Edit3 } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BlogFlowState } from '@/context/BlogFlowProvider';
-import { Button } from '@/components/ui/button';
+import BlogPreviewTile from './common/BlogPreviewTile';
+import { BLOG_STEP_LABELS } from '@/lib/constants';
+import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/blog-canvas';
 
 interface MessageAreaProps {
   messages: ChatMessage[];
@@ -24,7 +26,6 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   onOpenCanvas
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
 
   // メッセージが追加されたときに自動スクロール
   useEffect(() => {
@@ -159,9 +160,37 @@ const MessageArea: React.FC<MessageAreaProps> = ({
 
   // blog_creation_***モデルで生成されたメッセージかチェック
   const isBlogMessage = (message: ChatMessage): boolean => {
-    return message.role === 'assistant' && 
-           message.model !== undefined && 
-           message.model.startsWith('blog_creation_');
+    return message.role === 'assistant' && extractBlogStepFromModel(message.model) !== null;
+  };
+
+  const derivePreviewMeta = (message: ChatMessage) => {
+    const step = extractBlogStepFromModel(message.model);
+    if (!step) return null;
+
+    const normalized = normalizeCanvasContent(message.content ?? '');
+    const lines = normalized
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    const headingLine = lines.find(line => /^#+\s*/.test(line));
+    const titleSource = headingLine ?? lines[0] ?? 'ブログ下書き';
+    const title = titleSource.replace(/^#+\s*/, '').trim() || 'ブログ下書き';
+
+    const bodyLines = lines.filter(line => line !== headingLine);
+    const body = bodyLines
+      .map(line => line.replace(/^[-*]\s+/, '').replace(/^[0-9]+\.\s+/, ''))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const excerpt = body.length > 140 ? `${body.slice(0, 140)}…` : body;
+
+    return {
+      step,
+      title,
+      excerpt,
+    };
   };
 
   const Dots: React.FC<{ size?: 'sm' | 'md'; colorClass?: string }> = ({
@@ -241,69 +270,65 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         <EmptyState />
       ) : (
         <>
-          {messages.map((message, index) => (
-            <React.Fragment key={message.id || index}>
-              <div
-                className="mb-4 last:mb-2 group"
-                onMouseEnter={() => isBlogMessage(message) && setHoveredMessageId(message.id)}
-                onMouseLeave={() => setHoveredMessageId(null)}
-              >
-                <div
-                  className={cn(
-                    'flex items-start gap-2 relative',
-                    message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                  )}
-                >
-                  {message.role !== 'user' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
-                      <Bot size={18} className="text-[#06c755]" />
-                    </div>
-                  )}
-                  <div
-                    className={cn(
-                      'max-w-[85%] p-3 rounded-2xl relative transition-all duration-200',
-                      message.role === 'user'
-                        ? 'bg-[#06c755] text-white'
-                        : 'bg-white text-gray-800 border border-gray-100'
-                    )}
-                  >
-                    {/* ブログメッセージ用のホバーCanvasボタン */}
-                    {isBlogMessage(message) && hoveredMessageId === message.id && onOpenCanvas && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onOpenCanvas(message)}
-                        className={cn(
-                          'absolute -top-2 -right-2 z-10 opacity-90 hover:opacity-100 transition-all duration-200 flex items-center gap-1 text-xs px-2 py-1 h-7 bg-white text-gray-600 hover:bg-gray-50 border-gray-300 shadow-sm'
-                        )}
-                        aria-label="Canvasで開く"
-                      >
-                        <Edit3 size={12} />
-                        <span>Canvas</span>
-                      </Button>
-                    )}
-                    <div className="whitespace-pre-wrap text-sm">
-                      {formatMessageContent(message.content)}
-                    </div>
-                  </div>
-                  {message.role === 'user' && <div className="opacity-0 w-8 h-8" />}
-                </div>
+          {messages.map((message, index) => {
+            const blogPreviewMeta = isBlogMessage(message) ? derivePreviewMeta(message) : null;
+            const openHandler = blogPreviewMeta && onOpenCanvas ? () => onOpenCanvas(message) : null;
 
-                {shouldShowTimestamp(index) && (
+            return (
+              <React.Fragment key={message.id || index}>
+                <div className="mb-4 last:mb-2 group">
                   <div
                     className={cn(
-                      'text-[10px] text-gray-400 mt-1 px-2',
-                      message.role === 'user' ? 'text-right' : 'text-left'
+                      'flex items-start gap-2 relative',
+                      message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                     )}
                   >
-                    {formatTime(message.timestamp)}
+                    {message.role !== 'user' && (
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-white border border-gray-200">
+                        <Bot size={18} className="text-[#06c755]" />
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        'max-w-[85%] rounded-2xl relative transition-all duration-200',
+                        message.role === 'user'
+                          ? 'bg-[#06c755] text-white p-3'
+                          : blogPreviewMeta
+                          ? 'bg-transparent text-gray-800 p-0'
+                          : 'bg-white text-gray-800 border border-gray-100 p-3'
+                      )}
+                    >
+                      {blogPreviewMeta ? (
+                        <BlogPreviewTile
+                          stepLabel={BLOG_STEP_LABELS[blogPreviewMeta.step] ?? 'ブログ'}
+                          title={blogPreviewMeta.title}
+                          excerpt={blogPreviewMeta.excerpt}
+                          {...(openHandler ? { onOpen: openHandler } : {})}
+                        />
+                      ) : (
+                        <div className="whitespace-pre-wrap text-sm">
+                          {formatMessageContent(message.content)}
+                        </div>
+                      )}
+                    </div>
+                    {message.role === 'user' && <div className="opacity-0 w-8 h-8" />}
                   </div>
-                )}
-              </div>
-              {renderAfterMessage?.(message)}
-            </React.Fragment>
-          ))}
+
+                  {shouldShowTimestamp(index) && (
+                    <div
+                      className={cn(
+                        'text-[10px] text-gray-400 mt-1 px-2',
+                        message.role === 'user' ? 'text-right' : 'text-left'
+                      )}
+                    >
+                      {formatTime(message.timestamp)}
+                    </div>
+                  )}
+                </div>
+                {renderAfterMessage?.(message)}
+              </React.Fragment>
+            );
+          })}
 
           <div ref={messagesEndRef} />
 
