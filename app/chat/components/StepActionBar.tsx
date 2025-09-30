@@ -21,13 +21,11 @@ type Props = {
   availableSteps?: BlogStepId[] | undefined;
   onStepChange?: ((step: BlogStepId) => void) | undefined;
   selectedStep?: BlogStepId | null | undefined;
-  onRevisionClick?: (() => void) | undefined;
   onSaveClick?: (() => void) | undefined;
   annotationLoading?: boolean | undefined;
 };
 
 export type StepActionBarRef = {
-  triggerRevisionMode: () => void;
   getCurrentStepInfo: () => { currentStep: BlogStepId; nextStep: BlogStepId | null };
 };
 
@@ -41,18 +39,14 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
       availableSteps = [],
       onStepChange,
       selectedStep,
-      onRevisionClick,
       onSaveClick,
       annotationLoading,
     },
     ref
   ) => {
-    const { state, openRevision } = useBlogFlow();
+    const { state } = useBlogFlow();
 
     useImperativeHandle(ref, () => ({
-      triggerRevisionMode: () => {
-        onRevisionClick?.();
-      },
       getCurrentStepInfo: () => ({
         currentStep: displayStep,
         nextStep: nextStep || null,
@@ -96,17 +90,6 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
             </span>
           </div>
         )}
-        <Button
-          onClick={() => {
-            openRevision();
-            onRevisionClick?.();
-          }}
-          disabled={isDisabled}
-          size="sm"
-          variant="outline"
-        >
-          修正案を出す
-        </Button>
         <Button
           onClick={() => onSaveClick?.()}
           disabled={isDisabled || !onSaveClick || annotationLoading}

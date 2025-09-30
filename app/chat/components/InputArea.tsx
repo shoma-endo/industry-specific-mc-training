@@ -14,11 +14,7 @@ import { Bot, Send, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { FEATURE_FLAGS } from '@/lib/constants';
-import {
-  BLOG_PLACEHOLDERS,
-  BLOG_STEP_IDS,
-  BlogStepId,
-} from '@/lib/constants';
+import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 
 const RichEditor = dynamic(() => import('../components/RichEditor'), {
@@ -68,7 +64,6 @@ interface InputAreaProps {
   hasDetectedBlogStep?: boolean;
   availableSteps?: BlogStepId[];
   onStepChange?: (step: BlogStepId) => void;
-  onRevisionClick?: () => void;
   onSaveClick?: () => void;
   annotationLoading?: boolean;
   stepActionBarDisabled?: boolean;
@@ -95,7 +90,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   hasDetectedBlogStep,
   availableSteps = [],
   onStepChange,
-  onRevisionClick,
   onSaveClick,
   annotationLoading,
   stepActionBarDisabled,
@@ -120,30 +114,21 @@ const InputArea: React.FC<InputAreaProps> = ({
     if (placeholderOverride) {
       return placeholderOverride;
     }
-    
+
     if (selectedModel === 'blog_creation') {
       // 手動でステップが選択されている場合
       if (manualSelectedStep) {
-        // 修正中かつ手動選択の場合は修正指示
-        if (blogFlowStatus === 'revising') {
-          return BLOG_PLACEHOLDERS['revision'];
-        }
-        // 通常は選択したステップのプレースホルダー
+        // 選択したステップのプレースホルダー
         const key = `blog_creation_${manualSelectedStep}` as keyof typeof BLOG_PLACEHOLDERS;
         return BLOG_PLACEHOLDERS[key];
       }
-      
-      // 修正中の場合は修正指示のプレースホルダーを表示
-      if (blogFlowStatus === 'revising') {
-        return BLOG_PLACEHOLDERS['revision'];
-      }
-      
+
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
       if (nextStepForPlaceholder) {
         const key = `blog_creation_${nextStepForPlaceholder}` as keyof typeof BLOG_PLACEHOLDERS;
         return BLOG_PLACEHOLDERS[key];
       }
-      
+
       const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
       const shouldAdvanceInUi =
         blogFlowStatus === 'waitingAction' || (blogFlowStatus === 'idle' && hasDetectedBlogStep);
@@ -204,11 +189,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   // 既存チャットルームを開いた際、フロー状態から自動でブログ作成モデルに合わせる（モデル選択に依存しない）
   useEffect(() => {
-    if (
-      blogFlowStatus &&
-      blogFlowStatus !== 'idle' &&
-      selectedModel !== 'blog_creation'
-    ) {
+    if (blogFlowStatus && blogFlowStatus !== 'idle' && selectedModel !== 'blog_creation') {
       setSelectedModel('blog_creation');
       onModelChange?.('blog_creation', selectedBlogStep as BlogStepId);
     }
@@ -352,7 +333,6 @@ const InputArea: React.FC<InputAreaProps> = ({
               availableSteps={availableSteps}
               onStepChange={onStepChange}
               selectedStep={manualSelectedStep}
-              onRevisionClick={onRevisionClick}
               onSaveClick={onSaveClick}
               annotationLoading={annotationLoading}
             />

@@ -141,7 +141,6 @@ type ChatLayoutCtx = {
   onSendMessage: (content: string, model: string) => Promise<void>;
   handleModelChange: (model: string, step?: BlogStepId) => void;
   handleStepChange: (step: BlogStepId) => void;
-  handleRevisionClick: () => void;
   placeholderOverride: string;
   nextStepForPlaceholder: BlogStepId | null;
 };
@@ -161,7 +160,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onSendMessage,
     handleModelChange,
     handleStepChange,
-    handleRevisionClick,
     placeholderOverride,
     nextStepForPlaceholder,
   } = ctx;
@@ -329,7 +327,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           hasDetectedBlogStep={hasDetectedBlogStep}
           availableSteps={availableSteps}
           onStepChange={handleStepChange}
-          onRevisionClick={handleRevisionClick}
           onSaveClick={() => ui.annotation.openWith()}
           annotationLoading={ui.annotation.loading}
           stepActionBarDisabled={chatSession.state.isLoading || ui.annotation.loading}
@@ -590,11 +587,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       const stepInfo = stepActionBarRef.current.getCurrentStepInfo();
       setNextStepForPlaceholder(stepInfo.nextStep);
     }
-  }, []);
-
-  // StepActionBarのイベントハンドラ
-  const handleRevisionClick = useCallback(() => {
-    setPlaceholderOverride(BLOG_PLACEHOLDERS.revision ?? '');
   }, []);
 
   // StepActionBarの状態変更を監視してnextStep情報を更新
@@ -1062,7 +1054,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             onSendMessage: handleSendMessage,
             handleModelChange,
             handleStepChange,
-            handleRevisionClick,
             placeholderOverride,
             nextStepForPlaceholder,
           }}
