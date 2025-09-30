@@ -472,7 +472,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
     BLOG_STEP_IDS.forEach(step => {
       const versions = blogCanvasVersionsByStep[step] ?? [];
-      const latestId = versions.length ? versions[versions.length - 1]?.id ?? null : null;
+      const latestId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
       const currentSelection = selectedVersionByStep[step] ?? null;
       const followLatest = followLatestByStep[step] !== false;
       const currentExists =
@@ -483,10 +483,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           selectionUpdates[step] = null;
           selectionChanged = true;
         }
-        if (
-          followLatestByStep[step] !== undefined &&
-          followLatestByStep[step] !== true
-        ) {
+        if (followLatestByStep[step] !== undefined && followLatestByStep[step] !== true) {
           followUpdates[step] = true;
           followChanged = true;
         }
@@ -549,7 +546,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   }, [blogCanvasVersionsByStep, resolvedCanvasStep]);
 
   const activeVersionId = resolvedCanvasStep
-    ? selectedVersionByStep[resolvedCanvasStep] ?? null
+    ? (selectedVersionByStep[resolvedCanvasStep] ?? null)
     : null;
 
   const activeCanvasVersion = useMemo(() => {
@@ -583,13 +580,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   );
 
   // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
-
-  // ステップ変更ハンドラ
-  const handleStepChange = useCallback((step: BlogStepId) => {
-    setManualSelectedStep(step);
-    const key = `blog_creation_${step}`;
-    setPlaceholderOverride(BLOG_PLACEHOLDERS[key] ?? '');
-  }, []);
 
   // StepActionBarのrefを定義
   const stepActionBarRef = useRef<StepActionBarRef>(null);
@@ -891,7 +881,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   );
 
   const handleCanvasStepChange = useCallback(
-    (step: BlogStepId) => {
+    (step: BlogStepId, options?: { skipManualUpdate?: boolean }) => {
+      const { skipManualUpdate = false } = options ?? {};
       const versions = blogCanvasVersionsByStep[step] ?? [];
       const latestId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
 
@@ -914,9 +905,25 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         }
         return next;
       });
+      if (!skipManualUpdate) {
+        setManualSelectedStep(step);
+        const key = `blog_creation_${step}` as keyof typeof BLOG_PLACEHOLDERS;
+        setPlaceholderOverride(BLOG_PLACEHOLDERS[key] ?? '');
+      }
       setIsManualEdit(true);
     },
     [blogCanvasVersionsByStep, setIsManualEdit]
+  );
+
+  // ステップ変更ハンドラ
+  const handleStepChange = useCallback(
+    (step: BlogStepId) => {
+      setManualSelectedStep(step);
+      const key = `blog_creation_${step}` as keyof typeof BLOG_PLACEHOLDERS;
+      setPlaceholderOverride(BLOG_PLACEHOLDERS[key] ?? '');
+      handleCanvasStepChange(step, { skipManualUpdate: true });
+    },
+    [handleCanvasStepChange]
   );
 
   const handleCanvasStepSelect = useCallback(
