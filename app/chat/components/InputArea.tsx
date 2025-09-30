@@ -46,6 +46,7 @@ interface InputAreaProps {
   onSendMessage: (content: string, model: string) => Promise<void>;
   disabled: boolean;
   currentSessionTitle?: string | undefined;
+  currentSessionId?: string | undefined;
   isMobile?: boolean | undefined;
   onMenuToggle?: (() => void) | undefined;
   blogFlowActive?: boolean;
@@ -73,6 +74,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onSendMessage,
   disabled,
   currentSessionTitle,
+  currentSessionId,
   isMobile: propIsMobile,
   onMenuToggle,
   blogFlowActive = false,
@@ -95,6 +97,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   stepActionBarDisabled,
 }) => {
   const [input, setInput] = useState('');
+  const [canProceed, setCanProceed] = useState(true);
   const [selectedModel, setSelectedModel] = useState<string>(
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
   );
@@ -335,6 +338,8 @@ const InputArea: React.FC<InputAreaProps> = ({
               selectedStep={manualSelectedStep}
               onSaveClick={onSaveClick}
               annotationLoading={annotationLoading}
+              currentSessionId={currentSessionId}
+              onCanProceedChange={setCanProceed}
             />
           </div>
         )}
@@ -373,7 +378,11 @@ const InputArea: React.FC<InputAreaProps> = ({
                   <Button
                     type="submit"
                     size="icon"
-                    disabled={disabled || !input.trim()}
+                    disabled={
+                      disabled ||
+                      !input.trim() ||
+                      (selectedModel === 'blog_creation' && !canProceed)
+                    }
                     className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
                   >
                     <Send size={18} className="text-white" />

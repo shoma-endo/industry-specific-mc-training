@@ -26,6 +26,7 @@ import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
 import { BlogStepId, BLOG_STEP_IDS, BLOG_PLACEHOLDERS, BLOG_STEP_LABELS } from '@/lib/constants';
+import { useAnnotationStore } from '@/store/annotationStore';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -335,6 +336,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
             chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
               ?.title || '新しいチャット'
           }
+          currentSessionId={chatSession.state.currentSessionId}
           isMobile={isMobile}
           onMenuToggle={isMobile ? () => ui.sidebar.setOpen(!ui.sidebar.open) : undefined}
           blogFlowActive={effectiveBlogFlowActive}
@@ -359,6 +361,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               ui.annotation.setOpen(false);
             }
           }}
+          onSaveSuccess={() => {}}
           isVisible={ui.annotation.open}
         />
       )}
@@ -373,6 +376,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   login,
   isMobile = false,
 }) => {
+  const { setSavedFields } = useAnnotationStore();
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [annotationData, setAnnotationData] = useState<{
@@ -823,6 +827,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       const res = await getContentAnnotationBySession(chatSession.state.currentSessionId);
       if (res.success && res.data) {
         setAnnotationData(res.data);
+
+        // zustandストアに保存済みフィールドを記録
+        setSavedFields(chatSession.state.currentSessionId, {
+          needs: !!res.data.needs,
+          persona: !!res.data.persona,
+          goal: !!res.data.goal,
+          prep: !!res.data.prep,
+          basic_structure: !!res.data.basic_structure,
+          opening_proposal: !!res.data.opening_proposal,
+        });
       } else {
         setAnnotationData(null);
       }

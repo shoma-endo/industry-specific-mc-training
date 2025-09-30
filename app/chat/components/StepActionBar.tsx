@@ -1,8 +1,9 @@
 'use client';
-import React, { forwardRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useBlogFlow } from '@/context/BlogFlowProvider';
-import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS, STEP_REQUIRED_FIELDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
+import { useAnnotationStore } from '@/store/annotationStore';
 import {
   Select,
   SelectContent,
@@ -23,6 +24,8 @@ type Props = {
   selectedStep?: BlogStepId | null | undefined;
   onSaveClick?: (() => void) | undefined;
   annotationLoading?: boolean | undefined;
+  currentSessionId?: string | undefined;
+  onCanProceedChange?: ((canProceed: boolean) => void) | undefined;
 };
 
 export type StepActionBarRef = {
@@ -41,10 +44,13 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
       selectedStep,
       onSaveClick,
       annotationLoading,
+      currentSessionId,
+      onCanProceedChange,
     },
     ref
   ) => {
     const { state } = useBlogFlow();
+    const { getSavedFields } = useAnnotationStore();
 
     useImperativeHandle(ref, () => ({
       getCurrentStepInfo: () => ({
@@ -78,9 +84,41 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
     // Selectで過去のステップを選択している場合は情報を表示しない
     const isManualStepSelected = selectedStep !== null;
 
+    // 次に進むために必要なフィールドのチェック
+    const savedFields = currentSessionId ? getSavedFields(currentSessionId) : {};
+    const requiredFields = STEP_REQUIRED_FIELDS[nextStep || displayStep] || [];
+    const missingFields: string[] = [];
+
+    for (const field of requiredFields) {
+      if (!savedFields[field as keyof typeof savedFields]) {
+        missingFields.push(field);
+      }
+    }
+
+    const canProceed = missingFields.length === 0;
+    const fieldLabels: Record<string, string> = {
+      needs: 'ニーズ',
+      persona: 'デモグラ・ペルソナ',
+      goal: 'ゴール',
+      prep: 'PREP',
+      basic_structure: '基本構成',
+      opening_proposal: '書き出し案',
+    };
+    const missingLabels = missingFields.map(f => fieldLabels[f] || f).join('、');
+
+    // canProceed の変更を親コンポーネントに通知
+    useEffect(() => {
+      onCanProceedChange?.(canProceed);
+    }, [canProceed, onCanProceedChange]);
+
     return (
       <div className={`flex items-center gap-2 ${className ?? ''}`}>
-        {!isManualStepSelected && (
+        {!isManualStepSelected && !canProceed && (
+          <div className="text-xs px-3 py-1 rounded border border-orange-200 bg-orange-50 text-orange-700">
+            <span>⚠️ {missingLabels}を保存してから次のステップに進んでください</span>
+          </div>
+        )}
+        {!isManualStepSelected && canProceed && (
           <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
             <span>
               現在のステップ: {currentLabel}
@@ -94,11 +132,13 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
           onClick={() => onSaveClick?.()}
           disabled={isDisabled || !onSaveClick || annotationLoading}
           size="sm"
-          variant="outline"
-          className="flex items-center gap-1"
+          variant={!canProceed ? 'default' : 'outline'}
+          className={`flex items-center gap-1 ${!canProceed ? 'bg-orange-500 hover:bg-orange-600 text-white border-orange-500' : ''}`}
         >
           <BookMarked size={14} />
-          <span>{annotationLoading ? '読み込み中...' : '保存'}</span>
+          <span>
+            {annotationLoading ? '読み込み中...' : canProceed ? 'ブログ保存' : 'ブログ保存（必須）'}
+          </span>
         </Button>
         {availableSteps.length >= 2 && onStepChange && (
           <TooltipProvider>
