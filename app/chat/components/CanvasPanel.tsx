@@ -20,15 +20,10 @@ import { DOMSerializer } from 'prosemirror-model';
 import {
   X,
   ClipboardCheck,
-  FileDown,
   List,
-  Edit3,
-  Save,
-  RefreshCw,
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import type {
   CanvasSelectionEditPayload,
   CanvasSelectionEditResult,
@@ -101,10 +96,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const [outlineVisible, setOutlineVisible] = useState(false);
   const [headings, setHeadings] = useState<CanvasHeadingItem[]>([]);
 
-  // ✅ Claude web版Canvas同様の編集機能
-  const [isEditing, setIsEditing] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [lastSavedContent, setLastSavedContent] = useState('');
 
   // ✅ 選択範囲編集用のstate
   const [selectionState, setSelectionState] = useState<CanvasSelectionState | null>(null);
@@ -141,8 +132,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   // ✅ ボタンの参照を保持
   const markdownBtnRef = useRef<HTMLButtonElement>(null);
-  const downloadBtnRef = useRef<HTMLButtonElement>(null);
-  const saveBtnRef = useRef<HTMLButtonElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const selectionAnchorRef = useRef<{ top: number; left: number } | null>(null);
 
@@ -307,19 +296,12 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         multicolor: true,
       }),
       Placeholder.configure({
-        placeholder: 'ここでマークダウンを編集できます...',
+        placeholder: 'AIからの返信がここに表示されます...',
       }),
     ],
     content: '',
-    editable: isEditing, // 編集モード切り替え対応
+    editable: false,
     immediatelyRender: false,
-    onUpdate: ({ editor }) => {
-      // Claude web版同様のリアルタイム更新検知
-      const newContent = editor.getHTML();
-      if (newContent !== lastSavedContent) {
-        setHasUnsavedChanges(true);
-      }
-    },
   });
 
   // ✅ 選択範囲の監視（Canvas AI編集用）
@@ -473,8 +455,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         // 見出しIDは既に正しく設定されているため、この処理は不要
 
         editor.commands.setContent(htmlContent);
-        setLastSavedContent(htmlContent);
-        setHasUnsavedChanges(false);
       }
     }
   }, [editor, content, extractHeadings, generateHeadingId]);
@@ -496,19 +476,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     }
   }, [instruction, lastAiError]);
 
-  // ✅ Claude web版Canvas同様の編集機能
-  const handleToggleEdit = useCallback(() => {
-    if (isEditing && hasUnsavedChanges) {
-      // 未保存の変更がある場合の警告
-      const confirm = window.confirm('未保存の変更があります。編集を終了しますか？');
-      if (!confirm) return;
-    }
-
-    setIsEditing(!isEditing);
-    if (editor) {
-      editor.setEditable(!isEditing);
-    }
-  }, [isEditing, hasUnsavedChanges, editor]);
 
   // ✅ HTMLからマークダウンへの変換（Claude web版同様）
   const convertHtmlToMarkdown = useCallback((html: string): string => {
@@ -633,11 +600,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     setLastAiError(null);
 
     try {
-      if (!isEditing) {
-        setIsEditing(true);
-        editor.setEditable(true);
-      }
-
       const fullCanvasHtml = editor.getHTML();
       const fullCanvasMarkdown = convertHtmlToMarkdown(fullCanvasHtml);
       const selectionHtml = getSelectionHtml(selection).slice(0, 6000);
@@ -670,7 +632,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const html = editor.getHTML();
       const markdownFromHtml = convertHtmlToMarkdown(html);
       setMarkdownContent(markdownFromHtml);
-      setHasUnsavedChanges(true);
       const explanation = (result.explanation ?? '').trim();
       setLastAiExplanation(explanation || null);
       setLastAiError(null);
@@ -683,7 +644,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       selectionAnchorRef.current = null;
       const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
       domSelection?.removeAllRanges();
-      showBubble(saveBtnRef, '✨ AIで編集しました', 'text');
+      showBubble(markdownBtnRef, '✨ AIで編集しました', 'text');
     } catch (error) {
       console.error('Canvas selection edit failed:', error);
       const message =
@@ -698,33 +659,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     editor,
     getSelectionHtml,
     instruction,
-    isEditing,
     selectionAction,
     onSelectionEdit,
     showBubble,
   ]);
 
-  const handleSaveChanges = useCallback(() => {
-    if (editor) {
-      const currentContent = editor.getHTML();
-      setLastSavedContent(currentContent);
-      setHasUnsavedChanges(false);
-
-      // マークダウンに変換して保存
-      const markdownFromHtml = convertHtmlToMarkdown(currentContent);
-      setMarkdownContent(markdownFromHtml);
-
-      showBubble(saveBtnRef, '💾 変更を\n保存しました', 'markdown');
-    }
-  }, [editor, convertHtmlToMarkdown, showBubble]);
-
-  const handleRevertChanges = useCallback(() => {
-    if (editor && lastSavedContent) {
-      editor.commands.setContent(lastSavedContent);
-      setHasUnsavedChanges(false);
-      // 吹き出しは削除
-    }
-  }, [editor, lastSavedContent]);
 
   // ✅ 見出しクリック時のスクロール機能
   const handleHeadingClick = (headingId: string) => {
@@ -788,23 +727,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     }
   };
 
-  // ✅ マークダウンファイルとしてダウンロード（CSS吹き出しのみ）
-  const handleDownloadMarkdown = () => {
-    if (markdownContent) {
-      try {
-        const blob = new Blob([markdownContent], { type: 'text/markdown' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const fileName = `article-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.md`;
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error('ファイルダウンロードエラー:', error);
-      }
-    }
-  };
 
   if (!isVisible) return null;
 
@@ -892,52 +814,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         </div>
 
         <div className="flex gap-2">
-          {/* Claude web版Canvas同様の編集ボタン */}
-          <Button
-            size="sm"
-            variant={isEditing ? 'default' : 'outline'}
-            onClick={handleToggleEdit}
-            className={cn(
-              'px-3 py-1 text-xs transition-colors',
-              isEditing
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'hover:bg-blue-50 hover:border-blue-300'
-            )}
-            title={isEditing ? '編集を終了' : '編集を開始'}
-          >
-            <Edit3 size={14} className="mr-1" />
-            {isEditing ? '完了' : '編集'}
-          </Button>
-
-          {/* 編集モード時の保存・元に戻すボタン */}
-          {isEditing && (
-            <>
-              <Button
-                ref={saveBtnRef}
-                size="sm"
-                variant="default"
-                onClick={handleSaveChanges}
-                disabled={!hasUnsavedChanges}
-                className="bg-green-600 hover:bg-green-700 px-3 py-1 text-xs"
-                title="変更を保存"
-              >
-                <Save size={14} className="mr-1" />
-                保存
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRevertChanges}
-                disabled={!hasUnsavedChanges}
-                className="hover:bg-orange-50 hover:border-orange-300 px-3 py-1 text-xs"
-                title="変更を元に戻す"
-              >
-                <RefreshCw size={14} className="mr-1" />
-                元に戻す
-              </Button>
-            </>
-          )}
-
           <Button
             ref={markdownBtnRef}
             size="sm"
@@ -948,17 +824,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           >
             <ClipboardCheck size={14} className="mr-1" />
             コピー
-          </Button>
-          <Button
-            ref={downloadBtnRef}
-            size="sm"
-            variant="outline"
-            onClick={handleDownloadMarkdown}
-            className="hover:bg-purple-50 hover:border-purple-300 transition-colors px-3 py-1 text-xs"
-            title="マークダウンファイルをダウンロード"
-          >
-            <FileDown size={14} className="mr-1" />
-            .md
           </Button>
           <Button
             variant="ghost"
@@ -1088,46 +953,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           </div>
         )}
 
-        <div
-          className={cn(
-            'relative min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4 transition-all duration-300',
-            isEditing && [
-              'border border-dashed border-blue-300',
-              'bg-white',
-            ]
-          )}
-        >
+        <div className="relative min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4">
           <EditorContent
             editor={editor}
-            className={cn(
-              'prose prose-lg max-w-none transition-all duration-200',
-              // ChatGPT風の見出しスタイル
-              'prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8',
-              'prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6',
-              'prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5',
-              'prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4',
-              // 本文スタイル
-              'prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4',
-              // リストスタイル（ChatGPT風）
-              'prose-ul:space-y-2 prose-li:text-gray-700',
-              'prose-ol:space-y-2',
-              // 強調とリンク
-              'prose-strong:text-gray-900 prose-strong:font-semibold',
-              'prose-em:text-gray-600 prose-em:italic',
-              'prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline',
-              // コードとプリフォーマット
-              'prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono',
-              'prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4',
-              // 引用
-              'prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600',
-              // テーブル
-              'prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2',
-              // 編集モード時のスタイル
-              isEditing && [
-                'focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-50',
-                'min-h-96',
-              ]
-            )}
+            className="prose prose-lg max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2"
             style={{
               // ChatGPT風の追加スタイル
               lineHeight: '1.7',
@@ -1152,24 +981,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             </div>
           )}
 
-          {/* 編集モード時のヘルプテキスト */}
-          {isEditing && (
-            <div className="mt-6 rounded border border-gray-200 bg-gray-50 px-3 py-3 text-xs text-gray-600">
-              <p className="mb-2 font-medium text-gray-700">編集のヒント</p>
-              <div className="space-y-1">
-                <p># 見出し、## 小見出し で構造を調整できます</p>
-                <p>**強調** や *斜体* を使って重要な部分を目立たせましょう</p>
-                <p>- リスト や 1. 番号付き で要点を整理できます</p>
-              </div>
-            </div>
-          )}
-
-          {/* 未保存の変更通知 */}
-          {hasUnsavedChanges && (
-            <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-sm text-orange-700">
-              ⚠️ 未保存の変更があります
-            </div>
-          )}
         </div>
       </div>
 

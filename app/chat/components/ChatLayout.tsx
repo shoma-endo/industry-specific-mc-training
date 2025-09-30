@@ -748,7 +748,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const isImprove = payload.action === 'improve';
         const systemPromptOverride = isImprove
           ? [
-              '# ユーザーの指示に基づいて以下の内容を修正してください。省略しないで全文を必ず出してください。',
+              '# ユーザーの指示に基づいて以下の内容を修正してください。**省略しないで必ず全文を出してください。**',
               payload.canvasMarkdown,
             ]
               .filter(Boolean)
