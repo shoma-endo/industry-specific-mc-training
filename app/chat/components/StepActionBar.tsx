@@ -85,17 +85,20 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
     const isManualStepSelected = selectedStep !== null;
 
     // 次に進むために必要なフィールドのチェック
+    // ただし、手動でステップを選択した場合はチェックをバイパス
     const savedFields = currentSessionId ? getSavedFields(currentSessionId) : {};
     const requiredFields = STEP_REQUIRED_FIELDS[nextStep || displayStep] || [];
     const missingFields: string[] = [];
 
-    for (const field of requiredFields) {
-      if (!savedFields[field as keyof typeof savedFields]) {
-        missingFields.push(field);
+    if (!isManualStepSelected) {
+      for (const field of requiredFields) {
+        if (!savedFields[field as keyof typeof savedFields]) {
+          missingFields.push(field);
+        }
       }
     }
 
-    const canProceed = missingFields.length === 0;
+    const canProceed = isManualStepSelected || missingFields.length === 0;
     const fieldLabels: Record<string, string> = {
       needs: 'ニーズ',
       persona: 'デモグラ・ペルソナ',
