@@ -150,35 +150,6 @@ export const BLOG_STEP_LABELS: Record<BlogStepId, string> = {
 export const isStep7 = (stepOrModel: string) =>
   stepOrModel === 'step7' || stepOrModel === 'blog_creation_step7';
 
-// UI向けヒント/詳細/プレースホルダー（集中定義）
-export const BLOG_HINTS_SHORT: Record<string, string> = {
-  blog_creation: '変数: なし（ステップ選択式）',
-  blog_creation_step1: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
-  blog_creation_step2: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
-  blog_creation_step3: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
-  blog_creation_step4: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
-  blog_creation_step5: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
-  blog_creation_step6: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成',
-  blog_creation_step7: '変数: ニーズ/ペルソナ/ゴール/PREP/基本構成 + コンテンツURL一覧',
-};
-
-export const BLOG_HINTS_DETAIL: Record<string, string> = {
-  blog_creation: '8ステップのブログ作成フローを、セカンダリのセレクトで選択して進めます。',
-  blog_creation_step1:
-    'Step1: 顕在/潜在ニーズ。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
-  blog_creation_step2:
-    'Step2: ペルソナ・デモグラ。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
-  blog_creation_step3:
-    'Step3: ユーザーのゴール。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
-  blog_creation_step4:
-    'Step4: PREP確認。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
-  blog_creation_step5:
-    'Step5: 構成案確認。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
-  blog_creation_step6:
-    'Step6: 書き出し案。contentNeeds, contentPersona, contentGoal, contentPrep, contentBasicStructure を利用可能。',
-  blog_creation_step7: 'Step7: 本文作成。上記に加え canonicalUrls（内部リンク候補）も利用可能。',
-};
-
 export const BLOG_PLACEHOLDERS: Record<string, string> = {
   blog_creation_step1: '顕在/潜在ニーズの内容を入力してください',
   blog_creation_step2: '想定ペルソナ/デモグラの内容を入力してください',
