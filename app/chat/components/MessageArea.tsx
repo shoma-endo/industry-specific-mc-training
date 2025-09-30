@@ -14,7 +14,7 @@ interface MessageAreaProps {
   blogFlowActive?: boolean;
   blogFlowState?: BlogFlowState;
   onStartBlogFlow?: () => void;
-  onOpenCanvas?: (content: string) => void;
+  onOpenCanvas?: (message: ChatMessage) => void;
 }
 
 const MessageArea: React.FC<MessageAreaProps> = ({
@@ -273,7 +273,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => onOpenCanvas(message.content)}
+                        onClick={() => onOpenCanvas(message)}
                         className={cn(
                           'absolute -top-2 -right-2 z-10 opacity-90 hover:opacity-100 transition-all duration-200 flex items-center gap-1 text-xs px-2 py-1 h-7 bg-white text-gray-600 hover:bg-gray-50 border-gray-300 shadow-sm'
                         )}

@@ -24,6 +24,13 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type {
   CanvasSelectionEditPayload,
   CanvasSelectionEditResult,
@@ -33,11 +40,30 @@ import type {
   CanvasSelectionAction,
 } from '@/types/canvas';
 
+type CanvasVersionOption = {
+  id: string;
+  content: string;
+  versionNumber: number;
+  isLatest?: boolean;
+  raw?: string;
+};
+
+type CanvasStepOption = {
+  id: string;
+  label: string;
+};
+
 interface CanvasPanelProps {
   onClose: () => void;
   content?: string; // AIからの返信内容
   isVisible?: boolean;
   onSelectionEdit?: (payload: CanvasSelectionEditPayload) => Promise<CanvasSelectionEditResult>;
+  versions?: CanvasVersionOption[];
+  activeVersionId?: string | null;
+  onVersionSelect?: (versionId: string) => void;
+  stepOptions?: CanvasStepOption[];
+  activeStepId?: string | null;
+  onStepSelect?: (stepId: string) => void;
 }
 
 const lowlight = createLowlight();
@@ -83,6 +109,12 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   content = '',
   isVisible = true,
   onSelectionEdit,
+  versions = [],
+  activeVersionId,
+  onVersionSelect,
+  stepOptions = [],
+  activeStepId,
+  onStepSelect,
 }) => {
   const [markdownContent, setMarkdownContent] = useState('');
   const [bubble, setBubble] = useState<CanvasBubbleState>({
@@ -116,6 +148,20 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     const trimmed = activeSelection.text.replace(/\s+/g, ' ').trim();
     return trimmed.length > 120 ? `${trimmed.slice(0, 120)}…` : trimmed;
   }, [activeSelection]);
+
+  const orderedVersions = useMemo(() => {
+    if (!versions.length) return [] as CanvasVersionOption[];
+    return [...versions].sort((a, b) => b.versionNumber - a.versionNumber);
+  }, [versions]);
+
+  const currentVersion = useMemo(() => {
+    if (!versions.length) return null;
+    return versions.find(version => version.id === activeVersionId) ?? versions[versions.length - 1];
+  }, [versions, activeVersionId]);
+
+  const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
+
+  const hasStepOptions = stepOptions.length > 0;
 
   // ✅ リサイザー機能のためのstate
   const [canvasWidth, setCanvasWidth] = useState(() => {
@@ -792,9 +838,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <h3 className="text-lg font-semibold text-gray-800">Canvas</h3>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-              マークダウン記事
-            </span>
           </div>
           {headings.length > 0 && (
             <Button
@@ -813,7 +856,53 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {hasStepOptions && (
+            <Select
+              value={activeStepId ?? stepOptions[stepOptions.length - 1]?.id ?? ''}
+              onValueChange={value => onStepSelect?.(value)}
+              disabled={!onStepSelect}
+            >
+              <SelectTrigger
+                size="sm"
+                className="min-w-[180px] max-w-[260px] text-xs font-semibold [&_[data-slot=select-value]]:sr-only"
+              >
+                <SelectValue placeholder="ステップ選択" />
+                <span className="flex-1 text-left truncate">
+                  {stepOptions.find(option => option.id === activeStepId)?.label ?? 'ステップ'}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {stepOptions.map(option => (
+                  <SelectItem key={option.id} value={option.id} className="text-xs">
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {orderedVersions.length > 0 && (
+            <Select
+              value={activeVersionId ?? orderedVersions[orderedVersions.length - 1]?.id ?? ''}
+              onValueChange={value => onVersionSelect?.(value)}
+              disabled={!onVersionSelect}
+            >
+              <SelectTrigger
+                size="sm"
+                className="w-[84px] text-xs font-semibold [&_[data-slot=select-value]]:sr-only"
+              >
+                <SelectValue placeholder="バージョン選択" />
+                <span className="flex-1 text-left truncate">{versionTriggerLabel}</span>
+              </SelectTrigger>
+              <SelectContent>
+                {orderedVersions.map(option => (
+                  <SelectItem key={option.id} value={option.id} className="text-xs">
+                    {`バージョン${option.versionNumber}${option.isLatest ? ' - 最新' : ''}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button
             ref={markdownBtnRef}
             size="sm"

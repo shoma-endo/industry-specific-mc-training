@@ -19,7 +19,7 @@ import AnnotationPanel from './AnnotationPanel';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
-import { BlogStepId, BLOG_STEP_IDS, BLOG_PLACEHOLDERS } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_IDS, BLOG_PLACEHOLDERS, BLOG_STEP_LABELS } from '@/lib/constants';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -92,17 +92,6 @@ const ErrorAlert: React.FC<{ error: string; onClose?: () => void }> = ({ error, 
   </div>
 );
 
-// ✅ 最新のAIメッセージを取得する関数
-const getLatestAIMessage = (messages: ChatMessage[]) => {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (message && message.role === 'assistant') {
-      return message.content;
-    }
-  }
-  return '';
-};
-
 const BLOG_MODEL_PREFIX = 'blog_creation_';
 
 const isBlogStepId = (value: string): value is BlogStepId =>
@@ -124,6 +113,101 @@ const findLatestAssistantBlogStep = (messages: ChatMessage[]): BlogStepId | null
   return null;
 };
 
+type BlogCanvasVersion = {
+  id: string;
+  content: string;
+  raw: string;
+  step: BlogStepId;
+  model?: string;
+  createdAt: number;
+};
+
+type StepVersionsMap = Record<BlogStepId, BlogCanvasVersion[]>;
+
+type CanvasStructuredContent = {
+  markdown?: string;
+  html?: string;
+};
+
+const extractCanvasStructuredContent = (raw: string): CanvasStructuredContent | null => {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)```/i);
+  const jsonCandidate = (fencedMatch?.[1] ?? trimmed).trim();
+  const start = jsonCandidate.indexOf('{');
+  const end = jsonCandidate.lastIndexOf('}');
+
+  if (start === -1 || end === -1 || end <= start) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(jsonCandidate.slice(start, end + 1));
+    const markdownCandidate =
+      parsed.markdown ?? parsed.full_markdown ?? parsed.canvas_markdown ?? null;
+    const htmlCandidate =
+      parsed.replacement_html ?? parsed.replacement ?? parsed.full_html ?? parsed.html ?? null;
+
+    const result: CanvasStructuredContent = {};
+
+    if (typeof markdownCandidate === 'string' && markdownCandidate.trim().length > 0) {
+      result.markdown = markdownCandidate.trim();
+    }
+
+    if (typeof htmlCandidate === 'string' && htmlCandidate.trim().length > 0) {
+      result.html = htmlCandidate.trim();
+    }
+
+    return Object.keys(result).length > 0 ? result : null;
+  } catch (error) {
+    console.warn('Failed to parse canvas version JSON:', error);
+  }
+
+  return null;
+};
+
+const htmlToMarkdownForCanvas = (html: string): string => {
+  return html
+    .replace(/<h1[^>]*>(.*?)<\/h1>/g, '# $1')
+    .replace(/<h2[^>]*>(.*?)<\/h2>/g, '## $1')
+    .replace(/<h3[^>]*>(.*?)<\/h3>/g, '### $1')
+    .replace(/<h4[^>]*>(.*?)<\/h4>/g, '#### $1')
+    .replace(/<h5[^>]*>(.*?)<\/h5>/g, '##### $1')
+    .replace(/<h6[^>]*>(.*?)<\/h6>/g, '###### $1')
+    .replace(/<strong[^>]*>(.*?)<\/strong>/g, '**$1**')
+    .replace(/<em[^>]*>(.*?)<\/em>/g, '*$1*')
+    .replace(/<code[^>]*>(.*?)<\/code>/g, '`$1`')
+    .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```')
+    .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/g, (match, content) => {
+      return content.replace(/<li[^>]*>(.*?)<\/li>/g, '- $1\n');
+    })
+    .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/g, (match, content) => {
+      let counter = 1;
+      return content.replace(/<li[^>]*>(.*?)<\/li>/g, () => `${counter++}. $1\n`);
+    })
+    .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
+    .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/g, '![$2]($1)')
+    .replace(/<br\s*\/?>/g, '\n')
+    .replace(/<p[^>]*>(.*?)<\/p>/g, '$1\n\n')
+    .replace(/\n\n+/g, '\n\n')
+    .trim();
+};
+
+const normalizeCanvasContent = (raw: string): string => {
+  if (!raw) return '';
+  const structured = extractCanvasStructuredContent(raw);
+  if (!structured) {
+    return raw;
+  }
+  if (structured.markdown) {
+    return structured.markdown;
+  }
+  if (structured.html) {
+    return htmlToMarkdownForCanvas(structured.html);
+  }
+  return raw;
+};
+
 // 自動開始は行わず、明示ボタンで開始する
 type ChatLayoutCtx = {
   chatSession: ChatSessionHook;
@@ -137,7 +221,7 @@ type ChatLayoutCtx = {
   stepActionBarRef: React.RefObject<StepActionBarRef | null>;
   ui: {
     sidebar: { open: boolean; setOpen: (open: boolean) => void };
-    canvas: { open: boolean; show: (content: string) => void };
+    canvas: { open: boolean; show: (message: ChatMessage) => void };
     annotation: {
       open: boolean;
       loading: boolean;
@@ -149,7 +233,7 @@ type ChatLayoutCtx = {
         needs?: string;
         goal?: string;
       } | null;
-      openWith: (content: string) => void;
+      openWith: () => void;
       setOpen: (open: boolean) => void;
     };
   };
@@ -267,7 +351,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onStepChange={handleStepChange}
           selectedStep={manualSelectedStep}
           onRevisionClick={handleRevisionClick}
-          onSaveClick={() => ui.annotation.openWith(message.content)}
+          onSaveClick={() => ui.annotation.openWith()}
           annotationLoading={ui.annotation.loading}
         />
       );
@@ -328,7 +412,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => ui.annotation.openWith('')}
+            onClick={() => ui.annotation.openWith()}
             disabled={!chatSession.state.currentSessionId || ui.annotation.loading}
           >
             {ui.annotation.loading ? '読み込み中...' : 'メモ編集'}
@@ -357,7 +441,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           isLoading={chatSession.state.isLoading}
           renderAfterMessage={renderAfterMessage}
           blogFlowActive={effectiveBlogFlowActive}
-          onOpenCanvas={content => ui.canvas.show(content)}
+          onOpenCanvas={message => ui.canvas.show(message)}
         />
 
         <InputArea
@@ -421,12 +505,18 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   } | null>(null);
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [canvasContent, setCanvasContent] = useState('');
+  const [canvasStep, setCanvasStep] = useState<BlogStepId | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>(
     'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
   );
   const [, setSelectedBlogStep] = useState<BlogStepId>('step1');
   const [manualSelectedStep, setManualSelectedStep] = useState<BlogStepId | null>(null);
+  const [selectedVersionByStep, setSelectedVersionByStep] = useState<
+    Partial<Record<BlogStepId, string | null>>
+  >({});
+  const [followLatestByStep, setFollowLatestByStep] = useState<
+    Partial<Record<BlogStepId, boolean>>
+  >({});
   const [placeholderOverride, setPlaceholderOverride] = useState<string>('');
   const [nextStepForPlaceholder, setNextStepForPlaceholder] = useState<BlogStepId | null>(null);
   const latestBlogStep = useMemo(
@@ -448,6 +538,163 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     if (latestIndex === -1) return [];
     return BLOG_STEP_IDS.slice(0, latestIndex + 1);
   }, [latestBlogStep]);
+
+  const blogCanvasVersionsByStep = useMemo<StepVersionsMap>(() => {
+    const initialMap = BLOG_STEP_IDS.reduce((acc, step) => {
+      acc[step] = [] as BlogCanvasVersion[];
+      return acc;
+    }, {} as StepVersionsMap);
+
+    (chatSession.state.messages ?? []).forEach(message => {
+      if (!message || message.role !== 'assistant') return;
+      const step = extractBlogStepFromModel(message.model);
+      if (!step) return;
+
+      const normalizedContent = normalizeCanvasContent(message.content);
+      const version: BlogCanvasVersion = {
+        id: message.id,
+        content: normalizedContent,
+        raw: message.content,
+        step,
+        createdAt: message.timestamp ? message.timestamp.getTime() : 0,
+      };
+
+      if (message.model) {
+        version.model = message.model;
+      }
+
+      initialMap[step].push(version);
+    });
+
+    BLOG_STEP_IDS.forEach(step => {
+      initialMap[step].sort((a, b) => {
+        if (a.createdAt !== b.createdAt) {
+          return a.createdAt - b.createdAt;
+        }
+        return a.id.localeCompare(b.id);
+      });
+    });
+
+    return initialMap;
+  }, [chatSession.state.messages]);
+
+  useEffect(() => {
+    const selectionUpdates: Partial<Record<BlogStepId, string | null>> = {};
+    const followUpdates: Partial<Record<BlogStepId, boolean>> = {};
+    let selectionChanged = false;
+    let followChanged = false;
+
+    BLOG_STEP_IDS.forEach(step => {
+      const versions = blogCanvasVersionsByStep[step] ?? [];
+      const latestId = versions.length ? versions[versions.length - 1]?.id ?? null : null;
+      const currentSelection = selectedVersionByStep[step] ?? null;
+      const followLatest = followLatestByStep[step] !== false;
+      const currentExists =
+        currentSelection !== null && versions.some(version => version.id === currentSelection);
+
+      if (!versions.length) {
+        if (currentSelection !== null) {
+          selectionUpdates[step] = null;
+          selectionChanged = true;
+        }
+        if (
+          followLatestByStep[step] !== undefined &&
+          followLatestByStep[step] !== true
+        ) {
+          followUpdates[step] = true;
+          followChanged = true;
+        }
+        return;
+      }
+
+      if (!currentExists) {
+        if (latestId) {
+          selectionUpdates[step] = latestId;
+          selectionChanged = true;
+        }
+        if (followLatestByStep[step] !== true) {
+          followUpdates[step] = true;
+          followChanged = true;
+        }
+        return;
+      }
+
+      if (followLatest && latestId && currentSelection !== latestId) {
+        selectionUpdates[step] = latestId;
+        selectionChanged = true;
+      }
+    });
+
+    if (selectionChanged) {
+      setSelectedVersionByStep(prev => {
+        const next = { ...prev };
+        BLOG_STEP_IDS.forEach(step => {
+          if (Object.prototype.hasOwnProperty.call(selectionUpdates, step)) {
+            next[step] = selectionUpdates[step] ?? null;
+          }
+        });
+        return next;
+      });
+    }
+
+    if (followChanged) {
+      setFollowLatestByStep(prev => {
+        const next = { ...prev };
+        BLOG_STEP_IDS.forEach(step => {
+          if (Object.prototype.hasOwnProperty.call(followUpdates, step)) {
+            next[step] = followUpdates[step] ?? true;
+          }
+        });
+        return next;
+      });
+    }
+  }, [blogCanvasVersionsByStep, selectedVersionByStep, followLatestByStep]);
+
+  const resolvedCanvasStep = useMemo<BlogStepId | null>(() => {
+    if (canvasStep) return canvasStep;
+    if (manualSelectedStep) return manualSelectedStep;
+    if (latestBlogStep) return latestBlogStep;
+    return null;
+  }, [canvasStep, manualSelectedStep, latestBlogStep]);
+
+  const canvasVersionsForStep = useMemo<BlogCanvasVersion[]>(() => {
+    if (!resolvedCanvasStep) return [];
+    return blogCanvasVersionsByStep[resolvedCanvasStep] ?? [];
+  }, [blogCanvasVersionsByStep, resolvedCanvasStep]);
+
+  const activeVersionId = resolvedCanvasStep
+    ? selectedVersionByStep[resolvedCanvasStep] ?? null
+    : null;
+
+  const activeCanvasVersion = useMemo(() => {
+    if (!resolvedCanvasStep) return null;
+    const versions = blogCanvasVersionsByStep[resolvedCanvasStep] ?? [];
+    if (!versions.length) return null;
+    if (activeVersionId) {
+      const matched = versions.find(version => version.id === activeVersionId);
+      if (matched) return matched;
+    }
+    return versions[versions.length - 1];
+  }, [resolvedCanvasStep, activeVersionId, blogCanvasVersionsByStep]);
+
+  const canvasContent = activeCanvasVersion?.content ?? '';
+
+  const canvasVersionsWithMeta = useMemo(() => {
+    return canvasVersionsForStep.map((version, index) => ({
+      ...version,
+      versionNumber: index + 1,
+      isLatest: index === canvasVersionsForStep.length - 1,
+    }));
+  }, [canvasVersionsForStep]);
+
+  const canvasStepOptions = useMemo(
+    () =>
+      BLOG_STEP_IDS.filter(step => (blogCanvasVersionsByStep[step] ?? []).length > 0).map(step => ({
+        id: step,
+        label: BLOG_STEP_LABELS[step] ?? step,
+      })),
+    [blogCanvasVersionsByStep]
+  );
 
   // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
 
@@ -598,9 +845,23 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setAnnotationData(null);
     }
 
-    // 最新のAIメッセージを取得してCanvasパネルを開く
-    const latestAIMessage = getLatestAIMessage(chatSession.state.messages);
-    setCanvasContent(latestAIMessage);
+    const fallbackStep = (manualSelectedStep ?? latestBlogStep ?? BLOG_STEP_IDS[0]) as BlogStepId;
+    const versions = blogCanvasVersionsByStep[fallbackStep] ?? [];
+    const latestVersionId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
+
+    setCanvasStep(fallbackStep);
+    if (latestVersionId) {
+      setSelectedVersionByStep(prev => {
+        const next = { ...prev };
+        next[fallbackStep] = latestVersionId;
+        return next;
+      });
+    }
+    setFollowLatestByStep(prev => {
+      const next = { ...prev };
+      next[fallbackStep] = true;
+      return next;
+    });
     setCanvasPanelOpen(true);
     setIsManualEdit(true);
   };
@@ -608,6 +869,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const closeCanvas = () => {
     setCanvasPanelOpen(false);
     setIsManualEdit(false);
+    setCanvasStep(null);
   };
 
   // BlogFlow起動ガード（モデル選択と連動）
@@ -617,21 +879,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     selectedModel === 'blog_creation';
 
   // ✅ 手動編集フラグを追加
-  const [isManualEdit, setIsManualEdit] = useState(false);
-
-  // ✅ AIの返信を監視してCanvasに自動反映（手動編集時は除く、自動で開かない）
-  useEffect(() => {
-    // 手動編集中は自動更新をスキップ
-    if (isManualEdit) return;
-
-    const messages = chatSession.state.messages;
-    const latestAIMessage = getLatestAIMessage(messages);
-
-    if (latestAIMessage && latestAIMessage !== canvasContent) {
-      setCanvasContent(latestAIMessage);
-      // ✅ AIの返信があっても自動でCanvasを開かない（ユーザーがホバー→クリックした時のみ開く）
-    }
-  }, [chatSession.state.messages, canvasContent, isManualEdit]);
+  const [, setIsManualEdit] = useState(false);
 
   // ✅ セッション切り替え時にパネルを自動的に閉じる
   useEffect(() => {
@@ -640,6 +888,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setAnnotationData(null);
     setAnnotationLoading(false);
     setIsManualEdit(false);
+    setCanvasStep(null);
+    setSelectedVersionByStep({});
+    setFollowLatestByStep({});
     setManualSelectedStep(null);
     setPlaceholderOverride('');
     setNextStepForPlaceholder(null);
@@ -663,27 +914,43 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   };
 
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
-  const handleShowCanvas = (content: string) => {
-    setCanvasContent(content);
-    setIsManualEdit(true); // 手動編集フラグを立てて自動更新をスキップ
+  const handleShowCanvas = useCallback(
+    (message: ChatMessage) => {
+      const fallbackStep = (manualSelectedStep ?? latestBlogStep ?? BLOG_STEP_IDS[0]) as BlogStepId;
+      const detectedStep = (extractBlogStepFromModel(message.model) ?? fallbackStep) as BlogStepId;
+      const versions = blogCanvasVersionsByStep[detectedStep] ?? [];
+      const latestVersionId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
+      const hasExactMatch = versions.some(version => version.id === message.id);
+      const targetVersionId = hasExactMatch ? message.id : latestVersionId;
 
-    // Annotationパネルが開いている場合は同時に切り替え
-    if (annotationOpen) {
-      setAnnotationOpen(false);
-      setAnnotationData(null);
-    }
-    setCanvasPanelOpen(true);
-  };
+      setCanvasStep(detectedStep);
+      setSelectedVersionByStep(prev => {
+        const next = { ...prev };
+        next[detectedStep] = targetVersionId ?? null;
+        return next;
+      });
+      setFollowLatestByStep(prev => {
+        const next = { ...prev };
+        next[detectedStep] = targetVersionId !== null && targetVersionId === latestVersionId;
+        return next;
+      });
+      setIsManualEdit(true);
+
+      if (annotationOpen) {
+        setAnnotationOpen(false);
+        setAnnotationData(null);
+      }
+      setCanvasPanelOpen(true);
+    },
+    [annotationOpen, blogCanvasVersionsByStep, latestBlogStep, manualSelectedStep, setIsManualEdit]
+  );
 
   // ✅ 保存ボタンクリック時にAnnotationPanelを表示する関数
-  const handleOpenAnnotation = async (content: string) => {
+  const handleOpenAnnotation = async () => {
     if (!chatSession.state.currentSessionId) return;
 
     setAnnotationLoading(true);
     try {
-      // 最新AIメッセージをデフォルトHTMLコンテンツとして設定
-      setCanvasContent(content);
-
       // データベースから既存のアノテーションデータを取得
       const res = await getContentAnnotationBySession(chatSession.state.currentSessionId);
       if (res.success && res.data) {
@@ -715,6 +982,65 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   };
 
+  const handleCanvasVersionSelect = useCallback(
+    (versionId: string) => {
+      const step = resolvedCanvasStep;
+      if (!step) return;
+      const versions = blogCanvasVersionsByStep[step] ?? [];
+      const latestId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
+
+      setSelectedVersionByStep(prev => {
+        const next = { ...prev };
+        next[step] = versionId;
+        return next;
+      });
+      setFollowLatestByStep(prev => {
+        const next = { ...prev };
+        next[step] = latestId !== null && versionId === latestId;
+        return next;
+      });
+      setIsManualEdit(true);
+    },
+    [blogCanvasVersionsByStep, resolvedCanvasStep, setIsManualEdit]
+  );
+
+  const handleCanvasStepChange = useCallback(
+    (step: BlogStepId) => {
+      const versions = blogCanvasVersionsByStep[step] ?? [];
+      const latestId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
+
+      setCanvasStep(step);
+      setSelectedVersionByStep(prev => {
+        const next = { ...prev };
+        const current = next[step];
+        const exists = current ? versions.some(version => version.id === current) : false;
+        if (!exists) {
+          next[step] = latestId ?? null;
+        }
+        return next;
+      });
+      setFollowLatestByStep(prev => {
+        const next = { ...prev };
+        if (latestId && (next[step] === undefined || next[step])) {
+          next[step] = true;
+        } else if (next[step] === undefined) {
+          next[step] = false;
+        }
+        return next;
+      });
+      setIsManualEdit(true);
+    },
+    [blogCanvasVersionsByStep, setIsManualEdit]
+  );
+
+  const handleCanvasStepSelect = useCallback(
+    (stepId: string) => {
+      if (!isBlogStepId(stepId)) return;
+      handleCanvasStepChange(stepId);
+    },
+    [handleCanvasStepChange]
+  );
+
   const handleCanvasSelectionEdit = useCallback(
     async (payload: CanvasSelectionEditPayload): Promise<CanvasSelectionEditResult> => {
       if (canvasEditInFlightRef.current) {
@@ -725,7 +1051,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setIsManualEdit(true);
 
       try {
-        const beforeMessages = (chatStateRef.current.messages ?? []).filter(
+        const beforeMessages = (chatStateRef.current?.messages ?? []).filter(
           message => message.role === 'assistant'
         );
         const prevLastId = beforeMessages[beforeMessages.length - 1]?.id;
@@ -768,7 +1094,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const newMessageId = await waitForNewAssistantMessage(
           prevLastId,
           prevCount,
-          () => chatStateRef.current.messages ?? [],
+          () => chatStateRef.current?.messages ?? [],
           20000,
           150
         );
@@ -777,7 +1103,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           throw new Error('AIからの応答がタイムアウトしました');
         }
 
-        const assistantMessages = (chatStateRef.current.messages ?? []).filter(
+        const assistantMessages = (chatStateRef.current?.messages ?? []).filter(
           message => message.role === 'assistant'
         );
         const targetMessage = assistantMessages.find(message => message.id === newMessageId);
@@ -858,6 +1184,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             content={canvasContent}
             isVisible={canvasPanelOpen}
             onSelectionEdit={handleCanvasSelectionEdit}
+            versions={canvasVersionsWithMeta}
+            activeVersionId={activeCanvasVersion?.id ?? null}
+            onVersionSelect={handleCanvasVersionSelect}
+            stepOptions={canvasStepOptions}
+            activeStepId={resolvedCanvasStep ?? null}
+            onStepSelect={handleCanvasStepSelect}
           />
         )}
       </div>
