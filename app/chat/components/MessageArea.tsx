@@ -23,7 +23,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   messages,
   isLoading,
   renderAfterMessage,
-  onOpenCanvas
+  onOpenCanvas,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -73,9 +73,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         const [fullMatch, label, href] = match;
         const start = match.index;
         if (start > cursor) {
-          nodes.push(
-            <span key={`text-${lineIndex}-${cursor}`}>{line.slice(cursor, start)}</span>
-          );
+          nodes.push(<span key={`text-${lineIndex}-${cursor}`}>{line.slice(cursor, start)}</span>);
         }
         nodes.push(
           <a
@@ -128,9 +126,7 @@ const MessageArea: React.FC<MessageAreaProps> = ({
           );
 
           if (trailing) {
-            nodes.push(
-              <span key={`trail-${lineIndex}-${cursor + end}`}>{trailing}</span>
-            );
+            nodes.push(<span key={`trail-${lineIndex}-${cursor + end}`}>{trailing}</span>);
           }
 
           rawCursor = end;
@@ -272,7 +268,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
         <>
           {messages.map((message, index) => {
             const blogPreviewMeta = isBlogMessage(message) ? derivePreviewMeta(message) : null;
-            const openHandler = blogPreviewMeta && onOpenCanvas ? () => onOpenCanvas(message) : null;
+            const openHandler =
+              blogPreviewMeta && onOpenCanvas ? () => onOpenCanvas(message) : null;
 
             return (
               <React.Fragment key={message.id || index}>
@@ -294,8 +291,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
                         message.role === 'user'
                           ? 'bg-[#06c755] text-white p-3'
                           : blogPreviewMeta
-                          ? 'bg-transparent text-gray-800 p-0'
-                          : 'bg-white text-gray-800 border border-gray-100 p-3'
+                            ? 'bg-transparent text-gray-800 p-0'
+                            : 'bg-white text-gray-800 border border-gray-100 p-3'
                       )}
                     >
                       {blogPreviewMeta ? (

@@ -17,12 +17,7 @@ import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight } from 'lowlight';
 import { DOMSerializer } from 'prosemirror-model';
-import {
-  X,
-  ClipboardCheck,
-  List,
-  Loader2,
-} from 'lucide-react';
+import { X, ClipboardCheck, List, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -128,7 +123,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const [outlineVisible, setOutlineVisible] = useState(false);
   const [headings, setHeadings] = useState<CanvasHeadingItem[]>([]);
 
-
   // ✅ 選択範囲編集用のstate
   const [selectionState, setSelectionState] = useState<CanvasSelectionState | null>(null);
   const selectionSnapshotRef = useRef<CanvasSelectionState | null>(null);
@@ -136,7 +130,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const [isApplyingSelectionEdit, setIsApplyingSelectionEdit] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'menu' | 'input' | null>(null);
   const [selectionAction, setSelectionAction] = useState<CanvasSelectionAction | null>(null);
-  const [selectionMenuPosition, setSelectionMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [selectionMenuPosition, setSelectionMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [lastAiExplanation, setLastAiExplanation] = useState<string | null>(null);
   const [lastAiError, setLastAiError] = useState<string | null>(null);
   const activeSelection = useMemo(
@@ -156,7 +153,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   const currentVersion = useMemo(() => {
     if (!versions.length) return null;
-    return versions.find(version => version.id === activeVersionId) ?? versions[versions.length - 1];
+    return (
+      versions.find(version => version.id === activeVersionId) ?? versions[versions.length - 1]
+    );
   }, [versions, activeVersionId]);
 
   const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
@@ -443,24 +442,24 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         // ✅ 見出しIDの一貫性を保つために、行インデックスを使用してHTMLに変換
         const lines = markdown.split('\n');
         let htmlContent = markdown;
-        
+
         // 見出し処理をインデックス付きで実行
         lines.forEach((line, index) => {
           const trimmed = line.trim();
           const match = trimmed.match(/^(#{1,6})\s+(.+)$/);
-          
+
           if (match && match[1] && match[2]) {
             const level = match[1].length;
             const text = match[2];
             const id = `heading-${index}-${generateHeadingId(text)}`;
             const tagName = `h${level}`;
             const replacement = `<${tagName} id="${id}">${text}</${tagName}>`;
-            
+
             // 元の行を置換
             htmlContent = htmlContent.replace(line, replacement);
           }
         });
-        
+
         // その他のマークダウン要素を処理
         htmlContent = htmlContent
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -522,7 +521,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     }
   }, [instruction, lastAiError]);
 
-
   // ✅ HTMLからマークダウンへの変換（Claude web版同様）
   const convertHtmlToMarkdown = useCallback((html: string): string => {
     return html
@@ -578,8 +576,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     ) => {
       if (buttonRef.current) {
         const rect = buttonRef.current.getBoundingClientRect();
-        const containerRect =
-          buttonRef.current.closest('.canvas-panel')?.getBoundingClientRect();
+        const containerRect = buttonRef.current.closest('.canvas-panel')?.getBoundingClientRect();
 
         if (containerRect) {
           // コンテナ内での相対位置を計算
@@ -657,7 +654,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           ? [selectionPrompt, trimmedInstruction].filter(Boolean).join('\n\n')
           : trimmedInstruction;
 
-      const result = await onSelectionEdit({
+      await onSelectionEdit({
         instruction: combinedInstruction,
         selectedText: selection.text,
         selectedHtml: selectionHtml,
@@ -665,21 +662,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         action: selectionAction,
       });
 
-      if (!result || !result.replacementHtml) {
-        throw new Error('AIの応答に replacementHtml が含まれていません');
-      }
-
-      editor
-        .chain()
-        .focus()
-        .insertContentAt({ from: selection.from, to: selection.to }, result.replacementHtml)
-        .run();
-
-      const html = editor.getHTML();
-      const markdownFromHtml = convertHtmlToMarkdown(html);
-      setMarkdownContent(markdownFromHtml);
-      const explanation = (result.explanation ?? '').trim();
-      setLastAiExplanation(explanation || null);
+      // ✅ ClaudeのArtifacts風: 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
+      // ユーザーはBlogPreviewTileをクリックしてCanvasを開く
       setLastAiError(null);
       setSelectionMode(null);
       setSelectionAction(null);
@@ -690,11 +674,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       selectionAnchorRef.current = null;
       const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
       domSelection?.removeAllRanges();
-      showBubble(markdownBtnRef, '✨ AIで編集しました', 'text');
+      showBubble(markdownBtnRef, '✨ 改善版がチャットに表示されます', 'text');
     } catch (error) {
       console.error('Canvas selection edit failed:', error);
-      const message =
-        error instanceof Error ? error.message : 'AIによる編集の適用に失敗しました';
+      const message = error instanceof Error ? error.message : 'AIによる編集の適用に失敗しました';
       setLastAiError(message);
     } finally {
       setIsApplyingSelectionEdit(false);
@@ -710,49 +693,55 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     showBubble,
   ]);
 
-
   // ✅ 見出しクリック時のスクロール機能
   const handleHeadingClick = (headingId: string) => {
     setTimeout(() => {
-      const possibleSelectors = ['.ProseMirror', '[data-tippy-root] .ProseMirror', '.canvas-panel .ProseMirror'];
+      const possibleSelectors = [
+        '.ProseMirror',
+        '[data-tippy-root] .ProseMirror',
+        '.canvas-panel .ProseMirror',
+      ];
       let editorElement: Element | null = null;
-      
+
       for (const selector of possibleSelectors) {
         editorElement = document.querySelector(selector);
         if (editorElement) break;
       }
-      
+
       if (editorElement) {
         let element = editorElement.querySelector(`#${headingId}`);
-        
+
         if (!element) {
           const targetHeading = headings.find(h => h.id === headingId);
           if (targetHeading) {
             const allHeadings = editorElement.querySelectorAll('h1, h2, h3, h4, h5, h6');
-            element = Array.from(allHeadings).find(h => 
-              h.textContent?.trim() === targetHeading.text.trim()
-            ) || null;
+            element =
+              Array.from(allHeadings).find(
+                h => h.textContent?.trim() === targetHeading.text.trim()
+              ) || null;
           }
         }
-        
+
         if (element) {
-          const canvasScrollContainer = document.querySelector('.canvas-panel .flex-1.overflow-auto');
-          
+          const canvasScrollContainer = document.querySelector(
+            '.canvas-panel .flex-1.overflow-auto'
+          );
+
           if (canvasScrollContainer) {
             const containerRect = canvasScrollContainer.getBoundingClientRect();
             const elementRect = element.getBoundingClientRect();
             const currentScrollTop = canvasScrollContainer.scrollTop;
             const targetScrollTop = currentScrollTop + (elementRect.top - containerRect.top) - 120;
-            
+
             canvasScrollContainer.scrollTo({
               top: Math.max(0, targetScrollTop),
-              behavior: 'smooth'
+              behavior: 'smooth',
             });
           } else {
-            element.scrollIntoView({ 
-              behavior: 'smooth', 
+            element.scrollIntoView({
+              behavior: 'smooth',
               block: 'start',
-              inline: 'nearest'
+              inline: 'nearest',
             });
           }
         }
@@ -772,7 +761,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       }
     }
   };
-
 
   if (!isVisible) return null;
 
@@ -1013,9 +1001,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   disabled={isApplyingSelectionEdit}
                   autoFocus
                 />
-                {lastAiError && (
-                  <p className="mt-2 text-xs text-red-600">{lastAiError}</p>
-                )}
+                {lastAiError && <p className="mt-2 text-xs text-red-600">{lastAiError}</p>}
                 <div className="mt-3 flex justify-end gap-2">
                   <Button
                     type="button"
@@ -1034,7 +1020,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                     onClick={handleApplySelectionEdit}
                     disabled={isApplyingSelectionEdit || instruction.trim().length === 0}
                   >
-                    {isApplyingSelectionEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '送信'}
+                    {isApplyingSelectionEdit ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      '送信'
+                    )}
                   </Button>
                 </div>
               </div>
@@ -1069,7 +1059,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </div>
             </div>
           )}
-
         </div>
       </div>
 

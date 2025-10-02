@@ -638,58 +638,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     []
   );
 
-  // systemPromptOverride側で replacement_html / explanation を指定しているため、
-  // JSON のキー名を変更する際は併せて更新すること。
-  const parseCanvasEditResponse = useCallback((raw: string): CanvasSelectionEditResult => {
-    const trimmed = raw.trim();
-    const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)```/i);
-    const inner = fencedMatch?.[1];
-    const jsonCandidate = (typeof inner === 'string' && inner.length > 0 ? inner : trimmed).trim();
-    if (!jsonCandidate) {
-      throw new Error('AI応答を解析できませんでした');
-    }
-
-    const start = jsonCandidate.indexOf('{');
-    const end = jsonCandidate.lastIndexOf('}');
-
-    if (start === -1 || end === -1 || end <= start) {
-      throw new Error('AI応答を解析できませんでした');
-    }
-
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(jsonCandidate.slice(start, end + 1));
-    } catch (error) {
-      console.error('Failed to parse canvas edit JSON:', error, jsonCandidate);
-      throw new Error('AI応答のJSON解析に失敗しました');
-    }
-
-    const replacement = String(parsed.replacement_html ?? parsed.replacement ?? '').trim();
-    if (!replacement) {
-      throw new Error('replacement_html が空でした');
-    }
-
-    if (/<script\b/i.test(replacement) || /<iframe\b/i.test(replacement)) {
-      throw new Error('安全でないHTMLタグが含まれています');
-    }
-
-    const explanationValue = parsed.explanation;
-    const explanation =
-      typeof explanationValue === 'string' && explanationValue.trim().length > 0
-        ? explanationValue.trim()
-        : undefined;
-
-    const result: CanvasSelectionEditResult = {
-      replacementHtml: replacement,
-    };
-
-    if (explanation) {
-      return { ...result, explanation };
-    }
-
-    return result;
-  }, []);
-
   // BlogFlow用のagent実装
   const agent = {
     send: async (content: string, model: string) => {
@@ -952,12 +900,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setIsManualEdit(true);
 
       try {
-        const beforeMessages = (chatStateRef.current?.messages ?? []).filter(
-          message => message.role === 'assistant'
-        );
-        const prevLastId = beforeMessages[beforeMessages.length - 1]?.id;
-        const prevCount = beforeMessages.length;
-
         let editingModel = selectedModel;
         if (selectedModel === 'blog_creation') {
           const stepInfo = stepActionBarRef.current?.getCurrentStepInfo();
@@ -975,15 +917,20 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const isImprove = payload.action === 'improve';
         const systemPromptOverride = isImprove
           ? [
-              '# ユーザーの指示に基づいて以下の内容を修正してください。**省略しないで必ず全文を出してください。**',
+              '# ユーザーの指示に基づいて、選択範囲を編集しつつ文章全体を最適化してください。',
               '',
-              '## 返答フォーマット',
-              '- JSON 形式で `{"replacement_html": "...", "explanation": "..."}` を返してください。',
-              '- `replacement_html` には選択範囲全体を HTML として出力し、省略や抜粋をしないでください。',
-              '- 変更が不要な部分は原文をそのままコピーしてください。',
-              '- `explanation` は必要な場合のみ記載してください。',
+              '## 重要な指示',
+              '- 選択範囲の編集内容が文章全体の流れや一貫性を損なわないように調整してください。',
+              '- 必要に応じて、選択範囲外の部分も改善してください（表現の統一、接続詞の調整、冗長性の削除など）。',
+              '- **文章全体を省略せずに必ず全文を出力してください。**',
+              '- 通常のブログ記事と同じMarkdown形式で出力してください。',
               '',
-              '## 対象コンテンツ（Markdown）',
+              '## 選択範囲',
+              '```',
+              selectedText,
+              '```',
+              '',
+              '## 文章全体（Markdown）',
               '```markdown',
               payload.canvasMarkdown ?? '',
               '```',
@@ -1002,28 +949,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           systemPromptOverride ? { systemPrompt: systemPromptOverride } : undefined
         );
 
-        const newMessageId = await waitForNewAssistantMessage(
-          prevLastId,
-          prevCount,
-          () => chatStateRef.current?.messages ?? [],
-          20000,
-          150
-        );
-
-        if (!newMessageId) {
-          throw new Error('AIからの応答がタイムアウトしました');
-        }
-
-        const assistantMessages = (chatStateRef.current?.messages ?? []).filter(
-          message => message.role === 'assistant'
-        );
-        const targetMessage = assistantMessages.find(message => message.id === newMessageId);
-
-        if (!targetMessage) {
-          throw new Error('AI応答を取得できませんでした');
-        }
-
-        return parseCanvasEditResponse(targetMessage.content || '');
+        // 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
+        // ユーザーはBlogPreviewTileをクリックしてCanvasを開く
+        return { replacementHtml: '' };
       } catch (error) {
         console.error('Canvas selection edit failed:', error);
         throw error instanceof Error ? error : new Error('AI編集の処理に失敗しました');
@@ -1031,15 +959,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         canvasEditInFlightRef.current = false;
       }
     },
-    [
-      chatSession.actions,
-      latestBlogStep,
-      manualSelectedStep,
-      parseCanvasEditResponse,
-      selectedModel,
-      setIsManualEdit,
-      waitForNewAssistantMessage,
-    ]
+    [chatSession.actions, latestBlogStep, manualSelectedStep, selectedModel, setIsManualEdit]
   );
 
   if (!isLoggedIn) {
