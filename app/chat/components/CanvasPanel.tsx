@@ -232,7 +232,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         const containerRect = container.getBoundingClientRect();
         anchor = {
           top: rect.top - containerRect.top + container.scrollTop,
-          left: rect.right - containerRect.left + container.scrollLeft + 12,
+          left: rect.right - containerRect.left + container.scrollLeft + 6,
         };
         selectionAnchorRef.current = anchor;
       }
@@ -386,7 +386,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const containerRect = container.getBoundingClientRect();
       const anchor = {
         top: rect.top - containerRect.top + container.scrollTop,
-        left: rect.right - containerRect.left + container.scrollLeft + 12,
+        left: rect.right - containerRect.left + container.scrollLeft + 6,
       };
 
       const nextState: CanvasSelectionState = { from, to, text };
