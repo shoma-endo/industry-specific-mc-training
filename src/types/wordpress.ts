@@ -1,21 +1,4 @@
 /**
- * WordPress認証情報 - セルフホスト用
- */
-export interface WordPressCredentials {
-  siteUrl: string;
-  username: string;
-  applicationPassword: string;
-}
-
-/**
- * WordPress.com認証情報 - WordPress.com用
- */
-export interface WordPressComCredentials {
-  accessToken: string;
-  siteId: string;
-}
-
-/**
  * WordPress設定の種類
  */
 export type WordPressType = 'wordpress_com' | 'self_hosted';

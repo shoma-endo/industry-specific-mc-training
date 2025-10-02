@@ -49,10 +49,3 @@ export interface UpdatePromptTemplateInput {
 export interface PromptTemplateWithVersions extends PromptTemplate {
   versions: PromptVersion[];
 }
-
-
-export interface PromptCacheEntry {
-  template: PromptTemplate;
-  cached_at: string;
-  expires_at: string;
-}
