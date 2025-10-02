@@ -674,7 +674,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       selectionAnchorRef.current = null;
       const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
       domSelection?.removeAllRanges();
-      showBubble(markdownBtnRef, '✨ 改善版がチャットに表示されます', 'text');
     } catch (error) {
       console.error('Canvas selection edit failed:', error);
       const message = error instanceof Error ? error.message : 'AIによる編集の適用に失敗しました';
@@ -690,7 +689,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     instruction,
     selectionAction,
     onSelectionEdit,
-    showBubble,
   ]);
 
   // ✅ 見出しクリック時のスクロール機能
