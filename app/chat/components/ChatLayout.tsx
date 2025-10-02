@@ -418,6 +418,52 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     chatStateRef.current = chatSession.state;
   }, [chatSession.state]);
 
+  useEffect(() => {
+    const sessionId = chatSession.state.currentSessionId;
+    if (!sessionId) {
+      return;
+    }
+
+    let isActive = true;
+
+    const loadAnnotations = async () => {
+      try {
+        const res = await getContentAnnotationBySession(sessionId);
+        if (!isActive) return;
+
+        if (res.success && res.data) {
+          setAnnotationData(res.data);
+          setSavedFields(sessionId, {
+            needs: !!res.data.needs,
+            persona: !!res.data.persona,
+            goal: !!res.data.goal,
+            prep: !!res.data.prep,
+            basic_structure: !!res.data.basic_structure,
+            opening_proposal: !!res.data.opening_proposal,
+          });
+        } else {
+          setAnnotationData(null);
+          setSavedFields(sessionId, {
+            needs: false,
+            persona: false,
+            goal: false,
+            prep: false,
+            basic_structure: false,
+            opening_proposal: false,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to preload annotation data:', error);
+      }
+    };
+
+    loadAnnotations();
+
+    return () => {
+      isActive = false;
+    };
+  }, [chatSession.state.currentSessionId, setSavedFields]);
+
   // 利用可能なステップを計算（最新AIメッセージのステップまで）
   const availableSteps = useMemo(() => {
     if (!latestBlogStep) return [];

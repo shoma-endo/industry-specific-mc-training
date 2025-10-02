@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { FEATURE_FLAGS } from '@/lib/constants';
 import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
+import { useAnnotationStore } from '@/store/annotationStore';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 
 const RichEditor = dynamic(() => import('../components/RichEditor'), {
@@ -107,6 +108,12 @@ const InputArea: React.FC<InputAreaProps> = ({
   const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const savedFieldFlags = useAnnotationStore(state => state.sessions);
+  const savedFields = useMemo(() => {
+    if (!currentSessionId) return {};
+    return savedFieldFlags[currentSessionId] ?? {};
+  }, [currentSessionId, savedFieldFlags]);
+
   // UI表示用のモデルキー（ブログ作成時はステップを反映）
   const displayModelKey =
     selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
@@ -132,11 +139,35 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS[key];
       }
 
+      const savedPersona = savedFields.persona;
+      const savedNeeds = savedFields.needs;
+      const savedGoal = savedFields.goal;
+      const savedPrep = savedFields.prep;
+      const savedBasicStructure = savedFields.basic_structure;
+      const savedOpening = savedFields.opening_proposal;
+
       const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
       const shouldAdvanceInUi =
         blogFlowStatus === 'waitingAction' || (blogFlowStatus === 'idle' && hasDetectedBlogStep);
-      // 通常フローでは次のステップのプレースホルダーを表示
-      const targetIdx = Math.max(0, currentIdx + (shouldAdvanceInUi ? 1 : 0));
+
+      const savedProgressCount = [
+        savedNeeds,
+        savedPersona,
+        savedGoal,
+        savedPrep,
+        savedBasicStructure,
+        savedOpening,
+      ].filter(Boolean).length;
+
+      let targetIdx = Math.max(0, currentIdx + (shouldAdvanceInUi ? 1 : 0));
+
+      if (savedProgressCount > 0) {
+        const absoluteTarget = Math.max(currentIdx + 1, savedProgressCount);
+        if (absoluteTarget < BLOG_STEP_IDS.length) {
+          targetIdx = absoluteTarget;
+        }
+      }
+
       const targetStep = BLOG_STEP_IDS[targetIdx] ?? selectedBlogStep;
       const key = `blog_creation_${targetStep}` as keyof typeof BLOG_PLACEHOLDERS;
       return BLOG_PLACEHOLDERS[key];
