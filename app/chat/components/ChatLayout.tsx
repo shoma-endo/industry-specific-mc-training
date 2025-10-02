@@ -638,6 +638,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     []
   );
 
+  // systemPromptOverride側で replacement_html / explanation を指定しているため、
+  // JSON のキー名を変更する際は併せて更新すること。
   const parseCanvasEditResponse = useCallback((raw: string): CanvasSelectionEditResult => {
     const trimmed = raw.trim();
     const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)```/i);
@@ -974,7 +976,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const systemPromptOverride = isImprove
           ? [
               '# ユーザーの指示に基づいて以下の内容を修正してください。**省略しないで必ず全文を出してください。**',
-              payload.canvasMarkdown,
+              '',
+              '## 返答フォーマット',
+              '- JSON 形式で `{"replacement_html": "...", "explanation": "..."}` を返してください。',
+              '- `replacement_html` には選択範囲全体を HTML として出力し、省略や抜粋をしないでください。',
+              '- 変更が不要な部分は原文をそのままコピーしてください。',
+              '- `explanation` は必要な場合のみ記載してください。',
+              '',
+              '## 対象コンテンツ（Markdown）',
+              '```markdown',
+              payload.canvasMarkdown ?? '',
+              '```',
             ]
               .filter(Boolean)
               .join('\n')
