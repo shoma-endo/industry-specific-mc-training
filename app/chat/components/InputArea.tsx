@@ -12,16 +12,9 @@ import {
 } from '@/components/ui/select';
 import { Bot, Send, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import dynamic from 'next/dynamic';
-import { FEATURE_FLAGS } from '@/lib/constants';
 import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
 import { useAnnotationStore } from '@/store/annotationStore';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
-
-const RichEditor = dynamic(() => import('../components/RichEditor'), {
-  ssr: false,
-  loading: () => <p className="text-sm text-gray-500">エディターを読み込み中...</p>,
-});
 
 // 使用可能なモデル一覧
 const AVAILABLE_MODELS = {
@@ -390,36 +383,19 @@ const InputArea: React.FC<InputAreaProps> = ({
           <form onSubmit={handleSubmit} className="relative">
             <div className="flex flex-col gap-2">
               <div className="flex items-start gap-2 bg-slate-100 rounded-xl pr-2 pl-4 focus-within:ring-1 focus-within:ring-[#06c755]/30 transition-all duration-150 relative">
-                {FEATURE_FLAGS.USE_DYNAMIC_IMPORTS ? (
-                  <RichEditor
-                    value={input}
-                    onChange={value => {
-                      if (isInputDisabled) return;
-                      setInput(value);
-                    }}
-                    placeholder={placeholderMessage ?? 'メッセージを入力...'}
-                    disabled={isInputDisabled}
-                    className={cn(
-                      'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
-                      isMobile ? 'min-h-8' : 'min-h-10',
-                      input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
-                    )}
-                  />
-                ) : (
-                  <Textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={handleInputChange}
-                    placeholder={placeholderMessage ?? 'メッセージを入力...'}
-                    disabled={isInputDisabled}
-                    className={cn(
-                      'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
-                      isMobile ? 'min-h-8' : 'min-h-10',
-                      input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
-                    )}
-                    rows={1}
-                  />
-                )}
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  placeholder={placeholderMessage ?? 'メッセージを入力...'}
+                  disabled={isInputDisabled}
+                  className={cn(
+                    'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
+                    isMobile ? 'min-h-8' : 'min-h-10',
+                    input ? (isMobile ? 'max-h-[120px]' : 'max-h-[150px]') : ''
+                  )}
+                  rows={1}
+                />
                 <div className="flex gap-1">
                   <Button
                     type="submit"
