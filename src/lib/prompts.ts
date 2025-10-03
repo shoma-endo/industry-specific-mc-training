@@ -765,9 +765,12 @@ export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Prom
  * ブログ作成用プロンプト生成（キャッシュ付き）
  * DBテンプレート + canonicalUrls 変数埋め込み
  */
-export const generateBlogCreationPromptByStep = cache(
-  async (liffAccessToken: string, step: BlogStepId, sessionId?: string): Promise<string> => {
-    try {
+export async function generateBlogCreationPromptByStep(
+  liffAccessToken: string,
+  step: BlogStepId,
+  sessionId?: string
+): Promise<string> {
+  try {
       const templateName = toTemplateName(step);
       console.log('[BlogPrompt] Fetching step template', { step, templateName });
 
@@ -866,7 +869,6 @@ export const generateBlogCreationPromptByStep = cache(
       return SYSTEM_PROMPT;
     }
   }
-);
 
 // =============================================================================
 // 共通：モデル別システムプロンプト解決
