@@ -5,7 +5,7 @@
 /**
  * キャンバス選択範囲の編集アクション
  */
-export type CanvasSelectionAction = 'improve' | 'explain';
+export type CanvasSelectionAction = 'improve';
 
 export interface CanvasSelectionEditPayload {
   instruction: string;
