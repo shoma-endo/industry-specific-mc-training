@@ -393,9 +393,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [canvasStep, setCanvasStep] = useState<BlogStepId | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string>(
-    'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
-  );
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [, setSelectedBlogStep] = useState<BlogStepId>('step1');
   const [manualSelectedStep, setManualSelectedStep] = useState<BlogStepId | null>(null);
   const [selectedVersionByStep, setSelectedVersionByStep] = useState<

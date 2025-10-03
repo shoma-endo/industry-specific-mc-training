@@ -99,9 +99,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 }) => {
   const [input, setInput] = useState('');
   const [canProceed, setCanProceed] = useState(true);
-  const [selectedModel, setSelectedModel] = useState<string>(
-    'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2'
-  );
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [selectedBlogStep, setSelectedBlogStep] = useState<
     'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7'
   >(initialBlogStep ?? 'step1');
@@ -114,6 +112,9 @@ const InputArea: React.FC<InputAreaProps> = ({
     return savedFieldFlags[currentSessionId] ?? {};
   }, [currentSessionId, savedFieldFlags]);
 
+  const isModelSelected = Boolean(selectedModel);
+  const isInputDisabled = disabled || !isModelSelected;
+
   // UI表示用のモデルキー（ブログ作成時はステップを反映）
   const displayModelKey =
     selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
@@ -123,6 +124,10 @@ const InputArea: React.FC<InputAreaProps> = ({
     // placeholderOverrideが設定されている場合は最優先で使用
     if (placeholderOverride) {
       return placeholderOverride;
+    }
+
+    if (!isModelSelected) {
+      return 'チャットモデルを選択してください';
     }
 
     if (selectedModel === 'blog_creation') {
@@ -173,8 +178,14 @@ const InputArea: React.FC<InputAreaProps> = ({
       return BLOG_PLACEHOLDERS[key];
     }
     // 通常モデル
-    return MODEL_PLACEHOLDERS[displayModelKey];
+    return MODEL_PLACEHOLDERS[displayModelKey ?? ''] ?? 'チャットモデルを選択してください';
   })();
+
+  useEffect(() => {
+    if (!isModelSelected) {
+      setInput('');
+    }
+  }, [isModelSelected]);
 
   // モバイル画面の検出（propsから渡された値を優先、フォールバックで独自検出）
   useEffect(() => {
@@ -194,7 +205,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   }, [propIsMobile]);
 
   useEffect(() => {
-    if (selectedModelExternal && selectedModelExternal !== selectedModel) {
+    if (selectedModelExternal !== undefined && selectedModelExternal !== selectedModel) {
       setSelectedModel(selectedModelExternal);
     }
   }, [selectedModelExternal, selectedModel]);
@@ -248,6 +259,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   // 入力が変更されたときにテキストエリアの高さを調整
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (isInputDisabled) return;
     setInput(e.target.value);
     adjustTextareaHeight();
   };
@@ -258,14 +270,14 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || disabled) return;
+    if (!input.trim() || isInputDisabled) return;
 
     const originalMessage = input.trim();
     // ブログ作成モデルの場合の制御：
     // - アクション待ち（waitingAction）での通常送信は「次のステップへ進む」扱い
     // - 修正中（revising）は同一ステップの再生成
     // - 手動でステップが選択されている場合はそのステップを使用
-    let effectiveModel = selectedModel;
+    let effectiveModel: string = selectedModel;
     if (selectedModel === 'blog_creation') {
       if (blogFlowStatus === 'revising') {
         // 修正案入力中は現行ステップを維持
@@ -321,7 +333,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
           <div className="flex items-center space-x-2">
             <Select
-              value={selectedModel}
+              {...(isModelSelected ? { value: selectedModel } : {})}
               onValueChange={value => {
                 setSelectedModel(value);
                 if (value === 'blog_creation') {
@@ -334,7 +346,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               }}
             >
               <SelectTrigger className="w-[120px] md:w-[180px] min-w-[120px] h-9 text-xs md:text-sm border-gray-200">
-                <SelectValue placeholder="モデルを選択" />
+                <SelectValue placeholder="選択してください" />
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(AVAILABLE_MODELS).map(([modelId, modelName]) => (
@@ -381,9 +393,12 @@ const InputArea: React.FC<InputAreaProps> = ({
                 {FEATURE_FLAGS.USE_DYNAMIC_IMPORTS ? (
                   <RichEditor
                     value={input}
-                    onChange={setInput}
+                    onChange={value => {
+                      if (isInputDisabled) return;
+                      setInput(value);
+                    }}
                     placeholder={placeholderMessage ?? 'メッセージを入力...'}
-                    disabled={disabled}
+                    disabled={isInputDisabled}
                     className={cn(
                       'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
                       isMobile ? 'min-h-8' : 'min-h-10',
@@ -396,7 +411,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                     value={input}
                     onChange={handleInputChange}
                     placeholder={placeholderMessage ?? 'メッセージを入力...'}
-                    disabled={disabled}
+                    disabled={isInputDisabled}
                     className={cn(
                       'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
                       isMobile ? 'min-h-8' : 'min-h-10',
@@ -410,7 +425,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                     type="submit"
                     size="icon"
                     disabled={
-                      disabled ||
+                      isInputDisabled ||
                       !input.trim() ||
                       (selectedModel === 'blog_creation' && !canProceed)
                     }
