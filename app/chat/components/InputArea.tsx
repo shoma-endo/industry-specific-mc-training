@@ -50,15 +50,12 @@ interface InputAreaProps {
   selectedModelExternal?: string;
   initialBlogStep?: BlogStepId;
   manualSelectedStep?: BlogStepId | null;
-  placeholderOverride?: string | undefined;
   nextStepForPlaceholder?: BlogStepId | null;
   // StepActionBar props
   shouldShowStepActionBar?: boolean;
   stepActionBarRef?: React.RefObject<StepActionBarRef | null>;
   displayStep?: BlogStepId;
   hasDetectedBlogStep?: boolean;
-  availableSteps?: BlogStepId[];
-  onStepChange?: (step: BlogStepId) => void;
   onSaveClick?: () => void;
   annotationLoading?: boolean;
   stepActionBarDisabled?: boolean;
@@ -78,14 +75,11 @@ const InputArea: React.FC<InputAreaProps> = ({
   selectedModelExternal,
   initialBlogStep,
   manualSelectedStep,
-  placeholderOverride,
   nextStepForPlaceholder,
   shouldShowStepActionBar,
   stepActionBarRef,
   displayStep,
   hasDetectedBlogStep,
-  availableSteps = [],
-  onStepChange,
   onSaveClick,
   annotationLoading,
   stepActionBarDisabled,
@@ -114,11 +108,6 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   // ブログ作成中は「次に進む」タイミングでは次ステップのプレースホルダーを表示
   const placeholderMessage = (() => {
-    // placeholderOverrideが設定されている場合は最優先で使用
-    if (placeholderOverride) {
-      return placeholderOverride;
-    }
-
     if (!isModelSelected) {
       return 'チャットモデルを選択してください';
     }
@@ -268,15 +257,10 @@ const InputArea: React.FC<InputAreaProps> = ({
     const originalMessage = input.trim();
     // ブログ作成モデルの場合の制御：
     // - アクション待ち（waitingAction）での通常送信は「次のステップへ進む」扱い
-    // - 修正中（revising）は同一ステップの再生成
     // - 手動でステップが選択されている場合はそのステップを使用
     let effectiveModel: string = selectedModel;
     if (selectedModel === 'blog_creation') {
-      if (blogFlowStatus === 'revising') {
-        // 修正案入力中は現行ステップを維持
-        const currentStep = manualSelectedStep ?? selectedBlogStep;
-        effectiveModel = `blog_creation_${currentStep}`;
-      } else if (manualSelectedStep) {
+      if (manualSelectedStep) {
         // 手動でステップが選択されている場合はそのステップを使用
         effectiveModel = `blog_creation_${manualSelectedStep}`;
         onModelChange?.('blog_creation', manualSelectedStep);
@@ -369,9 +353,6 @@ const InputArea: React.FC<InputAreaProps> = ({
               hasDetectedBlogStep={hasDetectedBlogStep}
               className="flex-wrap gap-3"
               disabled={stepActionBarDisabled}
-              availableSteps={availableSteps}
-              onStepChange={onStepChange}
-              selectedStep={manualSelectedStep}
               onSaveClick={onSaveClick}
               annotationLoading={annotationLoading}
               currentSessionId={currentSessionId}

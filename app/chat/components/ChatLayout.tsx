@@ -25,7 +25,7 @@ import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
-import { BlogStepId, BLOG_STEP_IDS, BLOG_PLACEHOLDERS, BLOG_STEP_LABELS } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import { useAnnotationStore } from '@/store/annotationStore';
 
 interface ChatLayoutProps {
@@ -118,8 +118,6 @@ type ChatLayoutCtx = {
   blogFlowActive: boolean;
   selectedModel: string;
   latestBlogStep: BlogStepId | null;
-  availableSteps: BlogStepId[];
-  manualSelectedStep: BlogStepId | null;
   stepActionBarRef: React.RefObject<StepActionBarRef | null>;
   ui: {
     sidebar: { open: boolean; setOpen: (open: boolean) => void };
@@ -141,8 +139,6 @@ type ChatLayoutCtx = {
   };
   onSendMessage: (content: string, model: string) => Promise<void>;
   handleModelChange: (model: string, step?: BlogStepId) => void;
-  handleStepChange: (step: BlogStepId) => void;
-  placeholderOverride: string;
   nextStepForPlaceholder: BlogStepId | null;
 };
 
@@ -154,18 +150,13 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     blogFlowActive,
     selectedModel,
     latestBlogStep,
-    availableSteps,
-    manualSelectedStep,
     stepActionBarRef,
     ui,
     onSendMessage,
     handleModelChange,
-    handleStepChange,
-    placeholderOverride,
     nextStepForPlaceholder,
   } = ctx;
-  const { state, cancelRevision, currentIndex, totalSteps } = useBlogFlow();
-  const lastAssistantMessageIdRef = useRef<string | undefined>(undefined);
+  const { state, currentIndex, totalSteps } = useBlogFlow();
   const router = useRouter();
 
   // ChatLayoutContent内でのblogFlowActive再計算
@@ -178,7 +169,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const effectiveBlogFlowActive = blogFlowActive || blogFlowActiveRecalculated;
 
   const currentStep = state.current;
-  const displayStep = manualSelectedStep ?? latestBlogStep ?? currentStep;
+  const displayStep = latestBlogStep ?? currentStep;
   const hasDetectedBlogStep = latestBlogStep !== null;
   const displayIndex = useMemo(() => {
     const index = BLOG_STEP_IDS.indexOf(displayStep);
@@ -206,29 +197,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     [chatSession.state.messages]
   );
   const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
-
-  useEffect(() => {
-    // 新しいアシスタントの返信が届いたら、修正モードを解除してステップアクションを再び有効化する
-    const lastAssistantId = lastAssistantMessage?.id;
-
-    if (state.flowStatus === 'revising') {
-      if (!lastAssistantMessageIdRef.current) {
-        lastAssistantMessageIdRef.current = lastAssistantId;
-        return;
-      }
-
-      if (lastAssistantId && lastAssistantId !== lastAssistantMessageIdRef.current) {
-        cancelRevision();
-        lastAssistantMessageIdRef.current = lastAssistantId;
-        return;
-      }
-
-      lastAssistantMessageIdRef.current = lastAssistantId;
-      return;
-    }
-
-    lastAssistantMessageIdRef.current = lastAssistantId;
-  }, [lastAssistantMessage?.id, state.flowStatus, cancelRevision]);
 
   const shouldShowStepActionBar =
     effectiveBlogFlowActive &&
@@ -326,12 +294,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           stepActionBarRef={stepActionBarRef}
           displayStep={displayStep}
           hasDetectedBlogStep={hasDetectedBlogStep}
-          availableSteps={availableSteps}
-          onStepChange={handleStepChange}
           onSaveClick={() => ui.annotation.openWith()}
           annotationLoading={ui.annotation.loading}
           stepActionBarDisabled={chatSession.state.isLoading || ui.annotation.loading}
-          manualSelectedStep={manualSelectedStep}
           currentSessionTitle={
             chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
               ?.title || '新しいチャット'
@@ -344,7 +309,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onModelChange={handleModelChange}
           blogFlowStatus={state.flowStatus}
           selectedModelExternal={selectedModel}
-          placeholderOverride={placeholderOverride}
           nextStepForPlaceholder={nextStepForPlaceholder}
           {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}
         />
@@ -355,11 +319,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           sessionId={chatSession.state.currentSessionId || ''}
           initialData={ui.annotation.data}
           onClose={() => {
-            if (state.flowStatus === 'revising') {
-              cancelRevision();
-            } else {
-              ui.annotation.setOpen(false);
-            }
+            ui.annotation.setOpen(false);
           }}
           onSaveSuccess={() => {}}
           isVisible={ui.annotation.open}
@@ -395,14 +355,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [canvasStep, setCanvasStep] = useState<BlogStepId | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [, setSelectedBlogStep] = useState<BlogStepId>('step1');
-  const [manualSelectedStep, setManualSelectedStep] = useState<BlogStepId | null>(null);
   const [selectedVersionByStep, setSelectedVersionByStep] = useState<
     Partial<Record<BlogStepId, string | null>>
   >({});
   const [followLatestByStep, setFollowLatestByStep] = useState<
     Partial<Record<BlogStepId, boolean>>
   >({});
-  const [placeholderOverride, setPlaceholderOverride] = useState<string>('');
   const [nextStepForPlaceholder, setNextStepForPlaceholder] = useState<BlogStepId | null>(null);
   const latestBlogStep = useMemo(
     () => findLatestAssistantBlogStep(chatSession.state.messages ?? []),
@@ -461,14 +419,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       isActive = false;
     };
   }, [chatSession.state.currentSessionId, setSavedFields]);
-
-  // 利用可能なステップを計算（最新AIメッセージのステップまで）
-  const availableSteps = useMemo(() => {
-    if (!latestBlogStep) return [];
-    const latestIndex = BLOG_STEP_IDS.indexOf(latestBlogStep);
-    if (latestIndex === -1) return [];
-    return BLOG_STEP_IDS.slice(0, latestIndex + 1);
-  }, [latestBlogStep]);
 
   const blogCanvasVersionsByStep = useMemo<StepVersionsMap>(() => {
     const initialMap = BLOG_STEP_IDS.reduce((acc, step) => {
@@ -580,10 +530,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const resolvedCanvasStep = useMemo<BlogStepId | null>(() => {
     if (canvasStep) return canvasStep;
-    if (manualSelectedStep) return manualSelectedStep;
     if (latestBlogStep) return latestBlogStep;
     return null;
-  }, [canvasStep, manualSelectedStep, latestBlogStep]);
+  }, [canvasStep, latestBlogStep]);
 
   const canvasVersionsForStep = useMemo<BlogCanvasVersion[]>(() => {
     if (!resolvedCanvasStep) return [];
@@ -617,11 +566,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const canvasStepOptions = useMemo(
     () =>
-      BLOG_STEP_IDS.filter(step => (blogCanvasVersionsByStep[step] ?? []).length > 0).map(step => ({
-        id: step,
-        label: BLOG_STEP_LABELS[step] ?? step,
-      })),
-    [blogCanvasVersionsByStep]
+      BLOG_STEP_IDS.filter(
+        step => (blogCanvasVersionsByStep[step] ?? []).length > 0 && step !== nextStepForPlaceholder
+      ),
+    [blogCanvasVersionsByStep, nextStepForPlaceholder]
   );
 
   // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
@@ -640,7 +588,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // StepActionBarの状態変更を監視してnextStep情報を更新
   useEffect(() => {
     updateNextStepInfo();
-  }, [manualSelectedStep, latestBlogStep, updateNextStepInfo]);
+  }, [latestBlogStep, updateNextStepInfo]);
 
   // モデル変更ハンドラ
   const handleModelChange = useCallback((model: string, step?: BlogStepId) => {
@@ -704,40 +652,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     },
   };
 
-  // Revision用にCanvasパネルを開く（BlogFlow用）
-  const openRevisionPanel = () => {
-    if (annotationOpen) {
-      setAnnotationOpen(false);
-      setAnnotationData(null);
-    }
-
-    const fallbackStep = (manualSelectedStep ?? latestBlogStep ?? BLOG_STEP_IDS[0]) as BlogStepId;
-    const versions = blogCanvasVersionsByStep[fallbackStep] ?? [];
-    const latestVersionId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
-
-    setCanvasStep(fallbackStep);
-    if (latestVersionId) {
-      setSelectedVersionByStep(prev => {
-        const next = { ...prev };
-        next[fallbackStep] = latestVersionId;
-        return next;
-      });
-    }
-    setFollowLatestByStep(prev => {
-      const next = { ...prev };
-      next[fallbackStep] = true;
-      return next;
-    });
-    setCanvasPanelOpen(true);
-    setIsManualEdit(true);
-  };
-
-  const closeCanvas = () => {
-    setCanvasPanelOpen(false);
-    setIsManualEdit(false);
-    setCanvasStep(null);
-  };
-
   // BlogFlow起動ガード（モデル選択と連動）
   const blogFlowActive =
     !subscription.requiresSubscription &&
@@ -757,18 +671,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setCanvasStep(null);
     setSelectedVersionByStep({});
     setFollowLatestByStep({});
-    setManualSelectedStep(null);
-    setPlaceholderOverride('');
     setNextStepForPlaceholder(null);
   }, [chatSession.state.currentSessionId]);
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {
     try {
-      // 新規メッセージ送信時は手動編集フラグと選択ステップをリセット
+      // 新規メッセージ送信時は手動編集フラグをリセット
       setIsManualEdit(false);
-      setManualSelectedStep(null);
-      setPlaceholderOverride('');
       setNextStepForPlaceholder(null);
       // 初期化を実行してからメッセージ送信
       await chatSession.actions.sendMessage(content, model);
@@ -782,7 +692,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
   const handleShowCanvas = useCallback(
     (message: ChatMessage) => {
-      const fallbackStep = (manualSelectedStep ?? latestBlogStep ?? BLOG_STEP_IDS[0]) as BlogStepId;
+      const fallbackStep = (latestBlogStep ?? BLOG_STEP_IDS[0]) as BlogStepId;
       const detectedStep = (extractBlogStepFromModel(message.model) ?? fallbackStep) as BlogStepId;
       const versions = blogCanvasVersionsByStep[detectedStep] ?? [];
       const latestVersionId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
@@ -808,7 +718,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
       setCanvasPanelOpen(true);
     },
-    [annotationOpen, blogCanvasVersionsByStep, latestBlogStep, manualSelectedStep, setIsManualEdit]
+    [annotationOpen, blogCanvasVersionsByStep, latestBlogStep, setIsManualEdit]
   );
 
   // ✅ 保存ボタンクリック時にAnnotationPanelを表示する関数
@@ -881,8 +791,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   );
 
   const handleCanvasStepChange = useCallback(
-    (step: BlogStepId, options?: { skipManualUpdate?: boolean }) => {
-      const { skipManualUpdate = false } = options ?? {};
+    (step: BlogStepId) => {
       const versions = blogCanvasVersionsByStep[step] ?? [];
       const latestId = versions.length ? (versions[versions.length - 1]?.id ?? null) : null;
 
@@ -905,25 +814,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         }
         return next;
       });
-      if (!skipManualUpdate) {
-        setManualSelectedStep(step);
-        const key = `blog_creation_${step}` as keyof typeof BLOG_PLACEHOLDERS;
-        setPlaceholderOverride(BLOG_PLACEHOLDERS[key] ?? '');
-      }
       setIsManualEdit(true);
     },
     [blogCanvasVersionsByStep, setIsManualEdit]
-  );
-
-  // ステップ変更ハンドラ
-  const handleStepChange = useCallback(
-    (step: BlogStepId) => {
-      setManualSelectedStep(step);
-      const key = `blog_creation_${step}` as keyof typeof BLOG_PLACEHOLDERS;
-      setPlaceholderOverride(BLOG_PLACEHOLDERS[key] ?? '');
-      handleCanvasStepChange(step, { skipManualUpdate: true });
-    },
-    [handleCanvasStepChange]
   );
 
   const handleCanvasStepSelect = useCallback(
@@ -947,8 +840,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         let editingModel = selectedModel;
         if (selectedModel === 'blog_creation') {
           const stepInfo = stepActionBarRef.current?.getCurrentStepInfo();
-          const currentStep =
-            manualSelectedStep ?? stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
+          const currentStep = stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
           editingModel = `blog_creation_${currentStep}`;
         }
 
@@ -1003,7 +895,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         canvasEditInFlightRef.current = false;
       }
     },
-    [chatSession.actions, latestBlogStep, manualSelectedStep, selectedModel, setIsManualEdit]
+    [chatSession.actions, latestBlogStep, selectedModel, setIsManualEdit]
   );
 
   if (!isLoggedIn) {
@@ -1014,7 +906,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     <BlogFlowProvider
       key={chatSession.state.currentSessionId || 'no-session'}
       agent={agent}
-      canvasController={{ open: openRevisionPanel, close: closeCanvas }}
       isActive={blogFlowActive}
       sessionId={chatSession.state.currentSessionId || 'no-session'}
     >
@@ -1027,8 +918,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             blogFlowActive,
             selectedModel,
             latestBlogStep,
-            availableSteps,
-            manualSelectedStep,
             stepActionBarRef,
             ui: {
               sidebar: { open: sidebarOpen, setOpen: setSidebarOpen },
@@ -1043,8 +932,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             },
             onSendMessage: handleSendMessage,
             handleModelChange,
-            handleStepChange,
-            placeholderOverride,
             nextStepForPlaceholder,
           }}
         />

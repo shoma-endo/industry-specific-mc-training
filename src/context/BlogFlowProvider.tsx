@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { BLOG_STEP_IDS, BLOG_STEP_LABELS, BlogStepId, toTemplateName } from '@/lib/constants';
 import { useBlogFlowPersist } from './blogFlowPersistStore';
 
-export type FlowStatus = 'idle' | 'running' | 'waitingAction' | 'revising' | 'error';
+export type FlowStatus = 'idle' | 'running' | 'waitingAction' | 'error';
 export type StepStatus = 'pending' | 'ready' | 'done' | 'error';
 
 export interface StepRun {
@@ -26,20 +26,12 @@ export interface ChatAgent {
   send: (content: string, model: string) => Promise<{ messageId: string } | string>;
 }
 
-export interface CanvasController {
-  open: () => void;
-  close?: () => void;
-}
-
 export interface BlogFlowContextValue {
   state: BlogFlowState;
   isActive: boolean;
   currentIndex: number;
   totalSteps: number;
   start: () => Promise<void>;
-  openRevision: () => void;
-  applyRevision: (note: string) => Promise<void>;
-  cancelRevision: () => void;
   reset: () => void;
 }
 
@@ -49,7 +41,6 @@ type ProviderProps = {
   steps?: BlogStepId[];
   initialStep?: BlogStepId;
   getModelId?: (step: BlogStepId) => string;
-  canvasController?: CanvasController;
   isActive?: boolean;
   sessionId: string;
 };
@@ -62,7 +53,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
   steps = BLOG_STEP_IDS,
   initialStep = BLOG_STEP_IDS[0],
   getModelId = toTemplateName,
-  canvasController,
   isActive = true,
   sessionId,
 }) => {
@@ -193,42 +183,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     await runStep(resolvedInitialStep, '');
   }, [isActive, state.flowStatus, runStep, resolvedInitialStep]);
 
-  // nextは廃止（ユーザー送信で進行）
-
-  const openRevision = useCallback(() => {
-    setState(prev => ({ ...prev, flowStatus: 'revising' }));
-    persistStore.setFor(sessionId, { flowStatus: 'revising' });
-    canvasController?.open?.();
-  }, [canvasController, persistStore, sessionId]);
-
-  const applyRevision = useCallback(
-    async (note: string) => {
-      if (state.flowStatus !== 'revising') return;
-      const step = state.current;
-      setState(prev => ({
-        ...prev,
-        steps: {
-          ...prev.steps,
-          [step]: {
-            ...prev.steps[step],
-            revisionNote: note,
-            updatedAt: Date.now(),
-          },
-        },
-      }));
-      await runStep(step, note);
-    },
-    [runStep, state]
-  );
-
-  const cancelRevision = useCallback(() => {
-    setState(prev =>
-      prev.flowStatus === 'revising' ? { ...prev, flowStatus: 'waitingAction' } : prev
-    );
-    persistStore.setFor(sessionId, { flowStatus: 'waitingAction' });
-    canvasController?.close?.();
-  }, [canvasController, persistStore, sessionId]);
-
   const reset = useCallback(() => {
     const now = Date.now();
     const initSteps = {} as Record<BlogStepId, StepRun>;
@@ -245,9 +199,6 @@ export const BlogFlowProvider: React.FC<ProviderProps> = ({
     currentIndex,
     totalSteps,
     start,
-    openRevision,
-    applyRevision,
-    cancelRevision,
     reset,
   };
 

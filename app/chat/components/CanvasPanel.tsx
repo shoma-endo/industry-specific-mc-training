@@ -26,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { BLOG_STEP_LABELS } from '@/lib/constants';
+import type { BlogStepId } from '@/lib/constants';
 import type {
   CanvasSelectionEditPayload,
   CanvasSelectionEditResult,
@@ -42,11 +44,6 @@ type CanvasVersionOption = {
   raw?: string;
 };
 
-type CanvasStepOption = {
-  id: string;
-  label: string;
-};
-
 interface CanvasPanelProps {
   onClose: () => void;
   content?: string; // AIからの返信内容
@@ -55,9 +52,9 @@ interface CanvasPanelProps {
   versions?: CanvasVersionOption[];
   activeVersionId?: string | null;
   onVersionSelect?: (versionId: string) => void;
-  stepOptions?: CanvasStepOption[];
-  activeStepId?: string | null;
-  onStepSelect?: (stepId: string) => void;
+  stepOptions?: BlogStepId[];
+  activeStepId?: BlogStepId | null;
+  onStepSelect?: (stepId: BlogStepId) => void;
 }
 
 const lowlight = createLowlight();
@@ -828,8 +825,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         <div className="flex flex-wrap items-center justify-end gap-2">
           {hasStepOptions && (
             <Select
-              value={activeStepId ?? stepOptions[stepOptions.length - 1]?.id ?? ''}
-              onValueChange={value => onStepSelect?.(value)}
+              value={activeStepId ?? stepOptions[stepOptions.length - 1] ?? ''}
+              onValueChange={value => onStepSelect?.(value as BlogStepId)}
               disabled={!onStepSelect}
             >
               <SelectTrigger
@@ -838,13 +835,13 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               >
                 <SelectValue placeholder="ステップ選択" />
                 <span className="flex-1 text-left truncate">
-                  {stepOptions.find(option => option.id === activeStepId)?.label ?? 'ステップ'}
+                  {activeStepId ? BLOG_STEP_LABELS[activeStepId] : 'ステップ'}
                 </span>
               </SelectTrigger>
               <SelectContent>
-                {stepOptions.map(option => (
-                  <SelectItem key={option.id} value={option.id} className="text-xs">
-                    {option.label}
+                {stepOptions.map(stepId => (
+                  <SelectItem key={stepId} value={stepId} className="text-xs">
+                    {BLOG_STEP_LABELS[stepId]}
                   </SelectItem>
                 ))}
               </SelectContent>
