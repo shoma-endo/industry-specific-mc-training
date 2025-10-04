@@ -6,7 +6,7 @@ import type { UserRole } from '@/types/user';
 const ADMIN_REQUIRED_PATHS = ['/admin'] as const;
 
 // 認証不要なパスの定義
-const PUBLIC_PATHS = ['/login', '/unauthorized', '/', '/landingPage'] as const;
+const PUBLIC_PATHS = ['/login', '/unauthorized', '/'] as const;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

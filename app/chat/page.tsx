@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import ChatClient from './ChatClientRefactored';
+import ChatClient from './ChatClient';
 
 export default function ChatPage() {
   React.useEffect(() => {

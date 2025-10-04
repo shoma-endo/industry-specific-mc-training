@@ -10,11 +10,6 @@ import { NavItem } from '@/types/components';
 export function Footer() {
   const pathname = usePathname();
 
-  // LPプレビューページでは Footer を非表示に
-  if (pathname?.startsWith('/landingPage')) {
-    return null;
-  }
-
   const navItems: NavItem[] = [
     {
       icon: <Home className="h-6 w-6" />,

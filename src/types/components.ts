@@ -59,11 +59,6 @@ export interface WordPressSettingsState {
   siteUrl?: string;
 }
 
-export interface SetupPageClientProps {
-  liffAccessToken: string;
-  hasWordPressSettings: boolean;
-}
-
 /**
  * セッションリスト関連の型定義
  */
