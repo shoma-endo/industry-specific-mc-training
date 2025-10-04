@@ -205,7 +205,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     effectiveBlogFlowActive &&
     state.flowStatus !== 'error' &&
     !chatSession.state.isLoading &&
-    !!lastAssistantMessage;
+    !!lastAssistantMessage &&
+    hasDetectedBlogStep;
 
   return (
     <>
@@ -645,6 +646,19 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setFollowLatestByStep({});
     setNextStepForPlaceholder(null);
   }, [chatSession.state.currentSessionId]);
+
+  // ✅ メッセージ履歴にブログステップがある場合、自動的にブログ作成モデルを選択
+  useEffect(() => {
+    // ブログステップが検出された場合
+    if (latestBlogStep) {
+      // モデルが未選択、またはすでにブログ作成モデルの場合のみ自動選択
+      // （ユーザーが明示的に他のモデルを選択した場合は尊重）
+      if (!selectedModel || selectedModel === 'blog_creation') {
+        setSelectedModel('blog_creation');
+        setSelectedBlogStep(latestBlogStep);
+      }
+    }
+  }, [latestBlogStep, selectedModel]);
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {

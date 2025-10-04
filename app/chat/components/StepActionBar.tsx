@@ -78,8 +78,8 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
     const requiredFields = STEP_REQUIRED_FIELDS[targetStepForValidation] || [];
     const missingFields: string[] = [];
 
-    // セッションが初期化されていない場合は検証をスキップ（データ読み込み中）
-    if (isSessionInitialized) {
+    // セッションが初期化されていない場合、またはブログ作成フローが開始されていない場合は検証をスキップ
+    if (isSessionInitialized && hasDetectedBlogStep) {
       for (const field of requiredFields) {
         if (!savedFields[field as keyof typeof savedFields]) {
           missingFields.push(field);
