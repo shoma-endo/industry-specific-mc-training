@@ -5,8 +5,7 @@ import { ChatSessionHook } from '@/hooks/useChatSession';
 import { SubscriptionHook } from '@/hooks/useSubscriptionStatus';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Button } from '@/components/ui/button';
-import { Bot, AlertCircle, Menu } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { AlertCircle, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -31,27 +30,8 @@ import { useAnnotationStore } from '@/store/annotationStore';
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
   subscription: SubscriptionHook;
-  isLoggedIn: boolean;
-  login: () => void;
   isMobile?: boolean;
 }
-
-const LoginPrompt: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
-  <div className="flex items-center justify-center h-[calc(100vh-3rem)]">
-    <Card className="p-6 text-center max-w-xs w-full shadow-lg rounded-xl">
-      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-        <Bot size={32} className="text-primary" />
-      </div>
-      <h2 className="text-lg font-semibold mb-3">AIアシスタントにログイン</h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        AIアシスタントを利用するにはLINEでログインしてください。
-      </p>
-      <Button onClick={onLogin} className="w-full">
-        LINEでログイン
-      </Button>
-    </Card>
-  </div>
-);
 
 const SubscriptionAlert: React.FC<{
   error: string | null;
@@ -337,8 +317,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 export const ChatLayout: React.FC<ChatLayoutProps> = ({
   chatSession,
   subscription,
-  isLoggedIn,
-  login,
   isMobile = false,
 }) => {
   const { setSavedFields } = useAnnotationStore();
@@ -903,10 +881,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setIsManualEdit,
     ]
   );
-
-  if (!isLoggedIn) {
-    return <LoginPrompt onLogin={login} />;
-  }
 
   return (
     <BlogFlowProvider>

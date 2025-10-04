@@ -20,7 +20,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
  *
  */
 const ChatClient: React.FC = () => {
-  const { isLoggedIn, login, getAccessToken, isLoading: liffLoading } = useLiffContext();
+  const { isLoggedIn, getAccessToken, isLoading: liffLoading } = useLiffContext();
   const { isMobile } = useMobile();
 
   // ✅ 必要なサービスのみ作成
@@ -76,13 +76,7 @@ const ChatClient: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <ChatLayout
-        chatSession={chatSession}
-        subscription={subscription}
-        isLoggedIn={isLoggedIn}
-        login={login}
-        isMobile={isMobile}
-      />
+      <ChatLayout chatSession={chatSession} subscription={subscription} isMobile={isMobile} />
     </ErrorBoundary>
   );
 };

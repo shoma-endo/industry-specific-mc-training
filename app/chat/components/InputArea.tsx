@@ -48,7 +48,6 @@ interface InputAreaProps {
   blogFlowStatus?: string;
   selectedModelExternal?: string;
   initialBlogStep?: BlogStepId;
-  manualSelectedStep?: BlogStepId | null;
   nextStepForPlaceholder?: BlogStepId | null;
   // StepActionBar props
   shouldShowStepActionBar?: boolean;
@@ -74,7 +73,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   blogFlowStatus,
   selectedModelExternal,
   initialBlogStep,
-  manualSelectedStep,
   nextStepForPlaceholder,
   shouldShowStepActionBar,
   stepActionBarRef,
@@ -88,16 +86,11 @@ const InputArea: React.FC<InputAreaProps> = ({
   const [input, setInput] = useState('');
   const [canProceed, setCanProceed] = useState(true);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedBlogStep, setSelectedBlogStep] = useState<BlogStepId>(initialBlogStep ?? 'step1');
   const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isModelSelected = Boolean(selectedModel);
   const isInputDisabled = disabled || !isModelSelected;
-
-  // UI表示用のモデルキー（ブログ作成時はステップを反映）
-  const displayModelKey =
-    selectedModel === 'blog_creation' ? `blog_creation_${selectedBlogStep}` : selectedModel;
 
   // ブログ作成中は「次に進む」タイミングでは次ステップのプレースホルダーを表示
   const placeholderMessage = (() => {
@@ -106,12 +99,6 @@ const InputArea: React.FC<InputAreaProps> = ({
     }
 
     if (selectedModel === 'blog_creation') {
-      // 手動でステップが選択されている場合
-      if (manualSelectedStep) {
-        const key = `blog_creation_${manualSelectedStep}` as keyof typeof BLOG_PLACEHOLDERS;
-        return BLOG_PLACEHOLDERS[key];
-      }
-
       // ブログ作成を開始していない場合（hasDetectedBlogStep === false）はstep1を表示
       if (!hasDetectedBlogStep) {
         return BLOG_PLACEHOLDERS.blog_creation_step1;
@@ -127,13 +114,13 @@ const InputArea: React.FC<InputAreaProps> = ({
       // フォールバック: 現在のステップのプレースホルダーを表示
       // - step7（最終ステップ）の場合: step7のプレースホルダー
       // - 進行中のチャット時: 現在のステップのプレースホルダー
-      const fallbackStep = selectedBlogStep || 'step1';
+      const fallbackStep = initialBlogStep || 'step1';
       const key = `blog_creation_${fallbackStep}` as keyof typeof BLOG_PLACEHOLDERS;
       return BLOG_PLACEHOLDERS[key];
     }
 
     // 通常モデル
-    return MODEL_PLACEHOLDERS[displayModelKey ?? ''] ?? 'チャットモデルを選択してください';
+    return MODEL_PLACEHOLDERS[selectedModel] ?? 'チャットモデルを選択してください';
   })();
 
   useEffect(() => {
@@ -152,7 +139,6 @@ const InputArea: React.FC<InputAreaProps> = ({
 
       // モデル選択をリセット（ブログフロー状態から自動復元される）
       setSelectedModel('');
-      setSelectedBlogStep('step1');
     }
 
     // 現在のセッションIDを記録
@@ -182,40 +168,13 @@ const InputArea: React.FC<InputAreaProps> = ({
     }
   }, [selectedModelExternal, selectedModel]);
 
-  useEffect(() => {
-    if (!initialBlogStep) return;
-
-    // ✅ initialBlogStepが変更されたら、常にselectedBlogStepを更新
-    // ただし、手動で先のステップに進んでいる場合は維持
-    setSelectedBlogStep(prev => {
-      const initialIndex = BLOG_STEP_IDS.indexOf(initialBlogStep);
-      const prevIndex = BLOG_STEP_IDS.indexOf(prev);
-
-      // initialBlogStepが不正な値の場合は更新しない
-      if (initialIndex === -1) return prev;
-
-      // ブログ作成モード以外では常に同期
-      if (selectedModel !== 'blog_creation') {
-        return initialBlogStep;
-      }
-
-      // 既に先のステップに進んでいる場合は維持（後退しない）
-      if (prevIndex > initialIndex) {
-        return prev;
-      }
-
-      // それ以外は最新のステップに更新
-      return initialBlogStep;
-    });
-  }, [initialBlogStep, selectedModel]);
-
   // 既存チャットルームを開いた際、フロー状態から自動でブログ作成モデルに合わせる（モデル選択に依存しない）
   useEffect(() => {
     if (blogFlowStatus && blogFlowStatus !== 'idle' && selectedModel !== 'blog_creation') {
       setSelectedModel('blog_creation');
-      onModelChange?.('blog_creation', selectedBlogStep as BlogStepId);
+      onModelChange?.('blog_creation', initialBlogStep);
     }
-  }, [blogFlowStatus, selectedModel, onModelChange, selectedBlogStep]);
+  }, [blogFlowStatus, selectedModel, onModelChange, initialBlogStep]);
 
   // テキストエリアの高さを自動調整する関数
   const adjustTextareaHeight = useCallback(() => {
@@ -252,44 +211,33 @@ const InputArea: React.FC<InputAreaProps> = ({
     const originalMessage = input.trim();
     // ブログ作成モデルの場合の制御：
     // - アクション待ち（waitingAction）での通常送信は「次のステップへ進む」扱い
-    // - 手動でステップが選択されている場合はそのステップを使用
     let effectiveModel: string = selectedModel;
     if (selectedModel === 'blog_creation') {
-      if (manualSelectedStep) {
-        // 手動でステップが選択されている場合はそのステップを使用
-        effectiveModel = `blog_creation_${manualSelectedStep}`;
-        onModelChange?.('blog_creation', manualSelectedStep);
-        setSelectedBlogStep(manualSelectedStep);
+      // 通常送信は次ステップへ（初回はstep1）
+      const currentStep = initialBlogStep ?? 'step1';
+      const currentIdx = BLOG_STEP_IDS.indexOf(currentStep);
+
+      // 型定義上はありえないが、実行時の安全性のため念のためチェック
+      if (currentIdx === -1) {
+        console.error(
+          `[InputArea] initialBlogStep is invalid: ${currentStep}. Falling back to step1.`
+        );
+        const fallbackStep = 'step1';
+        effectiveModel = `blog_creation_${fallbackStep}`;
+        onModelChange?.('blog_creation', fallbackStep);
       } else {
-        // 通常送信は次ステップへ（初回はstep1）
-        const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
+        const shouldAdvance =
+          blogFlowStatus === 'waitingAction' ||
+          (blogFlowStatus === 'idle' && hasDetectedBlogStep);
 
-        // 型定義上はありえないが、実行時の安全性のため念のためチェック
-        if (currentIdx === -1) {
-          console.error(
-            `[InputArea] selectedBlogStep is invalid: ${selectedBlogStep}. Falling back to initialBlogStep or step1.`
-          );
-          const fallbackStep = initialBlogStep ?? 'step1';
-          effectiveModel = `blog_creation_${fallbackStep}`;
-          setSelectedBlogStep(fallbackStep);
-          onModelChange?.('blog_creation', fallbackStep);
-        } else {
-          const shouldAdvance =
-            blogFlowStatus === 'waitingAction' ||
-            (blogFlowStatus === 'idle' && hasDetectedBlogStep);
+        // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
+        const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
+        // 配列範囲内に収める（最後のステップを超えない）
+        const targetIdx = Math.min(nextIdx, BLOG_STEP_IDS.length - 1);
+        const targetStep = BLOG_STEP_IDS[targetIdx] as BlogStepId;
 
-          // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
-          const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
-          // 配列範囲内に収める（最後のステップを超えない）
-          const targetIdx = Math.min(nextIdx, BLOG_STEP_IDS.length - 1);
-          const targetStep = BLOG_STEP_IDS[targetIdx] as BlogStepId;
-
-          effectiveModel = `blog_creation_${targetStep}`;
-          if (targetStep !== selectedBlogStep) {
-            onModelChange?.('blog_creation', targetStep);
-          }
-          setSelectedBlogStep(targetStep);
-        }
+        effectiveModel = `blog_creation_${targetStep}`;
+        onModelChange?.('blog_creation', targetStep);
       }
     }
 
@@ -327,8 +275,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               onValueChange={value => {
                 setSelectedModel(value);
                 if (value === 'blog_creation') {
-                  const targetStep: BlogStepId = initialBlogStep ?? selectedBlogStep;
-                  setSelectedBlogStep(targetStep);
+                  const targetStep: BlogStepId = initialBlogStep ?? 'step1';
                   onModelChange?.(value, targetStep);
                 } else {
                   onModelChange?.(value);
@@ -382,7 +329,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}
-                  placeholder={placeholderMessage ?? 'メッセージを入力...'}
+                  placeholder={placeholderMessage}
                   disabled={isInputDisabled}
                   className={cn(
                     'flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 py-2 h-auto resize-none overflow-y-auto transition-all duration-150',
