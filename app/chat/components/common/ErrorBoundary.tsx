@@ -9,30 +9,22 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
-  resetOnPropsChange?: boolean;
-  resetKeys?: Array<string | number>;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
-  errorInfo: ErrorInfo | null;
   errorId: string | null;
 }
 
-// 開発環境判定
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  private resetTimeoutId: number | null = null;
-
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null,
       errorId: null,
     };
   }
@@ -48,21 +40,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    this.setState({ errorInfo });
-
-    // シンプルなエラーログ出力
     console.error('ErrorBoundary caught an error:', {
       message: error.message,
       name: error.name,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
-      errorBoundary: this.constructor.name,
     });
 
-    // 親コンポーネントへの通知
-    this.props.onError?.(error, errorInfo);
-
-    // 開発環境でのみ詳細なログ出力
     if (IS_DEVELOPMENT) {
       console.group('🚨 Error Boundary Details');
       console.error('Error:', error);
@@ -72,33 +56,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  componentDidUpdate(prevProps: ErrorBoundaryProps) {
-    const { resetOnPropsChange, resetKeys } = this.props;
-    const { hasError } = this.state;
-
-    // プロパティ変更時の自動リセット
-    if (hasError && resetOnPropsChange && resetKeys) {
-      const hasResetKeyChanged = resetKeys.some(
-        (key, index) => prevProps.resetKeys?.[index] !== key
-      );
-
-      if (hasResetKeyChanged) {
-        this.resetError();
-      }
-    }
-  }
-
-  componentWillUnmount() {
-    if (this.resetTimeoutId) {
-      window.clearTimeout(this.resetTimeoutId);
-    }
-  }
-
   resetError = () => {
     this.setState({
       hasError: false,
       error: null,
-      errorInfo: null,
       errorId: null,
     });
   };
@@ -111,11 +72,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     window.location.reload();
   };
 
-  // シンプルなエラーメッセージ生成
   private getErrorMessage(error: Error | null): string {
     if (!error) return '予期せぬエラーが発生しました';
 
-    // エラータイプに応じたメッセージ
     if (error.name === 'ChunkLoadError' || error.message.includes('Loading chunk')) {
       return 'アプリケーションの読み込みに失敗しました。ページを再読み込みしてください。';
     }
@@ -127,19 +86,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return error.message || '予期せぬエラーが発生しました';
   }
 
-  // エラーの重要度判定
-  private getErrorSeverity(error: Error | null): 'low' | 'medium' | 'high' | 'critical' {
-    if (!error) return 'medium';
-
-    if (error.name === 'ChunkLoadError' || error.message.includes('Loading chunk')) {
-      return 'critical';
-    }
-
-    if (error.message.includes('Network')) {
-      return 'high';
-    }
-
-    return 'medium';
+  private isCriticalError(error: Error | null): boolean {
+    if (!error) return false;
+    return error.name === 'ChunkLoadError' || error.message.includes('Loading chunk');
   }
 
   render() {
@@ -147,14 +96,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       const { fallback } = this.props;
       const { error, errorId } = this.state;
 
-      // カスタムフォールバックが提供されている場合
       if (fallback) {
         return fallback;
       }
 
-      // デフォルトのエラー表示
       const errorMessage = this.getErrorMessage(error);
-      const severity = this.getErrorSeverity(error);
+      const isCritical = this.isCriticalError(error);
 
       return (
         <div className="min-h-[400px] flex items-center justify-center p-4">
@@ -180,7 +127,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   再試行
                 </Button>
 
-                {severity === 'critical' && (
+                {isCritical && (
                   <Button onClick={this.handleReload} variant="destructive">
                     ページを再読み込み
                   </Button>
@@ -220,26 +167,5 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children;
   }
 }
-
-// 関数型コンポーネント用のラッパー
-interface WithErrorBoundaryProps {
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
-}
-
-export const withErrorBoundary = <P extends object>(
-  Component: React.ComponentType<P>,
-  errorBoundaryProps?: WithErrorBoundaryProps
-) => {
-  const WrappedComponent = (props: P) => (
-    <ErrorBoundary {...errorBoundaryProps}>
-      <Component {...props} />
-    </ErrorBoundary>
-  );
-
-  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
-
-  return WrappedComponent;
-};
 
 export default ErrorBoundary;

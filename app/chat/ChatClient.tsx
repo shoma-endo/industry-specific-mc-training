@@ -9,7 +9,6 @@ import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { useMobile } from '@/hooks/useMobile';
 import { ChatLayout } from './components/ChatLayout';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import { FullscreenLoadingSpinner } from './components/common/LoadingSpinner';
 
 /**
  * ChatClient - Dependency Injection Container & Root State Provider
@@ -70,9 +69,9 @@ const ChatClient: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, liffLoading]); // ✅ 安全な依存配列のみ（actionsを含めると無限ループ）
 
-  // LIFF初期化中のローディング表示
+  // LIFF初期化中はLiffProviderが表示を担当するため、ここでは何も表示しない
   if (liffLoading) {
-    return <FullscreenLoadingSpinner text="初期化中..." />;
+    return null;
   }
 
   return (
