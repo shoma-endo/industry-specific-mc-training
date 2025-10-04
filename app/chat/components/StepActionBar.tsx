@@ -39,6 +39,13 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
   ) => {
     const { state } = useBlogFlow();
     const savedFieldFlags = useAnnotationStore(state => state.sessions);
+
+    // セッションがストアに存在するかチェック（初期化済みかどうか）
+    const isSessionInitialized = useMemo(() => {
+      if (!currentSessionId) return false;
+      return Object.prototype.hasOwnProperty.call(savedFieldFlags, currentSessionId);
+    }, [currentSessionId, savedFieldFlags]);
+
     const savedFields = useMemo(() => {
       if (!currentSessionId) return {};
       return savedFieldFlags[currentSessionId] ?? {};
@@ -71,9 +78,12 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
     const requiredFields = STEP_REQUIRED_FIELDS[targetStepForValidation] || [];
     const missingFields: string[] = [];
 
-    for (const field of requiredFields) {
-      if (!savedFields[field as keyof typeof savedFields]) {
-        missingFields.push(field);
+    // セッションが初期化されていない場合は検証をスキップ（データ読み込み中）
+    if (isSessionInitialized) {
+      for (const field of requiredFields) {
+        if (!savedFields[field as keyof typeof savedFields]) {
+          missingFields.push(field);
+        }
       }
     }
 
