@@ -810,10 +810,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
       try {
         let editingModel = selectedModel;
+        let targetStep: BlogStepId | null = null;
+
         if (selectedModel === 'blog_creation') {
-          const stepInfo = stepActionBarRef.current?.getCurrentStepInfo();
-          const currentStep = stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
-          editingModel = `blog_creation_${currentStep}`;
+          // ✅ Canvasで選択されているステップを優先（過去のステップからの改善に対応）
+          if (resolvedCanvasStep) {
+            targetStep = resolvedCanvasStep;
+          } else {
+            const stepInfo = stepActionBarRef.current?.getCurrentStepInfo();
+            targetStep = stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
+          }
+          editingModel = `blog_creation_${targetStep}`;
         }
 
         if (!editingModel) {
@@ -857,6 +864,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           systemPromptOverride ? { systemPrompt: systemPromptOverride } : undefined
         );
 
+        // ✅ 改善指示を出したステップから続行できるように状態を更新
+        if (targetStep && selectedModel === 'blog_creation') {
+          setSelectedBlogStep(targetStep);
+          handleModelChange('blog_creation', targetStep);
+        }
+
         // 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
         // ユーザーはBlogPreviewTileをクリックしてCanvasを開く
         return { replacementHtml: '' };
@@ -867,7 +880,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         canvasEditInFlightRef.current = false;
       }
     },
-    [chatSession.actions, latestBlogStep, selectedModel, setIsManualEdit]
+    [
+      chatSession.actions,
+      handleModelChange,
+      latestBlogStep,
+      resolvedCanvasStep,
+      selectedModel,
+      setIsManualEdit,
+    ]
   );
 
   if (!isLoggedIn) {
