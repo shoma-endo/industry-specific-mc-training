@@ -112,7 +112,13 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS[key];
       }
 
+      // ブログ作成を開始していない場合（hasDetectedBlogStep === false）はstep1を表示
+      if (!hasDetectedBlogStep) {
+        return BLOG_PLACEHOLDERS.blog_creation_step1;
+      }
+
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
+      // ブログ作成進行中（hasDetectedBlogStep === true）の場合のみ適用
       if (nextStepForPlaceholder) {
         const key = `blog_creation_${nextStepForPlaceholder}` as keyof typeof BLOG_PLACEHOLDERS;
         return BLOG_PLACEHOLDERS[key];
@@ -120,7 +126,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
       // フォールバック: 現在のステップのプレースホルダーを表示
       // - step7（最終ステップ）の場合: step7のプレースホルダー
-      // - 新規チャット時: step1のプレースホルダー
+      // - 進行中のチャット時: 現在のステップのプレースホルダー
       const fallbackStep = selectedBlogStep || 'step1';
       const key = `blog_creation_${fallbackStep}` as keyof typeof BLOG_PLACEHOLDERS;
       return BLOG_PLACEHOLDERS[key];
