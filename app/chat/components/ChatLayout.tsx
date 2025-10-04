@@ -171,8 +171,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const effectiveBlogFlowActive = blogFlowActive || blogFlowActiveRecalculated;
 
   const currentStep = state.current;
-  // 保存済みステップを優先、なければ最新メッセージのステップ、最後にフォールバック
-  const displayStep = ctx.savedBlogStep ?? latestBlogStep ?? currentStep;
+  // 最新メッセージのステップを優先、なければ保存済みステップ、最後にフォールバック
+  const displayStep = latestBlogStep ?? ctx.savedBlogStep ?? currentStep;
   const hasDetectedBlogStep = latestBlogStep !== null;
   const displayIndex = useMemo(() => {
     const index = BLOG_STEP_IDS.indexOf(displayStep);
