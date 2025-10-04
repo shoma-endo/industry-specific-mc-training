@@ -623,9 +623,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setSelectedVersionByStep({});
     setFollowLatestByStep({});
     setNextStepForPlaceholder(null);
+    // セッション切り替え時はモデル選択もリセット（後続のuseEffectで復元される）
+    setSelectedModel('');
   }, [chatSession.state.currentSessionId]);
 
   // ✅ メッセージ履歴にブログステップがある場合、自動的にブログ作成モデルを選択
+  // セッション切り替え後、latestBlogStepが確定してから実行される
   useEffect(() => {
     // ブログステップが検出された場合
     if (latestBlogStep) {

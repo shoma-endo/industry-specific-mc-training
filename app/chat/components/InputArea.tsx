@@ -129,16 +129,13 @@ const InputArea: React.FC<InputAreaProps> = ({
     }
   }, [isModelSelected]);
 
-  // ✅ セッション変更時に状態をクリア（外部状態からの復元は既存のuseEffectに任せる）
+  // ✅ セッション変更時に入力をクリア（モデル選択は外部から制御される）
   const prevSessionIdRef = useRef<string | undefined>(currentSessionId);
   useEffect(() => {
     // セッションIDが変更された場合のみ実行
     if (prevSessionIdRef.current !== undefined && prevSessionIdRef.current !== currentSessionId) {
       // 入力をクリア
       setInput('');
-
-      // モデル選択をリセット（ブログフロー状態から自動復元される）
-      setSelectedModel('');
     }
 
     // 現在のセッションIDを記録
