@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
-import { useLiffContext } from '@/components/ClientLiffProvider';
+import { useLiffContext } from '@/components/LiffProvider';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
 
 export default function PromptsPage() {

@@ -12,7 +12,7 @@ import {
   updatePromptTemplate,
   createPromptTemplate,
 } from '@/server/handler/actions/prompt.actions';
-import { useLiffContext } from '@/components/ClientLiffProvider';
+import { useLiffContext } from '@/components/LiffProvider';
 import { PromptTemplateWithVersions, PromptVariable } from '@/types/prompt';
 import { getPromptDescription } from '@/lib/prompt-descriptions';
 

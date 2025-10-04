@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useParams, notFound } from 'next/navigation';
 import { PromptEditor } from '../components/PromptEditor';
 import { PromptTemplateWithVersions } from '@/types/prompt';
-import { useLiffContext } from '@/components/ClientLiffProvider';
+import { useLiffContext } from '@/components/LiffProvider';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function PromptEditPage() {
