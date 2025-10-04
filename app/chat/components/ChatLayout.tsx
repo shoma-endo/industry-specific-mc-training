@@ -118,6 +118,7 @@ type ChatLayoutCtx = {
   blogFlowActive: boolean;
   selectedModel: string;
   latestBlogStep: BlogStepId | null;
+  savedBlogStep: BlogStepId | null;
   stepActionBarRef: React.RefObject<StepActionBarRef | null>;
   ui: {
     sidebar: { open: boolean; setOpen: (open: boolean) => void };
@@ -140,6 +141,7 @@ type ChatLayoutCtx = {
   onSendMessage: (content: string, model: string) => Promise<void>;
   handleModelChange: (model: string, step?: BlogStepId) => void;
   nextStepForPlaceholder: BlogStepId | null;
+  onNextStepChange: (nextStep: BlogStepId | null) => void;
 };
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -169,7 +171,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const effectiveBlogFlowActive = blogFlowActive || blogFlowActiveRecalculated;
 
   const currentStep = state.current;
-  const displayStep = latestBlogStep ?? currentStep;
+  // 保存済みステップを優先、なければ最新メッセージのステップ、最後にフォールバック
+  const displayStep = ctx.savedBlogStep ?? latestBlogStep ?? currentStep;
   const hasDetectedBlogStep = latestBlogStep !== null;
   const displayIndex = useMemo(() => {
     const index = BLOG_STEP_IDS.indexOf(displayStep);
@@ -310,6 +313,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           blogFlowStatus={state.flowStatus}
           selectedModelExternal={selectedModel}
           nextStepForPlaceholder={nextStepForPlaceholder}
+          onNextStepChange={ctx.onNextStepChange}
           {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}
         />
       </div>
@@ -366,6 +370,38 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     () => findLatestAssistantBlogStep(chatSession.state.messages ?? []),
     [chatSession.state.messages]
   );
+
+  // 保存済みステップを計算（保存されているフィールドから判断）
+  const savedFieldFlags = useAnnotationStore(state => state.sessions);
+  const savedBlogStep = useMemo<BlogStepId | null>(() => {
+    const sessionId = chatSession.state.currentSessionId;
+    if (!sessionId) return null;
+
+    const savedFields = savedFieldFlags[sessionId] ?? {};
+
+    // 各ステップで保存すべきフィールド
+    const stepFields: Record<BlogStepId, string> = {
+      step1: 'needs',
+      step2: 'persona',
+      step3: 'goal',
+      step4: 'prep',
+      step5: 'basic_structure',
+      step6: 'opening_proposal',
+      step7: 'opening_proposal', // step7もstep6と同じフィールド
+    };
+
+    // 後ろから順にチェックして、保存済みの最新ステップを見つける
+    for (let i = BLOG_STEP_IDS.length - 1; i >= 0; i--) {
+      const step = BLOG_STEP_IDS[i];
+      if (!step) continue;
+      const field = stepFields[step];
+      if (field && savedFields[field as keyof typeof savedFields]) {
+        return step;
+      }
+    }
+
+    return null;
+  }, [chatSession.state.currentSessionId, savedFieldFlags]);
 
   const chatStateRef = useRef(chatSession.state);
   const canvasEditInFlightRef = useRef(false);
@@ -577,23 +613,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // StepActionBarのrefを定義
   const stepActionBarRef = useRef<StepActionBarRef>(null);
 
-  // StepActionBarのnextStep情報を更新する関数
-  const updateNextStepInfo = useCallback(() => {
-    if (stepActionBarRef.current) {
-      const stepInfo = stepActionBarRef.current.getCurrentStepInfo();
-      setNextStepForPlaceholder(stepInfo.nextStep);
-    }
-  }, []);
-
-  // StepActionBarの状態変更を監視してnextStep情報を更新
-  useEffect(() => {
-    updateNextStepInfo();
-  }, [latestBlogStep, updateNextStepInfo]);
-
   // モデル変更ハンドラ
   const handleModelChange = useCallback((model: string, step?: BlogStepId) => {
     setSelectedModel(model);
     if (step) setSelectedBlogStep(step);
+  }, []);
+
+  // nextStepの変更ハンドラ
+  const handleNextStepChange = useCallback((nextStep: BlogStepId | null) => {
+    setNextStepForPlaceholder(nextStep);
   }, []);
 
   // BlogFlow起動ガード（モデル選択と連動）
@@ -857,6 +885,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             blogFlowActive,
             selectedModel,
             latestBlogStep,
+            savedBlogStep,
             stepActionBarRef,
             ui: {
               sidebar: { open: sidebarOpen, setOpen: setSidebarOpen },
@@ -872,6 +901,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             onSendMessage: handleSendMessage,
             handleModelChange,
             nextStepForPlaceholder,
+            onNextStepChange: handleNextStepChange,
           }}
         />
 

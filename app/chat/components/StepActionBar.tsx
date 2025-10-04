@@ -15,6 +15,7 @@ type Props = {
   annotationLoading?: boolean | undefined;
   currentSessionId?: string | undefined;
   onCanProceedChange?: ((canProceed: boolean) => void) | undefined;
+  onNextStepChange?: ((nextStep: BlogStepId | null) => void) | undefined;
 };
 
 export type StepActionBarRef = {
@@ -32,6 +33,7 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
       annotationLoading,
       currentSessionId,
       onCanProceedChange,
+      onNextStepChange,
     },
     ref
   ) => {
@@ -90,6 +92,11 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
     useEffect(() => {
       onCanProceedChange?.(canProceed);
     }, [canProceed, onCanProceedChange]);
+
+    // nextStep の変更を親コンポーネントに通知
+    useEffect(() => {
+      onNextStepChange?.(nextStep);
+    }, [nextStep, onNextStepChange]);
 
     return (
       <div className={`flex items-center gap-2 ${className ?? ''}`}>

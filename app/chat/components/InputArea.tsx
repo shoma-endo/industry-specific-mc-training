@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -13,7 +13,6 @@ import {
 import { Bot, Send, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
-import { useAnnotationStore } from '@/store/annotationStore';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 
 // 使用可能なモデル一覧
@@ -59,6 +58,7 @@ interface InputAreaProps {
   onSaveClick?: () => void;
   annotationLoading?: boolean;
   stepActionBarDisabled?: boolean;
+  onNextStepChange?: (nextStep: BlogStepId | null) => void;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -83,6 +83,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onSaveClick,
   annotationLoading,
   stepActionBarDisabled,
+  onNextStepChange,
 }) => {
   const [input, setInput] = useState('');
   const [canProceed, setCanProceed] = useState(true);
@@ -92,12 +93,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   >(initialBlogStep ?? 'step1');
   const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const savedFieldFlags = useAnnotationStore(state => state.sessions);
-  const savedFields = useMemo(() => {
-    if (!currentSessionId) return {};
-    return savedFieldFlags[currentSessionId] ?? {};
-  }, [currentSessionId, savedFieldFlags]);
 
   const isModelSelected = Boolean(selectedModel);
   const isInputDisabled = disabled || !isModelSelected;
@@ -115,7 +110,6 @@ const InputArea: React.FC<InputAreaProps> = ({
     if (selectedModel === 'blog_creation') {
       // 手動でステップが選択されている場合
       if (manualSelectedStep) {
-        // 選択したステップのプレースホルダー
         const key = `blog_creation_${manualSelectedStep}` as keyof typeof BLOG_PLACEHOLDERS;
         return BLOG_PLACEHOLDERS[key];
       }
@@ -126,39 +120,11 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS[key];
       }
 
-      const savedPersona = savedFields.persona;
-      const savedNeeds = savedFields.needs;
-      const savedGoal = savedFields.goal;
-      const savedPrep = savedFields.prep;
-      const savedBasicStructure = savedFields.basic_structure;
-      const savedOpening = savedFields.opening_proposal;
-
-      const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
-      const shouldAdvanceInUi =
-        blogFlowStatus === 'waitingAction' || (blogFlowStatus === 'idle' && hasDetectedBlogStep);
-
-      const savedProgressCount = [
-        savedNeeds,
-        savedPersona,
-        savedGoal,
-        savedPrep,
-        savedBasicStructure,
-        savedOpening,
-      ].filter(Boolean).length;
-
-      let targetIdx = Math.max(0, currentIdx + (shouldAdvanceInUi ? 1 : 0));
-
-      if (savedProgressCount > 0) {
-        const absoluteTarget = Math.max(currentIdx + 1, savedProgressCount);
-        if (absoluteTarget < BLOG_STEP_IDS.length) {
-          targetIdx = absoluteTarget;
-        }
-      }
-
-      const targetStep = BLOG_STEP_IDS[targetIdx] ?? selectedBlogStep;
-      const key = `blog_creation_${targetStep}` as keyof typeof BLOG_PLACEHOLDERS;
+      // フォールバック: 現在のステップのプレースホルダーを表示
+      const key = `blog_creation_${selectedBlogStep}` as keyof typeof BLOG_PLACEHOLDERS;
       return BLOG_PLACEHOLDERS[key];
     }
+
     // 通常モデル
     return MODEL_PLACEHOLDERS[displayModelKey ?? ''] ?? 'チャットモデルを選択してください';
   })();
@@ -357,6 +323,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               annotationLoading={annotationLoading}
               currentSessionId={currentSessionId}
               onCanProceedChange={setCanProceed}
+              onNextStepChange={onNextStepChange}
             />
           </div>
         )}
