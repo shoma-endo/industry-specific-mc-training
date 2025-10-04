@@ -392,7 +392,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                     disabled={
                       isInputDisabled ||
                       !input.trim() ||
-                      (selectedModel === 'blog_creation' && !canProceed)
+                      (selectedModel === 'blog_creation' && shouldShowStepActionBar && !canProceed)
                     }
                     className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
                   >
