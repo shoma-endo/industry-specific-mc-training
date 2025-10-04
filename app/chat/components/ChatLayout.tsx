@@ -596,62 +596,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     if (step) setSelectedBlogStep(step);
   }, []);
 
-  // 新しいアシスタントメッセージを待つヘルパー関数（件数とID変化の両方を監視）
-  const waitForNewAssistantMessage = useCallback(
-    (
-      prevLastId: string | undefined,
-      prevCount: number,
-      getMessages: () => ChatMessage[],
-      timeoutMs = 12000,
-      intervalMs = 120
-    ): Promise<string | undefined> => {
-      const start = Date.now();
-      return new Promise(resolve => {
-        const timer = setInterval(() => {
-          const now = Date.now();
-          if (now - start > timeoutMs) {
-            clearInterval(timer);
-            resolve(undefined);
-            return;
-          }
-
-          const assistants = getMessages().filter(m => m.role === 'assistant');
-          const cur = assistants[assistants.length - 1];
-          const increased = assistants.length > prevCount;
-          const changed = cur?.id && cur.id !== prevLastId;
-
-          if (increased || changed) {
-            clearInterval(timer);
-            resolve(cur?.id);
-          }
-        }, intervalMs);
-      });
-    },
-    []
-  );
-
-  // BlogFlow用のagent実装
-  const agent = {
-    send: async (content: string, model: string) => {
-      // 送信前のアシスタントメッセージ状態を記録
-      const beforeAssistants = chatSession.state.messages.filter(m => m.role === 'assistant');
-      const prevLastId = beforeAssistants[beforeAssistants.length - 1]?.id;
-      const prevCount = beforeAssistants.length;
-
-      // メッセージ送信
-      await handleSendMessage(content, model);
-
-      // 新しいアシスタントメッセージが現れるまで待つ（件数増加またはID変化）
-      const newMessageId = await waitForNewAssistantMessage(
-        prevLastId,
-        prevCount,
-        () => chatSession.state.messages
-      );
-
-      return { messageId: newMessageId ?? String(Date.now()) };
-    },
-  };
-
   // BlogFlow起動ガード（モデル選択と連動）
   const blogFlowActive =
     !subscription.requiresSubscription &&
@@ -903,12 +847,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   }
 
   return (
-    <BlogFlowProvider
-      key={chatSession.state.currentSessionId || 'no-session'}
-      agent={agent}
-      isActive={blogFlowActive}
-      sessionId={chatSession.state.currentSessionId || 'no-session'}
-    >
+    <BlogFlowProvider>
       <div className="flex h-[calc(100vh-3rem)]" data-testid="chat-layout">
         <ChatLayoutContent
           ctx={{

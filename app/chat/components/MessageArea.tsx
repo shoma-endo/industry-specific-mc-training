@@ -4,7 +4,6 @@ import React, { useEffect, useRef } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BlogFlowState } from '@/context/BlogFlowProvider';
 import BlogPreviewTile from './common/BlogPreviewTile';
 import { BLOG_STEP_LABELS } from '@/lib/constants';
 import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/blog-canvas';
@@ -14,8 +13,6 @@ interface MessageAreaProps {
   isLoading: boolean;
   renderAfterMessage?: (message: ChatMessage) => React.ReactNode;
   blogFlowActive?: boolean;
-  blogFlowState?: BlogFlowState;
-  onStartBlogFlow?: () => void;
   onOpenCanvas?: (message: ChatMessage) => void;
 }
 
