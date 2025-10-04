@@ -801,32 +801,33 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setIsManualEdit(true);
 
       try {
-        let editingModel = selectedModel;
-        let targetStep: BlogStepId | null = null;
+        // キャンバスパネルはブログ作成専用のため、常にブログ作成モデルを使用
+        let targetStep: BlogStepId;
 
-        if (selectedModel === 'blog_creation') {
-          // ✅ Canvasで選択されているステップを優先（過去のステップからの改善に対応）
-          if (resolvedCanvasStep) {
-            targetStep = resolvedCanvasStep;
-          } else {
-            const stepInfo = stepActionBarRef.current?.getCurrentStepInfo();
-            targetStep = stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
-          }
-          editingModel = `blog_creation_${targetStep}`;
+        // Canvasで選択されているステップを優先（過去のステップからの改善に対応）
+        if (resolvedCanvasStep) {
+          targetStep = resolvedCanvasStep;
+        } else {
+          const stepInfo = stepActionBarRef.current?.getCurrentStepInfo();
+          targetStep = stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
         }
 
-        if (!editingModel) {
-          editingModel = 'lp_improvement';
-        }
+        const editingModel = `blog_creation_${targetStep}`;
 
         const instruction = payload.instruction.trim();
         const selectedText = payload.selectedText.trim();
         const isImprove = payload.action === 'improve';
+
+        // canvasMarkdownの検証
+        if (isImprove && (!payload.canvasMarkdown || payload.canvasMarkdown.trim() === '')) {
+          throw new Error('キャンバスコンテンツが空です。編集対象が見つかりませんでした。');
+        }
+
         const systemPromptOverride = isImprove
           ? [
               '# ユーザーの指示に基づいて、選択範囲を編集しつつ文章全体を最適化してください。',
               '',
-              '## 重要な指示',
+              '## 最重要事項',
               '- 選択範囲の編集内容が文章全体の流れや一貫性を損なわないように調整してください。',
               '- 必要に応じて、選択範囲外の部分も改善してください（表現の統一、接続詞の調整、冗長性の削除など）。',
               '- **文章全体を省略せずに必ず全文を出力してください。**',
@@ -839,7 +840,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
               '',
               '## 文章全体（Markdown）',
               '```markdown',
-              payload.canvasMarkdown ?? '',
+              payload.canvasMarkdown,
               '```',
             ]
               .filter(Boolean)
@@ -856,11 +857,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           systemPromptOverride ? { systemPrompt: systemPromptOverride } : undefined
         );
 
-        // ✅ 改善指示を出したステップから続行できるように状態を更新
-        if (targetStep && selectedModel === 'blog_creation') {
-          setSelectedBlogStep(targetStep);
-          handleModelChange('blog_creation', targetStep);
-        }
+        // 改善指示を出したステップから続行できるように状態を更新
+        setSelectedBlogStep(targetStep);
+        handleModelChange('blog_creation', targetStep);
 
         // 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
         // ユーザーはBlogPreviewTileをクリックしてCanvasを開く
@@ -877,7 +876,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       handleModelChange,
       latestBlogStep,
       resolvedCanvasStep,
-      selectedModel,
       setIsManualEdit,
     ]
   );
