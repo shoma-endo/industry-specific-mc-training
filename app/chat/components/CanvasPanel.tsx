@@ -17,7 +17,7 @@ import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight } from 'lowlight';
 import { DOMSerializer } from 'prosemirror-model';
-import { X, ClipboardCheck, List, Loader2, ArrowBigLeft } from 'lucide-react';
+import { X, ClipboardCheck, List, Loader2, ArrowBigLeft, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BLOG_STEP_LABELS } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
 import type {
@@ -823,6 +824,22 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {orderedVersions.length > 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center justify-center w-5 h-5 text-gray-500 hover:text-gray-700 cursor-help transition-colors">
+                    <Info size={16} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs">
+                  <p>
+                    過去のステップから改善指示を出して修正した場合、そのステップから進むことになります
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           {hasStepOptions && (
             <Select
               value={activeStepId ?? stepOptions[stepOptions.length - 1] ?? ''}
