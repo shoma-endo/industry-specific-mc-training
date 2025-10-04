@@ -136,6 +136,23 @@ const InputArea: React.FC<InputAreaProps> = ({
     }
   }, [isModelSelected]);
 
+  // ✅ セッション変更時に状態をクリア（外部状態からの復元は既存のuseEffectに任せる）
+  const prevSessionIdRef = useRef<string | undefined>(currentSessionId);
+  useEffect(() => {
+    // セッションIDが変更された場合のみ実行
+    if (prevSessionIdRef.current !== undefined && prevSessionIdRef.current !== currentSessionId) {
+      // 入力をクリア
+      setInput('');
+
+      // モデル選択をリセット（ブログフロー状態から自動復元される）
+      setSelectedModel('');
+      setSelectedBlogStep('step1');
+    }
+
+    // 現在のセッションIDを記録
+    prevSessionIdRef.current = currentSessionId;
+  }, [currentSessionId]);
+
   // モバイル画面の検出（propsから渡された値を優先、フォールバックで独自検出）
   useEffect(() => {
     if (propIsMobile !== undefined) {
