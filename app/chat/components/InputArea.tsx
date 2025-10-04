@@ -88,9 +88,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   const [input, setInput] = useState('');
   const [canProceed, setCanProceed] = useState(true);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedBlogStep, setSelectedBlogStep] = useState<
-    'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7'
-  >(initialBlogStep ?? 'step1');
+  const [selectedBlogStep, setSelectedBlogStep] = useState<BlogStepId>(initialBlogStep ?? 'step1');
   const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -120,8 +118,10 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS[key];
       }
 
-      // フォールバック: 新規チャット時はstep1、それ以外は現在のステップ
-      const fallbackStep = nextStepForPlaceholder === null ? 'step1' : selectedBlogStep;
+      // フォールバック: 現在のステップのプレースホルダーを表示
+      // - step7（最終ステップ）の場合: step7のプレースホルダー
+      // - 新規チャット時: step1のプレースホルダー
+      const fallbackStep = selectedBlogStep || 'step1';
       const key = `blog_creation_${fallbackStep}` as keyof typeof BLOG_PLACEHOLDERS;
       return BLOG_PLACEHOLDERS[key];
     }
@@ -161,23 +161,28 @@ const InputArea: React.FC<InputAreaProps> = ({
 
   useEffect(() => {
     if (!initialBlogStep) return;
-    setSelectedBlogStep(prev => {
-      if (prev === initialBlogStep) return prev;
 
+    // ✅ initialBlogStepが変更されたら、常にselectedBlogStepを更新
+    // ただし、手動で先のステップに進んでいる場合は維持
+    setSelectedBlogStep(prev => {
       const initialIndex = BLOG_STEP_IDS.indexOf(initialBlogStep);
       const prevIndex = BLOG_STEP_IDS.indexOf(prev);
 
+      // initialBlogStepが不正な値の場合は更新しない
       if (initialIndex === -1) return prev;
 
+      // ブログ作成モード以外では常に同期
       if (selectedModel !== 'blog_creation') {
         return initialBlogStep;
       }
 
-      if (initialIndex >= prevIndex) {
-        return initialBlogStep;
+      // 既に先のステップに進んでいる場合は維持（後退しない）
+      if (prevIndex > initialIndex) {
+        return prev;
       }
 
-      return prev;
+      // それ以外は最新のステップに更新
+      return initialBlogStep;
     });
   }, [initialBlogStep, selectedModel]);
 
@@ -235,15 +240,33 @@ const InputArea: React.FC<InputAreaProps> = ({
       } else {
         // 通常送信は次ステップへ（初回はstep1）
         const currentIdx = BLOG_STEP_IDS.indexOf(selectedBlogStep);
-        const shouldAdvance =
-          blogFlowStatus === 'waitingAction' || (blogFlowStatus === 'idle' && hasDetectedBlogStep);
-        const nextIdx = Math.max(0, currentIdx + (shouldAdvance ? 1 : 0));
-        const targetStep = BLOG_STEP_IDS[nextIdx] ?? 'step1';
-        effectiveModel = `blog_creation_${targetStep}`;
-        if (targetStep !== selectedBlogStep) {
-          onModelChange?.('blog_creation', targetStep);
+
+        // 型定義上はありえないが、実行時の安全性のため念のためチェック
+        if (currentIdx === -1) {
+          console.error(
+            `[InputArea] selectedBlogStep is invalid: ${selectedBlogStep}. Falling back to initialBlogStep or step1.`
+          );
+          const fallbackStep = initialBlogStep ?? 'step1';
+          effectiveModel = `blog_creation_${fallbackStep}`;
+          setSelectedBlogStep(fallbackStep);
+          onModelChange?.('blog_creation', fallbackStep);
+        } else {
+          const shouldAdvance =
+            blogFlowStatus === 'waitingAction' ||
+            (blogFlowStatus === 'idle' && hasDetectedBlogStep);
+
+          // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
+          const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
+          // 配列範囲内に収める（最後のステップを超えない）
+          const targetIdx = Math.min(nextIdx, BLOG_STEP_IDS.length - 1);
+          const targetStep = BLOG_STEP_IDS[targetIdx] as BlogStepId;
+
+          effectiveModel = `blog_creation_${targetStep}`;
+          if (targetStep !== selectedBlogStep) {
+            onModelChange?.('blog_creation', targetStep);
+          }
+          setSelectedBlogStep(targetStep);
         }
-        setSelectedBlogStep(targetStep);
       }
     }
 
