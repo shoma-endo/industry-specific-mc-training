@@ -120,8 +120,9 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS[key];
       }
 
-      // フォールバック: 現在のステップのプレースホルダーを表示
-      const key = `blog_creation_${selectedBlogStep}` as keyof typeof BLOG_PLACEHOLDERS;
+      // フォールバック: 新規チャット時はstep1、それ以外は現在のステップ
+      const fallbackStep = nextStepForPlaceholder === null ? 'step1' : selectedBlogStep;
+      const key = `blog_creation_${fallbackStep}` as keyof typeof BLOG_PLACEHOLDERS;
       return BLOG_PLACEHOLDERS[key];
     }
 
