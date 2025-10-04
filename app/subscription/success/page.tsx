@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { getCheckoutSessionDetails } from '@/server/handler/actions/subscription.actions';
@@ -12,7 +12,7 @@ interface SessionDetails {
   payment_status?: string;
 }
 
-export default function SubscriptionSuccessPage() {
+function SuccessPageContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams?.get('session_id');
   const { getAccessToken } = useLiff();
@@ -92,5 +92,21 @@ export default function SubscriptionSuccessPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function SubscriptionSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 py-12">
+          <div className="max-w-lg mx-auto bg-white p-8 rounded-lg shadow-md text-center">
+            <p className="text-gray-500">読み込み中...</p>
+          </div>
+        </div>
+      }
+    >
+      <SuccessPageContent />
+    </Suspense>
   );
 }
