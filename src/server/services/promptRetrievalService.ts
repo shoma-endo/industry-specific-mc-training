@@ -95,7 +95,7 @@ export class PromptRetrievalService {
             try {
               const { provider, actualModel } = MODEL_CONFIGS['ad_copy_finishing'] ?? {
                 provider: 'anthropic' as const,
-                actualModel: 'claude-sonnet-4-20250514',
+                actualModel: 'claude-sonnet-4-5-20250929',
               };
 
               const text = await llmChat(

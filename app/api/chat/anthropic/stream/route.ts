@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
               ? cfg.actualModel
               : model.includes('claude')
                 ? model
-                : 'claude-sonnet-4-20250514';
+                : 'claude-sonnet-4-5-20250929';
           const resolvedMaxTokens = cfg && cfg.provider === 'anthropic' ? cfg.maxTokens : 6000;
           const resolvedTemperature = cfg && cfg.provider === 'anthropic' ? cfg.temperature : 0.3;
 
@@ -124,7 +124,6 @@ export async function POST(req: NextRequest) {
               max_tokens: resolvedMaxTokens,
               temperature: resolvedTemperature,
               system: systemPrompt,
-              ...(cfg?.top_p ? { top_p: cfg.top_p } : {}),
               messages: anthropicMessages,
             },
             {
