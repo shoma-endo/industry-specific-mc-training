@@ -111,10 +111,15 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS[key];
       }
 
-      // フォールバック: 現在のステップのプレースホルダーを表示
-      // - step7（最終ステップ）の場合: step7のプレースホルダー
-      // - 進行中のチャット時: 現在のステップのプレースホルダー
-      const fallbackStep = initialBlogStep || 'step1';
+      // フォールバック: 次のステップのプレースホルダーを表示
+      // - waitingActionまたはhasDetectedBlogStep時は次のステップへ
+      // - それ以外は現在のステップ
+      const currentStep = initialBlogStep ?? 'step1';
+      const currentIdx = BLOG_STEP_IDS.indexOf(currentStep);
+      const shouldAdvance = hasDetectedBlogStep; // すでにブログ作成が始まっている場合は次へ
+      const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
+      const targetIdx = Math.min(nextIdx, BLOG_STEP_IDS.length - 1);
+      const fallbackStep = BLOG_STEP_IDS[targetIdx] as BlogStepId;
       const key = `blog_creation_${fallbackStep}` as keyof typeof BLOG_PLACEHOLDERS;
       return BLOG_PLACEHOLDERS[key];
     }
