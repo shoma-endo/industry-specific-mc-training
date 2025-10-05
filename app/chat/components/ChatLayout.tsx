@@ -819,46 +819,37 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
         const instruction = payload.instruction.trim();
         const selectedText = payload.selectedText.trim();
-        const isImprove = payload.action === 'improve';
 
         // canvasMarkdownの検証
-        if (isImprove && (!payload.canvasMarkdown || payload.canvasMarkdown.trim() === '')) {
+        if (!payload.canvasMarkdown || payload.canvasMarkdown.trim() === '') {
           throw new Error('キャンバスコンテンツが空です。編集対象が見つかりませんでした。');
         }
 
-        const systemPromptOverride = isImprove
-          ? [
-              '# ユーザーの指示に基づいて、選択範囲を編集しつつ文章全体を最適化してください。',
-              '',
-              '## 最重要事項',
-              '- 選択範囲の編集内容が文章全体の流れや一貫性を損なわないように調整してください。',
-              '- 必要に応じて、選択範囲外の部分も改善してください（表現の統一、接続詞の調整、冗長性の削除など）。',
-              '- **文章全体を省略せずに必ず全文を出力してください。**',
-              '- 通常のブログ記事と同じMarkdown形式で出力してください。',
-              '',
-              '## 選択範囲',
-              '```',
-              selectedText,
-              '```',
-              '',
-              '## 文章全体（Markdown）',
-              '```markdown',
-              payload.canvasMarkdown,
-              '```',
-            ]
-              .filter(Boolean)
-              .join('\n')
-          : undefined;
+        const systemPromptOverride = [
+          '# ユーザーの指示に基づいて、選択範囲を編集しつつ文章全体を最適化してください。',
+          '',
+          '## 最重要事項',
+          '- 選択範囲の編集内容が文章全体の流れや一貫性を損なわないように調整してください。',
+          '- 必要に応じて、選択範囲外の部分も改善してください（表現の統一、接続詞の調整、冗長性の削除など）。',
+          '- **文章全体を省略せずに必ず全文を出力してください。**',
+          '- 通常のブログ記事と同じMarkdown形式で出力してください。',
+          '',
+          '## 選択範囲',
+          '```',
+          selectedText,
+          '```',
+          '',
+          '## 文章全体（Markdown）',
+          '```markdown',
+          payload.canvasMarkdown,
+          '```',
+        ]
+          .filter(Boolean)
+          .join('\n');
 
-        const userPrompt = isImprove
-          ? instruction
-          : ['```', selectedText, '```', '', instruction].join('\n');
-
-        await chatSession.actions.sendMessage(
-          userPrompt,
-          editingModel,
-          systemPromptOverride ? { systemPrompt: systemPromptOverride } : undefined
-        );
+        await chatSession.actions.sendMessage(instruction, editingModel, {
+          systemPrompt: systemPromptOverride,
+        });
 
         // 改善指示を出したステップから続行できるように状態を更新
         setSelectedBlogStep(targetStep);

@@ -642,7 +642,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         selectedText: selection.text,
         selectedHtml: selectionHtml,
         canvasMarkdown: fullCanvasMarkdown,
-        action: 'improve',
       });
 
       // ✅ ClaudeのArtifacts風: 通常のブログ作成と同じように、新しいメッセージがチャットに表示される

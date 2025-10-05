@@ -2,17 +2,11 @@
  * キャンバス関連の型定義
  */
 
-/**
- * キャンバス選択範囲の編集アクション
- */
-export type CanvasSelectionAction = 'improve';
-
 export interface CanvasSelectionEditPayload {
   instruction: string;
   selectedText: string;
   selectedHtml?: string;
   canvasMarkdown: string;
-  action: CanvasSelectionAction;
 }
 
 export interface CanvasSelectionEditResult {
