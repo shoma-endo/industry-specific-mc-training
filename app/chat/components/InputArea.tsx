@@ -84,7 +84,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   onNextStepChange,
 }) => {
   const [input, setInput] = useState('');
-  const [canProceed, setCanProceed] = useState(true);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -317,8 +316,6 @@ const InputArea: React.FC<InputAreaProps> = ({
               disabled={stepActionBarDisabled}
               onSaveClick={onSaveClick}
               annotationLoading={annotationLoading}
-              currentSessionId={currentSessionId}
-              onCanProceedChange={setCanProceed}
               onNextStepChange={onNextStepChange}
             />
           </div>
@@ -346,8 +343,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                     size="icon"
                     disabled={
                       isInputDisabled ||
-                      !input.trim() ||
-                      (selectedModel === 'blog_creation' && shouldShowStepActionBar && !canProceed)
+                      !input.trim()
                     }
                     className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
                   >

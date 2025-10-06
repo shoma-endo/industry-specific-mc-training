@@ -168,17 +168,6 @@ export const ANALYTICS_COLUMNS = [
   { id: 'rank', label: '順位' },
 ];
 
-// ブログ作成の各ステップに必要な保存済みフィールド
-export const STEP_REQUIRED_FIELDS: Record<BlogStepId, string[]> = {
-  step1: [], // step1は前提条件なし
-  step2: ['needs'], // step2にはstep1(needs)が必要
-  step3: ['needs', 'persona'], // step3にはstep1,2が必要
-  step4: ['needs', 'persona', 'goal'], // step4にはstep1,2,3が必要
-  step5: ['needs', 'persona', 'goal', 'prep'], // step5にはstep1,2,3,4が必要
-  step6: ['needs', 'persona', 'goal', 'prep', 'basic_structure'], // step6にはstep1,2,3,4,5が必要
-  step7: ['needs', 'persona', 'goal', 'prep', 'basic_structure', 'opening_proposal'], // step7には全て必要
-};
-
 // ブログステップとコンテンツフィールドのマッピング
 export const STEP_TO_FIELD_MAP: Record<BlogStepId, string> = {
   step1: 'needs',
