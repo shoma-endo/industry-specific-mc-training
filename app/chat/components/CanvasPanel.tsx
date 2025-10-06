@@ -56,6 +56,7 @@ interface CanvasPanelProps {
   stepOptions?: BlogStepId[];
   activeStepId?: BlogStepId | null;
   onStepSelect?: (stepId: BlogStepId) => void;
+  streamingContent?: string; // ストリーミング中のコンテンツ
 }
 
 const lowlight = createLowlight();
@@ -106,6 +107,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   stepOptions = [],
   activeStepId,
   onStepSelect,
+  streamingContent = '',
 }) => {
   const [markdownContent, setMarkdownContent] = useState('');
   const [bubble, setBubble] = useState<CanvasBubbleState>({
@@ -429,8 +431,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   // ✅ コンテンツが更新された時の処理
   useEffect(() => {
-    if (content) {
-      const markdown = parseAsMarkdown(content);
+    const currentContent = streamingContent || content;
+    if (currentContent) {
+      const markdown = parseAsMarkdown(currentContent);
       setMarkdownContent(markdown);
 
       // ✅ 見出しを抽出
@@ -502,7 +505,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         editor.commands.setContent(htmlContent);
       }
     }
-  }, [editor, content, extractHeadings, generateHeadingId]);
+  }, [editor, content, streamingContent, extractHeadings, generateHeadingId]);
 
   useEffect(() => {
     setSelectionMode(null);
@@ -512,7 +515,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     setInstruction('');
     setLastAiError(null);
     selectionAnchorRef.current = null;
-  }, [content]);
+  }, [content, streamingContent]);
 
   useEffect(() => {
     if (lastAiError && instruction.trim().length > 0) {
@@ -626,6 +629,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     setIsApplyingSelectionEdit(true);
     setLastAiError(null);
 
+    // ✅ 送信ボタンを押した直後に入力欄を非表示にする
+    setSelectionMode(null);
+    setSelectionMenuPosition(null);
+
     try {
       const fullCanvasHtml = editor.getHTML();
       const fullCanvasMarkdown = convertHtmlToMarkdown(fullCanvasHtml);
@@ -647,10 +654,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       // ✅ ClaudeのArtifacts風: 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
       // ユーザーはBlogPreviewTileをクリックしてCanvasを開く
       setLastAiError(null);
-      setSelectionMode(null);
       setSelectionState(null);
       selectionSnapshotRef.current = null;
-      setSelectionMenuPosition(null);
       setInstruction('');
       selectionAnchorRef.current = null;
       const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
@@ -659,6 +664,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       console.error('Canvas selection edit failed:', error);
       const message = error instanceof Error ? error.message : 'AIによる編集の適用に失敗しました';
       setLastAiError(message);
+      // エラー時は入力欄を再表示
+      setSelectionMode('input');
+      updateSelectionMenuPosition('input');
     } finally {
       setIsApplyingSelectionEdit(false);
     }
@@ -669,6 +677,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     getSelectionHtml,
     instruction,
     onSelectionEdit,
+    updateSelectionMenuPosition,
   ]);
 
   // ✅ 見出しクリック時のスクロール機能

@@ -140,6 +140,7 @@ export class ChatService implements IChatService {
       userMessage: params.content,
       model: params.model,
       liffAccessToken: params.accessToken,
+      systemPrompt: params.systemPrompt,
     });
 
     return {
@@ -161,6 +162,7 @@ export class ChatService implements IChatService {
       userMessage: params.content,
       model: params.model,
       liffAccessToken: params.accessToken,
+      systemPrompt: params.systemPrompt,
     });
 
     return {

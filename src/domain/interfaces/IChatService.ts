@@ -5,6 +5,7 @@ export interface SendMessageParams {
   sessionId?: string | undefined;
   isNewSession: boolean;
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  systemPrompt?: string | undefined;
 }
 
 export interface SendMessageResponse {

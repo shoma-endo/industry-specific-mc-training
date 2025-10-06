@@ -15,6 +15,7 @@ const startChatSchema = z.object({
   userMessage: z.string(),
   model: z.string(),
   liffAccessToken: z.string(),
+  systemPrompt: z.string().optional(),
 });
 
 const continueChatSchema = z.object({
@@ -23,6 +24,7 @@ const continueChatSchema = z.object({
   userMessage: z.string(),
   model: z.string(),
   liffAccessToken: z.string(),
+  systemPrompt: z.string().optional(),
 });
 
 // メッセージ保存関連のスキーマ

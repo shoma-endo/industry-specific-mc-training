@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChatSessionHook } from '@/hooks/useChatSession';
 import { SubscriptionHook } from '@/hooks/useSubscriptionStatus';
+import { useLiffContext } from '@/components/LiffProvider';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Menu } from 'lucide-react';
@@ -96,6 +97,8 @@ type ChatLayoutCtx = {
   subscription: SubscriptionHook;
   isMobile: boolean;
   blogFlowActive: boolean;
+  optimisticMessages: ChatMessage[];
+  isCanvasStreaming: boolean;
   selectedModel: string;
   latestBlogStep: BlogStepId | null;
   savedBlogStep: BlogStepId | null;
@@ -130,6 +133,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     subscription,
     isMobile,
     blogFlowActive,
+    optimisticMessages,
+    isCanvasStreaming,
     selectedModel,
     latestBlogStep,
     stepActionBarRef,
@@ -265,8 +270,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
         )}
 
         <MessageArea
-          messages={chatSession.state.messages}
-          isLoading={chatSession.state.isLoading}
+          messages={[...chatSession.state.messages, ...optimisticMessages]}
+          isLoading={chatSession.state.isLoading || isCanvasStreaming}
           blogFlowActive={effectiveBlogFlowActive}
           onOpenCanvas={message => ui.canvas.show(message)}
         />
@@ -320,6 +325,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   isMobile = false,
 }) => {
   const { setSavedFields } = useAnnotationStore();
+  const { getAccessToken } = useLiffContext();
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [annotationData, setAnnotationData] = useState<{
@@ -345,6 +351,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     Partial<Record<BlogStepId, boolean>>
   >({});
   const [nextStepForPlaceholder, setNextStepForPlaceholder] = useState<BlogStepId | null>(null);
+  const [canvasStreamingContent, setCanvasStreamingContent] = useState<string>('');
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+  const [isCanvasStreaming, setIsCanvasStreaming] = useState(false);
   const latestBlogStep = useMemo(
     () => findLatestAssistantBlogStep(chatSession.state.messages ?? []),
     [chatSession.state.messages]
@@ -802,6 +811,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
       canvasEditInFlightRef.current = true;
       setIsManualEdit(true);
+      setIsCanvasStreaming(true);
 
       try {
         // キャンバスパネルはブログ作成専用のため、常にブログ作成モデルを使用
@@ -815,8 +825,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           targetStep = stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
         }
 
-        const editingModel = `blog_creation_${targetStep}`;
-
         const instruction = payload.instruction.trim();
         const selectedText = payload.selectedText.trim();
 
@@ -825,52 +833,140 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           throw new Error('キャンバスコンテンツが空です。編集対象が見つかりませんでした。');
         }
 
-        const systemPromptOverride = [
-          '# ユーザーの指示に基づいて、選択範囲を編集しつつ文章全体を最適化してください。',
-          '',
-          '## 最重要事項',
-          '- 選択範囲の編集内容が文章全体の流れや一貫性を損なわないように調整してください。',
-          '- 必要に応じて、選択範囲外の部分も改善してください（表現の統一、接続詞の調整、冗長性の削除など）。',
-          '- **文章全体を省略せずに必ず全文を出力してください。**',
-          '- 通常のブログ記事と同じMarkdown形式で出力してください。',
-          '',
-          '## 選択範囲',
-          '```',
-          selectedText,
-          '```',
-          '',
-          '## 文章全体（Markdown）',
-          '```markdown',
-          payload.canvasMarkdown,
-          '```',
-        ]
-          .filter(Boolean)
-          .join('\n');
+        // セッションIDの検証
+        if (!chatSession.state.currentSessionId) {
+          throw new Error('セッションIDが見つかりません');
+        }
 
-        await chatSession.actions.sendMessage(instruction, editingModel, {
-          systemPrompt: systemPromptOverride,
+        // アクセストークン取得
+        const accessToken = await getAccessToken();
+
+        // ストリーミングコンテンツをリセット
+        setCanvasStreamingContent('');
+
+        // ✅ 楽観的更新: ストリーミング開始時にメッセージを追加してBlogPreviewTileを表示
+        const tempAssistantId = `temp-assistant-${Date.now()}`;
+        const userMessage: ChatMessage = {
+          id: `temp-user-${Date.now()}`,
+          role: 'user',
+          content: instruction,
+          timestamp: new Date(),
+          model: `blog_creation_${targetStep}`,
+        };
+
+        const assistantMessage: ChatMessage = {
+          id: tempAssistantId,
+          role: 'assistant',
+          content: '', // ストリーミング中は空
+          timestamp: new Date(),
+          model: `blog_creation_${targetStep}`,
+        };
+
+        setOptimisticMessages([userMessage, assistantMessage]);
+
+        // ✅ ストリーミングAPI呼び出し
+        const response = await fetch('/api/chat/canvas/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            sessionId: chatSession.state.currentSessionId,
+            instruction,
+            selectedText,
+            canvasMarkdown: payload.canvasMarkdown,
+            targetStep,
+          }),
         });
+
+        if (!response.ok) {
+          throw new Error(`ストリーミングAPIエラー: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error('ストリーミングレスポンスの取得に失敗しました');
+        }
+
+        let buffer = '';
+        let fullMarkdown = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.trim() || line.startsWith(': ')) continue;
+
+            const eventMatch = line.match(/^event: (.+)$/m);
+            const dataMatch = line.match(/^data: (.+)$/m);
+
+            if (!eventMatch || !dataMatch || !eventMatch[1] || !dataMatch[1]) continue;
+
+            const eventType = eventMatch[1];
+            const eventData = JSON.parse(dataMatch[1]);
+
+            if (eventType === 'chunk') {
+              fullMarkdown += eventData.content;
+              setCanvasStreamingContent(fullMarkdown);
+              // アシスタントメッセージのコンテンツを更新
+              setOptimisticMessages(prev =>
+                prev.map(msg => (msg.id === tempAssistantId ? { ...msg, content: fullMarkdown } : msg))
+              );
+            } else if (eventType === 'done') {
+              fullMarkdown = eventData.fullMarkdown || fullMarkdown;
+              setCanvasStreamingContent(fullMarkdown);
+              // アシスタントメッセージのコンテンツを更新
+              setOptimisticMessages(prev =>
+                prev.map(msg => (msg.id === tempAssistantId ? { ...msg, content: fullMarkdown } : msg))
+              );
+            } else if (eventType === 'error') {
+              throw new Error(eventData.message || 'ストリーミングエラーが発生しました');
+            }
+          }
+        }
 
         // 改善指示を出したステップから続行できるように状態を更新
         setSelectedBlogStep(targetStep);
         handleModelChange('blog_creation', targetStep);
+
+        // セッションを再読み込みして最新メッセージを取得
+        await chatSession.actions.loadSession(chatSession.state.currentSessionId);
+
+        // 楽観的更新をクリア（実際のメッセージで置き換え）
+        setOptimisticMessages([]);
 
         // 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
         // ユーザーはBlogPreviewTileをクリックしてCanvasを開く
         return { replacementHtml: '' };
       } catch (error) {
         console.error('Canvas selection edit failed:', error);
+        // エラー時も楽観的更新をクリア
+        setOptimisticMessages([]);
         throw error instanceof Error ? error : new Error('AI編集の処理に失敗しました');
       } finally {
         canvasEditInFlightRef.current = false;
+        setCanvasStreamingContent('');
+        setIsCanvasStreaming(false);
       }
     },
     [
       chatSession.actions,
+      chatSession.state.currentSessionId,
+      getAccessToken,
       handleModelChange,
       latestBlogStep,
       resolvedCanvasStep,
       setIsManualEdit,
+      setOptimisticMessages,
+      setCanvasStreamingContent,
     ]
   );
 
@@ -883,6 +979,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             subscription,
             isMobile,
             blogFlowActive,
+            optimisticMessages,
+            isCanvasStreaming,
             selectedModel,
             latestBlogStep,
             savedBlogStep,
@@ -920,6 +1018,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             stepOptions={canvasStepOptions}
             activeStepId={resolvedCanvasStep ?? null}
             onStepSelect={handleCanvasStepSelect}
+            streamingContent={canvasStreamingContent}
           />
         )}
       </div>
