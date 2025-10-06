@@ -45,6 +45,41 @@ export type ContinueChatInput = z.infer<typeof continueChatSchema>;
 
 const modelHandler = new ModelHandlerService();
 
+const DAILY_CHAT_LIMIT = 3;
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+function getCurrentJstRange() {
+  const nowUtc = new Date();
+  const nowJst = new Date(nowUtc.getTime() + JST_OFFSET_MS);
+  const startOfJstUtcMs = Date.UTC(
+    nowJst.getUTCFullYear(),
+    nowJst.getUTCMonth(),
+    nowJst.getUTCDate(),
+    0,
+    0,
+    0,
+    0
+  );
+  const fromUtcMs = startOfJstUtcMs - JST_OFFSET_MS;
+  const toUtcMs = fromUtcMs + 24 * 60 * 60 * 1000;
+
+  return { fromUtcMs, toUtcMs };
+}
+
+async function checkDailyLimit(role: UserRole, userId: string) {
+  if (role !== 'user') return null;
+
+  const supabase = new SupabaseService();
+  const { fromUtcMs, toUtcMs } = getCurrentJstRange();
+  const sentCountToday = await supabase.countUserMessagesBetween(userId, fromUtcMs, toUtcMs);
+
+  if (sentCountToday >= DAILY_CHAT_LIMIT) {
+    return ERROR_MESSAGES.daily_chat_limit;
+  }
+
+  return null;
+}
+
 // 認証チェックを共通化（ロールも返す）
 async function checkAuth(
   liffAccessToken: string
@@ -97,35 +132,13 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
     }
 
     // 1日3回の送信制限（JST）: user 権限のみ適用
-    if (auth.role === 'user') {
-      const supabase = new SupabaseService();
-      const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-      const nowUtc = new Date();
-      const nowJst = new Date(nowUtc.getTime() + JST_OFFSET_MS);
-      const startOfJstUtcMs = Date.UTC(
-        nowJst.getUTCFullYear(),
-        nowJst.getUTCMonth(),
-        nowJst.getUTCDate(),
-        0,
-        0,
-        0,
-        0
-      );
-      const fromUtcMs = startOfJstUtcMs - JST_OFFSET_MS; // JST 00:00 を UTC に補正
-      const toUtcMs = fromUtcMs + 24 * 60 * 60 * 1000;
-
-      const sentCountToday = await supabase.countUserMessagesBetween(
-        auth.userId,
-        fromUtcMs,
-        toUtcMs
-      );
-      if (sentCountToday >= 3) {
-        return {
-          message: '',
-          error: ERROR_MESSAGES.daily_chat_limit,
-          requiresSubscription: false,
-        };
-      }
+    const limitError = await checkDailyLimit(auth.role, auth.userId);
+    if (limitError) {
+      return {
+        message: '',
+        error: limitError,
+        requiresSubscription: false,
+      };
     }
 
     // モデル処理に委譲
@@ -155,35 +168,13 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
     }
 
     // 1日3回の送信制限（JST）: user 権限のみ適用
-    if (auth.role === 'user') {
-      const supabase = new SupabaseService();
-      const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-      const nowUtc = new Date();
-      const nowJst = new Date(nowUtc.getTime() + JST_OFFSET_MS);
-      const startOfJstUtcMs = Date.UTC(
-        nowJst.getUTCFullYear(),
-        nowJst.getUTCMonth(),
-        nowJst.getUTCDate(),
-        0,
-        0,
-        0,
-        0
-      );
-      const fromUtcMs = startOfJstUtcMs - JST_OFFSET_MS; // JST 00:00 を UTC に補正
-      const toUtcMs = fromUtcMs + 24 * 60 * 60 * 1000;
-
-      const sentCountToday = await supabase.countUserMessagesBetween(
-        auth.userId,
-        fromUtcMs,
-        toUtcMs
-      );
-      if (sentCountToday >= 3) {
-        return {
-          message: '',
-          error: ERROR_MESSAGES.daily_chat_limit,
-          requiresSubscription: false,
-        };
-      }
+    const limitError = await checkDailyLimit(auth.role, auth.userId);
+    if (limitError) {
+      return {
+        message: '',
+        error: limitError,
+        requiresSubscription: false,
+      };
     }
 
     // モデル処理に委譲

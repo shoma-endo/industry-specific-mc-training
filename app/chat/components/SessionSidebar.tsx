@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { ChatSession } from '@/domain/interfaces/IChatService';
 import { ChatSessionActions } from '@/hooks/useChatSession';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import SessionListContent from '@/components/SessionListContent';
 import { DeleteChatDialog } from '@/components/DeleteChatDialog';
 
@@ -14,6 +13,7 @@ interface SessionSidebarProps {
   currentSessionId: string;
   actions: ChatSessionActions;
   isLoading?: boolean; // ✅ 読み込み状態を受け取る
+  isMobile: boolean;
 }
 
 const SessionSidebar: React.FC<SessionSidebarProps> = ({
@@ -21,9 +21,8 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   currentSessionId,
   actions,
   isLoading = false,
+  isMobile,
 }) => {
-  const [isMobile, setIsMobile] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
@@ -31,24 +30,9 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
   const sessionListRef = useRef<HTMLDivElement>(null);
 
-  // モバイル画面の検出
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-
   const handleSessionClick = async (sessionId: string) => {
     // ✅ 親コンポーネント（ChatLayout）が初期化を担当
     actions.loadSession(sessionId);
-    if (isMobile) {
-      setSheetOpen(false);
-    }
   };
 
   const handleDeleteClick = (session: ChatSession, e: React.MouseEvent) => {
@@ -73,9 +57,6 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   const handleStartNewChat = async () => {
     // ✅ 親コンポーネント（ChatLayout）が初期化を担当
     actions.startNewSession();
-    if (isMobile) {
-      setSheetOpen(false);
-    }
   };
 
   // ✅ 読み込み中のアニメーション表示
@@ -131,59 +112,39 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
     showToggleButton: !isMobile,
   };
 
-  // デスクトップ用サイドバー
-  if (!isMobile) {
-    return (
-      <>
-        <div className={`bg-slate-50 border-r flex-shrink-0 flex flex-col relative h-full transition-all duration-300 ${
-          sidebarCollapsed ? 'w-12' : 'w-80'
-        }`}>
-          {sidebarCollapsed ? (
-            // 折りたたみ時の表示
-            <div className="flex flex-col items-center pt-20">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="h-8 w-8 hover:bg-gray-200"
-                title="サイドバーを開く"
-              >
-                <ChevronRight size={16} />
-              </Button>
-            </div>
-          ) : (
-            // 展開時の表示
-            <>
-              {shouldShowLoading ? <LoadingIndicator /> : <SessionListContent {...sessionListProps} />}
-            </>
-          )}
+  const sidebarContent = !isMobile ? (
+    <div
+      className={`bg-slate-50 border-r flex-shrink-0 flex flex-col relative h-full transition-all duration-300 ${
+        sidebarCollapsed ? 'w-12' : 'w-80'
+      }`}
+    >
+      {sidebarCollapsed ? (
+        // 折りたたみ時の表示
+        <div className="flex flex-col items-center pt-20">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="h-8 w-8 hover:bg-gray-200"
+            title="サイドバーを開く"
+          >
+            <ChevronRight size={16} />
+          </Button>
         </div>
+      ) : (
+        // 展開時の表示
+        <>{shouldShowLoading ? <LoadingIndicator /> : <SessionListContent {...sessionListProps} />}</>
+      )}
+    </div>
+  ) : shouldShowLoading ? (
+    <LoadingIndicator />
+  ) : (
+    <SessionListContent {...sessionListProps} />
+  );
 
-        <DeleteChatDialog
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
-          onConfirm={handleDeleteConfirm}
-          chatTitle={sessionToDelete?.title || ''}
-          isDeleting={isDeletingSession}
-        />
-      </>
-    );
-  }
-
-  // モバイル用シート
   return (
     <>
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="absolute top-2 left-2 z-10">
-            <Menu size={20} />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="p-0 max-w-[280px] sm:max-w-[280px]">
-          {shouldShowLoading ? <LoadingIndicator /> : <SessionListContent {...sessionListProps} />}
-        </SheetContent>
-      </Sheet>
-
+      {sidebarContent}
       <DeleteChatDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}

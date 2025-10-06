@@ -202,6 +202,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           currentSessionId={chatSession.state.currentSessionId}
           actions={chatSession.actions}
           isLoading={chatSession.state.isLoading}
+          isMobile={false}
         />
       )}
 
@@ -234,6 +235,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
                 },
               }}
               isLoading={chatSession.state.isLoading}
+              isMobile
             />
           </SheetContent>
         </Sheet>

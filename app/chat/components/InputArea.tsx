@@ -85,8 +85,8 @@ const InputArea: React.FC<InputAreaProps> = ({
 }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isMobile = propIsMobile ?? false;
 
   const isModelSelected = Boolean(selectedModel);
   const isInputDisabled = disabled || !isModelSelected;
@@ -145,23 +145,6 @@ const InputArea: React.FC<InputAreaProps> = ({
     // 現在のセッションIDを記録
     prevSessionIdRef.current = currentSessionId;
   }, [currentSessionId]);
-
-  // モバイル画面の検出（propsから渡された値を優先、フォールバックで独自検出）
-  useEffect(() => {
-    if (propIsMobile !== undefined) {
-      setIsMobile(propIsMobile);
-      return;
-    }
-
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, [propIsMobile]);
 
   useEffect(() => {
     if (selectedModelExternal !== undefined && selectedModelExternal !== selectedModel) {

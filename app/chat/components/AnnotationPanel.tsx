@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   upsertContentAnnotationBySession,
   publishFromSession,
@@ -10,6 +10,7 @@ import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
 import { useAnnotationStore } from '@/store/annotationStore';
+import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 
 type AnnotationData = {
   main_kw?: string;
@@ -21,6 +22,30 @@ type AnnotationData = {
   prep?: string;
   basic_structure?: string;
   opening_proposal?: string;
+};
+
+type AnnotationFormState = Record<keyof AnnotationData, string>;
+
+const EMPTY_FORM: AnnotationFormState = {
+  main_kw: '',
+  kw: '',
+  impressions: '',
+  needs: '',
+  persona: '',
+  goal: '',
+  prep: '',
+  basic_structure: '',
+  opening_proposal: '',
+};
+
+const toFormState = (data?: AnnotationData | null): AnnotationFormState => {
+  return (Object.keys(EMPTY_FORM) as Array<keyof AnnotationFormState>).reduce(
+    (acc, key) => {
+      acc[key] = data?.[key] ?? '';
+      return acc;
+    },
+    { ...EMPTY_FORM }
+  );
 };
 
 type Props = {
@@ -39,17 +64,7 @@ export default function AnnotationPanel({
   onSaveSuccess,
 }: Props) {
   const { setSavedFields } = useAnnotationStore();
-  const [form, setForm] = React.useState({
-    main_kw: '',
-    kw: '',
-    impressions: '',
-    needs: '',
-    persona: '',
-    goal: '',
-    prep: '',
-    basic_structure: '',
-    opening_proposal: '',
-  });
+  const [form, setForm] = useState<AnnotationFormState>(() => toFormState(initialData));
   const [loading, setLoading] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
   const [status, setStatus] = React.useState<'draft' | 'publish'>('draft');
@@ -65,97 +80,15 @@ export default function AnnotationPanel({
     'success' | 'error' | ''
   >('');
 
-  // リサイザー機能のためのstate
-  const [panelWidth, setPanelWidth] = useState(() => {
-    // localStorage から保存された幅を復元（デフォルト: 450px）
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('annotation-panel-width');
-      return saved ? parseInt(saved, 10) : 450;
-    }
-    return 450;
+  const { width: panelWidth, isResizing, handleMouseDown } = usePersistedResizableWidth({
+    storageKey: 'chat-right-panel-width',
+    defaultWidth: 450,
+    minWidth: 320,
+    maxWidth: 1000,
   });
-  const [isResizing, setIsResizing] = useState(false);
-  const resizeStartXRef = useRef<number>(0);
-  const initialWidthRef = useRef<number>(0);
-
-  React.useEffect(() => {
-    if (initialData) {
-      setForm({
-        main_kw: initialData.main_kw ?? '',
-        kw: initialData.kw ?? '',
-        impressions: initialData.impressions ?? '',
-        needs: initialData.needs ?? '',
-        persona: initialData.persona ?? '',
-        goal: initialData.goal ?? '',
-        prep: initialData.prep ?? '',
-        basic_structure: initialData.basic_structure ?? '',
-        opening_proposal: initialData.opening_proposal ?? '',
-      });
-    } else {
-      // 初期データがない場合は空のフォームにリセット
-      setForm({
-        main_kw: '',
-        kw: '',
-        impressions: '',
-        needs: '',
-        persona: '',
-        goal: '',
-        prep: '',
-        basic_structure: '',
-        opening_proposal: '',
-      });
-    }
+  useEffect(() => {
+    setForm(toFormState(initialData));
   }, [initialData]);
-
-  // 幅変更をlocalStorageに保存
-  useEffect(() => {
-    localStorage.setItem('annotation-panel-width', panelWidth.toString());
-  }, [panelWidth]);
-
-  // リサイザーのマウスイベントハンドラー
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      setIsResizing(true);
-      resizeStartXRef.current = e.clientX;
-      initialWidthRef.current = panelWidth;
-      e.preventDefault();
-    },
-    [panelWidth]
-  );
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isResizing) return;
-
-      const deltaX = resizeStartXRef.current - e.clientX; // 左にドラッグで拡大
-      const newWidth = Math.max(320, Math.min(1000, initialWidthRef.current + deltaX)); // 320px-1000px の範囲
-      setPanelWidth(newWidth);
-    },
-    [isResizing]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsResizing(false);
-  }, []);
-
-  // グローバルマウスイベントの管理
-  useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      // リサイズ中はカーソルを固定
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      };
-    }
-    return () => {}; // falseの場合の空のcleanup関数
-  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   const save = async () => {
     setLoading(true);

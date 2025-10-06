@@ -36,6 +36,7 @@ import type {
   CanvasHeadingItem,
   CanvasSelectionState,
 } from '@/types/canvas';
+import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 
 type CanvasVersionOption = {
   id: string;
@@ -160,17 +161,16 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const hasStepOptions = stepOptions.length > 0;
 
   // ✅ リサイザー機能のためのstate
-  const [canvasWidth, setCanvasWidth] = useState(() => {
-    // localStorage から保存された幅を復元（デフォルト: 450px）
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('canvas-width');
-      return saved ? parseInt(saved, 10) : 450;
-    }
-    return 450;
+  const {
+    width: canvasWidth,
+    isResizing,
+    handleMouseDown: handlePanelResizeMouseDown,
+  } = usePersistedResizableWidth({
+    storageKey: 'chat-right-panel-width',
+    defaultWidth: 450,
+    minWidth: 320,
+    maxWidth: 1000,
   });
-  const [isResizing, setIsResizing] = useState(false);
-  const resizeStartXRef = useRef<number>(0);
-  const initialWidthRef = useRef<number>(0);
 
   // ✅ ボタンの参照を保持
   const markdownBtnRef = useRef<HTMLButtonElement>(null);
@@ -253,56 +253,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     },
     [selectionMode]
   );
-
-  // ✅ 幅変更をlocalStorageに保存
-  useEffect(() => {
-    localStorage.setItem('canvas-width', canvasWidth.toString());
-  }, [canvasWidth]);
-
-  // ✅ リサイザーのマウスイベントハンドラー
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      setIsResizing(true);
-      resizeStartXRef.current = e.clientX;
-      initialWidthRef.current = canvasWidth;
-      e.preventDefault();
-    },
-    [canvasWidth]
-  );
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isResizing) return;
-
-      const deltaX = resizeStartXRef.current - e.clientX; // 左にドラッグで拡大
-      const newWidth = Math.max(320, Math.min(1000, initialWidthRef.current + deltaX)); // 320px-1000px の範囲
-      setCanvasWidth(newWidth);
-    },
-    [isResizing]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsResizing(false);
-  }, []);
-
-  // ✅ グローバルマウスイベントの管理
-  useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      // リサイズ中はカーソルを固定
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      };
-    }
-    return () => {}; // falseの場合の空のcleanup関数
-  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // ✅ Claude web版Canvas同様のマークダウン対応TipTapエディタ
   const editor = useEditor({
@@ -761,7 +711,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         className={`absolute left-0 top-16 bottom-0 w-1 cursor-col-resize transition-all duration-200 group ${
           isResizing ? 'bg-blue-500 w-2 shadow-lg' : 'bg-gray-200 hover:bg-blue-300 hover:w-1.5'
         }`}
-        onMouseDown={handleMouseDown}
+        onMouseDown={handlePanelResizeMouseDown}
         style={{ zIndex: 45 }} // ヘッダーより少し下のz-index
         title="ドラッグして幅を調整"
       >

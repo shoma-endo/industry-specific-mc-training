@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
 
 export type FlowStatus = 'idle' | 'running' | 'waitingAction' | 'error';
@@ -24,21 +24,22 @@ const BlogFlowContext = createContext<BlogFlowContextValue | null>(null);
 export const BlogFlowProvider: React.FC<ProviderProps> = ({ children }) => {
   const steps = BLOG_STEP_IDS;
   const resolvedInitialStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
-  const [state] = useState<BlogFlowState>(() => {
-    return {
+  const state = useMemo<BlogFlowState>(
+    () => ({
       current: resolvedInitialStep,
       flowStatus: 'idle',
+    }),
+    [resolvedInitialStep]
+  );
+
+  const value = useMemo<BlogFlowContextValue>(() => {
+    const currentIndex = steps.indexOf(state.current);
+    return {
+      state,
+      currentIndex,
+      totalSteps: steps.length,
     };
-  });
-
-  const currentIndex = steps.indexOf(state.current);
-  const totalSteps = steps.length;
-
-  const value: BlogFlowContextValue = {
-    state,
-    currentIndex,
-    totalSteps,
-  };
+  }, [state, steps]);
 
   return <BlogFlowContext.Provider value={value}>{children}</BlogFlowContext.Provider>;
 };
