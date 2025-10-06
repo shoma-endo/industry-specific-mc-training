@@ -21,24 +21,70 @@ import {
   testWordPressConnectionAction,
 } from '@/server/handler/actions/wordpress.action';
 
-type ResultState = {
+type StatusOutcome = {
   success: boolean;
-  message?: string;
-  error?: string;
+  primary: string;
   cause?: string;
   hints?: string[];
   details?: string;
   needsOAuth?: boolean;
-} | null;
+};
 
-type ConnectionTestState = {
-  success: boolean;
-  message: string;
-  cause?: string;
-  hints?: string[];
-  details?: string;
-  needsOAuth?: boolean;
-} | null;
+const StatusPanel: React.FC<{
+  status: StatusOutcome;
+  showDetails: boolean;
+  onToggleDetails: () => void;
+  onOAuthClick?: () => void;
+}> = ({ status, showDetails, onToggleDetails, onOAuthClick }) => {
+  const wrapperClasses = status.success
+    ? 'bg-green-50 text-green-700'
+    : 'bg-red-50 text-red-700';
+
+  return (
+    <div className={`p-4 rounded-lg ${wrapperClasses}`}>
+      <div className="flex items-center gap-2">
+        {status.success ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+        <p>{status.primary}</p>
+      </div>
+
+      {!status.success && (
+        <div className="mt-2 space-y-2">
+          {status.cause && (
+            <p className="text-sm">
+              <span className="font-semibold">原因:</span> {status.cause}
+            </p>
+          )}
+          {status.hints && status.hints.length > 0 && (
+            <div className="text-sm">
+              <p className="font-semibold">対処方法:</p>
+              <ul className="list-disc list-inside">
+                {status.hints.map((hint, index) => (
+                  <li key={index}>{hint}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {status.needsOAuth && onOAuthClick && (
+            <Button type="button" variant="outline" onClick={onOAuthClick} className="mt-2">
+              WordPress.com OAuth認証を開始
+            </Button>
+          )}
+        </div>
+      )}
+
+      {status.details && (
+        <div className="text-xs mt-2">
+          <button type="button" className="underline" onClick={onToggleDetails}>
+            {showDetails ? '詳細を隠す' : '詳細を表示'}
+          </button>
+          {showDetails && (
+            <pre className="whitespace-pre-wrap break-words mt-1">{status.details}</pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 type TestConnectionActionResult = {
   success: boolean;
@@ -100,11 +146,10 @@ export default function WordPressSettingsForm({
 }: WordPressSettingsFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<ResultState>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [connectionTestResult, setConnectionTestResult] = useState<ConnectionTestState>(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showConnDetails, setShowConnDetails] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<StatusOutcome | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<StatusOutcome | null>(null);
+  const [expandedPanel, setExpandedPanel] = useState<'save' | 'connection' | null>(null);
 
   // フォームの状態
   const [wpType, setWpType] = useState<WordPressType>(existingSettings?.wpType || 'wordpress_com');
@@ -127,21 +172,24 @@ export default function WordPressSettingsForm({
 
     // バリデーション
     if (wpType === 'wordpress_com' && !wpSiteId) {
-      setResult({ success: false, error: 'WordPress.comのサイトIDが必要です' });
+      setSaveStatus({ success: false, primary: 'WordPress.comのサイトIDが必要です' });
+      setExpandedPanel(prev => (prev === 'save' ? null : prev));
       return;
     }
 
     if (wpType === 'self_hosted' && (!wpSiteUrl || !wpUsername || !wpApplicationPassword)) {
-      setResult({
+      setSaveStatus({
         success: false,
-        error:
+        primary:
           'セルフホスト版では、サイトURL、ユーザー名、アプリケーションパスワードがすべて必要です',
       });
+      setExpandedPanel(prev => (prev === 'save' ? null : prev));
       return;
     }
 
     setIsLoading(true);
-    setResult(null);
+    setSaveStatus(null);
+    setExpandedPanel(prev => (prev === 'save' ? null : prev));
 
     try {
       const data = await saveWordPressSettingsAction({
@@ -153,10 +201,13 @@ export default function WordPressSettingsForm({
       });
 
       if (data.success) {
-        setResult({
+        setSaveStatus({
           success: true,
-          message: existingSettings ? 'WordPress設定を更新しました' : 'WordPress設定を保存しました',
+          primary: existingSettings
+            ? 'WordPress設定を更新しました'
+            : 'WordPress設定を保存しました',
         });
+        setExpandedPanel(prev => (prev === 'save' ? null : prev));
 
         // 少し遅延してからダッシュボードに戻る
         setTimeout(() => {
@@ -165,9 +216,9 @@ export default function WordPressSettingsForm({
       } else {
         const details = data.error || '';
         const { cause, hints } = diagnoseErrorDetails(details);
-        setResult({
+        setSaveStatus({
           success: false,
-          error: data.error || 'WordPress設定の保存に失敗しました',
+          primary: data.error || 'WordPress設定の保存に失敗しました',
           details,
           cause,
           hints,
@@ -176,9 +227,9 @@ export default function WordPressSettingsForm({
     } catch (error) {
       const details = error instanceof Error ? error.message : 'Unknown error';
       const { cause, hints } = diagnoseErrorDetails(details);
-      setResult({
+      setSaveStatus({
         success: false,
-        error: `エラーが発生しました: ${details}`,
+        primary: `エラーが発生しました: ${details}`,
         details,
         cause,
         hints,
@@ -195,39 +246,40 @@ export default function WordPressSettingsForm({
   const handleTestConnection = async () => {
     // バリデーション
     if (wpType === 'wordpress_com' && !wpSiteId) {
-      setConnectionTestResult({
-        success: false,
-        message: 'WordPress.comのサイトIDが必要です',
-      });
+      setConnectionStatus({ success: false, primary: 'WordPress.comのサイトIDが必要です' });
+      setExpandedPanel(prev => (prev === 'connection' ? null : prev));
       return;
     }
 
     if (wpType === 'self_hosted' && (!wpSiteUrl || !wpUsername || !wpApplicationPassword)) {
-      setConnectionTestResult({
+      setConnectionStatus({
         success: false,
-        message:
+        primary:
           'セルフホスト版では、サイトURL、ユーザー名、アプリケーションパスワードがすべて必要です',
       });
+      setExpandedPanel(prev => (prev === 'connection' ? null : prev));
       return;
     }
 
     setIsTestingConnection(true);
-    setConnectionTestResult(null);
+    setConnectionStatus(null);
+    setExpandedPanel(prev => (prev === 'connection' ? null : prev));
 
     try {
       const data: TestConnectionActionResult = await testWordPressConnectionAction(liffAccessToken);
 
       if (data.success) {
-        setConnectionTestResult({
+        setConnectionStatus({
           success: true,
-          message: data.message || 'WordPress接続テストが成功しました',
+          primary: data.message || 'WordPress接続テストが成功しました',
         });
+        setExpandedPanel(prev => (prev === 'connection' ? null : prev));
       } else {
         const details = data.error || '';
         const { cause, hints } = diagnoseErrorDetails(details);
-        setConnectionTestResult({
+        setConnectionStatus({
           success: false,
-          message: data.error || '接続テストに失敗しました',
+          primary: data.error || '接続テストに失敗しました',
           details,
           cause,
           hints,
@@ -237,9 +289,9 @@ export default function WordPressSettingsForm({
     } catch (error) {
       const details = error instanceof Error ? error.message : 'Unknown error';
       const { cause, hints } = diagnoseErrorDetails(details);
-      setConnectionTestResult({
+      setConnectionStatus({
         success: false,
-        message: `接続テストでエラーが発生しました: ${details}`,
+        primary: `接続テストでエラーが発生しました: ${details}`,
         details,
         cause,
         hints,
@@ -385,111 +437,28 @@ export default function WordPressSettingsForm({
             )}
 
             {/* 接続テスト結果表示 */}
-            {connectionTestResult && (
-              <div
-                className={`p-4 rounded-lg ${connectionTestResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
-              >
-                <div className="flex items-center gap-2">
-                  {connectionTestResult.success ? (
-                    <CheckCircle size={20} />
-                  ) : (
-                    <AlertCircle size={20} />
-                  )}
-                  <p>{connectionTestResult.message}</p>
-                </div>
-                {!connectionTestResult.success && (
-                  <div className="mt-2 space-y-2">
-                    {connectionTestResult.cause && (
-                      <p className="text-sm">
-                        <span className="font-semibold">原因:</span> {connectionTestResult.cause}
-                      </p>
-                    )}
-                    {connectionTestResult.hints && connectionTestResult.hints.length > 0 && (
-                      <div className="text-sm">
-                        <p className="font-semibold">対処方法:</p>
-                        <ul className="list-disc list-inside">
-                          {connectionTestResult.hints.map((h, i) => (
-                            <li key={i}>{h}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {connectionTestResult.needsOAuth && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={redirectToWordPressOAuth}
-                        className="mt-2"
-                      >
-                        WordPress.com OAuth認証を開始
-                      </Button>
-                    )}
-                    {connectionTestResult.details && (
-                      <div className="text-xs mt-2">
-                        <button
-                          type="button"
-                          className="underline"
-                          onClick={() => setShowConnDetails(v => !v)}
-                        >
-                          {showConnDetails ? '詳細を隠す' : '詳細を表示'}
-                        </button>
-                        {showConnDetails && (
-                          <pre className="whitespace-pre-wrap break-words mt-1">
-                            {connectionTestResult.details}
-                          </pre>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+            {connectionStatus && (
+              <StatusPanel
+                status={connectionStatus}
+                showDetails={expandedPanel === 'connection'}
+                onToggleDetails={() =>
+                  setExpandedPanel(prev => (prev === 'connection' ? null : 'connection'))
+                }
+                {...(connectionStatus.needsOAuth
+                  ? { onOAuthClick: redirectToWordPressOAuth }
+                  : {})}
+              />
             )}
 
             {/* 結果表示 */}
-            {result && (
-              <div
-                className={`p-4 rounded-lg ${result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
-              >
-                <div className="flex items-center gap-2">
-                  {result.success ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-                  <p>{result.success ? result.message : result.error}</p>
-                </div>
-                {!result.success && (
-                  <div className="mt-2 space-y-2">
-                    {result.cause && (
-                      <p className="text-sm">
-                        <span className="font-semibold">原因:</span> {result.cause}
-                      </p>
-                    )}
-                    {result.hints && result.hints.length > 0 && (
-                      <div className="text-sm">
-                        <p className="font-semibold">対処方法:</p>
-                        <ul className="list-disc list-inside">
-                          {result.hints.map((h, i) => (
-                            <li key={i}>{h}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {result.details && (
-                      <div className="text-xs mt-2">
-                        <button
-                          type="button"
-                          className="underline"
-                          onClick={() => setShowDetails(v => !v)}
-                        >
-                          {showDetails ? '詳細を隠す' : '詳細を表示'}
-                        </button>
-                        {showDetails && (
-                          <pre className="whitespace-pre-wrap break-words mt-1">
-                            {result.details}
-                          </pre>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+            {saveStatus && (
+              <StatusPanel
+                status={saveStatus}
+                showDetails={expandedPanel === 'save'}
+                onToggleDetails={() =>
+                  setExpandedPanel(prev => (prev === 'save' ? null : 'save'))
+                }
+              />
             )}
 
             {/* アクションボタン */}

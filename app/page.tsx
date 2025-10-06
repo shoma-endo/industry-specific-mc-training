@@ -3,9 +3,8 @@
 import { useLiffContext } from '@/components/LiffProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  getUserSubscription,
   createSubscriptionSession,
   cancelUserSubscription,
   resumeUserSubscription,
@@ -19,26 +18,17 @@ import { Settings, Shield, List } from 'lucide-react';
 import Link from 'next/link';
 import { FullNameDialog } from '@/components/FullNameDialog';
 import { env } from '@/env';
+import { SubscriptionService } from '@/domain/services/SubscriptionService';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import type { SubscriptionDetails as DomainSubscriptionDetails } from '@/domain/interfaces/ISubscriptionService';
 
 const STRIPE_ENABLED = env.NEXT_PUBLIC_STRIPE_ENABLED === 'true'; // サブスクリプション機能が有効かどうか
-
-interface SubscriptionInfo {
-  id: string;
-  status: string;
-  currentPeriodEnd: number;
-  nextBillingDate: string;
-  cancelAtPeriodEnd: boolean;
-}
 
 const ProfileDisplay = () => {
   const { profile, isLoading, isLoggedIn, logout } = useLiffContext();
 
-  if (isLoading) {
-    return <p className="text-center my-4">プロフィール読み込み中...</p>;
-  }
-
-  if (!isLoggedIn || !profile) {
-    return <p className="text-center my-4">LINEアカウントでログインすると情報が表示されます</p>;
+  if (isLoading || !isLoggedIn || !profile) {
+    return null;
   }
 
   return (
@@ -68,39 +58,14 @@ const ProfileDisplay = () => {
 };
 
 // 管理者向けカードコンポーネント（constパターン使用）
-const AdminAccessCard = () => {
-  const { getAccessToken, isLoggedIn, isLoading } = useLiffContext();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+type AdminAccessCardProps = {
+  isAdmin: boolean;
+  isLoggedIn: boolean;
+  isLoading: boolean;
+};
 
-  useEffect(() => {
-    const checkAdminRole = async () => {
-      // LIFF初期化とログイン完了を待つ
-      if (!isLoggedIn || isLoading) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const token = await getAccessToken();
-        const result = await checkUserRole(token);
-
-        if (result.success && result.role === 'admin') {
-          setIsAdmin(true);
-        }
-      } catch (error) {
-        console.error('管理者権限チェックエラー:', error);
-        // エラーの場合は管理者ではないとして処理を続行
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAdminRole();
-  }, [getAccessToken, isLoggedIn, isLoading]);
-
-  // Early return pattern - ログイン完了まで待つ
-  if (isLoading || loading || !isLoggedIn || !isAdmin) {
+const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProps) => {
+  if (isLoading || !isLoggedIn || !isAdmin) {
     return null;
   }
 
@@ -133,28 +98,38 @@ const AdminAccessCard = () => {
 };
 
 export default function Home() {
-  const { profile, getAccessToken, isLoading, isLoggedIn, user } = useLiffContext();
-
-  // サブスク関連ステート（descriptive naming）
-  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
-  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
-  const [subscriptionData, setSubscriptionData] = useState<SubscriptionInfo | null>(null);
-  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [cancelLoading, setCancelLoading] = useState(false);
-  const [resumeLoading, setResumeLoading] = useState(false);
+  const { getAccessToken, isLoading, isLoggedIn, user } = useLiffContext();
+  const subscriptionService = useMemo(() => new SubscriptionService(), []);
+  const subscription = useSubscriptionStatus(subscriptionService, getAccessToken, isLoggedIn);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminLoading, setIsAdminLoading] = useState(true);
+  const [pendingAction, setPendingAction] = useState<
+    null | 'subscribe' | 'updatePayment' | 'cancel' | 'resume'
+  >(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
+  const subscriptionInitializedRef = useRef(false);
+  const subscriptionLoading = subscription.isLoading;
+  const activeSubscription: DomainSubscriptionDetails | null =
+    (subscription.subscriptionStatus?.subscription as DomainSubscriptionDetails | undefined) ?? null;
+  const hasActiveSubscription = subscription.hasActiveSubscription;
+  const subscriptionError = operationError ?? subscription.error;
 
   // フルネーム関連ステート
   const [showFullNameDialog, setShowFullNameDialog] = useState(false);
 
   // 日付フォーマット関数（constパターン）
-  const formatDate = (dateString: string) =>
-    new Intl.DateTimeFormat('ja-JP', {
+  const formatDate = (value: Date | string | null | undefined) => {
+    if (!value) {
+      return '情報なし';
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    return new Intl.DateTimeFormat('ja-JP', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-    }).format(new Date(dateString));
+    }).format(date);
+  };
 
   // フルネーム未入力チェック
   useEffect(() => {
@@ -165,129 +140,141 @@ export default function Home() {
 
   // 管理者権限チェック（設定カード用）
   useEffect(() => {
-    if (!isLoggedIn || isLoading) return;
+    let cancelled = false;
 
-    (async () => {
-      try {
-        const token = await getAccessToken();
-        const result = await checkUserRole(token);
-        if (result.success && result.role === 'admin') {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
-      } catch {
-        setIsAdmin(false);
-      }
-    })();
-  }, [getAccessToken, isLoggedIn, isLoading]);
-
-  // サブスク情報取得
-  useEffect(() => {
-    const fetchSubscriptionData = async () => {
-      // LIFF初期化とログイン完了を待つ、フルネームダイアログが表示中は待機
-      if (!profile || isLoading || !isLoggedIn || showFullNameDialog) {
-        setSubscriptionLoading(false);
+    const evaluateAdminRole = async () => {
+      if (isLoading) {
+        setIsAdminLoading(true);
         return;
       }
 
+      if (!isLoggedIn) {
+        if (!cancelled) {
+          setIsAdmin(false);
+          setIsAdminLoading(false);
+        }
+        return;
+      }
+
+      setIsAdminLoading(true);
       try {
         const token = await getAccessToken();
-        const result = await getUserSubscription(token);
-
-        if (result.success) {
-          setHasActiveSubscription(result.hasActiveSubscription || false);
-          if (result.subscription) {
-            setSubscriptionData(result.subscription as SubscriptionInfo);
-          }
-        } else {
-          setSubscriptionError(result.error || 'サブスク取得エラー');
+        const result = await checkUserRole(token);
+        if (!cancelled) {
+          setIsAdmin(result.success && result.role === 'admin');
         }
-      } catch (error) {
-        console.error('Subscription fetch error:', error);
-        setSubscriptionError('サブスク取得中にエラー');
+      } catch {
+        if (!cancelled) {
+          setIsAdmin(false);
+        }
       } finally {
-        setSubscriptionLoading(false);
+        if (!cancelled) {
+          setIsAdminLoading(false);
+        }
       }
     };
 
-    fetchSubscriptionData();
-  }, [profile, getAccessToken, isLoading, isLoggedIn, showFullNameDialog]);
+    evaluateAdminRole();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getAccessToken, isLoggedIn, isLoading]);
+
+  const { checkSubscription: initializeSubscription, refreshSubscription, clearError } =
+    subscription.actions;
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      subscriptionInitializedRef.current = false;
+      return;
+    }
+
+    if (isLoading || showFullNameDialog || subscriptionInitializedRef.current) {
+      return;
+    }
+
+    subscriptionInitializedRef.current = true;
+    initializeSubscription().catch(error => {
+      console.error('Subscription init error:', error);
+      subscriptionInitializedRef.current = false;
+    });
+  }, [isLoggedIn, isLoading, showFullNameDialog, initializeSubscription]);
 
   // イベントハンドラー（handleプレフィックス）
   const handleSubscribe = async () => {
-    setActionLoading(true);
+    setPendingAction('subscribe');
+    setOperationError(null);
+    clearError();
     try {
       const token = await getAccessToken();
       const { url } = await createSubscriptionSession(token, window.location.origin);
       if (url) window.location.href = url;
     } catch {
-      setSubscriptionError('登録処理中にエラー');
+      setOperationError('登録処理中にエラー');
     } finally {
-      setActionLoading(false);
+      setPendingAction(null);
     }
   };
 
   const handleUpdatePayment = async () => {
-    setActionLoading(true);
+    setPendingAction('updatePayment');
+    setOperationError(null);
+    clearError();
     try {
       const token = await getAccessToken();
       const { url } = await createCustomerPortalSession(window.location.origin + '/', token);
       if (url) window.location.href = url;
     } catch {
-      setSubscriptionError('支払方法変更エラー');
+      setOperationError('支払方法変更エラー');
     } finally {
-      setActionLoading(false);
+      setPendingAction(null);
     }
   };
 
   const handleCancelSubscription = async () => {
-    if (!subscriptionData) return;
+    if (!activeSubscription) return;
     if (!confirm('サブスクリプションを解約してもよろしいですか？')) return;
 
-    setCancelLoading(true);
+    setPendingAction('cancel');
+    setOperationError(null);
+    clearError();
     try {
       const token = await getAccessToken();
-      const result = await cancelUserSubscription(subscriptionData.id, false, token);
+      const result = await cancelUserSubscription(activeSubscription.id, false, token);
 
       if (result.success) {
-        const res = await getUserSubscription(token);
-        setHasActiveSubscription(res.hasActiveSubscription || false);
-        if (res.subscription) {
-          setSubscriptionData(res.subscription as SubscriptionInfo);
-        }
+        await refreshSubscription();
       } else {
-        setSubscriptionError(result.error || '解約に失敗しました');
+        setOperationError(result.error || '解約に失敗しました');
       }
     } catch {
-      setSubscriptionError('解約処理中にエラー');
+      setOperationError('解約処理中にエラー');
     } finally {
-      setCancelLoading(false);
+      setPendingAction(null);
     }
   };
 
   const handleResumeSubscription = async () => {
-    if (!subscriptionData) return;
+    if (!activeSubscription) return;
     if (!confirm('サブスクリプションの継続手続きを行いますか？')) return;
 
-    setResumeLoading(true);
+    setPendingAction('resume');
+    setOperationError(null);
+    clearError();
     try {
       const token = await getAccessToken();
-      const result = await resumeUserSubscription(subscriptionData.id, token);
+      const result = await resumeUserSubscription(activeSubscription.id, token);
 
       if (result.success) {
-        const res = await getUserSubscription(token);
-        setHasActiveSubscription(res.hasActiveSubscription || false);
-        if (res.subscription) {
-          setSubscriptionData(res.subscription as SubscriptionInfo);
-        }
+        await refreshSubscription();
       } else {
-        setSubscriptionError(result.error || '継続に失敗しました');
+        setOperationError(result.error || '継続に失敗しました');
       }
     } catch {
-      setSubscriptionError('継続処理中にエラー');
+      setOperationError('継続処理中にエラー');
     } finally {
-      setResumeLoading(false);
+      setPendingAction(null);
     }
   };
 
@@ -307,27 +294,20 @@ export default function Home() {
   };
 
   const renderSubscriptionStatus = () => {
-    if (!subscriptionData) return null;
+    if (!activeSubscription) return null;
 
-    const status = subscriptionData.status;
-    const statusConfig = {
+    const status = activeSubscription.status;
+    const statusConfig: Record<string, { label: string; className: string }> = {
       active: { label: 'アクティブ', className: 'px-2 py-1 bg-green-100 text-green-800 rounded' },
       trialing: { label: 'トライアル中', className: 'px-2 py-1 bg-blue-100 text-blue-800 rounded' },
       past_due: { label: '支払い期限切れ', className: 'px-2 py-1 bg-red-100 text-red-800 rounded' },
-      unpaid: { label: '未払い', className: 'px-2 py-1 bg-red-100 text-red-800 rounded' },
       canceled: {
         label: 'キャンセル済み',
         className: 'px-2 py-1 bg-gray-100 text-gray-800 rounded',
       },
-      incomplete: { label: '処理中', className: 'px-2 py-1 bg-yellow-100 text-yellow-800 rounded' },
-      incomplete_expired: {
-        label: '処理失敗',
-        className: 'px-2 py-1 bg-gray-100 text-gray-800 rounded',
-      },
-      paused: { label: '一時停止中', className: 'px-2 py-1 bg-purple-100 text-purple-800 rounded' },
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || {
+    const config = statusConfig[status] || {
       label: '不明',
       className: 'px-2 py-1 bg-gray-100 text-gray-800 rounded',
     };
@@ -339,14 +319,19 @@ export default function Home() {
     <>
       <FullNameDialog open={showFullNameDialog} onSave={handleSaveFullName} />
 
-      <div className="flex flex-col items-center justify-center min-h-screen p-8">
-        <h1 className="text-3xl font-bold mb-8">業界特化MC養成講座</h1>
+      {(!isLoading && isLoggedIn) && (
+        <div className="flex flex-col items-center justify-center min-h-screen p-8">
+          <h1 className="text-3xl font-bold mb-8">業界特化MC養成講座</h1>
 
-        <ProfileDisplay />
-        <AdminAccessCard />
+          <ProfileDisplay />
+          <AdminAccessCard
+            isAdmin={isAdmin}
+            isLoggedIn={isLoggedIn}
+            isLoading={isLoading || isAdminLoading}
+          />
 
-        {/* 管理者のみ 設定ページ導線 */}
-        {isLoggedIn && isAdmin && (
+          {/* 管理者のみ 設定ページ導線 */}
+          {isLoggedIn && isAdmin && !isAdminLoading && (
           <Card className="w-full max-w-md mb-6">
             <CardHeader>
               <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
@@ -365,10 +350,10 @@ export default function Home() {
               </Link>
             </CardContent>
           </Card>
-        )}
+          )}
 
-        {/* 管理者のみ コンテンツ一覧導線 */}
-        {isLoggedIn && isAdmin &&  (
+          {/* 管理者のみ コンテンツ一覧導線 */}
+          {isLoggedIn && isAdmin && !isAdminLoading && (
           <Card className="w-full max-w-md mb-6">
             <CardHeader>
               <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
@@ -387,10 +372,10 @@ export default function Home() {
               </Link>
             </CardContent>
           </Card>
-        )}
+          )}
 
-        {/* サブスクリプション情報カード */}
-        {STRIPE_ENABLED && (
+          {/* サブスクリプション情報カード */}
+          {STRIPE_ENABLED && (
           <Card className="w-full max-w-md mb-6 mt-4">
             <CardHeader>
               <CardTitle className="text-xl font-semibold text-center">
@@ -410,14 +395,14 @@ export default function Home() {
                   <Button
                     className="mt-4 w-full"
                     onClick={handleSubscribe}
-                    disabled={actionLoading}
+                    disabled={pendingAction !== null}
                     aria-label="サブスクリプション登録"
                     tabIndex={0}
                   >
-                    {actionLoading ? '処理中...' : 'サブスクリプション登録'}
+                    {pendingAction === 'subscribe' ? '処理中...' : 'サブスクリプション登録'}
                   </Button>
                 </div>
-              ) : subscriptionData ? (
+              ) : activeSubscription && hasActiveSubscription ? (
                 <>
                   {/* ステータス表示 */}
                   <div className="p-4 bg-gray-100 rounded mb-4">
@@ -428,9 +413,7 @@ export default function Home() {
                     <div className="mt-2">
                       <span className="font-semibold">次回請求日：</span>
                       <span className="ml-2">
-                        {subscriptionData.nextBillingDate
-                          ? formatDate(subscriptionData.nextBillingDate)
-                          : '情報なし'}
+                        {formatDate(activeSubscription.currentPeriodEnd)}
                       </span>
                     </div>
                   </div>
@@ -440,60 +423,57 @@ export default function Home() {
                     <Button
                       className="w-full"
                       onClick={handleUpdatePayment}
-                      disabled={actionLoading}
+                      disabled={pendingAction !== null}
                       aria-label="支払い方法変更"
                       tabIndex={0}
                     >
-                      {actionLoading ? '処理中...' : '支払い方法変更'}
+                      {pendingAction === 'updatePayment' ? '処理中...' : '支払い方法変更'}
                     </Button>
 
-                    {subscriptionData.cancelAtPeriodEnd ? (
+                    {activeSubscription.cancelAtPeriodEnd ? (
                       <Button
                         variant="outline"
                         className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
                         onClick={handleResumeSubscription}
-                        disabled={resumeLoading}
+                        disabled={pendingAction !== null}
                         aria-label="サブスクリプション継続"
                         tabIndex={0}
                       >
-                        {resumeLoading ? '処理中...' : 'サブスクリプションを継続する'}
+                        {pendingAction === 'resume' ? '処理中...' : 'サブスクリプションを継続する'}
                       </Button>
                     ) : (
-                      (subscriptionData.status === 'active' ||
-                        subscriptionData.status === 'trialing') && (
+                      (activeSubscription.status === 'active' ||
+                        activeSubscription.status === 'trialing') && (
                         <Button
                           variant="outline"
                           className="w-full border-red-300 text-red-600 hover:bg-red-50"
                           onClick={handleCancelSubscription}
-                          disabled={cancelLoading}
+                          disabled={pendingAction !== null}
                           aria-label="サブスクリプション解約"
                           tabIndex={0}
                         >
-                          {cancelLoading ? '処理中...' : 'サブスクリプションを解約する'}
+                          {pendingAction === 'cancel' ? '処理中...' : 'サブスクリプションを解約する'}
                         </Button>
                       )
                     )}
 
                     {!(
-                      subscriptionData.status === 'active' ||
-                      subscriptionData.status === 'trialing' ||
-                      (subscriptionData.status === 'past_due' &&
-                        !subscriptionData.cancelAtPeriodEnd)
+                      activeSubscription.status === 'active' ||
+                      activeSubscription.status === 'trialing' ||
+                      (activeSubscription.status === 'past_due' &&
+                        !activeSubscription.cancelAtPeriodEnd)
                     ) && (
                       <div className="p-3 bg-gray-100 rounded text-sm text-gray-700 text-center">
                         {(() => {
                           const statusMessages = {
                             canceled: 'このサブスクリプションは既に終了しています。',
-                            incomplete_expired: 'このサブスクリプションは既に終了しています。',
                             past_due: 'お支払いが遅延しています。新規登録してください。',
-                            unpaid: '未払いです。新規登録してください。',
-                            incomplete: 'サブスクリプション設定中です。',
-                            paused: '一時停止中です。',
+                            trialing: 'トライアル期間が終了すると自動的に課金されます。',
                           };
 
                           return (
                             statusMessages[
-                              subscriptionData.status as keyof typeof statusMessages
+                              activeSubscription.status as keyof typeof statusMessages
                             ] || 'サブスクリプションに問題があります。'
                           );
                         })()}
@@ -502,18 +482,24 @@ export default function Home() {
                           onClick={handleSubscribe}
                           aria-label="新規サブスクリプション登録"
                           tabIndex={0}
+                          disabled={pendingAction !== null}
                         >
-                          新規サブスクリプション登録
+                          {pendingAction === 'subscribe' ? '処理中...' : '新規サブスクリプション登録'}
                         </Button>
                       </div>
                     )}
                   </div>
                 </>
+              ) : hasActiveSubscription ? (
+                <div className="p-4 bg-gray-100 rounded text-center text-gray-700">
+                  サブスクリプションは有効です。
+                </div>
               ) : null}
             </CardContent>
           </Card>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

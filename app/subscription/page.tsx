@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  createSubscriptionSession,
-  getSubscriptionPriceDetails,
-} from '@/server/handler/actions/subscription.actions';
+import { getSubscriptionPriceDetails } from '@/server/handler/actions/subscription.actions';
 import { Button } from '@/components/ui/button';
 import { useLiff } from '@/hooks/useLiff';
+import { useSubscription } from '@/hooks/useSubscription';
 
 // 価格情報の型定義
 interface PriceDetails {
@@ -21,10 +19,10 @@ interface PriceDetails {
 
 export default function SubscriptionPage() {
   const { getAccessToken } = useLiff();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { startSubscription, loading, error: subscriptionError } = useSubscription();
   const [priceDetails, setPriceDetails] = useState<PriceDetails | null>(null);
   const [priceLoading, setPriceLoading] = useState(true);
+  const [priceError, setPriceError] = useState<string | null>(null);
 
   // NOTE: getAccessTokenを依存配列から除外し、マウント時に一度だけ実行
 
@@ -35,11 +33,15 @@ export default function SubscriptionPage() {
         const result = await getSubscriptionPriceDetails(liffAccessToken);
         if (result.success && result.priceDetails) {
           setPriceDetails(result.priceDetails);
+          setPriceError(null);
         } else {
-          console.error('価格情報の取得に失敗しました:', result.error);
+          const message = result.error || '価格情報の取得に失敗しました';
+          console.error('価格情報の取得に失敗しました:', message);
+          setPriceError(message);
         }
       } catch (error) {
         console.error('価格情報取得中にエラーが発生しました:', error);
+        setPriceError('価格情報の取得に失敗しました。時間を置いて再度お試しください。');
       } finally {
         setPriceLoading(false);
       }
@@ -80,30 +82,6 @@ export default function SubscriptionPage() {
 
     const intervalText = intervalMap[interval] || interval;
     return count && count > 1 ? `${count}${intervalText}` : intervalText;
-  };
-
-  const startSubscription = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // サブスクリプションセッションの作成
-      const liffAccessToken = await getAccessToken();
-      const result = await createSubscriptionSession(liffAccessToken, window.location.origin);
-
-      if (!result.success || !result.url) {
-        setError(result.error || 'サブスクリプション作成に失敗しました');
-        return;
-      }
-
-      // 成功した場合は、Stripeのチェックアウトページへリダイレクト
-      window.location.href = result.url;
-    } catch (err) {
-      console.error('決済処理中にエラーが発生しました:', err);
-      setError('決済処理中にエラーが発生しました。後でもう一度お試しください。');
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -149,10 +127,16 @@ export default function SubscriptionPage() {
           </div>
         )}
 
-        {error && <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">{error}</div>}
+        {(priceError || subscriptionError) && (
+          <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">
+            {priceError || subscriptionError}
+          </div>
+        )}
 
         <Button
-          onClick={startSubscription}
+          onClick={async () => {
+            await startSubscription();
+          }}
           disabled={loading || priceLoading}
           className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
         >
