@@ -167,8 +167,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       .filter(Boolean);
 
     const headingLine = lines.find(line => /^#+\s*/.test(line));
-    const titleSource = headingLine ?? lines[0] ?? 'ブログ下書き';
-    const title = titleSource.replace(/^#+\s*/, '').trim() || 'ブログ下書き';
+    const titleSource = headingLine ?? lines[0] ?? '';
+    const titleCandidate = titleSource.replace(/^#+\s*/, '').trim();
 
     const bodyLines = lines.filter(line => line !== headingLine);
     const body = bodyLines
@@ -177,12 +177,12 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       .replace(/\s+/g, ' ')
       .trim();
 
-    const excerpt = body.length > 140 ? `${body.slice(0, 140)}…` : body;
+    const excerptCandidate = body.length > 140 ? `${body.slice(0, 140)}…` : body;
 
     return {
       step,
-      title,
-      excerpt,
+      title: titleCandidate || null,
+      excerpt: excerptCandidate || null,
     };
   };
 

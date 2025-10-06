@@ -677,6 +677,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       const hasExactMatch = versions.some(version => version.id === message.id);
       const targetVersionId = hasExactMatch ? message.id : latestVersionId;
 
+      if (message.id.startsWith('temp-assistant-')) {
+        const normalizedStreaming = normalizeCanvasContent(message.content ?? '');
+        if (normalizedStreaming) {
+          setCanvasStreamingContent(normalizedStreaming);
+        }
+      } else {
+        setCanvasStreamingContent('');
+      }
+
       setCanvasStep(detectedStep);
       setSelectedVersionByStep(prev => {
         const next = { ...prev };
@@ -696,7 +705,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
       setCanvasPanelOpen(true);
     },
-    [annotationOpen, blogCanvasVersionsByStep, latestBlogStep, setIsManualEdit]
+    [
+      annotationOpen,
+      blogCanvasVersionsByStep,
+      latestBlogStep,
+      setCanvasStreamingContent,
+      setIsManualEdit,
+    ]
   );
 
   // ✅ 保存ボタンクリック時にAnnotationPanelを表示する関数
@@ -866,6 +881,23 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
         setOptimisticMessages([userMessage, assistantMessage]);
 
+        if (annotationOpen) {
+          setAnnotationOpen(false);
+          setAnnotationData(null);
+        }
+
+        setCanvasStep(targetStep);
+        setSelectedVersionByStep(prev => ({
+          ...prev,
+          [targetStep]: null,
+        }));
+        setFollowLatestByStep(prev => ({
+          ...prev,
+          [targetStep]: false,
+        }));
+        setCanvasStreamingContent('');
+        setCanvasPanelOpen(true);
+
         // ✅ ストリーミングAPI呼び出し
         const response = await fetch('/api/chat/canvas/stream', {
           method: 'POST',
@@ -960,15 +992,22 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
     },
     [
+      annotationOpen,
       chatSession.actions,
       chatSession.state.currentSessionId,
       getAccessToken,
       handleModelChange,
       latestBlogStep,
       resolvedCanvasStep,
+      setAnnotationData,
+      setAnnotationOpen,
+      setCanvasPanelOpen,
+      setCanvasStep,
+      setFollowLatestByStep,
       setIsManualEdit,
       setOptimisticMessages,
       setCanvasStreamingContent,
+      setSelectedVersionByStep,
     ]
   );
 
