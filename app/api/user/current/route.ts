@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { userService } from '@/server/services/userService';
-import { LineAuthService } from '@/server/services/lineAuthService';
+
+import {
+  ensureAuthenticated,
+  clearAuthCookies,
+  setAuthCookies,
+} from '@/server/middleware/auth.middleware';
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -13,31 +17,26 @@ export async function GET() {
   }
 
   try {
-    const lineAuthService = new LineAuthService();
+    const authResult = await ensureAuthenticated({
+      ...(accessToken ? { accessToken } : {}),
+      ...(refreshToken ? { refreshToken } : {}),
+      skipSubscriptionCheck: true,
+    });
 
-    // トークンの検証とリフレッシュを試行
-    const authResult = await lineAuthService.verifyLineTokenWithRefresh(accessToken, refreshToken);
-
-    if (!authResult.isValid) {
-      // 再認証が必要な場合
+    if (authResult.error) {
       if (authResult.needsReauth) {
-        // クッキーをクリア
-        const response = NextResponse.json({ userId: null, needsReauth: true });
-        response.cookies.delete('line_access_token');
-        response.cookies.delete('line_refresh_token');
-        return response;
+        await clearAuthCookies();
+        return NextResponse.json({ userId: null, needsReauth: true });
       }
-      return NextResponse.json({ userId: null });
+
+      return NextResponse.json({ userId: null, user: null, error: authResult.error });
     }
 
-    // トークンがリフレッシュされたか、または元のトークンが有効
-    const tokenToUse = authResult.newAccessToken || accessToken;
-    // ここでユーザー取得/作成・更新を集中実施
-    const user = await userService.getUserFromLiffToken(tokenToUse);
+    const user = authResult.userDetails;
 
     // レスポンスを一度だけ作成（最小限のユーザー情報を含める）
     const response = NextResponse.json({
-      userId: user?.id || null,
+      userId: user?.id ?? null,
       user: user
         ? {
             id: user.id,
@@ -47,28 +46,15 @@ export async function GET() {
             linePictureUrl: user.linePictureUrl ?? null,
           }
         : null,
-      tokenRefreshed: !!authResult.newAccessToken, // newAccessToken があれば true
+      tokenRefreshed: Boolean(authResult.newAccessToken),
     });
 
     // 新しいトークンが取得された場合、クッキーを更新
-    if (authResult.newAccessToken) {
-      response.cookies.set('line_access_token', authResult.newAccessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict', // 'lax' から 'strict' に変更を推奨（セキュリティ向上）
-        path: '/', // path を追加
-        maxAge: 60 * 60 * 24 * 3, // 3日
+    if (authResult.newAccessToken || authResult.newRefreshToken) {
+      await setAuthCookies(authResult.newAccessToken ?? accessToken, authResult.newRefreshToken, {
+        sameSite: 'strict',
+        refreshTokenMaxAge: 60 * 60 * 24 * 30,
       });
-
-      if (authResult.newRefreshToken) {
-        response.cookies.set('line_refresh_token', authResult.newRefreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict', // 'lax' から 'strict' に変更を推奨
-          path: '/', // path を追加
-          maxAge: 60 * 60 * 24 * 30, // 30日
-        });
-      }
     }
     return response;
   } catch (error) {
