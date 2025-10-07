@@ -1,7 +1,21 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
 import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
+import type { DbUser } from '@/types/user';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
+
+export type SupabaseErrorInfo = {
+  userMessage: string;
+  developerMessage?: string | undefined;
+  code?: string | undefined;
+  details?: string | null | undefined;
+  hint?: string | null | undefined;
+  context?: Record<string, unknown> | undefined;
+};
+
+export type SupabaseResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: SupabaseErrorInfo };
 
 /**
  * SupabaseServiceクラス: サーバーサイドでSupabaseを操作するためのサービス
@@ -15,6 +29,67 @@ export class SupabaseService {
     // サーバーサイドの特権操作に対応するため、Service Roleクライアントを使用
     // （RLSをバイパスして安全にサーバー側でのみ実行）
     this.supabase = SupabaseClientManager.getInstance().getServiceRoleClient();
+  }
+
+  protected success<T>(data: T): SupabaseResult<T> {
+    return { success: true, data };
+  }
+
+  protected failure(
+    userMessage: string,
+    {
+      error,
+      developerMessage,
+      context,
+    }: {
+      error?: PostgrestError | Error;
+      developerMessage?: string;
+      context?: Record<string, unknown>;
+    } = {}
+  ): SupabaseResult<never> {
+    const info: SupabaseErrorInfo = {
+      userMessage,
+    };
+
+    if (developerMessage !== undefined) {
+      info.developerMessage = developerMessage;
+    }
+
+    if (context !== undefined) {
+      info.context = context;
+    }
+
+    if (info.developerMessage === undefined) {
+      info.developerMessage = userMessage;
+    }
+
+    if (error) {
+      if ('code' in error && typeof error.code === 'string') {
+        info.code = error.code;
+      }
+      if ('details' in error && typeof error.details !== 'undefined') {
+        info.details = error.details as string | null | undefined;
+      }
+      if ('hint' in error && typeof error.hint !== 'undefined') {
+        info.hint = error.hint as string | null | undefined;
+      }
+
+      console.error('[SupabaseService] Operation failed:', {
+        developerMessage: info.developerMessage ?? developerMessage,
+        code: info.code,
+        details: info.details,
+        hint: info.hint,
+        context: info.context,
+        rawError: error,
+      });
+    } else {
+      console.error('[SupabaseService] Operation failed without PostgrestError', {
+        developerMessage: info.developerMessage ?? developerMessage,
+        context: info.context ?? context,
+      });
+    }
+
+    return { success: false, error: info };
   }
 
   /**
@@ -58,7 +133,7 @@ export class SupabaseService {
   async saveUserProfile(
     userId: string,
     lineProfile: { displayName: string; pictureUrl?: string; statusMessage?: string }
-  ) {
+  ): Promise<SupabaseResult<unknown[]>> {
     const { data, error } = await this.supabase
       .from('users')
       .upsert(
@@ -74,17 +149,20 @@ export class SupabaseService {
       .select();
 
     if (error) {
-      console.error('Error saving user profile:', error);
-      throw error;
+      return this.failure('ユーザープロフィールの保存に失敗しました', {
+        error,
+        developerMessage: 'Error saving user profile',
+        context: { lineUserId: userId },
+      });
     }
 
-    return data;
+    return this.success(data ?? []);
   }
 
   /**
    * ユーザー情報をLINE IDで取得
    */
-  async getUserByLineId(lineUserId: string) {
+  async getUserByLineId(lineUserId: string): Promise<SupabaseResult<DbUser | null>> {
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
@@ -92,14 +170,17 @@ export class SupabaseService {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Error getting user by LINE ID:', error);
-      throw error;
+      return this.failure('ユーザー情報の取得に失敗しました', {
+        error,
+        developerMessage: 'Error getting user by LINE ID',
+        context: { lineUserId },
+      });
     }
 
-    return data;
+    return this.success((data as DbUser) ?? null);
   }
 
-  async createChatSession(session: DbChatSession): Promise<string> {
+  async createChatSession(session: DbChatSession): Promise<SupabaseResult<string>> {
     const { data, error } = await this.supabase
       .from('chat_sessions')
       .insert(session)
@@ -107,14 +188,27 @@ export class SupabaseService {
       .single();
 
     if (error) {
-      console.error('Failed to create chat session:', error);
-      throw new Error('チャットセッションの作成に失敗しました');
+      return this.failure('チャットセッションの作成に失敗しました', {
+        error,
+        developerMessage: 'Failed to create chat session',
+        context: { sessionId: session.id, userId: session.user_id },
+      });
     }
 
-    return data.id;
+    if (!data?.id) {
+      return this.failure('チャットセッションの作成に失敗しました', {
+        developerMessage: 'Chat session insert returned no id',
+        context: { session },
+      });
+    }
+
+    return this.success(data.id);
   }
 
-  async getChatSessionById(sessionId: string, userId: string): Promise<DbChatSession | null> {
+  async getChatSessionById(
+    sessionId: string,
+    userId: string
+  ): Promise<SupabaseResult<DbChatSession | null>> {
     const { data, error } = await this.supabase
       .from('chat_sessions')
       .select('*')
@@ -123,14 +217,20 @@ export class SupabaseService {
       .single();
 
     if (error) {
-      console.error('Failed to get chat session:', error);
-      return null;
+      if (error.code === 'PGRST116') {
+        return this.success(null);
+      }
+      return this.failure('チャットセッションの取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get chat session',
+        context: { sessionId, userId },
+      });
     }
 
-    return data;
+    return this.success(data ?? null);
   }
 
-  async getUserChatSessions(userId: string): Promise<DbChatSession[]> {
+  async getUserChatSessions(userId: string): Promise<SupabaseResult<DbChatSession[]>> {
     const { data, error } = await this.supabase
       .from('chat_sessions')
       .select('*')
@@ -138,18 +238,21 @@ export class SupabaseService {
       .order('last_message_at', { ascending: false });
 
     if (error) {
-      console.error('Failed to get user chat sessions:', error);
-      return [];
+      return this.failure('チャットセッションの取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get user chat sessions',
+        context: { userId },
+      });
     }
 
-    return data || [];
+    return this.success(data ?? []);
   }
 
   async updateChatSession(
     sessionId: string,
     userId: string,
     updates: Partial<DbChatSession>
-  ): Promise<void> {
+  ): Promise<SupabaseResult<void>> {
     const { error } = await this.supabase
       .from('chat_sessions')
       .update(updates)
@@ -157,12 +260,17 @@ export class SupabaseService {
       .eq('user_id', userId); // これがないと他人のチャット履歴も更新できてしまう
 
     if (error) {
-      console.error('Failed to update chat session:', error);
-      throw new Error('チャットセッションの更新に失敗しました');
+      return this.failure('チャットセッションの更新に失敗しました', {
+        error,
+        developerMessage: 'Failed to update chat session',
+        context: { sessionId, userId, updates },
+      });
     }
+
+    return this.success(undefined);
   }
 
-  async createChatMessage(message: DbChatMessage): Promise<string> {
+  async createChatMessage(message: DbChatMessage): Promise<SupabaseResult<string>> {
     const { data, error } = await this.supabase
       .from('chat_messages')
       .insert(message)
@@ -170,14 +278,27 @@ export class SupabaseService {
       .single();
 
     if (error) {
-      console.error('Failed to create chat message:', error);
-      throw new Error('チャットメッセージの作成に失敗しました');
+      return this.failure('チャットメッセージの作成に失敗しました', {
+        error,
+        developerMessage: 'Failed to create chat message',
+        context: { messageId: message.id, sessionId: message.session_id, userId: message.user_id },
+      });
     }
 
-    return data.id;
+    if (!data?.id) {
+      return this.failure('チャットメッセージの作成に失敗しました', {
+        developerMessage: 'Chat message insert returned no id',
+        context: { message },
+      });
+    }
+
+    return this.success(data.id);
   }
 
-  async getChatMessagesBySessionId(sessionId: string, userId: string): Promise<DbChatMessage[]> {
+  async getChatMessagesBySessionId(
+    sessionId: string,
+    userId: string
+  ): Promise<SupabaseResult<DbChatMessage[]>> {
     const { data, error } = await this.supabase
       .from('chat_messages')
       .select('*')
@@ -186,18 +307,25 @@ export class SupabaseService {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Failed to get chat messages:', error);
-      return [];
+      return this.failure('チャットメッセージの取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get chat messages',
+        context: { sessionId, userId },
+      });
     }
 
-    return data || [];
+    return this.success(data ?? []);
   }
 
   /**
    * 指定したユーザーのメッセージ数を、時間範囲でカウント
    * role は 'user' のみを対象（送信回数としてカウントするため）
    */
-  async countUserMessagesBetween(userId: string, fromMs: number, toMs: number): Promise<number> {
+  async countUserMessagesBetween(
+    userId: string,
+    fromMs: number,
+    toMs: number
+  ): Promise<SupabaseResult<number>> {
     const { count, error } = await this.supabase
       .from('chat_messages')
       .select('id', { count: 'exact', head: true })
@@ -207,29 +335,39 @@ export class SupabaseService {
       .lt('created_at', toMs);
 
     if (error) {
-      console.error('Failed to count user messages:', error);
-      return 0;
+      return this.failure('メッセージ数の取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to count user messages in range',
+        context: { userId, fromMs, toMs },
+      });
     }
 
-    return count ?? 0;
+    return this.success(count ?? 0);
   }
 
   /**
    * Google検索結果を一括で保存
    */
-  async createSearchResults(results: DbSearchResult[]): Promise<void> {
+  async createSearchResults(results: DbSearchResult[]): Promise<SupabaseResult<void>> {
     const { error } = await this.supabase.from('search_results').insert(results);
 
     if (error) {
-      console.error('Failed to create search results:', error);
-      throw new Error('検索結果の保存に失敗しました');
+      return this.failure('検索結果の保存に失敗しました', {
+        error,
+        developerMessage: 'Failed to create search results',
+      });
     }
+
+    return this.success(undefined);
   }
 
   /**
    * セッションに紐づく検索結果を取得
    */
-  async getSearchResultsBySessionId(sessionId: string, userId: string): Promise<DbSearchResult[]> {
+  async getSearchResultsBySessionId(
+    sessionId: string,
+    userId: string
+  ): Promise<SupabaseResult<DbSearchResult[]>> {
     const { data, error } = await this.supabase
       .from('search_results')
       .select('*')
@@ -238,16 +376,22 @@ export class SupabaseService {
       .order('rank', { ascending: true });
 
     if (error) {
-      console.error('Failed to get search results:', error);
-      return [];
+      return this.failure('検索結果の取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get search results by session',
+        context: { sessionId, userId },
+      });
     }
-    return data || [];
+    return this.success(data ?? []);
   }
 
   /**
    * セッションに紐づく検索結果を削除
    */
-  async deleteSearchResultsBySessionId(sessionId: string, userId: string): Promise<void> {
+  async deleteSearchResultsBySessionId(
+    sessionId: string,
+    userId: string
+  ): Promise<SupabaseResult<void>> {
     const { error } = await this.supabase
       .from('search_results')
       .delete()
@@ -257,11 +401,16 @@ export class SupabaseService {
     if (error) {
       // テーブルが存在しない場合は無視する（42P01: relation does not exist）
       if (error.code === '42P01') {
-        return;
+        return this.success(undefined);
       }
-      console.error('Failed to delete search results:', error);
-      throw new Error('検索結果の削除に失敗しました');
+      return this.failure('検索結果の削除に失敗しました', {
+        error,
+        developerMessage: 'Failed to delete search results by session',
+        context: { sessionId, userId },
+      });
     }
+
+    return this.success(undefined);
   }
 
   /**
@@ -366,7 +515,7 @@ export class SupabaseService {
   /**
    * チャットセッションとそれに紐づくすべてのメッセージを削除
    */
-  async deleteChatSession(sessionId: string, userId: string): Promise<void> {
+  async deleteChatSession(sessionId: string, userId: string): Promise<SupabaseResult<void>> {
     // トランザクション的な削除を実行
     // 1. セッションに紐づくメッセージを削除
     const { error: messagesError } = await this.supabase
@@ -376,19 +525,21 @@ export class SupabaseService {
       .eq('user_id', userId);
 
     if (messagesError) {
-      console.error('Failed to delete chat messages:', messagesError);
-      throw new Error('チャットメッセージの削除に失敗しました');
+      return this.failure('チャットメッセージの削除に失敗しました', {
+        error: messagesError,
+        developerMessage: 'Failed to delete chat messages before session deletion',
+        context: { sessionId, userId },
+      });
     }
 
     // 2. セッションに紐づく検索結果を削除（存在する場合）
-    try {
-      await this.deleteSearchResultsBySessionId(sessionId, userId);
-    } catch (searchError) {
-      // 検索結果の削除に失敗してもチャットセッション削除は継続する
-      console.warn(
-        'Failed to delete search results, but continuing with session deletion:',
-        searchError
-      );
+    const searchResultDeletion = await this.deleteSearchResultsBySessionId(sessionId, userId);
+    if (!searchResultDeletion.success) {
+      console.warn('Failed to delete search results, but continuing with session deletion:', {
+        sessionId,
+        userId,
+        error: searchResultDeletion.error,
+      });
     }
 
     // 3. セッション自体を削除
@@ -399,9 +550,14 @@ export class SupabaseService {
       .eq('user_id', userId);
 
     if (sessionError) {
-      console.error('Failed to delete chat session:', sessionError);
-      throw new Error('チャットセッションの削除に失敗しました');
+      return this.failure('チャットセッションの削除に失敗しました', {
+        error: sessionError,
+        developerMessage: 'Failed to delete chat session',
+        context: { sessionId, userId },
+      });
     }
+
+    return this.success(undefined);
   }
 
   /* === 要件定義 (briefs) ===================================== */
@@ -409,7 +565,7 @@ export class SupabaseService {
   /**
    * 事業者情報を保存
    */
-  async saveBrief(userId: string, data: Record<string, unknown>): Promise<void> {
+  async saveBrief(userId: string, data: Record<string, unknown>): Promise<SupabaseResult<void>> {
     const now = Date.now();
     const { error } = await this.supabase
       .from('briefs')
@@ -419,14 +575,20 @@ export class SupabaseService {
       );
 
     if (error) {
-      throw new Error(`事業者情報の保存に失敗しました: ${error.message}`);
+      return this.failure('事業者情報の保存に失敗しました', {
+        error,
+        developerMessage: 'Failed to upsert brief',
+        context: { userId },
+      });
     }
+
+    return this.success(undefined);
   }
 
   /**
    * 事業者情報を取得
    */
-  async getBrief(userId: string): Promise<Record<string, unknown> | null> {
+  async getBrief(userId: string): Promise<SupabaseResult<Record<string, unknown> | null>> {
     const { data, error } = await this.supabase
       .from('briefs')
       .select('data')
@@ -434,10 +596,14 @@ export class SupabaseService {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      throw new Error(`事業者情報の取得に失敗しました: ${error.message}`);
+      return this.failure('事業者情報の取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get brief',
+        context: { userId },
+      });
     }
 
-    return data?.data || null;
+    return this.success((data?.data as Record<string, unknown>) || null);
   }
 
   /* === メッセージ保存機能 ================================ */
@@ -445,23 +611,35 @@ export class SupabaseService {
   /**
    * メッセージの保存状態を更新
    */
-  async setMessageSaved(userId: string, messageId: string, isSaved: boolean): Promise<void> {
+  async setMessageSaved(
+    userId: string,
+    messageId: string,
+    isSaved: boolean
+  ): Promise<SupabaseResult<void>> {
     const { error } = await this.supabase
       .from('chat_messages')
       .update({ is_saved: isSaved })
       .eq('id', messageId)
       .eq('user_id', userId);
-    
+
     if (error) {
-      console.error('Failed to update is_saved:', error);
-      throw new Error('メッセージの保存状態更新に失敗しました');
+      return this.failure('メッセージの保存状態更新に失敗しました', {
+        error,
+        developerMessage: 'Failed to update is_saved flag',
+        context: { messageId, userId, isSaved },
+      });
     }
+
+    return this.success(undefined);
   }
 
   /**
    * セッション内の保存済みメッセージIDを取得
    */
-  async getSavedMessageIdsBySession(userId: string, sessionId: string): Promise<string[]> {
+  async getSavedMessageIdsBySession(
+    userId: string,
+    sessionId: string
+  ): Promise<SupabaseResult<string[]>> {
     const { data, error } = await this.supabase
       .from('chat_messages')
       .select('id')
@@ -469,19 +647,26 @@ export class SupabaseService {
       .eq('session_id', sessionId)
       .eq('is_saved', true)
       .order('created_at', { ascending: true });
-    
+
     if (error) {
-      console.error('Failed to fetch saved ids:', error);
-      return [];
+      return this.failure('保存済みメッセージIDの取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to fetch saved message ids by session',
+        context: { userId, sessionId },
+      });
     }
-    
-    return (data || []).map(r => r.id);
+
+    return this.success((data || []).map(r => r.id));
   }
 
   /**
    * 全保存済みメッセージを取得
    */
-  async getAllSavedMessages(userId: string): Promise<Array<{ id: string; content: string; created_at: number; session_id: string }>> {
+  async getAllSavedMessages(
+    userId: string
+  ): Promise<SupabaseResult<
+    Array<{ id: string; content: string; created_at: number; session_id: string }>
+  >> {
     const { data, error } = await this.supabase
       .from('chat_messages')
       .select('id, content, created_at, session_id')
@@ -491,10 +676,15 @@ export class SupabaseService {
       .limit(200);
 
     if (error) {
-      console.error('Failed to fetch all saved messages:', error);
-      return [];
+      return this.failure('保存済みメッセージの取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to fetch all saved messages',
+        context: { userId },
+      });
     }
-    
-    return (data || []) as Array<{ id: string; content: string; created_at: number; session_id: string }>;
+
+    return this.success(
+      (data || []) as Array<{ id: string; content: string; created_at: number; session_id: string }>
+    );
   }
 }

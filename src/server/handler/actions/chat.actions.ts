@@ -71,7 +71,14 @@ async function checkDailyLimit(role: UserRole, userId: string) {
 
   const supabase = new SupabaseService();
   const { fromUtcMs, toUtcMs } = getCurrentJstRange();
-  const sentCountToday = await supabase.countUserMessagesBetween(userId, fromUtcMs, toUtcMs);
+  const sentCountResult = await supabase.countUserMessagesBetween(userId, fromUtcMs, toUtcMs);
+
+  if (!sentCountResult.success) {
+    console.warn('Daily limit check failed:', sentCountResult.error);
+    return sentCountResult.error.userMessage;
+  }
+
+  const sentCountToday = sentCountResult.data;
 
   if (sentCountToday >= DAILY_CHAT_LIMIT) {
     return ERROR_MESSAGES.daily_chat_limit;
@@ -234,17 +241,14 @@ export async function saveMessage(data: z.infer<typeof saveMessageSchema>) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
   
-  try {
-    const supabase = new SupabaseService();
-    await supabase.setMessageSaved(auth.userId, messageId, true);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to save message:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'メッセージの保存に失敗しました',
-    };
+  const supabase = new SupabaseService();
+  const saveResult = await supabase.setMessageSaved(auth.userId, messageId, true);
+
+  if (!saveResult.success) {
+    return { success: false, error: saveResult.error.userMessage };
   }
+
+  return { success: true };
 }
 
 export async function unsaveMessage(data: z.infer<typeof unsaveMessageSchema>) {
@@ -254,17 +258,14 @@ export async function unsaveMessage(data: z.infer<typeof unsaveMessageSchema>) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
   
-  try {
-    const supabase = new SupabaseService();
-    await supabase.setMessageSaved(auth.userId, messageId, false);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to unsave message:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'メッセージの保存解除に失敗しました',
-    };
+  const supabase = new SupabaseService();
+  const unsaveResult = await supabase.setMessageSaved(auth.userId, messageId, false);
+
+  if (!unsaveResult.success) {
+    return { success: false, error: unsaveResult.error.userMessage };
   }
+
+  return { success: true };
 }
 
 export async function getSavedMessageIds(data: z.infer<typeof getSavedIdsSchema>) {
@@ -274,17 +275,17 @@ export async function getSavedMessageIds(data: z.infer<typeof getSavedIdsSchema>
     return { ids: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
   
-  try {
-    const supabase = new SupabaseService();
-    const ids = await supabase.getSavedMessageIdsBySession(auth.userId, sessionId);
-    return { ids, error: null };
-  } catch (error) {
-    console.error('Failed to get saved message IDs:', error);
+  const supabase = new SupabaseService();
+  const idsResult = await supabase.getSavedMessageIdsBySession(auth.userId, sessionId);
+
+  if (!idsResult.success) {
     return {
       ids: [],
-      error: error instanceof Error ? error.message : '保存済みメッセージの取得に失敗しました',
+      error: idsResult.error.userMessage,
     };
   }
+
+  return { ids: idsResult.data, error: null };
 }
 
 export async function getAllSavedMessages(liffAccessToken: string) {
@@ -293,17 +294,17 @@ export async function getAllSavedMessages(liffAccessToken: string) {
     return { items: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
   
-  try {
-    const supabase = new SupabaseService();
-    const items = await supabase.getAllSavedMessages(auth.userId);
-    return { items, error: null };
-  } catch (error) {
-    console.error('Failed to get all saved messages:', error);
+  const supabase = new SupabaseService();
+  const itemsResult = await supabase.getAllSavedMessages(auth.userId);
+
+  if (!itemsResult.success) {
     return {
       items: [],
-      error: error instanceof Error ? error.message : '保存済みメッセージの取得に失敗しました',
+      error: itemsResult.error.userMessage,
     };
   }
+
+  return { items: itemsResult.data, error: null };
 }
 
 // === Server Action aliases (for client-side import) ===

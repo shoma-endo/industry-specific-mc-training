@@ -38,7 +38,11 @@ export const saveBrief = async (
     }
 
     // 事業者情報を保存
-    await supabaseService.saveBrief(auth.userId, validationResult.data);
+    const saveResult = await supabaseService.saveBrief(auth.userId, validationResult.data);
+
+    if (!saveResult.success) {
+      return { success: false, error: saveResult.error.userMessage };
+    }
 
     return { success: true };
   } catch (error) {
@@ -64,9 +68,13 @@ export const getBrief = async (
     }
 
     // 事業者情報を取得
-    const briefData = await supabaseService.getBrief(auth.userId);
+    const briefResult = await supabaseService.getBrief(auth.userId);
 
-    return { success: true, data: briefData as BriefInput | null };
+    if (!briefResult.success) {
+      return { success: false, error: briefResult.error.userMessage };
+    }
+
+    return { success: true, data: briefResult.data as BriefInput | null };
   } catch (error) {
     console.error('事業者情報の取得エラー:', error);
     return {

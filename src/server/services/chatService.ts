@@ -12,7 +12,7 @@ import {
   ServerChatSession,
   ServerChatMessage,
 } from '@/types/chat';
-import { SupabaseService } from './supabaseService';
+import { SupabaseService, type SupabaseResult } from './supabaseService';
 import { MODEL_CONFIGS, FEATURE_FLAGS } from '@/lib/constants';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 
@@ -29,6 +29,21 @@ class ChatService {
 
   constructor() {
     this.supabaseService = new SupabaseService();
+  }
+
+  private unwrapSupabaseResult<T>(
+    result: SupabaseResult<T>,
+    code: ChatErrorCode,
+    context?: Record<string, unknown>
+  ): T {
+    if (result.success) {
+      return result.data;
+    }
+
+    throw new ChatError(result.error.userMessage, code, {
+      ...context,
+      supabase: result.error,
+    });
   }
 
   /**
@@ -94,7 +109,11 @@ class ChatService {
         system_prompt: systemPrompt,
       };
 
-      await this.supabaseService.createChatSession(session);
+      this.unwrapSupabaseResult(
+        await this.supabaseService.createChatSession(session),
+        ChatErrorCode.SESSION_CREATION_FAILED,
+        { userId, session }
+      );
 
       const userDbMessage: DbChatMessage = {
         id: uuidv4(),
@@ -105,7 +124,11 @@ class ChatService {
         created_at: now,
       };
 
-      await this.supabaseService.createChatMessage(userDbMessage);
+      this.unwrapSupabaseResult(
+        await this.supabaseService.createChatMessage(userDbMessage),
+        ChatErrorCode.MESSAGE_SEND_FAILED,
+        { userId, sessionId, messageId: userDbMessage.id }
+      );
 
       const assistantDbMessage: DbChatMessage = {
         id: uuidv4(),
@@ -117,7 +140,11 @@ class ChatService {
         created_at: now + 1, // 順序を保証するため
       };
 
-      await this.supabaseService.createChatMessage(assistantDbMessage);
+      this.unwrapSupabaseResult(
+        await this.supabaseService.createChatMessage(assistantDbMessage),
+        ChatErrorCode.MESSAGE_SEND_FAILED,
+        { userId, sessionId, messageId: assistantDbMessage.id }
+      );
 
       return {
         ...aiResponse,
@@ -234,9 +261,13 @@ class ChatService {
 
       const now = Date.now();
 
-      await this.supabaseService.updateChatSession(sessionId, userId, {
-        last_message_at: now,
-      });
+      this.unwrapSupabaseResult(
+        await this.supabaseService.updateChatSession(sessionId, userId, {
+          last_message_at: now,
+        }),
+        ChatErrorCode.SESSION_LOAD_FAILED,
+        { userId, sessionId }
+      );
 
       const userDbMessage: DbChatMessage = {
         id: uuidv4(),
@@ -247,7 +278,11 @@ class ChatService {
         created_at: now,
       };
 
-      await this.supabaseService.createChatMessage(userDbMessage);
+      this.unwrapSupabaseResult(
+        await this.supabaseService.createChatMessage(userDbMessage),
+        ChatErrorCode.MESSAGE_SEND_FAILED,
+        { userId, sessionId, messageId: userDbMessage.id }
+      );
 
       const assistantDbMessage: DbChatMessage = {
         id: uuidv4(),
@@ -259,7 +294,11 @@ class ChatService {
         created_at: now + 1, // 順序を保証するため
       };
 
-      await this.supabaseService.createChatMessage(assistantDbMessage);
+      this.unwrapSupabaseResult(
+        await this.supabaseService.createChatMessage(assistantDbMessage),
+        ChatErrorCode.MESSAGE_SEND_FAILED,
+        { userId, sessionId, messageId: assistantDbMessage.id }
+      );
 
       return {
         ...aiResponse,
@@ -284,7 +323,11 @@ class ChatService {
    */
   async getUserSessions(userId: string): Promise<ChatSession[]> {
     try {
-      const dbSessions = await this.supabaseService.getUserChatSessions(userId);
+      const dbSessions = this.unwrapSupabaseResult(
+        await this.supabaseService.getUserChatSessions(userId),
+        ChatErrorCode.SESSION_LOAD_FAILED,
+        { userId }
+      );
       return dbSessions.map(session => toChatSession(session));
     } catch (error) {
       console.error('Failed to get user sessions:', error);
@@ -301,7 +344,11 @@ class ChatService {
    */
   async getSessionMessages(sessionId: string, userId: string): Promise<ChatMessage[]> {
     try {
-      const dbMessages = await this.supabaseService.getChatMessagesBySessionId(sessionId, userId);
+      const dbMessages = this.unwrapSupabaseResult(
+        await this.supabaseService.getChatMessagesBySessionId(sessionId, userId),
+        ChatErrorCode.MESSAGE_LOAD_FAILED,
+        { sessionId, userId }
+      );
       return dbMessages.map(message => toChatMessage(message));
     } catch (error) {
       console.error('Failed to get session messages:', error);
@@ -318,7 +365,11 @@ class ChatService {
    */
   async deleteChatSession(sessionId: string, userId: string): Promise<void> {
     try {
-      await this.supabaseService.deleteChatSession(sessionId, userId);
+      this.unwrapSupabaseResult(
+        await this.supabaseService.deleteChatSession(sessionId, userId),
+        ChatErrorCode.SESSION_DELETE_FAILED,
+        { sessionId, userId }
+      );
     } catch (error) {
       console.error('Failed to delete chat session:', error);
       throw new ChatError(

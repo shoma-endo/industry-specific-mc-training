@@ -51,7 +51,12 @@ async function checkAdminPermission(liffAccessToken: string) {
   // 管理者権限チェック（roleがadminかどうか）
   try {
     const service = new PromptService();
-    const user = await service.getUserByLineId(auth.lineUserId);
+    const userResult = await service.getUserByLineId(auth.lineUserId);
+    if (!userResult.success) {
+      return { success: false, error: userResult.error.userMessage };
+    }
+
+    const user = userResult.data;
     if (!user) {
       return { success: false, error: 'ユーザー情報が見つかりません' };
     }
