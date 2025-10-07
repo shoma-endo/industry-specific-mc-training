@@ -841,29 +841,29 @@ export async function generateBlogCreationPromptByStep(
         });
         // 1) 事業者情報（{{...}}）を置換 → 2) コンテンツ/Step7変数を置換
         const afterBusiness = replaceTemplateVariables(template.content, businessInfo);
-        return PromptService.replaceVariables(afterBusiness, vars);
+        const mergedPrompt = PromptService.replaceVariables(afterBusiness, vars);
+        const unresolvedPlaceholders = (mergedPrompt.match(/{{(\w+)}}/g) || []).map(token =>
+          token.replace(/[{}]/g, '')
+        );
+
+        if (unresolvedPlaceholders.length > 0) {
+          console.warn('[BlogPrompt] 未解決のDBプロンプト変数を検出 - 空文字で置換', {
+            step,
+            templateName,
+            unresolvedPlaceholders,
+          });
+          return mergedPrompt.replace(/{{\w+}}/g, '');
+        }
+
+        return mergedPrompt;
       }
 
-      console.warn(
-        '[BlogPrompt] Step template not found. Using generic fallback with step instruction',
-        {
-          step,
-          templateName,
-          withVariables: isStep7,
-        }
-      );
-      const base = SYSTEM_PROMPT;
-
-      const stepInstructionMap: Record<BlogStepId, string> = {
-        step1: 'この出力では「顕在ニーズ・潜在ニーズ確認」のみを実行してください。',
-        step2: 'この出力では「ペルソナ・デモグラチェック」のみを実行してください。',
-        step3: 'この出力では「ユーザーのゴール」のみを実行してください。',
-        step4: 'この出力では「PREPチェック」のみを実行してください。',
-        step5: 'この出力では「構成案確認」のみを実行してください。',
-        step6: 'この出力では「書き出し案」のみを実行してください。',
-        step7: 'この出力では「本文作成」のみを実行してください。',
-      };
-      return `${base}\n\n# ステップ指示\n${stepInstructionMap[step]}`;
+      console.warn('[BlogPrompt] Step template not found. Using SYSTEM_PROMPT as fallback', {
+        step,
+        templateName,
+        withVariables: isStep7,
+      });
+      return SYSTEM_PROMPT;
     } catch (error) {
       console.error('ブログ作成ステッププロンプト生成エラー:', error);
       return SYSTEM_PROMPT;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { getUserRole, isAdmin } from '@/auth-utils';
 import { PromptService } from '@/server/services/promptService';
+import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 import { z } from 'zod';
 
 const promptVariableSchema = z.object({
@@ -33,15 +34,21 @@ export async function GET(request: NextRequest) {
 
     const authResult = await authMiddleware(liffAccessToken, refreshToken);
     if (authResult.error) {
+      const isTokenExpired = authResult.error.includes('expired');
+      const errorCode = isTokenExpired ? ChatErrorCode.TOKEN_EXPIRED : ChatErrorCode.AUTHENTICATION_FAILED;
+      const chatError = new ChatError(authResult.error, errorCode);
       return NextResponse.json(
-        { success: false, error: 'ユーザー認証に失敗しました' },
+        {
+          success: false,
+          error: chatError.userMessage,
+        },
         { status: 401 }
       );
     }
 
     const role = await getUserRole(liffAccessToken);
     if (!isAdmin(role)) {
-      return NextResponse.json({ success: false, error: '権限がありません' }, { status: 403 });
+      return NextResponse.json({ success: false, error: '管理者権限がありません' }, { status: 403 });
     }
 
     const { pathname } = request.nextUrl;
@@ -76,15 +83,21 @@ export async function POST(request: NextRequest) {
 
     const authResult = await authMiddleware(liffAccessToken, refreshToken);
     if (authResult.error) {
+      const isTokenExpired = authResult.error.includes('expired');
+      const errorCode = isTokenExpired ? ChatErrorCode.TOKEN_EXPIRED : ChatErrorCode.AUTHENTICATION_FAILED;
+      const chatError = new ChatError(authResult.error, errorCode);
       return NextResponse.json(
-        { success: false, error: 'ユーザー認証に失敗しました' },
+        {
+          success: false,
+          error: chatError.userMessage,
+        },
         { status: 401 }
       );
     }
 
     const role = await getUserRole(liffAccessToken);
     if (!isAdmin(role)) {
-      return NextResponse.json({ success: false, error: '権限がありません' }, { status: 403 });
+      return NextResponse.json({ success: false, error: '管理者権限がありません' }, { status: 403 });
     }
 
     const { pathname } = request.nextUrl;
