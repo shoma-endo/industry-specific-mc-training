@@ -300,6 +300,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               onSaveClick={onSaveClick}
               annotationLoading={annotationLoading}
               onNextStepChange={onNextStepChange}
+              flowStatus={blogFlowStatus}
             />
           </div>
         )}

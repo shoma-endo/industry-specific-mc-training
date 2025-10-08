@@ -24,7 +24,6 @@ import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/ty
 import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
-import { BlogFlowProvider, useBlogFlow } from '@/context/BlogFlowProvider';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import { useAnnotationStore } from '@/store/annotationStore';
 
@@ -143,7 +142,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     handleModelChange,
     nextStepForPlaceholder,
   } = ctx;
-  const { state, currentIndex, totalSteps } = useBlogFlow();
   const router = useRouter();
 
   // ChatLayoutContent内でのblogFlowActive再計算
@@ -155,14 +153,15 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   // blogFlowActiveがfalseの場合は再計算値を使用
   const effectiveBlogFlowActive = blogFlowActive || blogFlowActiveRecalculated;
 
-  const currentStep = state.current;
+  const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
+  const flowStatus: 'idle' | 'running' | 'waitingAction' | 'error' = 'idle';
   // 最新メッセージのステップを優先、なければ保存済みステップ、最後にフォールバック
   const displayStep = latestBlogStep ?? ctx.savedBlogStep ?? currentStep;
   const hasDetectedBlogStep = latestBlogStep !== null;
   const displayIndex = useMemo(() => {
     const index = BLOG_STEP_IDS.indexOf(displayStep);
-    return index >= 0 ? index : currentIndex;
-  }, [displayStep, currentIndex]);
+    return index >= 0 ? index : 0;
+  }, [displayStep]);
 
   const goToSubscription = () => {
     router.push('/subscription');
@@ -188,7 +187,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
   const shouldShowStepActionBar =
     effectiveBlogFlowActive &&
-    state.flowStatus !== 'error' &&
     !chatSession.state.isLoading &&
     !!lastAssistantMessage &&
     hasDetectedBlogStep;
@@ -296,9 +294,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           isMobile={isMobile}
           onMenuToggle={isMobile ? () => ui.sidebar.setOpen(!ui.sidebar.open) : undefined}
           blogFlowActive={effectiveBlogFlowActive}
-          blogProgress={{ currentIndex: displayIndex, total: totalSteps }}
+          blogProgress={{ currentIndex: displayIndex, total: BLOG_STEP_IDS.length }}
           onModelChange={handleModelChange}
-          blogFlowStatus={state.flowStatus}
+          blogFlowStatus={flowStatus}
           selectedModelExternal={selectedModel}
           nextStepForPlaceholder={nextStepForPlaceholder}
           onNextStepChange={ctx.onNextStepChange}
@@ -1012,57 +1010,55 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   );
 
   return (
-    <BlogFlowProvider>
-      <div className="flex h-[calc(100vh-3rem)]" data-testid="chat-layout">
-        <ChatLayoutContent
-          ctx={{
-            chatSession,
-            subscription,
-            isMobile,
-            blogFlowActive,
-            optimisticMessages,
-            isCanvasStreaming,
-            selectedModel,
-            latestBlogStep,
-            savedBlogStep,
-            stepActionBarRef,
-            ui: {
-              sidebar: { open: sidebarOpen, setOpen: setSidebarOpen },
-              canvas: { open: canvasPanelOpen, show: handleShowCanvas },
-              annotation: {
-                open: annotationOpen,
-                loading: annotationLoading,
-                data: annotationData,
-                openWith: handleOpenAnnotation,
-                setOpen: setAnnotationOpen,
-              },
+    <div className="flex h-[calc(100vh-3rem)]" data-testid="chat-layout">
+      <ChatLayoutContent
+        ctx={{
+          chatSession,
+          subscription,
+          isMobile,
+          blogFlowActive,
+          optimisticMessages,
+          isCanvasStreaming,
+          selectedModel,
+          latestBlogStep,
+          savedBlogStep,
+          stepActionBarRef,
+          ui: {
+            sidebar: { open: sidebarOpen, setOpen: setSidebarOpen },
+            canvas: { open: canvasPanelOpen, show: handleShowCanvas },
+            annotation: {
+              open: annotationOpen,
+              loading: annotationLoading,
+              data: annotationData,
+              openWith: handleOpenAnnotation,
+              setOpen: setAnnotationOpen,
             },
-            onSendMessage: handleSendMessage,
-            handleModelChange,
-            nextStepForPlaceholder,
-            onNextStepChange: handleNextStepChange,
-          }}
-        />
+          },
+          onSendMessage: handleSendMessage,
+          handleModelChange,
+          nextStepForPlaceholder,
+          onNextStepChange: handleNextStepChange,
+        }}
+      />
 
-        {canvasPanelOpen && (
-          <CanvasPanel
-            onClose={() => {
-              setCanvasPanelOpen(false);
-              setIsManualEdit(false); // Canvas閉じる時も手動編集フラグをリセット
-            }}
-            content={canvasContent}
-            isVisible={canvasPanelOpen}
-            onSelectionEdit={handleCanvasSelectionEdit}
-            versions={canvasVersionsWithMeta}
-            activeVersionId={activeCanvasVersion?.id ?? null}
-            onVersionSelect={handleCanvasVersionSelect}
-            stepOptions={canvasStepOptions}
-            activeStepId={resolvedCanvasStep ?? null}
-            onStepSelect={handleCanvasStepSelect}
-            streamingContent={canvasStreamingContent}
-          />
-        )}
-      </div>
-    </BlogFlowProvider>
+      {canvasPanelOpen && (
+        <CanvasPanel
+          onClose={() => {
+            setCanvasPanelOpen(false);
+            setIsManualEdit(false); // Canvas閉じる時も手動編集フラグをリセット
+          }}
+          content={canvasContent}
+          isVisible={canvasPanelOpen}
+          onSelectionEdit={handleCanvasSelectionEdit}
+          versions={canvasVersionsWithMeta}
+          activeVersionId={activeCanvasVersion?.id ?? null}
+          onVersionSelect={handleCanvasVersionSelect}
+          stepOptions={canvasStepOptions}
+          activeStepId={resolvedCanvasStep ?? null}
+          onStepSelect={handleCanvasStepSelect}
+          streamingContent={canvasStreamingContent}
+        />
+      )}
+    </div>
   );
 };

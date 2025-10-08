@@ -1,6 +1,5 @@
 'use client';
 import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
-import { useBlogFlow } from '@/context/BlogFlowProvider';
 import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { BookMarked } from 'lucide-react';
@@ -13,6 +12,7 @@ type Props = {
   onSaveClick?: (() => void) | undefined;
   annotationLoading?: boolean | undefined;
   onNextStepChange?: ((nextStep: BlogStepId | null) => void) | undefined;
+  flowStatus?: string | undefined;
 };
 
 export type StepActionBarRef = {
@@ -29,12 +29,11 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
       onSaveClick,
       annotationLoading,
       onNextStepChange,
+      flowStatus = 'idle',
     },
     ref
   ) => {
-    const { state } = useBlogFlow();
-
-    const actualStep = step ?? state.current;
+    const actualStep = step ?? (BLOG_STEP_IDS[0] as BlogStepId);
     const actualIndex = BLOG_STEP_IDS.indexOf(actualStep);
     const displayIndex = actualIndex >= 0 ? actualIndex : 0;
     const displayStep = BLOG_STEP_IDS[displayIndex] ?? actualStep ?? BLOG_STEP_IDS[0];
@@ -48,8 +47,7 @@ const StepActionBar = forwardRef<StepActionBarRef, Props>(
     }));
 
     // UI制御
-    const isStepReady =
-      state.flowStatus === 'waitingAction' || (hasDetectedBlogStep && state.flowStatus === 'idle');
+    const isStepReady = flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
     const isDisabled = disabled || !isStepReady;
 
     // ラベル
