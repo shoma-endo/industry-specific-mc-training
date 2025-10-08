@@ -33,7 +33,6 @@ export interface LiffProviderProps {
  * コンポーネントProps型定義
  */
 export interface WordPressSettingsFormProps {
-  liffAccessToken: string;
   existingSettings: ExistingWordPressSettings | null;
 }
 

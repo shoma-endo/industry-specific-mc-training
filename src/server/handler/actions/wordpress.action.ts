@@ -11,10 +11,16 @@ const supabaseService = new SupabaseService();
 /**
  * WordPress設定を取得
  */
-export async function getWordPressSettings(
-  liffAccessToken: string
-): Promise<WordPressSettings | null> {
-  const refreshToken = ''; // 必要に応じてリフレッシュトークンを取得
+export async function getWordPressSettings(): Promise<WordPressSettings | null> {
+  const cookieStore = await cookies();
+
+  // 認証情報はCookieから取得（セキュリティベストプラクティス）
+  const liffAccessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+
+  if (!liffAccessToken) {
+    throw new Error('認証情報が見つかりません');
+  }
 
   const authResult = await authMiddleware(liffAccessToken, refreshToken);
 
@@ -422,7 +428,6 @@ export async function getContentAnnotationsForUser() {
 // ==========================================
 
 export async function saveWordPressSettingsAction(params: {
-  liffAccessToken: string;
   wpType: 'wordpress_com' | 'self_hosted';
   wpSiteId?: string;
   wpSiteUrl?: string;
@@ -431,15 +436,15 @@ export async function saveWordPressSettingsAction(params: {
 }) {
   const cookieStore = await cookies();
   try {
-    const { liffAccessToken, wpType, wpSiteId, wpSiteUrl, wpUsername, wpApplicationPassword } =
-      params;
+    const { wpType, wpSiteId, wpSiteUrl, wpUsername, wpApplicationPassword } = params;
 
-    if (!liffAccessToken || !wpType) {
-      return { success: false as const, error: 'Required fields missing' };
-    }
-
-    const liffToken = cookieStore.get('line_access_token')?.value || liffAccessToken;
+    // 認証情報はCookieから取得（セキュリティベストプラクティス）
+    const liffToken = cookieStore.get('line_access_token')?.value;
     const refreshToken = cookieStore.get('line_refresh_token')?.value;
+
+    if (!liffToken || !wpType) {
+      return { success: false as const, error: 'Authentication required or required fields missing' };
+    }
 
     const authResult = await authMiddleware(liffToken, refreshToken);
     if (authResult.error || !authResult.userId) {
@@ -482,10 +487,11 @@ export async function saveWordPressSettingsAction(params: {
 // 保存済み設定を用いて接続を確認する
 // ==========================================
 
-export async function testWordPressConnectionAction(liffAccessToken: string) {
+export async function testWordPressConnectionAction() {
   const cookieStore = await cookies();
   try {
-    const liffToken = cookieStore.get('line_access_token')?.value || liffAccessToken;
+    // 認証情報はCookieから取得（セキュリティベストプラクティス）
+    const liffToken = cookieStore.get('line_access_token')?.value;
     const refreshToken = cookieStore.get('line_refresh_token')?.value;
 
     if (!liffToken) {

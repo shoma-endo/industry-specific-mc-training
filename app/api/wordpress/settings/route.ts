@@ -6,25 +6,25 @@ const supabaseService = new SupabaseService();
 
 export async function POST(request: NextRequest) {
   try {
-    const { 
-      liffAccessToken, 
-      wpType, 
-      wpSiteId, 
-      wpSiteUrl, 
-      wpUsername, 
-      wpApplicationPassword 
+    const {
+      wpType,
+      wpSiteId,
+      wpSiteUrl,
+      wpUsername,
+      wpApplicationPassword
     } = await request.json();
-    
-    if (!liffAccessToken || !wpType) {
+
+    // 認証情報はCookieから取得（セキュリティベストプラクティス）
+    const liffToken = request.cookies.get('line_access_token')?.value;
+    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+
+    if (!liffToken || !wpType) {
       return NextResponse.json(
-        { success: false, error: 'Required fields missing' },
-        { status: 400 }
+        { success: false, error: 'Authentication required or required fields missing' },
+        { status: 401 }
       );
     }
 
-    const liffToken = request.cookies.get('line_access_token')?.value || liffAccessToken;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
-    
     const authResult = await authMiddleware(liffToken, refreshToken);
     
     if (authResult.error || !authResult.userId) {

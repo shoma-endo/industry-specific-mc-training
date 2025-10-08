@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function WordPressSetupPage() {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  
+
   if (!liffAccessToken) {
     redirect('/login');
   }
@@ -16,13 +16,12 @@ export default async function WordPressSetupPage() {
   // 既存のWordPress設定を取得
   let existingWordPressSettings = null;
   try {
-    existingWordPressSettings = await getWordPressSettings(liffAccessToken);
+    existingWordPressSettings = await getWordPressSettings();
   } catch {
   }
 
   return (
-    <WordPressSettingsForm 
-      liffAccessToken={liffAccessToken}
+    <WordPressSettingsForm
       existingSettings={existingWordPressSettings}
     />
   );

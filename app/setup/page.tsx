@@ -17,7 +17,7 @@ export default async function SetupPage() {
   let hasWordPressSettings = false;
   let wordpressSettings = null;
   try {
-    wordpressSettings = await getWordPressSettings(liffAccessToken);
+    wordpressSettings = await getWordPressSettings();
     hasWordPressSettings = !!(
       (
         wordpressSettings &&

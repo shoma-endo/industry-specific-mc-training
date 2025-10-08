@@ -141,7 +141,6 @@ function diagnoseErrorDetails(raw: string) {
 }
 
 export default function WordPressSettingsForm({
-  liffAccessToken,
   existingSettings,
 }: WordPressSettingsFormProps) {
   const router = useRouter();
@@ -193,7 +192,6 @@ export default function WordPressSettingsForm({
 
     try {
       const data = await saveWordPressSettingsAction({
-        liffAccessToken,
         wpType,
         ...(wpType === 'wordpress_com'
           ? { wpSiteId }
@@ -266,7 +264,7 @@ export default function WordPressSettingsForm({
     setExpandedPanel(prev => (prev === 'connection' ? null : prev));
 
     try {
-      const data: TestConnectionActionResult = await testWordPressConnectionAction(liffAccessToken);
+      const data: TestConnectionActionResult = await testWordPressConnectionAction();
 
       if (data.success) {
         setConnectionStatus({
