@@ -845,8 +845,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const instruction = payload.instruction.trim();
         const selectedText = payload.selectedText.trim();
 
-        // canvasMarkdownの検証
-        if (!payload.canvasMarkdown || payload.canvasMarkdown.trim() === '') {
+        // canvasContentの検証
+        if (!payload.canvasContent || payload.canvasContent.trim() === '') {
           throw new Error('キャンバスコンテンツが空です。編集対象が見つかりませんでした。');
         }
 
@@ -909,7 +909,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             sessionId: chatSession.state.currentSessionId,
             instruction,
             selectedText,
-            canvasMarkdown: payload.canvasMarkdown,
+            canvasContent: payload.canvasContent,
             targetStep,
           }),
         });

@@ -5,8 +5,7 @@
 export interface CanvasSelectionEditPayload {
   instruction: string;
   selectedText: string;
-  selectedHtml?: string;
-  canvasMarkdown: string;
+  canvasContent: string;
 }
 
 export interface CanvasSelectionEditResult {

@@ -16,7 +16,6 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight } from 'lowlight';
-import { DOMSerializer } from 'prosemirror-model';
 import { X, ClipboardCheck, List, Loader2, ArrowBigLeft, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -473,51 +472,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     }
   }, [instruction, lastAiError]);
 
-  // ✅ HTMLからマークダウンへの変換（Claude web版同様）
-  const convertHtmlToMarkdown = useCallback((html: string): string => {
-    return html
-      .replace(/<h1[^>]*>(.*?)<\/h1>/g, '# $1')
-      .replace(/<h2[^>]*>(.*?)<\/h2>/g, '## $1')
-      .replace(/<h3[^>]*>(.*?)<\/h3>/g, '### $1')
-      .replace(/<h4[^>]*>(.*?)<\/h4>/g, '#### $1')
-      .replace(/<h5[^>]*>(.*?)<\/h5>/g, '##### $1')
-      .replace(/<h6[^>]*>(.*?)<\/h6>/g, '###### $1')
-      .replace(/<strong[^>]*>(.*?)<\/strong>/g, '**$1**')
-      .replace(/<em[^>]*>(.*?)<\/em>/g, '*$1*')
-      .replace(/<code[^>]*>(.*?)<\/code>/g, '`$1`')
-      .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```')
-      .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/g, (match, content) => {
-        return content.replace(/<li[^>]*>(.*?)<\/li>/g, '- $1\n');
-      })
-      .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/g, (match, content) => {
-        let counter = 1;
-        return content.replace(/<li[^>]*>(.*?)<\/li>/g, () => `${counter++}. $1\n`);
-      })
-      .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
-      .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/g, '![$2]($1)')
-      .replace(/<br\s*\/?>/g, '\n')
-      .replace(/<p[^>]*>(.*?)<\/p>/g, '$1\n\n')
-      .replace(/\n\n+/g, '\n\n')
-      .trim();
-  }, []);
-
-  const getSelectionHtml = useCallback(
-    (selection: CanvasSelectionState): string => {
-      if (!editor) return selection.text;
-      try {
-        const fragment = editor.state.doc.cut(selection.from, selection.to).content;
-        const serializer = DOMSerializer.fromSchema(editor.schema);
-        const container = document.createElement('div');
-        const serialized = serializer.serializeFragment(fragment, { document });
-        container.appendChild(serialized);
-        return container.innerHTML;
-      } catch (error) {
-        console.error('Failed to serialize selection:', error);
-        return selection.text;
-      }
-    },
-    [editor]
-  );
 
   // ✅ 吹き出し表示関数
   const showBubble = useCallback(
@@ -584,10 +538,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     setSelectionMenuPosition(null);
 
     try {
-      const fullCanvasHtml = editor.getHTML();
-      const fullCanvasMarkdown = convertHtmlToMarkdown(fullCanvasHtml);
-      const selectionHtml = getSelectionHtml(selection).slice(0, 6000);
-
       const selectionText = selection.text.trim();
       const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
       const combinedInstruction = [selectionPrompt, trimmedInstruction]
@@ -597,8 +547,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       await onSelectionEdit({
         instruction: combinedInstruction,
         selectedText: selection.text,
-        selectedHtml: selectionHtml,
-        canvasMarkdown: fullCanvasMarkdown,
+        canvasContent: markdownContent,
       });
 
       // ✅ ClaudeのArtifacts風: 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
@@ -622,10 +571,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     }
   }, [
     activeSelection,
-    convertHtmlToMarkdown,
     editor,
-    getSelectionHtml,
     instruction,
+    markdownContent,
     onSelectionEdit,
     updateSelectionMenuPosition,
   ]);
