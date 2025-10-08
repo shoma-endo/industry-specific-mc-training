@@ -5,15 +5,34 @@ import { cookies } from 'next/headers';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const state = searchParams.get('state'); // state パラメータも取得
+  const state = searchParams.get('state');
 
-  // 例: 事前にセッションに保存した state と比較する
+  // セキュアなstate検証（CSRF対策）
   const cookieStore = await cookies();
   const savedState = cookieStore.get('line_oauth_state')?.value;
-  if (!state || state !== savedState) {
-    return NextResponse.json({ error: 'Invalid state' }, { status: 400 });
+  const savedNonce = cookieStore.get('line_oauth_nonce')?.value;
+
+  // state検証: 必須・一致確認
+  if (!state || !savedState || state !== savedState) {
+    console.error('Invalid state parameter:', { state, savedState });
+    return NextResponse.json(
+      { error: 'Invalid state parameter. Possible CSRF attack.' },
+      { status: 403 }
+    );
   }
-  cookieStore.delete('line_oauth_state'); // 使用済みの state を削除
+
+  // nonce検証（使い捨てトークン確認）
+  if (!savedNonce) {
+    console.error('Missing nonce in cookies');
+    return NextResponse.json(
+      { error: 'Invalid OAuth session' },
+      { status: 403 }
+    );
+  }
+
+  // 使用済みのstate/nonceを即座に削除（再利用攻撃防止）
+  cookieStore.delete('line_oauth_state');
+  cookieStore.delete('line_oauth_nonce');
 
   if (!code) {
     return NextResponse.json({ error: 'No code provided' }, { status: 400 });
