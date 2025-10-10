@@ -142,15 +142,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   } = ctx;
   const router = useRouter();
 
-  // ChatLayoutContent内でのblogFlowActive再計算
-  const blogFlowActiveRecalculated =
-    !subscription.requiresSubscription &&
-    !!chatSession.state.currentSessionId &&
-    selectedModel === 'blog_creation';
-
-  // blogFlowActiveがfalseの場合は再計算値を使用
-  const effectiveBlogFlowActive = blogFlowActive || blogFlowActiveRecalculated;
-
   const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
   const flowStatus: 'idle' | 'running' | 'waitingAction' | 'error' = 'idle';
   // 最新メッセージのステップを優先し、なければ初期ステップにフォールバック
@@ -184,7 +175,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
 
   const shouldShowStepActionBar =
-    effectiveBlogFlowActive &&
+    blogFlowActive &&
     !chatSession.state.isLoading &&
     !!lastAssistantMessage &&
     hasDetectedBlogStep;
@@ -270,7 +261,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
         <MessageArea
           messages={[...chatSession.state.messages, ...optimisticMessages]}
           isLoading={chatSession.state.isLoading || isCanvasStreaming}
-          blogFlowActive={effectiveBlogFlowActive}
+          blogFlowActive={blogFlowActive}
           onOpenCanvas={message => ui.canvas.show(message)}
         />
 
@@ -291,7 +282,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           currentSessionId={chatSession.state.currentSessionId}
           isMobile={isMobile}
           onMenuToggle={isMobile ? () => ui.sidebar.setOpen(!ui.sidebar.open) : undefined}
-          blogFlowActive={effectiveBlogFlowActive}
+          blogFlowActive={blogFlowActive}
           blogProgress={{ currentIndex: displayIndex, total: BLOG_STEP_IDS.length }}
           onModelChange={handleModelChange}
           blogFlowStatus={flowStatus}
@@ -602,17 +593,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {
-    try {
-      // 新規メッセージ送信時は手動編集フラグをリセット
-      setIsManualEdit(false);
-      setNextStepForPlaceholder(null);
-      // 初期化を実行してからメッセージ送信
-      await chatSession.actions.sendMessage(content, model);
-    } catch (error) {
-      console.error('Message send failed:', error);
-      // エラー時でもメッセージ送信を試行
-      await chatSession.actions.sendMessage(content, model);
-    }
+    // 新規メッセージ送信時は手動編集フラグをリセット
+    setIsManualEdit(false);
+    setNextStepForPlaceholder(null);
+    // メッセージ送信（エラーハンドリングは上位に委譲）
+    await chatSession.actions.sendMessage(content, model);
   };
 
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
