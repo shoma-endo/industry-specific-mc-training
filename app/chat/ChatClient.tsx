@@ -49,21 +49,18 @@ const ChatClient: React.FC = () => {
   // 各機能のフックを初期化
   const chatSession = useChatSession(chatService, getAccessToken);
   const subscription = useSubscriptionStatus(subscriptionService, getAccessToken, isLoggedIn);
-  const hasInitializedRef = React.useRef(false);
 
   // ✅ 初期マウント時（画面遷移時）のみ初期化（1回のみ実行保証）
   React.useEffect(() => {
-    if (isLoggedIn && !liffLoading && !hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-
+    if (isLoggedIn && !liffLoading) {
       // サブスクリプション確認とセッション読み込みを並行実行
       Promise.all([
         subscription.actions.checkSubscription(),
         chatSession.actions.loadSessions ? chatSession.actions.loadSessions() : Promise.resolve(),
       ]).catch(error => {
         console.error('❌ 初期化エラー:', error);
-        // エラー時はフラグをリセットして再試行可能にする
-        hasInitializedRef.current = false;
+        // エラー時はサブスクリプション初期化状態をリセット
+        subscription.actions.resetInitialization();
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

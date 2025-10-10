@@ -42,6 +42,7 @@ export interface SubscriptionHook {
     checkSubscription: () => Promise<void>;
     refreshSubscription: () => Promise<void>;
     clearError: () => void;
+    resetInitialization: () => void;
   };
 }
 

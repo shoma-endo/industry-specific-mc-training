@@ -107,6 +107,11 @@ export const useSubscriptionStatus = (
     }
   }, [hasInitialized, isLoggedIn, checkSubscription]);
 
+  // ✅ 初期化状態をリセット（ログアウト時などに使用）
+  const resetInitialization = useCallback(() => {
+    setHasInitialized(false);
+  }, []);
+
   return {
     subscriptionStatus,
     isLoading,
@@ -117,6 +122,7 @@ export const useSubscriptionStatus = (
       checkSubscription: initializeIfNeeded, // ✅ 自動初期化付き
       refreshSubscription,
       clearError,
+      resetInitialization, // ✅ 初期化状態リセット
     },
   };
 };

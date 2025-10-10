@@ -3,7 +3,7 @@
 import { useLiffContext } from '@/components/LiffProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   createSubscriptionSession,
   cancelUserSubscription,
@@ -107,7 +107,6 @@ export default function Home() {
     null | 'subscribe' | 'updatePayment' | 'cancel' | 'resume'
   >(null);
   const [operationError, setOperationError] = useState<string | null>(null);
-  const subscriptionInitializedRef = useRef(false);
   const subscriptionLoading = subscription.isLoading;
   const activeSubscription: DomainSubscriptionDetails | null =
     (subscription.subscriptionStatus?.subscription as DomainSubscriptionDetails | undefined) ?? null;
@@ -181,25 +180,21 @@ export default function Home() {
     };
   }, [getAccessToken, isLoggedIn, isLoading]);
 
-  const { checkSubscription: initializeSubscription, refreshSubscription, clearError } =
+  const { checkSubscription: initializeSubscription, refreshSubscription, clearError, resetInitialization } =
     subscription.actions;
 
   useEffect(() => {
     if (!isLoggedIn) {
-      subscriptionInitializedRef.current = false;
+      resetInitialization();
       return;
     }
 
-    if (isLoading || showFullNameDialog || subscriptionInitializedRef.current) {
+    if (isLoading || showFullNameDialog) {
       return;
     }
 
-    subscriptionInitializedRef.current = true;
-    initializeSubscription().catch(error => {
-      console.error('Subscription init error:', error);
-      subscriptionInitializedRef.current = false;
-    });
-  }, [isLoggedIn, isLoading, showFullNameDialog, initializeSubscription]);
+    initializeSubscription();
+  }, [isLoggedIn, isLoading, showFullNameDialog, initializeSubscription, resetInitialization]);
 
   // イベントハンドラー（handleプレフィックス）
   const handleSubscribe = async () => {
