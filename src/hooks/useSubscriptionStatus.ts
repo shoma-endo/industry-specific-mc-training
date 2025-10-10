@@ -6,10 +6,10 @@ import type {
   SubscriptionStatus as DomainSubscriptionStatus,
 } from '@/domain/interfaces/ISubscriptionService';
 import { SubscriptionError } from '@/domain/errors/SubscriptionError';
-import type { SubscriptionHook, SubscriptionDetails } from '@/types/hooks';
+import type { SubscriptionHook } from '@/types/hooks';
 import { env } from '@/env';
 
-export type { SubscriptionHook, SubscriptionDetails };
+export type { SubscriptionHook };
 
 export const useSubscriptionStatus = (
   subscriptionService: ISubscriptionService,
@@ -112,7 +112,6 @@ export const useSubscriptionStatus = (
     isLoading,
     requiresSubscription: subscriptionStatus?.requiresSubscription ?? false,
     hasActiveSubscription: subscriptionStatus?.hasActiveSubscription ?? false,
-    subscriptionDetails: (subscriptionStatus?.subscription ?? null) as SubscriptionDetails | null,
     error: subscriptionStatus?.error ?? null,
     actions: {
       checkSubscription: initializeIfNeeded, // ✅ 自動初期化付き

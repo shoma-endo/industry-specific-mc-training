@@ -1,7 +1,6 @@
 /**
  * フック専用の型定義
  */
-import type { SubscriptionStatus } from './user';
 import type { SubscriptionStatus as DomainSubscriptionStatus } from '../domain/interfaces/ISubscriptionService';
 import type { ChatState } from '../domain/models/chat.models';
 import type { getLineProfileServerResponse } from '../server/handler/actions/login.actions';
@@ -33,20 +32,11 @@ export interface UseLiffResult {
 /**
  * サブスクリプション フック関連
  */
-export interface SubscriptionDetails {
-  status: SubscriptionStatus;
-  currentPeriodEnd?: Date;
-  cancelAtPeriodEnd?: boolean;
-  planName?: string;
-  price?: number;
-}
-
 export interface SubscriptionHook {
   subscriptionStatus: DomainSubscriptionStatus | null;
   isLoading: boolean;
   requiresSubscription: boolean;
   hasActiveSubscription: boolean;
-  subscriptionDetails: SubscriptionDetails | null;
   error: string | null;
   actions: {
     checkSubscription: () => Promise<void>;
