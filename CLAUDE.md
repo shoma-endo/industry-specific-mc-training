@@ -4,8 +4,8 @@
 タスクを終えたら npx ccusage@latest を叩いて、コストを表示してください。
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Last Updated**: September 12, 2025
-**Framework Versions**: Next.js 15.3.1, React 19, TypeScript 5
+**Last Updated**: February 18, 2026
+**Framework Versions**: Next.js 15.4.7, React 19, TypeScript 5
 
 ## プロジェクト基本情報
 
@@ -13,17 +13,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 主要技術スタック
 
-- **Frontend**: Next.js 15.3.1 + React 19 + TypeScript 5 + Tailwind CSS v4
+- **Frontend**: Next.js 15.4.7 + React 19 + TypeScript 5 + Tailwind CSS v4
 - **Backend**: Next.js API Routes + Supabase (PostgreSQL)
 - **Authentication**: LINE LIFF + JWTトークン自動更新
-- **AI Services**: OpenAI GPT + Anthropic Claude（ストリーミング対応）
+- **AI Services**: OpenAI GPT + Anthropic Claude（SSEストリーミング対応）
 - **Payments**: Stripe サブスクリプションマネジメント
-- **External APIs**: Google Custom Search + WordPress REST API
+- **External APIs**: Google Custom Search（API本体は410を返すため利用停止中／回数カウンタのみ稼働）+ WordPress REST API
 
 ### プロジェクト特性
 
 - **マルチテナント対応**: Supabase RLSによるデータ分離
-- **リアルタイム処理**: WebSocketベースのストリーミングチャット
+- **リアルタイム処理**: Server-Sent Events (SSE) ベースのストリーミングチャット
 - **RAG統合**: ベクター検索によるコンテンツ拡張
 - **モバイル最適化**: LINE LIFFによるモバイルファースト設計
 
@@ -80,7 +80,7 @@ This is a Next.js application that provides AI-powered marketing copy generation
 - **Payments**: Stripe subscription management with feature gating
 - **AI Services**:
   - **OpenAI**: API with fine-tuned models for keyword categorization and text generation
-  - **Anthropic**: Claude models for advanced conversational AI with streaming support
+  - **Anthropic**: Claude models for advanced conversational AI with SSE streaming via `app/api/chat/anthropic/stream/route.ts`
 - **RAG System**: Retrieval-Augmented Generation using vector search for enhanced content generation
 
 ### Authentication Flow
@@ -96,11 +96,11 @@ This is a Next.js application that provides AI-powered marketing copy generation
 The chat system uses multiple AI models and services in sequence:
 
 1. **Fine-tuned Model**: `ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2` classifies keywords
-2. **Google Search**: Validates and researches keywords
-3. **AI Generation**: Leverages multi-provider AI services for content generation
+2. **Google Search**: (現在は `/api/user/search-count` が410 Goneを返し、回数トラッキングのみ稼働)
+3. **AI Generation**: Leverages multi-provider AI services for content generation over SSE
 4. **RAG Enhancement**: Integrates vector search for enhanced content retrieval
 
-All chat sessions are persisted in Supabase with user isolation. The system supports real-time streaming responses from integrated AI providers.
+All chat sessions are persisted in Supabase with user isolation. The system supports real-time SSE streaming responses from integrated AI providers.
 
 ### Environment Configuration
 
@@ -111,8 +111,8 @@ Environment variables are type-safe using `@t3-oss/env-nextjs` in `src/env.ts`. 
 - **Stripe**: Product/price IDs and API keys for subscription management
 - **AI Services**:
   - **OpenAI**: API key for chat completions and fine-tuned models
-  - **Anthropic**: API key for Claude models and streaming
-- **Google**: Search API key and Custom Search Engine ID
+  - **Anthropic**: API key for Claude models and SSE streaming
+- **Google**: Search API key and Custom Search Engine ID（API本体は停止中のため回数トラッキング用途のみ）
 - **Webhooks**: BASE_WEBHOOK_URL and RELAY_BEARER_TOKEN for external integrations
 
 ### Key Code Patterns
@@ -125,7 +125,7 @@ Environment variables are type-safe using `@t3-oss/env-nextjs` in `src/env.ts`. 
 
 **Client/Server Separation**: Client components handle LIFF auth, server actions handle business logic
 
-**AI Integration**: Unified multi-provider interface through `LLMService` with streaming support
+**AI Integration**: Unified multi-provider interface through `LLMService` with SSE streaming support
 
 ### Database Schema
 
@@ -142,7 +142,7 @@ Supabase migrations in `supabase/migrations/` define:
 
 #### Core Chat APIs
 
-- `POST /api/chat/anthropic/stream` - Anthropic Claude streaming chat
+- `POST /api/chat/anthropic/stream` - Anthropic Claude SSE streaming chat
 - `POST /api/refresh` - Token refresh and validation
 
 #### Authentication APIs

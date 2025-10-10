@@ -17,7 +17,7 @@ LINE認証をベースとした業界特化型AIマーケティング支援プ�
 - **テンプレート体系**：広告文（作成/仕上げ）、16パートLP草案/改善、7ステップのブログ作成フローなど複数の業務特化プロンプトを提供
 - **プロンプト管理**：管理者専用リアルタイム編集・バージョン履歴・変数付きテンプレート管理
 - **外部API統合**：Google検索回数トラッキング（※検索API本体は廃止済み）
-- **チャット機能**：Anthropic Claude Sonnet-4 とのストリーミング会話、セッション管理、AIモデル選択
+- **チャット機能**：Anthropic Claude Sonnet-4.5（`claude-sonnet-4-5-20250929`）とのストリーミング会話、セッション管理、AIモデル選択
 
 ### 🎨 ランディングページ作成・WordPress連携
 
@@ -68,7 +68,7 @@ graph TB
 
     subgraph "AI Models"
         N[Fine-tuned OpenAI GPT-4.1 Nano]
-        O[Anthropic Claude Sonnet-4]
+    O[Anthropic Claude Sonnet-4.5]
     end
 
     subgraph "External APIs"
@@ -126,7 +126,7 @@ sequenceDiagram
 
 **フロントエンド**: Next.js 15.4.7 + React 19 + TypeScript 5 + Tailwind CSS 4 + Radix UI + TipTap 3.0.7
 **バックエンド**: Supabase 2.49.1（PostgreSQL + RLS）+ プロンプトテンプレート/WordPress連携サービス
-**AI**: OpenAI GPT-4.1 Nano（Fine-tuned）+ Anthropic Claude Sonnet-4
+**AI**: OpenAI GPT-4.1 Nano（Fine-tuned）+ Anthropic Claude Sonnet-4.5（`claude-sonnet-4-5-20250929`）
 **外部API**: Google Custom Search（回数カウントのみ）+ LINE LIFF 2.25.1 + Stripe 17.7 + WordPress REST API
 **開発**: Vercel + Husky + ESLint 9 + Prettier + tsc-watch + ngrok
 
