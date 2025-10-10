@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
-import { useAnnotationStore } from '@/store/annotationStore';
 import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 
 type AnnotationData = {
@@ -63,7 +62,6 @@ export default function AnnotationPanel({
   isVisible = true,
   onSaveSuccess,
 }: Props) {
-  const { setSavedFields } = useAnnotationStore();
   const [form, setForm] = useState<AnnotationFormState>(() => toFormState(initialData));
   const [loading, setLoading] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
@@ -112,16 +110,6 @@ export default function AnnotationPanel({
           setSaveButtonMessage('');
           setSaveButtonMessageType('');
         }, 3000);
-
-        // zustandストアに保存済みフィールドを記録
-        setSavedFields(sessionId, {
-          needs: !!form.needs,
-          persona: !!form.persona,
-          goal: !!form.goal,
-          prep: !!form.prep,
-          basic_structure: !!form.basic_structure,
-          opening_proposal: !!form.opening_proposal,
-        });
 
         // 保存成功時のコールバックを呼び出す
         onSaveSuccess?.();

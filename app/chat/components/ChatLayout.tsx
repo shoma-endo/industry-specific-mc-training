@@ -25,7 +25,6 @@ import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
-import { useAnnotationStore } from '@/store/annotationStore';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -100,7 +99,6 @@ type ChatLayoutCtx = {
   isCanvasStreaming: boolean;
   selectedModel: string;
   latestBlogStep: BlogStepId | null;
-  savedBlogStep: BlogStepId | null;
   stepActionBarRef: React.RefObject<StepActionBarRef | null>;
   ui: {
     sidebar: { open: boolean; setOpen: (open: boolean) => void };
@@ -155,8 +153,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
   const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
   const flowStatus: 'idle' | 'running' | 'waitingAction' | 'error' = 'idle';
-  // 最新メッセージのステップを優先、なければ保存済みステップ、最後にフォールバック
-  const displayStep = latestBlogStep ?? ctx.savedBlogStep ?? currentStep;
+  // 最新メッセージのステップを優先し、なければ初期ステップにフォールバック
+  const displayStep = latestBlogStep ?? currentStep;
   const hasDetectedBlogStep = latestBlogStep !== null;
   const displayIndex = useMemo(() => {
     const index = BLOG_STEP_IDS.indexOf(displayStep);
@@ -324,7 +322,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   subscription,
   isMobile = false,
 }) => {
-  const { setSavedFields } = useAnnotationStore();
   const { getAccessToken } = useLiffContext();
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
@@ -360,37 +357,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   );
 
   // 保存済みステップを計算（保存されているフィールドから判断）
-  const savedFieldFlags = useAnnotationStore(state => state.sessions);
-  const savedBlogStep = useMemo<BlogStepId | null>(() => {
-    const sessionId = chatSession.state.currentSessionId;
-    if (!sessionId) return null;
-
-    const savedFields = savedFieldFlags[sessionId] ?? {};
-
-    // 各ステップで保存すべきフィールド
-    const stepFields: Record<BlogStepId, string> = {
-      step1: 'needs',
-      step2: 'persona',
-      step3: 'goal',
-      step4: 'prep',
-      step5: 'basic_structure',
-      step6: 'opening_proposal',
-      step7: 'opening_proposal', // step7もstep6と同じフィールド
-    };
-
-    // 後ろから順にチェックして、保存済みの最新ステップを見つける
-    for (let i = BLOG_STEP_IDS.length - 1; i >= 0; i--) {
-      const step = BLOG_STEP_IDS[i];
-      if (!step) continue;
-      const field = stepFields[step];
-      if (field && savedFields[field as keyof typeof savedFields]) {
-        return step;
-      }
-    }
-
-    return null;
-  }, [chatSession.state.currentSessionId, savedFieldFlags]);
-
   const chatStateRef = useRef(chatSession.state);
   const canvasEditInFlightRef = useRef(false);
 
@@ -413,24 +379,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
         if (res.success && res.data) {
           setAnnotationData(res.data);
-          setSavedFields(sessionId, {
-            needs: !!res.data.needs,
-            persona: !!res.data.persona,
-            goal: !!res.data.goal,
-            prep: !!res.data.prep,
-            basic_structure: !!res.data.basic_structure,
-            opening_proposal: !!res.data.opening_proposal,
-          });
         } else {
           setAnnotationData(null);
-          setSavedFields(sessionId, {
-            needs: false,
-            persona: false,
-            goal: false,
-            prep: false,
-            basic_structure: false,
-            opening_proposal: false,
-          });
         }
       } catch (error) {
         console.error('Failed to preload annotation data:', error);
@@ -442,7 +392,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     return () => {
       isActive = false;
     };
-  }, [chatSession.state.currentSessionId, setSavedFields]);
+  }, [chatSession.state.currentSessionId]);
 
   const blogCanvasVersionsByStep = useMemo<StepVersionsMap>(() => {
     const initialMap = BLOG_STEP_IDS.reduce((acc, step) => {
@@ -722,16 +672,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       const res = await getContentAnnotationBySession(chatSession.state.currentSessionId);
       if (res.success && res.data) {
         setAnnotationData(res.data);
-
-        // zustandストアに保存済みフィールドを記録
-        setSavedFields(chatSession.state.currentSessionId, {
-          needs: !!res.data.needs,
-          persona: !!res.data.persona,
-          goal: !!res.data.goal,
-          prep: !!res.data.prep,
-          basic_structure: !!res.data.basic_structure,
-          opening_proposal: !!res.data.opening_proposal,
-        });
       } else {
         setAnnotationData(null);
       }
@@ -1021,7 +961,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           isCanvasStreaming,
           selectedModel,
           latestBlogStep,
-          savedBlogStep,
           stepActionBarRef,
           ui: {
             sidebar: { open: sidebarOpen, setOpen: setSidebarOpen },
