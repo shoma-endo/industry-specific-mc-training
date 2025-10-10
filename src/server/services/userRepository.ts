@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { SupabaseService } from './supabaseService';
 import { User, DbUser, UserRole, toUser, toDbUser } from '@/types/user';
 
@@ -100,7 +100,7 @@ export class UserRepository extends SupabaseService {
     try {
       const now = Date.now();
       const user: User = {
-        id: uuidv4(),
+        id: randomUUID(),
         createdAt: now,
         updatedAt: now,
         ...userData,
