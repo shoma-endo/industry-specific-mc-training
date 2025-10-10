@@ -16,11 +16,11 @@ export async function GET() {
     // Cookieストアを取得
     const cookieStore = await cookies();
 
-    // HttpOnly + Secure + SameSite=Strict でstate保存
+    // HttpOnly + Secure + SameSite=Lax でstate保存
     cookieStore.set('line_oauth_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 600, // 10分間有効
       path: '/',
     });
@@ -29,7 +29,7 @@ export async function GET() {
     cookieStore.set('line_oauth_nonce', nonce, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 600,
       path: '/',
     });
