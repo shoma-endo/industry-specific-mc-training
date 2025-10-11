@@ -433,9 +433,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             if (line.match(/^\d+\.\s/)) {
               return `<li>${line.replace(/^\d+\.\s/, '')}</li>`;
             }
-            // 空行
+            // 空行は無視（pタグのmarginで十分な間隔が確保される）
             if (line.trim() === '') {
-              return '<br>';
+              return '';
             }
             // 通常の段落
             if (!line.match(/^[#<]/)) {
@@ -443,11 +443,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             }
             return line;
           })
+          .filter(line => line !== '') // 空文字列を除去
           .join('\n')
           // 連続するliをulで囲む
-          .replace(/(<li>.*?<\/li>\n?)+/g, '<ul>$&</ul>')
-          // 不要なbrタグを整理
-          .replace(/<br>\n?<br>/g, '<br>');
+          .replace(/(<li>.*?<\/li>\n?)+/g, '<ul>$&</ul>');
 
         // 見出しIDは既に正しく設定されているため、この処理は不要
 
