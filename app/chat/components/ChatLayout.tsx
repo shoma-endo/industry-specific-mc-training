@@ -821,7 +821,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         setCanvasStreamingContent('');
         setCanvasPanelOpen(true);
 
-        // ✅ ストリーミングAPI呼び出し
+        // ✅ ストリーミングAPI呼び出し（Web検索を有効化）
         const response = await fetch('/api/chat/canvas/stream', {
           method: 'POST',
           headers: {
@@ -834,6 +834,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             selectedText,
             canvasContent: payload.canvasContent,
             targetStep,
+            enableWebSearch: true,
+            webSearchConfig: {
+              maxUses: 3,
+            },
           }),
         });
 

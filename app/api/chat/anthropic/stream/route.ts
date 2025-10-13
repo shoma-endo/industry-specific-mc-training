@@ -16,6 +16,12 @@ interface StreamRequest {
   userMessage: string;
   model: string;
   systemPrompt?: string;
+  enableWebSearch?: boolean;
+  webSearchConfig?: {
+    maxUses?: number;
+    allowedDomains?: string[];
+    blockedDomains?: string[];
+  };
 }
 
 const anthropic = new Anthropic({
@@ -35,8 +41,15 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    const { sessionId, messages, userMessage, model, systemPrompt: systemPromptOverride }: StreamRequest =
-      await req.json();
+    const {
+      sessionId,
+      messages,
+      userMessage,
+      model,
+      systemPrompt: systemPromptOverride,
+      enableWebSearch = false,
+      webSearchConfig = {}
+    }: StreamRequest = await req.json();
 
     // 認証チェック
     const authHeader = req.headers.get('authorization');
@@ -118,14 +131,32 @@ export async function POST(req: NextRequest) {
             ? systemPromptOverride
             : await getSystemPrompt(model, liffAccessToken || undefined, sessionId);
 
+          // Web検索ツールの設定
+          const streamParams = {
+            model: resolvedModel,
+            max_tokens: resolvedMaxTokens,
+            temperature: resolvedTemperature,
+            system: systemPrompt,
+            messages: anthropicMessages,
+            ...(enableWebSearch && {
+              tools: [
+                {
+                  type: 'web_search_20250305' as const,
+                  name: 'web_search' as const,
+                  max_uses: webSearchConfig.maxUses || 3,
+                  ...(webSearchConfig.allowedDomains && {
+                    allowed_domains: webSearchConfig.allowedDomains,
+                  }),
+                  ...(webSearchConfig.blockedDomains && {
+                    blocked_domains: webSearchConfig.blockedDomains,
+                  }),
+                },
+              ],
+            }),
+          };
+
           const anthropicStream = await anthropic.messages.stream(
-            {
-              model: resolvedModel,
-              max_tokens: resolvedMaxTokens,
-              temperature: resolvedTemperature,
-              system: systemPrompt,
-              messages: anthropicMessages,
-            },
+            streamParams,
             {
               signal: abortController.signal,
             }
@@ -145,6 +176,11 @@ export async function POST(req: NextRequest) {
             if (abortController?.signal.aborted) break;
 
             resetIdleTimeout();
+
+            // Web検索関連イベントのログ出力（デバッグ用）
+            if (chunk.type === 'content_block_start') {
+              console.log('[Web Search Debug] content_block_start:', JSON.stringify(chunk.content_block));
+            }
 
             if (chunk.type === 'content_block_delta') {
               if (chunk.delta.type === 'text_delta') {

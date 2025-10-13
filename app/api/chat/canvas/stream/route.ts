@@ -14,6 +14,12 @@ interface CanvasStreamRequest {
   selectedText: string;
   canvasContent: string;
   targetStep: string;
+  enableWebSearch?: boolean;
+  webSearchConfig?: {
+    maxUses?: number;
+    allowedDomains?: string[];
+    blockedDomains?: string[];
+  };
 }
 
 const anthropic = new Anthropic({
@@ -56,6 +62,8 @@ export async function POST(req: NextRequest) {
       selectedText,
       canvasContent,
       targetStep,
+      enableWebSearch = false,
+      webSearchConfig = {},
     }: CanvasStreamRequest = await req.json();
 
     // 認証チェック
@@ -182,6 +190,89 @@ export async function POST(req: NextRequest) {
 
           resetIdleTimeout();
 
+          // ✅ 第1段階: Web検索の実行（enableWebSearchがtrueの場合のみ）
+          let searchResults = '';
+          if (enableWebSearch) {
+            try {
+              console.log('[Canvas Web Search] Starting web search phase...');
+              controller.enqueue(sendSSE('search_start', { message: 'Web検索を開始しています...' }));
+
+              const searchStream = await anthropic.messages.stream({
+                model: actualModel,
+                max_tokens: 2000,
+                temperature: 0.3,
+                system: [
+                  {
+                    type: 'text',
+                    text: 'あなたはWeb検索の専門家です。ユーザーの指示に基づいて、必要な最新情報をweb_searchツールで検索してください。検索結果を簡潔にまとめて返してください。',
+                  },
+                ],
+                tools: [
+                  {
+                    type: 'web_search_20250305' as const,
+                    name: 'web_search' as const,
+                    max_uses: webSearchConfig.maxUses || 3,
+                    ...(webSearchConfig.allowedDomains && {
+                      allowed_domains: webSearchConfig.allowedDomains,
+                    }),
+                    ...(webSearchConfig.blockedDomains && {
+                      blocked_domains: webSearchConfig.blockedDomains,
+                    }),
+                  },
+                ],
+                tool_choice: { type: 'tool', name: 'web_search' },
+                messages: [
+                  {
+                    role: 'user',
+                    content: `以下の指示に必要な最新情報を検索してください：${instruction}`,
+                  },
+                ],
+              });
+
+              // 検索結果を収集
+              for await (const event of searchStream) {
+                if (abortController?.signal.aborted) break;
+                resetIdleTimeout();
+
+                if (event.type === 'content_block_start') {
+                  console.log('[Canvas Web Search] Search event:', JSON.stringify(event.content_block));
+                }
+
+                if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+                  searchResults += event.delta.text;
+                }
+              }
+
+              console.log('[Canvas Web Search] Search completed. Results length:', searchResults.length);
+              controller.enqueue(
+                sendSSE('search_complete', { message: 'Web検索が完了しました', resultsLength: searchResults.length })
+              );
+            } catch (searchError) {
+              console.error('[Canvas Web Search] Search failed:', searchError);
+              controller.enqueue(sendSSE('search_error', { message: 'Web検索に失敗しましたが、編集を続行します' }));
+              // 検索失敗時は空の結果で続行
+              searchResults = '';
+            }
+          }
+
+          // ✅ 第2段階: Canvas編集（検索結果を含める）
+          const finalSystemPrompt = [
+            systemPrompt,
+            ...(searchResults
+              ? [
+                  '',
+                  '---',
+                  '',
+                  '## Web検索で取得した最新情報',
+                  '```',
+                  searchResults,
+                  '```',
+                  '',
+                  '上記の最新情報を活用して、文章を編集してください。',
+                ]
+              : []),
+          ].join('\n');
+
           // Anthropic Streaming API 呼び出し
           const apiStream = await anthropic.messages.stream({
             model: actualModel,
@@ -190,14 +281,14 @@ export async function POST(req: NextRequest) {
             system: [
               {
                 type: 'text',
-                text: systemPrompt,
+                text: finalSystemPrompt,
                 cache_control: { type: 'ephemeral' },
               },
             ],
             tools: [
               {
                 ...CANVAS_EDIT_TOOL,
-                cache_control: { type: 'ephemeral' },
+                cache_control: { type: 'ephemeral' as const },
               },
             ],
             tool_choice: { type: 'tool', name: 'apply_full_text_replacement' },
@@ -214,6 +305,11 @@ export async function POST(req: NextRequest) {
             if (abortController?.signal.aborted) break;
 
             resetIdleTimeout();
+
+            // デバッグ用ログ
+            if (event.type === 'content_block_start') {
+              console.log('[Canvas Edit Debug] content_block_start:', JSON.stringify(event.content_block));
+            }
 
             if (event.type === 'content_block_delta') {
               if (event.delta.type === 'input_json_delta') {
