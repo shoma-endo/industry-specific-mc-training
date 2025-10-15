@@ -25,7 +25,7 @@ export const saveBrief = async (
     // バリデーション
     const validationResult = briefInputSchema.safeParse(formData);
     if (!validationResult.success) {
-      const fieldErrors = validationResult.error.errors
+      const fieldErrors = validationResult.error.issues
         .map(err => `${err.path.join('.')}: ${err.message}`)
         .join(', ');
       return { success: false, error: `入力エラー: ${fieldErrors}` };

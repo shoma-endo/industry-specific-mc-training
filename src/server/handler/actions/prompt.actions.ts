@@ -128,7 +128,7 @@ export async function createPromptTemplate(
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: `入力データが不正です: ${error.errors.map(e => e.message).join(', ')}`,
+        error: `入力データが不正です: ${error.issues.map(e => e.message).join(', ')}`,
       };
     }
     return { success: false, error: 'プロンプトの作成に失敗しました' };
@@ -201,7 +201,7 @@ export async function updatePromptTemplate(
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: `入力データが不正です: ${error.errors.map(e => e.message).join(', ')}`,
+        error: `入力データが不正です: ${error.issues.map(e => e.message).join(', ')}`,
       };
     }
     return { success: false, error: 'プロンプトの更新に失敗しました' };
@@ -330,7 +330,7 @@ export async function validatePromptTemplate(
         success: true,
         data: {
           isValid: false,
-          errors: error.errors.map(e => e.message),
+          errors: error.issues.map(e => e.message),
         },
       };
     }
