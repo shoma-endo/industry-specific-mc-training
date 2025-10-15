@@ -16,7 +16,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight } from 'lowlight';
-import { X, ClipboardCheck, List, Loader2, ArrowBigLeft, Info } from 'lucide-react';
+import { X, ClipboardCheck, List, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -126,7 +126,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const selectionSnapshotRef = useRef<CanvasSelectionState | null>(null);
   const [instruction, setInstruction] = useState('');
   const [isApplyingSelectionEdit, setIsApplyingSelectionEdit] = useState(false);
-  const [selectionMode, setSelectionMode] = useState<'menu' | 'input' | null>(null);
+  const [selectionMode, setSelectionMode] = useState<'menu' | 'choice' | 'input' | null>(null);
   const [selectionMenuPosition, setSelectionMenuPosition] = useState<{
     top: number;
     left: number;
@@ -210,7 +210,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   );
 
   const updateSelectionMenuPosition = useCallback(
-    (modeOverride?: 'menu' | 'input', anchorOverride?: { top: number; left: number } | null) => {
+    (modeOverride?: 'menu' | 'choice' | 'input', anchorOverride?: { top: number; left: number } | null) => {
       const container = scrollContainerRef.current;
       if (!container) return;
 
@@ -237,7 +237,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const scrollTop = container.scrollTop;
       const scrollLeft = container.scrollLeft;
       const mode = modeOverride ?? selectionMode ?? 'menu';
-      const size = MENU_SIZE[mode];
+      const size = mode === 'choice' ? { width: 200, height: 90 } : MENU_SIZE[mode];
 
       const minTop = scrollTop + 8;
       const minLeft = scrollLeft + 8;
@@ -345,10 +345,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       setSelectionState(nextState);
       selectionSnapshotRef.current = nextState;
       selectionAnchorRef.current = anchor;
-      setSelectionMode('menu');
+      setSelectionMode('choice');
       setInstruction('');
       setLastAiError(null);
-      updateSelectionMenuPosition('menu', anchor);
+      updateSelectionMenuPosition('choice', anchor);
     };
 
     editor.on('selectionUpdate', handleSelectionUpdate);
@@ -515,67 +515,61 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     selectionAnchorRef.current = null;
   }, []);
 
-  const handleApplySelectionEdit = useCallback(async () => {
-    if (!editor || !onSelectionEdit) return;
-    const selection = activeSelection;
-    if (!selection) {
-      setLastAiError('編集対象の選択範囲が見つかりませんでした');
-      return;
-    }
+  const handleApplySelectionEdit = useCallback(
+    async (instructionOverride?: string) => {
+      if (!editor || !onSelectionEdit) return;
+      const selection = activeSelection;
+      if (!selection) {
+        setLastAiError('編集対象の選択範囲が見つかりませんでした');
+        return;
+      }
 
-    const trimmedInstruction = instruction.trim();
-    if (!trimmedInstruction) {
-      setLastAiError('指示を入力してください');
-      return;
-    }
+      const trimmedInstruction = (instructionOverride ?? instruction).trim();
+      if (!trimmedInstruction) {
+        setLastAiError('指示を入力してください');
+        return;
+      }
 
-    setIsApplyingSelectionEdit(true);
-    setLastAiError(null);
-
-    // ✅ 送信ボタンを押した直後に入力欄を非表示にする
-    setSelectionMode(null);
-    setSelectionMenuPosition(null);
-
-    try {
-      const selectionText = selection.text.trim();
-      const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
-      const combinedInstruction = [selectionPrompt, trimmedInstruction]
-        .filter(Boolean)
-        .join('\n\n');
-
-      await onSelectionEdit({
-        instruction: combinedInstruction,
-        selectedText: selection.text,
-        canvasContent: markdownContent,
-      });
-
-      // ✅ ClaudeのArtifacts風: 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
-      // ユーザーはBlogPreviewTileをクリックしてCanvasを開く
+      setIsApplyingSelectionEdit(true);
       setLastAiError(null);
-      setSelectionState(null);
-      selectionSnapshotRef.current = null;
-      setInstruction('');
-      selectionAnchorRef.current = null;
-      const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
-      domSelection?.removeAllRanges();
-    } catch (error) {
-      console.error('Canvas selection edit failed:', error);
-      const message = error instanceof Error ? error.message : 'AIによる編集の適用に失敗しました';
-      setLastAiError(message);
-      // エラー時は入力欄を再表示
-      setSelectionMode('input');
-      updateSelectionMenuPosition('input');
-    } finally {
-      setIsApplyingSelectionEdit(false);
-    }
-  }, [
-    activeSelection,
-    editor,
-    instruction,
-    markdownContent,
-    onSelectionEdit,
-    updateSelectionMenuPosition,
-  ]);
+
+      // ✅ 送信ボタンを押した直後に入力欄を非表示にする
+      setSelectionMode(null);
+      setSelectionMenuPosition(null);
+
+      try {
+        const selectionText = selection.text.trim();
+        const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
+        const combinedInstruction = [selectionPrompt, trimmedInstruction].filter(Boolean).join('\n\n');
+
+        await onSelectionEdit({
+          instruction: combinedInstruction,
+          selectedText: selection.text,
+          canvasContent: markdownContent,
+        });
+
+        // ✅ ClaudeのArtifacts風: 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
+        // ユーザーはBlogPreviewTileをクリックしてCanvasを開く
+        setLastAiError(null);
+        setSelectionState(null);
+        selectionSnapshotRef.current = null;
+        setInstruction('');
+        selectionAnchorRef.current = null;
+        const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
+        domSelection?.removeAllRanges();
+      } catch (error) {
+        console.error('Canvas selection edit failed:', error);
+        const message = error instanceof Error ? error.message : 'AIによる編集の適用に失敗しました';
+        setLastAiError(message);
+        // エラー時は入力欄を再表示
+        setSelectionMode('input');
+        updateSelectionMenuPosition('input');
+      } finally {
+        setIsApplyingSelectionEdit(false);
+      }
+    },
+    [activeSelection, editor, instruction, markdownContent, onSelectionEdit, updateSelectionMenuPosition]
+  );
 
   // ✅ 見出しクリック時のスクロール機能
   const handleHeadingClick = (headingId: string) => {
@@ -854,23 +848,39 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             className="absolute z-50 max-w-xs"
             style={{ top: selectionMenuPosition.top, left: selectionMenuPosition.left }}
           >
-            {selectionMode === 'menu' ? (
-              <div className="flex items-center gap-1 rounded-md border border-gray-300 bg-white/95 px-2 py-1 shadow-sm">
+            {selectionMode === 'choice' ? (
+              <div className="flex flex-col gap-2 rounded-md border border-gray-300 bg-white/95 p-3 shadow-sm">
                 <button
                   type="button"
-                  className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                  className="flex items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700"
+                  onClick={async () => {
+                    await handleApplySelectionEdit(
+                      'エビデンスをweb検索して外部リンクで紹介してください。エビデンスが無ければ文章そのものを修正してください。'
+                    );
+                  }}
+                  disabled={isApplyingSelectionEdit}
+                >
+                  {isApplyingSelectionEdit ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    'エビデンスチェック'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center justify-center gap-2 rounded bg-gray-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-700"
                   onClick={() => {
                     setSelectionMode('input');
                     setInstruction('');
                     setLastAiError(null);
                     updateSelectionMenuPosition('input');
                   }}
+                  disabled={isApplyingSelectionEdit}
                 >
-                  <ArrowBigLeft size={14} />
-                  改善
+                  自由記載
                 </button>
               </div>
-            ) : (
+            ) : selectionMode === 'input' ? (
               <div className="w-64 rounded-md border border-gray-300 bg-white/95 p-3 shadow-sm">
                 {selectionPreview && (
                   <p className="mb-2 line-clamp-2 text-xs text-gray-500">{selectionPreview}</p>
@@ -899,7 +909,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                     type="button"
                     size="sm"
                     className="h-7 px-3 text-xs"
-                    onClick={handleApplySelectionEdit}
+                    onClick={() => handleApplySelectionEdit()}
                     disabled={isApplyingSelectionEdit || instruction.trim().length === 0}
                   >
                     {isApplyingSelectionEdit ? (
@@ -910,7 +920,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   </Button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
