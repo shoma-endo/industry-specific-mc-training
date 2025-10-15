@@ -1,5 +1,5 @@
 import { chatService } from '@/server/services/chatService';
-import { openAiService } from '@/server/services/openAiService';
+import { llmChat } from '@/server/services/llmService';
 import { ChatProcessorService } from './chatProcessors';
 import { MODEL_CONFIGS } from '@/lib/constants';
 import { getSystemPrompt as getSystemPromptShared } from '@/lib/prompts';
@@ -52,17 +52,19 @@ export class ModelHandlerService {
         content: msg.content,
       }));
 
-      const result = await openAiService.continueChat(
-        chatMessages,
-        userMessage.trim(),
-        systemPrompt,
+      const aiReply = await llmChat(
+        'openai',
         actualModel,
-        temperature,
-        maxTokens
+        [
+          { role: 'system', content: systemPrompt },
+          ...chatMessages,
+          { role: 'user', content: userMessage.trim() },
+        ],
+        { temperature, maxTokens }
       );
 
       const classificationKeywords =
-        result.message === '今すぐ客キーワード' ? userMessage : result.message;
+        aiReply === '今すぐ客キーワード' ? userMessage : aiReply;
       const { immediate, later } = this.processor.extractKeywordSections(classificationKeywords);
 
       if (immediate.length === 0) {
@@ -70,7 +72,7 @@ export class ModelHandlerService {
         return await chatService.continueChat(
           userId,
           sessionId,
-          [userMessage.trim(), result.message],
+          [userMessage.trim(), aiReply],
           systemPrompt,
           [],
           model
@@ -195,16 +197,18 @@ export class ModelHandlerService {
     const maxTokens = config ? config.maxTokens : 1000;
     const temperature = config ? config.temperature : 0.5;
 
-    const result = await openAiService.startChat(
-      systemPrompt,
-      userMessage.trim(),
+    const aiReply = await llmChat(
+      'openai',
       model,
-      temperature,
-      maxTokens
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage.trim() },
+      ],
+      { temperature, maxTokens }
     );
 
     const classificationKeywords =
-      result.message === '今すぐ客キーワード' ? userMessage : result.message;
+      aiReply === '今すぐ客キーワード' ? userMessage : aiReply;
     const { immediate, later } = this.processor.extractKeywordSections(classificationKeywords);
 
     if (immediate.length === 0) {
@@ -212,7 +216,7 @@ export class ModelHandlerService {
       return await chatService.startChat(
         userId,
         systemPrompt,
-        [userMessage.trim(), result.message],
+        [userMessage.trim(), aiReply],
         model
       );
     }
