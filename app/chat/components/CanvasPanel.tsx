@@ -16,7 +16,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight } from 'lowlight';
-import { X, ClipboardCheck, List, Loader2, Info } from 'lucide-react';
+import { X, ClipboardCheck, List, Loader2, Info, SearchCheck, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -863,7 +863,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   {isApplyingSelectionEdit ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    'エビデンスチェック'
+                    <>
+                      <SearchCheck className="h-3.5 w-3.5" />
+                      エビデンスチェック
+                    </>
                   )}
                 </button>
                 <button
@@ -877,6 +880,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   }}
                   disabled={isApplyingSelectionEdit}
                 >
+                  <PenLine className="h-3.5 w-3.5" />
                   自由記載
                 </button>
               </div>
