@@ -854,6 +854,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
         let buffer = '';
         let fullMarkdown = '';
+        let searchQuery = '';
+        let searchResultsCount = 0;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -874,7 +876,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             const eventType = eventMatch[1];
             const eventData = JSON.parse(dataMatch[1]);
 
-            if (eventType === 'chunk') {
+            if (eventType === 'search_query') {
+              searchQuery = eventData.query || '';
+              console.log('[Canvas] Search query:', searchQuery);
+            } else if (eventType === 'search_complete') {
+              searchResultsCount = eventData.resultsCount || 0;
+              console.log('[Canvas] Search completed. Results count:', searchResultsCount);
+              // 検索情報をストリーミングコンテンツの先頭に追加
+              const searchInfo = `🔍 **検索クエリ**: ${searchQuery}\n📊 **検索結果数**: ${searchResultsCount}件\n\n---\n\n`;
+              fullMarkdown = searchInfo + fullMarkdown;
+              setCanvasStreamingContent(fullMarkdown);
+            } else if (eventType === 'chunk') {
               fullMarkdown += eventData.content;
               setCanvasStreamingContent(fullMarkdown);
               // アシスタントメッセージのコンテンツを更新
