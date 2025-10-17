@@ -173,13 +173,10 @@ export async function POST(req: NextRequest) {
 
         const resetIdleTimeout = () => {
           if (idleTimeout) clearTimeout(idleTimeout);
-          idleTimeout = setTimeout(
-            () => {
-              console.warn('[Canvas Stream] Idle timeout reached');
-              abortController?.abort();
-            },
-            300000
-          ); // 300秒（5分）のアイドルタイムアウト
+          idleTimeout = setTimeout(() => {
+            console.warn('[Canvas Stream] Idle timeout reached');
+            abortController?.abort();
+          }, 300000); // 300秒（5分）のアイドルタイムアウト
         };
 
         const cleanup = () => {
@@ -243,7 +240,10 @@ export async function POST(req: NextRequest) {
                 resetIdleTimeout();
 
                 if (event.type === 'content_block_start') {
-                  console.log('[Canvas Web Search] Search event:', JSON.stringify(event.content_block));
+                  console.log(
+                    '[Canvas Web Search] Search event:',
+                    JSON.stringify(event.content_block)
+                  );
                 }
 
                 if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
@@ -251,7 +251,10 @@ export async function POST(req: NextRequest) {
                 }
               }
 
-              console.log('[Canvas Web Search] Search completed. Results length:', searchResults.length);
+              console.log(
+                '[Canvas Web Search] Search completed. Results length:',
+                searchResults.length
+              );
             } catch (searchError) {
               console.error('[Canvas Web Search] Search failed:', searchError);
               // 検索失敗時は空の結果で続行
@@ -312,7 +315,10 @@ export async function POST(req: NextRequest) {
 
             // デバッグ用ログ
             if (event.type === 'content_block_start') {
-              console.log('[Canvas Edit Debug] content_block_start:', JSON.stringify(event.content_block));
+              console.log(
+                '[Canvas Edit Debug] content_block_start:',
+                JSON.stringify(event.content_block)
+              );
             }
 
             if (event.type === 'content_block_delta') {
@@ -385,13 +391,7 @@ export async function POST(req: NextRequest) {
                 instruction,
                 '',
                 ...(searchResults
-                  ? [
-                      '## Web検索で取得した情報',
-                      '```',
-                      searchResults,
-                      '```',
-                      '',
-                    ]
+                  ? ['## Web検索で取得した情報', '```', searchResults, '```', '']
                   : []),
                 '上記の情報を元に、何が変更されたか、なぜ変更したかを分析して、指示したフォーマットのプレーンテキストで出力してください。',
               ]
@@ -428,7 +428,9 @@ export async function POST(req: NextRequest) {
                   analysisEvent.delta.type === 'text_delta'
                 ) {
                   analysisResult += analysisEvent.delta.text;
-                  controller.enqueue(sendSSE('analysis_chunk', { content: analysisEvent.delta.text }));
+                  controller.enqueue(
+                    sendSSE('analysis_chunk', { content: analysisEvent.delta.text })
+                  );
                 }
               }
 
@@ -452,9 +454,8 @@ export async function POST(req: NextRequest) {
               // 2つ目: 分析結果（blog_creation_improvement）
               // アシスタントメッセージのみを追加保存（ユーザーメッセージは既に上で保存済み）
               if (analysisResult) {
-                const { randomUUID } = await import('crypto');
                 const assistantAnalysisMessage = {
-                  id: randomUUID(),
+                  id: crypto.randomUUID(),
                   user_id: userId!,
                   session_id: sessionId,
                   role: 'assistant' as const,

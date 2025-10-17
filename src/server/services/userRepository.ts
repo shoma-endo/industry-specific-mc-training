@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { SupabaseService } from './supabaseService';
 import { User, DbUser, UserRole, toUser, toDbUser } from '@/types/user';
 
@@ -100,7 +99,7 @@ export class UserRepository extends SupabaseService {
     try {
       const now = Date.now();
       const user: User = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         createdAt: now,
         updatedAt: now,
         ...userData,
@@ -138,10 +137,8 @@ export class UserRepository extends SupabaseService {
         dbUpdates.stripe_customer_id = updates.stripeCustomerId;
       if (updates.stripeSubscriptionId !== undefined)
         dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
-      if (updates.lastLoginAt !== undefined)
-        dbUpdates.last_login_at = updates.lastLoginAt;
-      if (updates.fullName !== undefined)
-        dbUpdates.full_name = updates.fullName;
+      if (updates.lastLoginAt !== undefined) dbUpdates.last_login_at = updates.lastLoginAt;
+      if (updates.fullName !== undefined) dbUpdates.full_name = updates.fullName;
 
       if (updates.role !== undefined) dbUpdates.role = updates.role;
 

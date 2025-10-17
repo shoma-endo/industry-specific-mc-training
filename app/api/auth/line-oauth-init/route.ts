@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { randomBytes } from 'crypto';
 import { env } from '@/env';
 
 /**
@@ -10,8 +9,13 @@ import { env } from '@/env';
 export async function GET() {
   try {
     // セキュアなランダムstate生成（32バイト = 64文字の16進数）
-    const state = randomBytes(32).toString('hex');
-    const nonce = randomBytes(32).toString('hex');
+    const stateArray = new Uint8Array(32);
+    crypto.getRandomValues(stateArray);
+    const state = Array.from(stateArray, byte => byte.toString(16).padStart(2, '0')).join('');
+
+    const nonceArray = new Uint8Array(32);
+    crypto.getRandomValues(nonceArray);
+    const nonce = Array.from(nonceArray, byte => byte.toString(16).padStart(2, '0')).join('');
 
     // Cookieストアを取得
     const cookieStore = await cookies();
@@ -48,9 +52,6 @@ export async function GET() {
     return NextResponse.json({ authUrl });
   } catch (error) {
     console.error('LINE OAuth Init Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to initialize OAuth' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to initialize OAuth' }, { status: 500 });
   }
 }

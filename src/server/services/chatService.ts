@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { llmChat } from './llmService';
 import {
   ChatMessage,
@@ -97,7 +96,7 @@ class ChatService {
         aiResponse = { message: userMessage[1]!, error: '' };
       }
 
-      const sessionId = randomUUID();
+      const sessionId = crypto.randomUUID();
       const now = Date.now();
 
       const session: DbChatSession = {
@@ -116,7 +115,7 @@ class ChatService {
       );
 
       const userDbMessage: DbChatMessage = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.USER,
@@ -131,7 +130,7 @@ class ChatService {
       );
 
       const assistantDbMessage: DbChatMessage = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.ASSISTANT,
@@ -270,7 +269,7 @@ class ChatService {
       );
 
       const userDbMessage: DbChatMessage = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.USER,
@@ -285,7 +284,7 @@ class ChatService {
       );
 
       const assistantDbMessage: DbChatMessage = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         user_id: userId,
         session_id: sessionId,
         role: ChatRole.ASSISTANT,
