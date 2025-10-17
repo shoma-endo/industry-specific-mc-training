@@ -81,6 +81,7 @@ export default function AnnotationEditButton({
             success?: boolean;
             error?: string;
             canonical_url?: string | null;
+            wp_post_id?: number | null;
           }
         | undefined;
       if (sessionId) {
