@@ -8,11 +8,8 @@ import {
 } from '@/server/handler/actions/wordpress.action';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import {
-  ANNOTATION_FIELD_KEYS,
-  AnnotationFieldKey,
-  AnnotationFields,
-} from '@/types/annotation';
+import { ANNOTATION_FIELD_KEYS, AnnotationFieldKey, AnnotationFields } from '@/types/annotation';
+import AnnotationFormFields from '@/components/AnnotationFormFields';
 
 type Props = {
   wpPostId?: number; // 紐付け済み投稿に対する編集
@@ -145,114 +142,19 @@ export default function AnnotationEditButton({
                 {errorMsg}
               </div>
             )}
-            <div className="space-y-3 overflow-y-auto pr-1 -mr-1 flex-1 pb-6">
-              <div>
-                <label className="block text-sm mb-1">主軸kw</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={2}
-                  value={form.main_kw}
-                  onChange={e => setForm(s => ({ ...s, main_kw: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">kw（参考）</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={2}
-                  value={form.kw}
-                  onChange={e => setForm(s => ({ ...s, kw: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">表示回数</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={2}
-                  value={form.impressions}
-                  onChange={e => setForm(s => ({ ...s, impressions: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">ニーズ</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={3}
-                  value={form.needs}
-                  onChange={e => setForm(s => ({ ...s, needs: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">デモグラ・ペルソナ</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={3}
-                  value={form.persona}
-                  onChange={e => setForm(s => ({ ...s, persona: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">ゴール</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={3}
-                  value={form.goal}
-                  onChange={e => setForm(s => ({ ...s, goal: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">PREP</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={3}
-                  value={form.prep}
-                  onChange={e => setForm(s => ({ ...s, prep: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">基本構成</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={3}
-                  value={form.basic_structure}
-                  onChange={e => setForm(s => ({ ...s, basic_structure: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">書き出し案</label>
-                <textarea
-                  className="w-full border p-2 rounded"
-                  rows={3}
-                  value={form.opening_proposal}
-                  onChange={e => setForm(s => ({ ...s, opening_proposal: e.target.value }))}
-                />
-              </div>
-              <div className="pt-3 mt-2 border-t border-gray-200 space-y-2">
-                <h4 className="text-sm font-semibold text-gray-800">WordPress連携</h4>
-                <p className="text-xs text-gray-600 leading-relaxed">
-                  WordPressで公開されている記事URLを入力してください。カスタムパーマリンクにも対応し、
-                  URLから投稿IDを自動取得して連携します。空欄の場合は連携を解除します。
-                </p>
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700" htmlFor="modal-wp-canonical-url">
-                    WordPress投稿URL（任意）
-                  </label>
-                  <input
-                    id="modal-wp-canonical-url"
-                    type="text"
-                    className="w-full border p-2 rounded text-sm focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-                    value={canonicalUrlInput}
-                    onChange={e => {
-                      setCanonicalUrlInput(e.target.value);
-                      if (canonicalUrlError) setCanonicalUrlError('');
-                    }}
-                    placeholder="例: https://example.com/article-title/"
-                  />
-                  {canonicalUrlError && (
-                    <p className="text-xs text-red-600">{canonicalUrlError}</p>
-                  )}
-                </div>
-              </div>
+            <div className="overflow-y-auto pr-1 -mr-1 flex-1 pb-6">
+              <AnnotationFormFields
+                form={form}
+                onFormChange={(field, value) => setForm(s => ({ ...s, [field]: value }))}
+                canonicalUrl={canonicalUrlInput}
+                onCanonicalUrlChange={value => {
+                  setCanonicalUrlInput(value);
+                  if (canonicalUrlError) setCanonicalUrlError('');
+                }}
+                canonicalUrlError={canonicalUrlError}
+                className="space-y-5"
+                canonicalUrlInputId="modal-wp-canonical-url"
+              />
             </div>
             <div className="mt-4 flex justify-end gap-2 shrink-0">
               <Button

@@ -5,13 +5,13 @@ import { upsertContentAnnotationBySession } from '@/server/handler/actions/wordp
 import { Button } from '@/components/ui/button';
 import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ANALYTICS_COLUMNS } from '@/lib/constants';
 import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 import {
   ANNOTATION_FIELD_KEYS,
   AnnotationFieldKey,
   AnnotationRecord,
 } from '@/types/annotation';
+import AnnotationFormFields from '@/components/AnnotationFormFields';
 
 type AnnotationFormState = Record<AnnotationFieldKey, string>;
 
@@ -44,15 +44,13 @@ export default function AnnotationPanel({
   onSaveSuccess,
 }: Props) {
   const [form, setForm] = useState<AnnotationFormState>(() => toFormState(initialData));
-  const [loading, setLoading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [saveDone, setSaveDone] = React.useState(false);
   const [canonicalUrl, setCanonicalUrl] = React.useState<string>(() =>
     initialData?.canonical_url ?? ''
   );
   const [canonicalUrlError, setCanonicalUrlError] = React.useState<string>('');
-  const [saveButtonMessage, setSaveButtonMessage] = React.useState<string>('');
-  const [saveButtonMessageType, setSaveButtonMessageType] = React.useState<
-    'success' | 'error' | ''
-  >('');
+  const [errorMsg, setErrorMsg] = React.useState('');
 
   const { width: panelWidth, isResizing, handleMouseDown } = usePersistedResizableWidth({
     storageKey: 'chat-right-panel-width',
@@ -81,8 +79,9 @@ export default function AnnotationPanel({
       }
     }
 
-    setLoading(true);
-    setSaveButtonMessage('');
+    setErrorMsg('');
+    setIsSaving(true);
+    setSaveDone(false);
     try {
       const res = await upsertContentAnnotationBySession({
         session_id: sessionId,
@@ -90,25 +89,14 @@ export default function AnnotationPanel({
         canonical_url: normalizedUrl,
       });
       if (!res.success) {
-        // ボタン上にエラーメッセージを表示
-        const message = res.error || '保存に失敗しました';
-        setSaveButtonMessage(message);
-        setSaveButtonMessageType('error');
-        setTimeout(() => {
-          setSaveButtonMessage('');
-          setSaveButtonMessageType('');
-        }, 3000);
+        setErrorMsg(res.error || '保存に失敗しました');
         if (res.error && normalizedUrl) {
           setCanonicalUrlError(res.error);
         }
       } else {
-        // ボタン上に成功メッセージを表示
-        setSaveButtonMessage('保存しました');
-        setSaveButtonMessageType('success');
-        setTimeout(() => {
-          setSaveButtonMessage('');
-          setSaveButtonMessageType('');
-        }, 3000);
+        setErrorMsg('');
+        setSaveDone(true);
+        setTimeout(() => setSaveDone(false), 900);
 
         const nextCanonical =
           res.canonical_url !== undefined ? res.canonical_url ?? '' : normalizedUrl ?? '';
@@ -119,15 +107,9 @@ export default function AnnotationPanel({
         onSaveSuccess?.();
       }
     } catch {
-      // ボタン上にエラーメッセージを表示
-      setSaveButtonMessage('保存に失敗しました');
-      setSaveButtonMessageType('error');
-      setTimeout(() => {
-        setSaveButtonMessage('');
-        setSaveButtonMessageType('');
-      }, 3000);
+      setErrorMsg('保存に失敗しました');
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
   if (!isVisible) return null;
@@ -175,189 +157,48 @@ export default function AnnotationPanel({
       {/* コンテンツエリア - ヘッダーとの重なりを防ぐため上部パディングを調整 */}
       <div className="flex-1 overflow-auto p-4 ml-2" style={{ paddingTop: '80px' }}>
         <div className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'main_kw')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={2}
-              value={form.main_kw}
-              onChange={e => setForm(s => ({ ...s, main_kw: e.target.value }))}
-              placeholder="主軸となるキーワードを入力"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'kw')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={2}
-              value={form.kw}
-              onChange={e => setForm(s => ({ ...s, kw: e.target.value }))}
-              placeholder="参考キーワードを入力"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'impressions')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={2}
-              value={form.impressions}
-              onChange={e => setForm(s => ({ ...s, impressions: e.target.value }))}
-              placeholder="表示回数や検索ボリュームの情報"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'needs')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={3}
-              value={form.needs}
-              onChange={e => setForm(s => ({ ...s, needs: e.target.value }))}
-              placeholder="ユーザーのニーズや課題"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'persona')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={3}
-              value={form.persona}
-              onChange={e => setForm(s => ({ ...s, persona: e.target.value }))}
-              placeholder="デモグラフィック情報やペルソナ"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'goal')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={3}
-              value={form.goal}
-              onChange={e => setForm(s => ({ ...s, goal: e.target.value }))}
-              placeholder="達成したいゴールや目標"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'prep')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={3}
-              value={form.prep}
-              onChange={e => setForm(s => ({ ...s, prep: e.target.value }))}
-              placeholder="PREP法の要点や伝えたい流れ"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'basic_structure')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={3}
-              value={form.basic_structure}
-              onChange={e => setForm(s => ({ ...s, basic_structure: e.target.value }))}
-              placeholder="導入や見出し構成など基本的な流れ"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {ANALYTICS_COLUMNS.find(c => c.id === 'opening_proposal')?.label}
-            </label>
-            <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              rows={3}
-              value={form.opening_proposal}
-              onChange={e => setForm(s => ({ ...s, opening_proposal: e.target.value }))}
-              placeholder="書き出しの方向性や冒頭で伝えたい内容"
-            />
-          </div>
-
-          {/* WordPress連携設定 */}
-          <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
-            <h4 className="text-md font-semibold text-gray-800">WordPress連携</h4>
-            <p className="text-sm text-gray-600">
-              WordPressで公開されている記事URLを入力してください。カスタムパーマリンクにも対応し、
-              URLから投稿IDを自動取得して連携します。空欄の場合は連携を解除します。
-            </p>
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700" htmlFor="wp-canonical-url">
-                WordPress投稿URL（任意）
-              </label>
-              <input
-                id="wp-canonical-url"
-                type="text"
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                value={canonicalUrl}
-                onChange={e => {
-                  setCanonicalUrl(e.target.value);
-                  if (canonicalUrlError) setCanonicalUrlError('');
-                }}
-                placeholder="例: https://example.com/article-title/"
-              />
-              {canonicalUrlError && (
-                <p className="text-sm text-red-600">{canonicalUrlError}</p>
-              )}
+          {errorMsg && (
+            <div className="p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded">
+              {errorMsg}
             </div>
-          </div>
+          )}
+          <AnnotationFormFields
+            form={form}
+            onFormChange={(field, value) => setForm(s => ({ ...s, [field]: value }))}
+            canonicalUrl={canonicalUrl}
+            onCanonicalUrlChange={value => {
+              setCanonicalUrl(value);
+              if (canonicalUrlError) setCanonicalUrlError('');
+            }}
+            canonicalUrlError={canonicalUrlError}
+            canonicalUrlInputId="panel-wp-canonical-url"
+          />
 
           {/* アクションボタン */}
           <div className="pt-4 border-t border-gray-200">
-            <div className="relative">
+            <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={save}
-                disabled={loading}
-                className="w-full"
+                onClick={onClose}
+                disabled={isSaving || saveDone}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    保存中...
-                  </>
-                ) : (
-                  'メモを保存'
-                )}
+                キャンセル
               </Button>
-
-              {/* ボタン上のメッセージ */}
-              {saveButtonMessage && (
-                <div
-                  className={`absolute -top-12 left-1/2 transform -translate-x-1/2 px-3 py-2 text-sm font-medium text-white rounded-lg shadow-lg z-50 whitespace-nowrap transition-all duration-300 ease-in-out ${
-                    saveButtonMessageType === 'success' ? 'bg-green-600' : 'bg-red-600'
-                  }`}
-                >
-                  {saveButtonMessage}
-                  {/* 三角形（下向き） */}
-                  <div
-                    className={`absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent ${
-                      saveButtonMessageType === 'success'
-                        ? 'border-t-green-600'
-                        : 'border-t-red-600'
-                    }`}
-                  />
-                </div>
-              )}
+              <div className="relative">
+                <Button size="sm" onClick={save} disabled={isSaving || saveDone}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      保存中...
+                    </>
+                  ) : saveDone ? (
+                    '保存完了'
+                  ) : (
+                    '保存'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
