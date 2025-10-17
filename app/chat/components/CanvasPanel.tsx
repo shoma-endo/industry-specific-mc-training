@@ -541,12 +541,21 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         const selectionText = selection.text.trim();
         const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
         const combinedInstruction = [selectionPrompt, trimmedInstruction].filter(Boolean).join('\n\n');
+        // 自由記載の入力は後段でWeb検索有無の判定に利用する
+        const freeFormUserPrompt =
+          instructionOverride === undefined ? trimmedInstruction : undefined;
 
-        await onSelectionEdit({
+        const payload: CanvasSelectionEditPayload & { freeFormUserPrompt?: string } = {
           instruction: combinedInstruction,
           selectedText: selection.text,
           canvasContent: markdownContent,
-        });
+        };
+
+        if (freeFormUserPrompt) {
+          payload.freeFormUserPrompt = freeFormUserPrompt;
+        }
+
+        await onSelectionEdit(payload);
 
         // ✅ ClaudeのArtifacts風: 通常のブログ作成と同じように、新しいメッセージがチャットに表示される
         // ユーザーはBlogPreviewTileをクリックしてCanvasを開く

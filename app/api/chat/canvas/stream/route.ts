@@ -15,6 +15,7 @@ interface CanvasStreamRequest {
   canvasContent: string;
   targetStep: string;
   enableWebSearch?: boolean;
+  freeFormUserPrompt?: string;
   webSearchConfig?: {
     maxUses?: number;
     allowedDomains?: string[];
@@ -63,8 +64,16 @@ export async function POST(req: NextRequest) {
       canvasContent,
       targetStep,
       enableWebSearch = false,
+      freeFormUserPrompt,
       webSearchConfig = {},
     }: CanvasStreamRequest = await req.json();
+    const normalizedFreeFormPrompt =
+      typeof freeFormUserPrompt === 'string' ? freeFormUserPrompt.trim() : undefined;
+    const enableWebSearchRequested = enableWebSearch ?? false;
+    const shouldEnableWebSearch =
+      normalizedFreeFormPrompt !== undefined
+        ? normalizedFreeFormPrompt.includes('検索')
+        : enableWebSearchRequested;
 
     // 認証チェック
     const authHeader = req.headers.get('authorization');
@@ -190,9 +199,9 @@ export async function POST(req: NextRequest) {
 
           resetIdleTimeout();
 
-          // ✅ 第1段階: Web検索の実行（enableWebSearchがtrueの場合のみ）
+          // ✅ 第1段階: Web検索の実行（shouldEnableWebSearchがtrueの場合のみ）
           let searchResults = '';
-          if (enableWebSearch) {
+          if (shouldEnableWebSearch) {
             try {
               console.log('[Canvas Web Search] Starting web search phase...');
 
@@ -327,23 +336,23 @@ export async function POST(req: NextRequest) {
               }
 
               // ✅ 第3段階: 編集内容の分析（検証結果と修正内容）
-              const formatInstructions = enableWebSearch
+              const formatInstructions = shouldEnableWebSearch
                 ? [
                     '以下のフォーマットでプレーンテキスト（Markdownの太字・箇条書き・見出しは禁止）として出力してください。',
                     '',
                     '1. 1行目に【検証結果】とだけ記載する。',
-                    '2. 2行目に検証結果の本文を1〜2文で記載する（Web検索の判断を含める）。必要に応じて2行目の末尾で改行する。',
+                    '2. 2行目に検証結果の本文を記載する（Web検索の判断を含める）。',
                     '3. 次の行は空行を1つ入れる。',
                     '4. 次の行に【主な修正内容】と記載する。',
-                    '5. 以降は「削除 - 内容。理由。」「変更 - Before→After。理由。」「追加 - 内容。理由。」の形式で必要な項目だけを1行ずつ記載する。不要な項目は書かない。',
-                    '6. 各行の先頭に余計な記号を付けず、行末で改行する。必要最小限の行数でまとめる。',
+                    '5. 以降は「削除 - 内容。理由。」「変更 - Before→After。理由。」「追加 - 内容。理由。」の形式で必要な項目だけを記載する。不要な項目は記載しない。',
+                    '6. 各行の先頭に余計な記号を付けず、行末で改行する。必要最小限の行数でまとめる。各行の末尾で改行する。',
                   ]
                 : [
                     '以下のフォーマットでプレーンテキスト（Markdownの太字・箇条書き・見出しは禁止）として出力してください。',
                     '',
                     '1. 1行目に【主な修正内容】と記載する。',
-                    '2. 以降は「削除 - 内容。理由。」「変更 - Before→After。理由。」「追加 - 内容。理由。」の形式で必要な項目だけを1行ずつ記載する。不要な項目は書かない。',
-                    '3. 各行の先頭に余計な記号を付けず、行末で改行する。必要最小限の行数でまとめる。',
+                    '2. 以降は「削除 - 内容。理由。」「変更 - Before→After。理由。」「追加 - 内容。理由。」の形式で必要な項目だけを記載する。不要な項目は記載しない。',
+                    '3. 各行の先頭に余計な記号を付けず、行末で改行する。必要最小限の行数でまとめる。各行の末尾で改行する。',
                   ];
 
               const analysisSystemPrompt = [
@@ -402,7 +411,7 @@ export async function POST(req: NextRequest) {
                 messages: [
                   {
                     role: 'user',
-                    content: enableWebSearch
+                    content: shouldEnableWebSearch
                       ? '編集内容を分析して、指定したフォーマットで検証結果と主な修正内容をプレーンテキストで出力してください。1行目に【検証結果】、次の行に本文、その次の行で空行を1つ入れ、次の行に【主な修正内容】、以降の行で「削除/変更/追加 - ...」の形式で記載し、各行の末尾で改行してください。Markdownの装飾は禁止です。必要最小限の行数でまとめてください。'
                       : '編集内容を分析して、指定したフォーマットで主な修正内容のみをプレーンテキストで出力してください。1行目に【主な修正内容】、以降の行で「削除/変更/追加 - ...」の形式で記載し、各行の末尾で改行してください。Markdownの装飾は禁止です。必要最小限の行数でまとめてください。',
                   },

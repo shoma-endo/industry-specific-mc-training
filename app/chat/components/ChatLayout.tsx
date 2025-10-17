@@ -749,6 +749,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           targetStep = stepInfo?.currentStep ?? latestBlogStep ?? 'step1';
         }
 
+        const extendedPayload = payload as CanvasSelectionEditPayload & {
+          freeFormUserPrompt?: string;
+        };
+        const freeFormUserPrompt = extendedPayload.freeFormUserPrompt?.trim();
+        // 自由記載の場合のみキーワードに応じてWeb検索を切り替える
+        const shouldEnableWebSearch =
+          freeFormUserPrompt !== undefined ? freeFormUserPrompt.includes('検索') : true;
+
         const instruction = payload.instruction.trim();
         const selectedText = payload.selectedText.trim();
 
@@ -816,7 +824,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         setCanvasStreamingContent('');
         setCanvasPanelOpen(true);
 
-        // ✅ ストリーミングAPI呼び出し（Web検索を有効化）
+        // ✅ ストリーミングAPI呼び出し（必要に応じてWeb検索を利用）
         const response = await fetch('/api/chat/canvas/stream', {
           method: 'POST',
           headers: {
@@ -829,10 +837,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             selectedText,
             canvasContent: payload.canvasContent,
             targetStep,
-            enableWebSearch: true,
+            enableWebSearch: shouldEnableWebSearch,
             webSearchConfig: {
               maxUses: 3,
             },
+            ...(freeFormUserPrompt !== undefined && { freeFormUserPrompt }),
           }),
         });
 
