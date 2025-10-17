@@ -48,27 +48,56 @@ export default function AnnotationEditButton({
   const [saveDone, setSaveDone] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState('');
   const [form, setForm] = React.useState<AnnotationFormState>(() => toFormState(initial));
+  const [canonicalUrlInput, setCanonicalUrlInput] = React.useState<string>(() => canonicalUrl ?? '');
+  const [canonicalUrlError, setCanonicalUrlError] = React.useState('');
 
   React.useEffect(() => {
     setForm(toFormState(initial));
   }, [initial]);
 
+  React.useEffect(() => {
+    setCanonicalUrlInput(canonicalUrl ?? '');
+    setCanonicalUrlError('');
+  }, [canonicalUrl]);
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
       setErrorMsg('');
-      let res: { success?: boolean; error?: string } | undefined;
+      setCanonicalUrlError('');
+
+      const trimmed = canonicalUrlInput.trim();
+      let normalizedUrl: string | null = null;
+
+      if (trimmed.length > 0) {
+        try {
+          const parsed = new URL(trimmed);
+          normalizedUrl = parsed.toString();
+        } catch {
+          setCanonicalUrlError('有効なURLを入力してください');
+          return;
+        }
+      }
+
+      let res:
+        | {
+            success?: boolean;
+            error?: string;
+            canonical_url?: string | null;
+          }
+        | undefined;
       if (sessionId) {
         // セッション基点で保存（WP未紐付け）
         res = await upsertContentAnnotationBySession({
           session_id: sessionId,
           ...form,
+          canonical_url: normalizedUrl,
         });
       } else if (typeof wpPostId === 'number') {
         // 紐付け済み投稿に対する保存
         res = await upsertContentAnnotation({
           wp_post_id: wpPostId,
-          canonical_url: canonicalUrl || null,
+          canonical_url: normalizedUrl,
           ...form,
         });
       } else {
@@ -81,9 +110,16 @@ export default function AnnotationEditButton({
           setOpen(false);
           router.refresh();
           setSaveDone(false);
+          const nextCanonical =
+            res?.canonical_url !== undefined ? res.canonical_url ?? '' : normalizedUrl ?? '';
+          setCanonicalUrlInput(nextCanonical);
+          setCanonicalUrlError('');
         }, 900);
       } else {
         setErrorMsg((res as { error?: string }).error || '保存に失敗しました');
+        if (normalizedUrl) {
+          setCanonicalUrlError((res as { error?: string }).error ?? '');
+        }
       }
     } finally {
       setIsSaving(false);
@@ -109,7 +145,7 @@ export default function AnnotationEditButton({
                 {errorMsg}
               </div>
             )}
-            <div className="space-y-3 overflow-y-auto pr-1 -mr-1 flex-1">
+            <div className="space-y-3 overflow-y-auto pr-1 -mr-1 flex-1 pb-6">
               <div>
                 <label className="block text-sm mb-1">主軸kw</label>
                 <textarea
@@ -190,6 +226,32 @@ export default function AnnotationEditButton({
                   value={form.opening_proposal}
                   onChange={e => setForm(s => ({ ...s, opening_proposal: e.target.value }))}
                 />
+              </div>
+              <div className="pt-3 mt-2 border-t border-gray-200 space-y-2">
+                <h4 className="text-sm font-semibold text-gray-800">WordPress連携</h4>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  WordPressで公開されている記事URLを入力してください。カスタムパーマリンクにも対応し、
+                  URLから投稿IDを自動取得して連携します。空欄の場合は連携を解除します。
+                </p>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="modal-wp-canonical-url">
+                    WordPress投稿URL（任意）
+                  </label>
+                  <input
+                    id="modal-wp-canonical-url"
+                    type="text"
+                    className="w-full border p-2 rounded text-sm focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                    value={canonicalUrlInput}
+                    onChange={e => {
+                      setCanonicalUrlInput(e.target.value);
+                      if (canonicalUrlError) setCanonicalUrlError('');
+                    }}
+                    placeholder="例: https://example.com/article-title/"
+                  />
+                  {canonicalUrlError && (
+                    <p className="text-xs text-red-600">{canonicalUrlError}</p>
+                  )}
+                </div>
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2 shrink-0">

@@ -230,14 +230,14 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                       )}
                       {visibleSet.has('url') && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                          {(a?.canonical_url ?? p.link) ? (
+                          {a?.canonical_url ? (
                             <a
-                              href={(a?.canonical_url ?? p.link) as string}
+                              href={a.canonical_url}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="underline"
                             >
-                              {a?.canonical_url ?? p.link}
+                              {a.canonical_url}
                             </a>
                           ) : (
                             '—'
@@ -257,7 +257,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                         <AnnotationEditButton
                           wpPostId={typeof p.id === 'string' ? parseInt(p.id, 10) : p.id}
-                          canonicalUrl={p.link ?? null}
+                          canonicalUrl={a?.canonical_url ?? null}
                           initial={{
                             main_kw: a?.main_kw ?? null,
                             kw: a?.kw ?? null,
@@ -368,7 +368,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                       <AnnotationEditButton
                         sessionId={a.session_id ?? ''}
-                        canonicalUrl={null}
+                        canonicalUrl={a.canonical_url ?? null}
                         initial={{
                           main_kw: a?.main_kw ?? null,
                           kw: a?.kw ?? null,
