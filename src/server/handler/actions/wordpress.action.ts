@@ -571,6 +571,44 @@ export async function upsertContentAnnotation(
   const client = supabaseServiceLocal.getClient();
 
   const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
+  const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
+  let existingAnnotation:
+    | {
+        canonical_url: string | null;
+        wp_post_id: number | null;
+      }
+    | null = null;
+  let canonicalMatchesExisting = false;
+
+  if (canonicalProvided && payload.wp_post_id !== undefined && payload.wp_post_id !== null) {
+    const { data: existingData, error: existingError } = await client
+      .from('content_annotations')
+      .select('canonical_url, wp_post_id')
+      .eq('user_id', authResult.userId)
+      .eq('wp_post_id', payload.wp_post_id)
+      .maybeSingle();
+    if (!existingError && existingData) {
+      const typed = existingData as { canonical_url: string | null; wp_post_id: number | null };
+      existingAnnotation = {
+        canonical_url: typed.canonical_url ?? null,
+        wp_post_id: typed.wp_post_id ?? null,
+      };
+
+      const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
+      if (existingCanonicalRaw || nextCanonicalRaw) {
+        try {
+          const existingNormalized = existingCanonicalRaw ? new URL(existingCanonicalRaw).toString() : '';
+          const nextNormalized = nextCanonicalRaw ? new URL(nextCanonicalRaw).toString() : '';
+          canonicalMatchesExisting = existingNormalized === nextNormalized;
+        } catch {
+          canonicalMatchesExisting = existingCanonicalRaw === nextCanonicalRaw;
+        }
+      } else {
+        canonicalMatchesExisting = true;
+      }
+    }
+  }
+
   let resolvedCanonicalUrl: string | null = payload.canonical_url ?? null;
   let resolvedWpId: number | null = payload.wp_post_id ?? null;
 
@@ -582,10 +620,16 @@ export async function upsertContentAnnotation(
       cookieStore,
     });
     if (!resolution.success) {
-      return { success: false as const, error: resolution.error };
+      if (canonicalMatchesExisting && existingAnnotation) {
+        resolvedCanonicalUrl = existingAnnotation.canonical_url ?? null;
+        resolvedWpId = existingAnnotation.wp_post_id ?? null;
+      } else {
+        return { success: false as const, error: resolution.error };
+      }
+    } else {
+      resolvedCanonicalUrl = resolution.canonicalUrl;
+      resolvedWpId = resolution.wpPostId;
     }
-    resolvedCanonicalUrl = resolution.canonicalUrl;
-    resolvedWpId = resolution.wpPostId;
   }
 
   const { error } = await client.from('content_annotations').upsert(
@@ -828,6 +872,44 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
   const client = supabaseServiceLocal.getClient();
 
   const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
+  const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
+  let existingAnnotation:
+    | {
+        canonical_url: string | null;
+        wp_post_id: number | null;
+      }
+    | null = null;
+  let canonicalMatchesExisting = false;
+
+  if (canonicalProvided) {
+    const { data: existingData, error: existingError } = await client
+      .from('content_annotations')
+      .select('canonical_url, wp_post_id')
+      .eq('user_id', authResult.userId)
+      .eq('session_id', payload.session_id)
+      .maybeSingle();
+    if (!existingError && existingData) {
+      const typed = existingData as { canonical_url: string | null; wp_post_id: number | null };
+      existingAnnotation = {
+        canonical_url: typed.canonical_url ?? null,
+        wp_post_id: typed.wp_post_id ?? null,
+      };
+
+      const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
+      if (existingCanonicalRaw || nextCanonicalRaw) {
+        try {
+          const existingNormalized = existingCanonicalRaw ? new URL(existingCanonicalRaw).toString() : '';
+          const nextNormalized = nextCanonicalRaw ? new URL(nextCanonicalRaw).toString() : '';
+          canonicalMatchesExisting = existingNormalized === nextNormalized;
+        } catch {
+          canonicalMatchesExisting = existingCanonicalRaw === nextCanonicalRaw;
+        }
+      } else {
+        canonicalMatchesExisting = true;
+      }
+    }
+  }
+
   let resolvedCanonicalUrl: string | null | undefined = undefined;
   let resolvedWpId: number | null | undefined = undefined;
 
@@ -839,10 +921,16 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
       cookieStore,
     });
     if (!resolution.success) {
-      return { success: false as const, error: resolution.error };
+      if (canonicalMatchesExisting && existingAnnotation) {
+        resolvedCanonicalUrl = existingAnnotation.canonical_url ?? null;
+        resolvedWpId = existingAnnotation.wp_post_id ?? null;
+      } else {
+        return { success: false as const, error: resolution.error };
+      }
+    } else {
+      resolvedCanonicalUrl = resolution.canonicalUrl;
+      resolvedWpId = resolution.wpPostId;
     }
-    resolvedCanonicalUrl = resolution.canonicalUrl;
-    resolvedWpId = resolution.wpPostId;
   }
 
   const upsertPayload: Record<string, unknown> = {
