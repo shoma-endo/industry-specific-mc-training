@@ -23,6 +23,7 @@ type AnnotationData = {
   [K in AnnotationFieldKey]?: string;
 } & {
   wp_post_id?: number | null;
+  canonical_url?: string | null;
 };
 
 type AnnotationFormState = Record<AnnotationFieldKey, string>;
@@ -66,10 +67,10 @@ export default function AnnotationPanel({
 }: Props) {
   const [form, setForm] = useState<AnnotationFormState>(() => toFormState(initialData));
   const [loading, setLoading] = React.useState(false);
-  const [wpPostIdInput, setWpPostIdInput] = React.useState<string>(() =>
-    initialData?.wp_post_id != null ? String(initialData.wp_post_id) : ''
+  const [canonicalUrl, setCanonicalUrl] = React.useState<string>(() =>
+    initialData?.canonical_url ?? ''
   );
-  const [wpPostIdError, setWpPostIdError] = React.useState<string>('');
+  const [canonicalUrlError, setCanonicalUrlError] = React.useState<string>('');
   const [saveButtonMessage, setSaveButtonMessage] = React.useState<string>('');
   const [saveButtonMessageType, setSaveButtonMessageType] = React.useState<
     'success' | 'error' | ''
@@ -83,45 +84,22 @@ export default function AnnotationPanel({
   });
   useEffect(() => {
     setForm(toFormState(initialData));
-    setWpPostIdInput(initialData?.wp_post_id != null ? String(initialData.wp_post_id) : '');
-    setWpPostIdError('');
+    setCanonicalUrl(initialData?.canonical_url ?? '');
+    setCanonicalUrlError('');
   }, [initialData]);
 
   const save = async () => {
-    const trimmed = wpPostIdInput.trim();
-    setWpPostIdError('');
-    let wpPostIdValue: number | null = null;
+    const trimmed = canonicalUrl.trim();
+    setCanonicalUrlError('');
+    let normalizedUrl: string | null = null;
 
     if (trimmed.length > 0) {
-      if (/^\d+$/.test(trimmed)) {
-        const parsed = Number(trimmed);
-        if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-          setWpPostIdError('WordPress投稿IDは正の整数で入力してください');
-          return;
-        }
-        wpPostIdValue = parsed;
-      } else {
-        let url: URL;
-        try {
-          url = new URL(trimmed);
-        } catch {
-          setWpPostIdError('WordPress投稿の編集画面URLを入力してください');
-          return;
-        }
-
-        const postParam = url.searchParams.get('post');
-        if (!postParam || !/^\d+$/.test(postParam)) {
-          setWpPostIdError('URLから投稿IDを取得できませんでした（post=数字 が必要です）');
-          return;
-        }
-
-        const parsed = Number(postParam);
-        if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-          setWpPostIdError('WordPress投稿IDは正の整数で入力してください');
-          return;
-        }
-
-        wpPostIdValue = parsed;
+      try {
+        const parsed = new URL(trimmed);
+        normalizedUrl = parsed.toString();
+      } catch {
+        setCanonicalUrlError('有効なURLを入力してください');
+        return;
       }
     }
 
@@ -131,16 +109,20 @@ export default function AnnotationPanel({
       const res = await upsertContentAnnotationBySession({
         session_id: sessionId,
         ...form,
-        wp_post_id: wpPostIdValue,
+        canonical_url: normalizedUrl,
       });
       if (!res.success) {
         // ボタン上にエラーメッセージを表示
-        setSaveButtonMessage('保存に失敗しました');
+        const message = res.error || '保存に失敗しました';
+        setSaveButtonMessage(message);
         setSaveButtonMessageType('error');
         setTimeout(() => {
           setSaveButtonMessage('');
           setSaveButtonMessageType('');
         }, 3000);
+        if (res.error && normalizedUrl) {
+          setCanonicalUrlError(res.error);
+        }
       } else {
         // ボタン上に成功メッセージを表示
         setSaveButtonMessage('保存しました');
@@ -149,6 +131,11 @@ export default function AnnotationPanel({
           setSaveButtonMessage('');
           setSaveButtonMessageType('');
         }, 3000);
+
+        const nextCanonical =
+          res.canonical_url !== undefined ? res.canonical_url ?? '' : normalizedUrl ?? '';
+        setCanonicalUrl(nextCanonical);
+        setCanonicalUrlError('');
 
         // 保存成功時のコールバックを呼び出す
         onSaveSuccess?.();
@@ -331,27 +318,26 @@ export default function AnnotationPanel({
           <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
             <h4 className="text-md font-semibold text-gray-800">WordPress連携</h4>
             <p className="text-sm text-gray-600">
-              WordPress管理画面の投稿編集URL（例: https://example.com/wp-admin/post.php?post=123&action=edit）
-              を貼り付けると投稿IDを抽出して連携できます。IDのみを入力することもできます。
-              空欄の場合は連携せずに保存します。
+              WordPressで公開されている記事URLを入力してください。カスタムパーマリンクにも対応し、
+              URLから投稿IDを自動取得して連携します。空欄の場合は連携を解除します。
             </p>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700" htmlFor="wp-post-id">
-                WordPress投稿URLまたはID（任意）
+              <label className="block text-sm font-medium text-gray-700" htmlFor="wp-canonical-url">
+                WordPress投稿URL（任意）
               </label>
               <input
-                id="wp-post-id"
+                id="wp-canonical-url"
                 type="text"
                 className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                value={wpPostIdInput}
+                value={canonicalUrl}
                 onChange={e => {
-                  setWpPostIdInput(e.target.value);
-                  if (wpPostIdError) setWpPostIdError('');
+                  setCanonicalUrl(e.target.value);
+                  if (canonicalUrlError) setCanonicalUrlError('');
                 }}
-                placeholder="例: https://example.com/wp-admin/post.php?post=123&action=edit"
+                placeholder="例: https://example.com/article-title/"
               />
-              {wpPostIdError && (
-                <p className="text-sm text-red-600">{wpPostIdError}</p>
+              {canonicalUrlError && (
+                <p className="text-sm text-red-600">{canonicalUrlError}</p>
               )}
             </div>
           </div>

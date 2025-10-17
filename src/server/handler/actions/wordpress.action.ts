@@ -600,6 +600,7 @@ export async function upsertContentAnnotationBySession(payload: {
   basic_structure?: string | null;
   opening_proposal?: string | null;
   wp_post_id?: number | null;
+  canonical_url?: string | null;
 }) {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
@@ -608,7 +609,200 @@ export async function upsertContentAnnotationBySession(payload: {
   if (authResult.error || !authResult.userId)
     return { success: false as const, error: 'ユーザー認証に失敗しました' };
 
-  const client = new SupabaseService().getClient();
+  const supabaseServiceLocal = new SupabaseService();
+  const client = supabaseServiceLocal.getClient();
+
+  const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
+  let resolvedCanonicalUrl: string | null | undefined = undefined;
+  let resolvedWpId: number | null | undefined = undefined;
+
+  const extractDirectPostId = (url: URL): number | null => {
+    const paramNames = ['post', 'p', 'page_id'];
+    for (const name of paramNames) {
+      const value = url.searchParams.get(name);
+      if (value && /^\d+$/.test(value)) {
+        const parsed = Number(value);
+        if (Number.isSafeInteger(parsed) && parsed > 0) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  };
+
+  const buildSlugCandidates = (url: URL): string[] => {
+    const segments = url.pathname
+      .split('/')
+      .map(segment => segment.trim())
+      .filter(Boolean)
+      .map(segment => decodeURIComponent(segment));
+    if (!segments.length) return [];
+
+    const lastSegmentRaw = segments[segments.length - 1];
+    if (!lastSegmentRaw) return [];
+
+    const withoutSuffix = lastSegmentRaw.replace(/\.(html?|php)$/i, '');
+    const candidates = new Set<string>();
+    if (withoutSuffix) {
+      candidates.add(withoutSuffix);
+      candidates.add(withoutSuffix.toLowerCase());
+    }
+    if (lastSegmentRaw && lastSegmentRaw !== withoutSuffix) {
+      candidates.add(lastSegmentRaw);
+      candidates.add(lastSegmentRaw.toLowerCase());
+    }
+    return Array.from(candidates);
+  };
+
+  const normalizePostResponse = (data: unknown): { id: number | null; link?: string } => {
+    if (!data || typeof data !== 'object') return { id: null };
+    const record = data as Record<string, unknown>;
+    const idValue = record.id ?? record.ID;
+    const id = typeof idValue === 'number' && Number.isSafeInteger(idValue) ? (idValue as number) : null;
+    const result: { id: number | null; link?: string } = { id };
+    if (typeof record.link === 'string') {
+      result.link = record.link as string;
+    }
+    return result;
+  };
+
+  if (canonicalProvided) {
+    const trimmedCanonical = payload.canonical_url?.trim() ?? '';
+    if (!trimmedCanonical) {
+      resolvedCanonicalUrl = null;
+      resolvedWpId = null;
+    } else {
+      let targetUrl: URL;
+      try {
+        targetUrl = new URL(trimmedCanonical);
+      } catch {
+        return { success: false as const, error: '有効なURLを入力してください' };
+      }
+
+      const canonicalCandidate = targetUrl.toString();
+      let wpIdCandidate: number | null = null;
+      let canonicalFromApi: string | undefined;
+
+      const directId = extractDirectPostId(targetUrl);
+      if (directId !== null) {
+        wpIdCandidate = directId;
+      } else {
+        const slugCandidates = buildSlugCandidates(targetUrl);
+        if (!slugCandidates.length) {
+          return {
+            success: false as const,
+            error: 'URLから投稿IDを特定できませんでした。編集URLまたは公開URLを入力してください。',
+          };
+        }
+
+        const wpSettings = await supabaseServiceLocal.getWordPressSettingsByUserId(authResult.userId);
+        if (!wpSettings) {
+          return {
+            success: false as const,
+            error: 'WordPress設定が登録されていません。設定画面から連携を完了してください。',
+          };
+        }
+
+        let wpService: WordPressService;
+        if (wpSettings.wpType === 'wordpress_com') {
+          const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
+          const accessToken = cookieStore.get(tokenCookieName)?.value;
+          if (!accessToken) {
+            return {
+              success: false as const,
+              error: 'WordPress.comのアクセストークンが見つかりません。再連携してください。',
+            };
+          }
+          wpService = new WordPressService({
+            type: 'wordpress_com',
+            wpComAuth: {
+              accessToken,
+              siteId: wpSettings.wpSiteId || '',
+            },
+          });
+        } else {
+          if (!wpSettings.wpSiteUrl || !wpSettings.wpUsername || !wpSettings.wpApplicationPassword) {
+            return {
+              success: false as const,
+              error: 'セルフホストWordPressの認証情報が不足しています。設定を確認してください。',
+            };
+          }
+          wpService = new WordPressService({
+            type: 'self_hosted',
+            selfHostedAuth: {
+              siteUrl: wpSettings.wpSiteUrl,
+              username: wpSettings.wpUsername,
+              applicationPassword: wpSettings.wpApplicationPassword,
+            },
+          });
+        }
+
+        type ResolveResult = { id: number; link?: string } | { error: string } | null;
+
+        const resolveByType = async (type: 'posts' | 'pages'): Promise<ResolveResult> => {
+          let lastError: string | undefined;
+          for (const slug of slugCandidates) {
+            const result = await wpService.findExistingContent(slug, type);
+            if (!result.success) {
+              lastError = result.error || 'WordPress APIの呼び出しに失敗しました';
+              continue;
+            }
+            if (result.data) {
+              const normalized = normalizePostResponse(result.data);
+              if (normalized.id) {
+                if (normalized.link) {
+                  return { id: normalized.id, link: normalized.link };
+                }
+                return { id: normalized.id };
+              }
+            }
+          }
+          if (lastError) {
+            return { error: lastError };
+          }
+          return null;
+        };
+
+        const postResult = await resolveByType('posts');
+        if (postResult && 'error' in postResult) {
+          return { success: false as const, error: postResult.error };
+        }
+        if (postResult && postResult !== null) {
+          wpIdCandidate = postResult.id;
+          canonicalFromApi = postResult.link;
+        }
+
+        if (wpIdCandidate == null) {
+          const pageResult = await resolveByType('pages');
+          if (pageResult && 'error' in pageResult) {
+            return { success: false as const, error: pageResult.error };
+          }
+          if (pageResult && pageResult !== null) {
+            wpIdCandidate = pageResult.id;
+            canonicalFromApi = pageResult.link;
+          }
+        }
+
+        if (wpIdCandidate == null) {
+          return {
+            success: false as const,
+            error: 'WordPressで該当する投稿が見つかりませんでした。URLをご確認ください。',
+          };
+        }
+
+        resolvedWpId = wpIdCandidate;
+        resolvedCanonicalUrl = canonicalFromApi ?? canonicalCandidate;
+      }
+
+      if (resolvedWpId === undefined) {
+        resolvedWpId = wpIdCandidate;
+      }
+      if (resolvedCanonicalUrl === undefined) {
+        resolvedCanonicalUrl = canonicalCandidate;
+      }
+    }
+  }
+
   const upsertPayload: Record<string, unknown> = {
     user_id: authResult.userId,
     session_id: payload.session_id,
@@ -624,8 +818,9 @@ export async function upsertContentAnnotationBySession(payload: {
     updated_at: new Date().toISOString(),
   };
 
-  if (Object.prototype.hasOwnProperty.call(payload, 'wp_post_id')) {
-    upsertPayload.wp_post_id = payload.wp_post_id ?? null;
+  if (canonicalProvided) {
+    upsertPayload.canonical_url = resolvedCanonicalUrl ?? null;
+    upsertPayload.wp_post_id = resolvedWpId ?? null;
   }
 
   const { error } = await client
@@ -633,5 +828,13 @@ export async function upsertContentAnnotationBySession(payload: {
     .upsert(upsertPayload, { onConflict: 'user_id,session_id' });
 
   if (error) return { success: false as const, error: error.message };
-  return { success: true as const };
+  return {
+    success: true as const,
+    ...(canonicalProvided
+      ? {
+          canonical_url: resolvedCanonicalUrl ?? null,
+          wp_post_id: resolvedWpId ?? null,
+        }
+      : {}),
+  };
 }

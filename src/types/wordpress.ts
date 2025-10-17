@@ -26,19 +26,6 @@ export interface WordPressSettings {
 }
 
 /**
- * WordPressエクスポート用データ
- */
-export interface WordPressExportData {
-  title: string;
-  content: string;
-  excerpt?: string;
-  slug: string;
-  status: 'draft' | 'publish';
-  featuredImageUrl?: string;
-  updateExisting?: boolean; // 既存投稿を更新するかどうか
-}
-
-/**
  * WordPress API レスポンス (WordPress.com API v2 向け)
  */
 export interface WordPressPostResponse {
@@ -74,6 +61,5 @@ export interface WordPressApiResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
-  postUrl?: string; // exportToWordPress で使用
   siteInfo?: WordPressSiteInfo; // testConnection で使用していたが、dataに含める形に変更したため、重複の可能性あり
 }
