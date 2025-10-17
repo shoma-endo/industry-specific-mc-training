@@ -1,29 +1,31 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  upsertContentAnnotationBySession,
-  publishFromSession,
-} from '@/server/handler/actions/wordpress.action';
+import { upsertContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { Button } from '@/components/ui/button';
 import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
 import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 
+type AnnotationFieldKey =
+  | 'main_kw'
+  | 'kw'
+  | 'impressions'
+  | 'needs'
+  | 'persona'
+  | 'goal'
+  | 'prep'
+  | 'basic_structure'
+  | 'opening_proposal';
+
 type AnnotationData = {
-  main_kw?: string;
-  kw?: string;
-  impressions?: string;
-  needs?: string;
-  persona?: string;
-  goal?: string;
-  prep?: string;
-  basic_structure?: string;
-  opening_proposal?: string;
+  [K in AnnotationFieldKey]?: string;
+} & {
+  wp_post_id?: number | null;
 };
 
-type AnnotationFormState = Record<keyof AnnotationData, string>;
+type AnnotationFormState = Record<AnnotationFieldKey, string>;
 
 const EMPTY_FORM: AnnotationFormState = {
   main_kw: '',
@@ -38,7 +40,7 @@ const EMPTY_FORM: AnnotationFormState = {
 };
 
 const toFormState = (data?: AnnotationData | null): AnnotationFormState => {
-  return (Object.keys(EMPTY_FORM) as Array<keyof AnnotationFormState>).reduce(
+  return (Object.keys(EMPTY_FORM) as Array<AnnotationFieldKey>).reduce(
     (acc, key) => {
       acc[key] = data?.[key] ?? '';
       return acc;
@@ -64,17 +66,12 @@ export default function AnnotationPanel({
 }: Props) {
   const [form, setForm] = useState<AnnotationFormState>(() => toFormState(initialData));
   const [loading, setLoading] = React.useState(false);
-  const [publishing, setPublishing] = React.useState(false);
-  const [status, setStatus] = React.useState<'draft' | 'publish'>('draft');
-  const [title, setTitle] = React.useState('');
-  const [contentHtml, setContentHtml] = React.useState('');
-  const [error, setError] = React.useState<string>('');
+  const [wpPostIdInput, setWpPostIdInput] = React.useState<string>(() =>
+    initialData?.wp_post_id != null ? String(initialData.wp_post_id) : ''
+  );
+  const [wpPostIdError, setWpPostIdError] = React.useState<string>('');
   const [saveButtonMessage, setSaveButtonMessage] = React.useState<string>('');
   const [saveButtonMessageType, setSaveButtonMessageType] = React.useState<
-    'success' | 'error' | ''
-  >('');
-  const [publishButtonMessage, setPublishButtonMessage] = React.useState<string>('');
-  const [publishButtonMessageType, setPublishButtonMessageType] = React.useState<
     'success' | 'error' | ''
   >('');
 
@@ -86,14 +83,56 @@ export default function AnnotationPanel({
   });
   useEffect(() => {
     setForm(toFormState(initialData));
+    setWpPostIdInput(initialData?.wp_post_id != null ? String(initialData.wp_post_id) : '');
+    setWpPostIdError('');
   }, [initialData]);
 
   const save = async () => {
+    const trimmed = wpPostIdInput.trim();
+    setWpPostIdError('');
+    let wpPostIdValue: number | null = null;
+
+    if (trimmed.length > 0) {
+      if (/^\d+$/.test(trimmed)) {
+        const parsed = Number(trimmed);
+        if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+          setWpPostIdError('WordPress投稿IDは正の整数で入力してください');
+          return;
+        }
+        wpPostIdValue = parsed;
+      } else {
+        let url: URL;
+        try {
+          url = new URL(trimmed);
+        } catch {
+          setWpPostIdError('WordPress投稿の編集画面URLを入力してください');
+          return;
+        }
+
+        const postParam = url.searchParams.get('post');
+        if (!postParam || !/^\d+$/.test(postParam)) {
+          setWpPostIdError('URLから投稿IDを取得できませんでした（post=数字 が必要です）');
+          return;
+        }
+
+        const parsed = Number(postParam);
+        if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+          setWpPostIdError('WordPress投稿IDは正の整数で入力してください');
+          return;
+        }
+
+        wpPostIdValue = parsed;
+      }
+    }
+
     setLoading(true);
-    setError('');
     setSaveButtonMessage('');
     try {
-      const res = await upsertContentAnnotationBySession({ session_id: sessionId, ...form });
+      const res = await upsertContentAnnotationBySession({
+        session_id: sessionId,
+        ...form,
+        wp_post_id: wpPostIdValue,
+      });
       if (!res.success) {
         // ボタン上にエラーメッセージを表示
         setSaveButtonMessage('保存に失敗しました');
@@ -126,49 +165,6 @@ export default function AnnotationPanel({
       setLoading(false);
     }
   };
-
-  const publish = async () => {
-    setPublishing(true);
-    setError('');
-    setPublishButtonMessage('');
-    setPublishButtonMessageType('');
-    try {
-      const res = await publishFromSession({
-        session_id: sessionId,
-        title: title || '（無題）',
-        contentHtml: contentHtml || '',
-        status,
-      });
-      if (!res.success) {
-        setError(res.error || '公開に失敗しました');
-        setPublishButtonMessage('公開に失敗しました');
-        setPublishButtonMessageType('error');
-        setTimeout(() => {
-          setPublishButtonMessage('');
-          setPublishButtonMessageType('');
-        }, 3000);
-      } else {
-        const okMsg = status === 'publish' ? '公開しました' : '下書き保存しました';
-        setPublishButtonMessage(okMsg);
-        setPublishButtonMessageType('success');
-        setTimeout(() => {
-          setPublishButtonMessage('');
-          setPublishButtonMessageType('');
-        }, 3000);
-      }
-    } catch {
-      setError('公開に失敗しました');
-      setPublishButtonMessage('公開に失敗しました');
-      setPublishButtonMessageType('error');
-      setTimeout(() => {
-        setPublishButtonMessage('');
-        setPublishButtonMessageType('');
-      }, 3000);
-    } finally {
-      setPublishing(false);
-    }
-  };
-
   if (!isVisible) return null;
 
   return (
@@ -213,12 +209,6 @@ export default function AnnotationPanel({
 
       {/* コンテンツエリア - ヘッダーとの重なりを防ぐため上部パディングを調整 */}
       <div className="flex-1 overflow-auto p-4 ml-2" style={{ paddingTop: '80px' }}>
-        {error && (
-          <div className="mb-4 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
-            {error}
-          </div>
-        )}
-
         <div className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -337,57 +327,43 @@ export default function AnnotationPanel({
             />
           </div>
 
-          {/* WordPress公開設定 */}
-          <div className="mt-6 pt-6 border-t border-gray-200 space-y-4">
-            <h4 className="text-md font-semibold text-gray-800">WordPress公開設定</h4>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                タイトル（任意・WP送信用）
+          {/* WordPress連携設定 */}
+          <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
+            <h4 className="text-md font-semibold text-gray-800">WordPress連携</h4>
+            <p className="text-sm text-gray-600">
+              WordPress管理画面の投稿編集URL（例: https://example.com/wp-admin/post.php?post=123&action=edit）
+              を貼り付けると投稿IDを抽出して連携できます。IDのみを入力することもできます。
+              空欄の場合は連携せずに保存します。
+            </p>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700" htmlFor="wp-post-id">
+                WordPress投稿URLまたはID（任意）
               </label>
               <input
+                id="wp-post-id"
                 type="text"
                 className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="WordPressに投稿するタイトル"
+                value={wpPostIdInput}
+                onChange={e => {
+                  setWpPostIdInput(e.target.value);
+                  if (wpPostIdError) setWpPostIdError('');
+                }}
+                placeholder="例: https://example.com/wp-admin/post.php?post=123&action=edit"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                本文HTML（任意・WP送信用）
-              </label>
-              <textarea
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors font-mono"
-                rows={6}
-                value={contentHtml}
-                onChange={e => setContentHtml(e.target.value)}
-                placeholder="WordPressに投稿するHTML内容"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">公開状態:</label>
-              <select
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                value={status}
-                onChange={e => setStatus(e.target.value as 'draft' | 'publish')}
-              >
-                <option value="draft">下書き</option>
-                <option value="publish">公開</option>
-              </select>
+              {wpPostIdError && (
+                <p className="text-sm text-red-600">{wpPostIdError}</p>
+              )}
             </div>
           </div>
 
           {/* アクションボタン */}
-          <div className="mt-6 flex flex-col gap-3 pt-4 border-t border-gray-200">
+          <div className="pt-4 border-t border-gray-200">
             <div className="relative">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={save}
-                disabled={loading || publishing}
+                disabled={loading}
                 className="w-full"
               >
                 {loading ? (
@@ -412,41 +388,6 @@ export default function AnnotationPanel({
                   <div
                     className={`absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent ${
                       saveButtonMessageType === 'success'
-                        ? 'border-t-green-600'
-                        : 'border-t-red-600'
-                    }`}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="relative">
-              <Button
-                size="sm"
-                onClick={publish}
-                disabled={loading || publishing}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                {publishing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    送信中...
-                  </>
-                ) : (
-                  `WordPressに${status === 'publish' ? '公開' : '下書き保存'}`
-                )}
-              </Button>
-
-              {publishButtonMessage && (
-                <div
-                  className={`absolute -top-12 left-1/2 transform -translate-x-1/2 px-3 py-2 text-sm font-medium text-white rounded-lg shadow-lg z-50 whitespace-nowrap transition-all duration-300 ease-in-out ${
-                    publishButtonMessageType === 'success' ? 'bg-green-600' : 'bg-red-600'
-                  }`}
-                >
-                  {publishButtonMessage}
-                  <div
-                    className={`absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent ${
-                      publishButtonMessageType === 'success'
                         ? 'border-t-green-600'
                         : 'border-t-red-600'
                     }`}
