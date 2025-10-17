@@ -192,17 +192,9 @@ export async function POST(req: NextRequest) {
 
           // ✅ 第1段階: Web検索の実行（enableWebSearchがtrueの場合のみ）
           let searchResults = '';
-          let searchQuery = '';
-          let searchResultsCount = 0;
           if (enableWebSearch) {
             try {
               console.log('[Canvas Web Search] Starting web search phase...');
-
-              // 検索クエリを生成
-              searchQuery = `${selectedText.slice(0, 100)} エビデンス 根拠 データ`;
-
-              controller.enqueue(sendSSE('search_start', { message: 'Web検索を開始しています...' }));
-              controller.enqueue(sendSSE('search_query', { query: searchQuery }));
 
               const searchStream = await anthropic.messages.stream({
                 model: actualModel,
@@ -250,20 +242,9 @@ export async function POST(req: NextRequest) {
                 }
               }
 
-              // 検索結果数を推定（簡易的に改行数から推定）
-              searchResultsCount = Math.min((searchResults.match(/\n/g) || []).length, webSearchConfig.maxUses || 3);
-
               console.log('[Canvas Web Search] Search completed. Results length:', searchResults.length);
-              controller.enqueue(
-                sendSSE('search_complete', {
-                  message: 'Web検索が完了しました',
-                  resultsLength: searchResults.length,
-                  resultsCount: searchResultsCount
-                })
-              );
             } catch (searchError) {
               console.error('[Canvas Web Search] Search failed:', searchError);
-              controller.enqueue(sendSSE('search_error', { message: 'Web検索に失敗しましたが、編集を続行します' }));
               // 検索失敗時は空の結果で続行
               searchResults = '';
             }
@@ -346,8 +327,6 @@ export async function POST(req: NextRequest) {
               }
 
               // ✅ 第3段階: 編集内容の分析（検証結果と修正内容）
-              controller.enqueue(sendSSE('analysis_start', { message: '変更内容を分析しています...' }));
-
               const formatInstructions = enableWebSearch
                 ? [
                     '以下のフォーマットでプレーンテキスト（Markdownの太字・箇条書き・見出しは禁止）として出力してください。',
@@ -445,7 +424,6 @@ export async function POST(req: NextRequest) {
               }
 
               console.log('[Canvas Analysis] Analysis completed. Length:', analysisResult.length);
-              controller.enqueue(sendSSE('analysis_complete', { message: '分析が完了しました' }));
 
               // ✅ チャット履歴に2つのアシスタントメッセージを別々に保存
               // continueChat は必ずユーザーメッセージとアシスタントメッセージのペアを保存するため、
