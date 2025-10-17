@@ -5,6 +5,7 @@ import FieldConfigurator from '@/components/FieldConfigurator';
 import AnnotationEditButton from '@/components/AnnotationEditButton';
 import TruncatedText from '@/components/TruncatedText';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
+import type { AnnotationRecord } from '@/types/annotation';
 
 type PostRow = {
   id: number | string;
@@ -16,25 +17,9 @@ type PostRow = {
   excerpt?: string | undefined;
 };
 
-type Annotation = {
-  wp_post_id: number;
-  main_kw?: string | null;
-  kw?: string | null;
-  impressions?: string | null;
-  persona?: string | null;
-  needs?: string | null;
-  goal?: string | null;
-  memo?: string | null;
-  session_id?: string | null;
-  canonical_url?: string | null;
-  prep?: string | null;
-  basic_structure?: string | null;
-  opening_proposal?: string | null;
-};
-
 type Props = {
   posts: PostRow[];
-  annotations: Annotation[];
+  annotations: AnnotationRecord[];
 };
 
 export default function AnalyticsTable({ posts, annotations }: Props) {
@@ -59,8 +44,8 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
 
   const rows = React.useMemo(() => {
     const list: Array<
-      | { type: 'post'; post: PostRow; a: Annotation | undefined }
-      | { type: 'unlinked'; a: Annotation }
+      | { type: 'post'; post: PostRow; a: AnnotationRecord | undefined }
+      | { type: 'unlinked'; a: AnnotationRecord }
     > = [];
     for (const p of posts) {
       const a = annotations.find(

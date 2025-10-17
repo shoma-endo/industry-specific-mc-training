@@ -6,6 +6,7 @@ import {
 } from '@/server/handler/actions/wordpress.action';
 import AnalyticsTable from '@/components/AnalyticsTable';
 import { Settings } from 'lucide-react';
+import type { AnnotationRecord } from '@/types/annotation';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,16 +31,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const perPage = 100; // 1ページ最大100件（WP RESTの上限）
 
   let posts: PostRow[] = [];
-  let annotations: Array<{
-    wp_post_id: number;
-    main_kw?: string | null;
-    kw?: string | null;
-    impressions?: string | null;
-    persona?: string | null;
-    needs?: string | null;
-    goal?: string | null;
-    memo?: string | null;
-  }> = [];
+  let annotations: AnnotationRecord[] = [];
   let total = 0;
   let totalPages = 1;
   let isError = false;
@@ -51,16 +43,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   isError = (result as { success?: boolean }).success === false;
   errorMessage = (result as { error?: string }).error;
   posts = (!isError ? result.data?.posts || [] : []) as PostRow[];
-  annotations = (annotationRes.success ? annotationRes.data : []) as Array<{
-    wp_post_id: number;
-    main_kw?: string | null;
-    kw?: string | null;
-    impressions?: string | null;
-    persona?: string | null;
-    needs?: string | null;
-    goal?: string | null;
-    memo?: string | null;
-  }>;
+  annotations = (annotationRes.success ? annotationRes.data : []) as AnnotationRecord[];
   total = !isError ? result.data?.total || 0 : 0;
   totalPages = Math.max(1, Math.ceil(total / perPage));
 

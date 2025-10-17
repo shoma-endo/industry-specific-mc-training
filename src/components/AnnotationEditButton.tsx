@@ -8,22 +8,32 @@ import {
 } from '@/server/handler/actions/wordpress.action';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import {
+  ANNOTATION_FIELD_KEYS,
+  AnnotationFieldKey,
+  AnnotationFields,
+} from '@/types/annotation';
 
 type Props = {
   wpPostId?: number; // 紐付け済み投稿に対する編集
   sessionId?: string; // 未紐付け（セッション基点）に対する編集
   canonicalUrl?: string | null;
-  initial?: {
-    main_kw?: string | null;
-    kw?: string | null;
-    impressions?: string | null;
-    needs?: string | null;
-    persona?: string | null;
-    goal?: string | null;
-    prep?: string | null;
-    basic_structure?: string | null;
-    opening_proposal?: string | null;
-  };
+  initial?: AnnotationFields;
+};
+
+type AnnotationFormState = Record<AnnotationFieldKey, string>;
+
+const EMPTY_FORM_ENTRIES = ANNOTATION_FIELD_KEYS.map(key => [key, ''] as const);
+const EMPTY_FORM = Object.fromEntries(EMPTY_FORM_ENTRIES) as AnnotationFormState;
+
+const toFormState = (fields?: AnnotationFields | null): AnnotationFormState => {
+  return ANNOTATION_FIELD_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = fields?.[key] ?? '';
+      return acc;
+    },
+    { ...EMPTY_FORM }
+  );
 };
 
 export default function AnnotationEditButton({
@@ -37,17 +47,11 @@ export default function AnnotationEditButton({
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveDone, setSaveDone] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState('');
-  const [form, setForm] = React.useState({
-    main_kw: initial?.main_kw ?? '',
-    kw: initial?.kw ?? '',
-    impressions: initial?.impressions ?? '',
-    needs: initial?.needs ?? '',
-    persona: initial?.persona ?? '',
-    goal: initial?.goal ?? '',
-    prep: initial?.prep ?? '',
-    basic_structure: initial?.basic_structure ?? '',
-    opening_proposal: initial?.opening_proposal ?? '',
-  });
+  const [form, setForm] = React.useState<AnnotationFormState>(() => toFormState(initial));
+
+  React.useEffect(() => {
+    setForm(toFormState(initial));
+  }, [initial]);
 
   const handleSave = async () => {
     try {
@@ -58,30 +62,14 @@ export default function AnnotationEditButton({
         // セッション基点で保存（WP未紐付け）
         res = await upsertContentAnnotationBySession({
           session_id: sessionId,
-          main_kw: form.main_kw,
-          kw: form.kw,
-          impressions: form.impressions,
-          needs: form.needs,
-          persona: form.persona,
-          goal: form.goal,
-          prep: form.prep,
-          basic_structure: form.basic_structure,
-          opening_proposal: form.opening_proposal,
+          ...form,
         });
       } else if (typeof wpPostId === 'number') {
         // 紐付け済み投稿に対する保存
         res = await upsertContentAnnotation({
           wp_post_id: wpPostId,
           canonical_url: canonicalUrl || null,
-          main_kw: form.main_kw,
-          kw: form.kw,
-          impressions: form.impressions,
-          needs: form.needs,
-          persona: form.persona,
-          goal: form.goal,
-          prep: form.prep,
-          basic_structure: form.basic_structure,
-          opening_proposal: form.opening_proposal,
+          ...form,
         });
       } else {
         setErrorMsg('保存対象が特定できません');

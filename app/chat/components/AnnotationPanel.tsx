@@ -7,41 +7,19 @@ import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
 import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
-
-type AnnotationFieldKey =
-  | 'main_kw'
-  | 'kw'
-  | 'impressions'
-  | 'needs'
-  | 'persona'
-  | 'goal'
-  | 'prep'
-  | 'basic_structure'
-  | 'opening_proposal';
-
-type AnnotationData = {
-  [K in AnnotationFieldKey]?: string;
-} & {
-  wp_post_id?: number | null;
-  canonical_url?: string | null;
-};
+import {
+  ANNOTATION_FIELD_KEYS,
+  AnnotationFieldKey,
+  AnnotationRecord,
+} from '@/types/annotation';
 
 type AnnotationFormState = Record<AnnotationFieldKey, string>;
 
-const EMPTY_FORM: AnnotationFormState = {
-  main_kw: '',
-  kw: '',
-  impressions: '',
-  needs: '',
-  persona: '',
-  goal: '',
-  prep: '',
-  basic_structure: '',
-  opening_proposal: '',
-};
+const EMPTY_FORM_ENTRIES = ANNOTATION_FIELD_KEYS.map(key => [key, ''] as const);
+const EMPTY_FORM = Object.fromEntries(EMPTY_FORM_ENTRIES) as AnnotationFormState;
 
-const toFormState = (data?: AnnotationData | null): AnnotationFormState => {
-  return (Object.keys(EMPTY_FORM) as Array<AnnotationFieldKey>).reduce(
+const toFormState = (data?: AnnotationRecord | null): AnnotationFormState => {
+  return ANNOTATION_FIELD_KEYS.reduce(
     (acc, key) => {
       acc[key] = data?.[key] ?? '';
       return acc;
@@ -52,7 +30,7 @@ const toFormState = (data?: AnnotationData | null): AnnotationFormState => {
 
 type Props = {
   sessionId: string;
-  initialData?: AnnotationData | null;
+  initialData?: AnnotationRecord | null;
   onClose: () => void;
   isVisible?: boolean;
   onSaveSuccess?: () => void;

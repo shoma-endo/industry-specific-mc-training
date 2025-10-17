@@ -6,6 +6,7 @@ import {
   UpdatePromptTemplateInput,
   PromptTemplateWithVersions,
 } from '@/types/prompt';
+import type { AnnotationRecord } from '@/types/annotation';
 
 /**
  * プロンプト管理サービス
@@ -31,7 +32,7 @@ export class PromptService extends SupabaseService {
         }
 
         const urls = (data || [])
-          .map((row: { canonical_url: string | null }) => row.canonical_url || '')
+          .map((row: Pick<AnnotationRecord, 'canonical_url'>) => row.canonical_url || '')
           .filter(u => typeof u === 'string' && u.trim().length > 0);
 
         return Array.from(new Set(urls));
@@ -46,18 +47,7 @@ export class PromptService extends SupabaseService {
   /**
    * ユーザー最新の content_annotations を1件取得
    */
-  static async getLatestContentAnnotationByUserId(userId: string): Promise<{
-    canonical_url: string | null;
-    main_kw: string | null;
-    kw: string | null;
-    impressions: string | null;
-    persona: string | null;
-    needs: string | null;
-    goal: string | null;
-    prep: string | null;
-    basic_structure: string | null;
-    opening_proposal: string | null;
-  } | null> {
+  static async getLatestContentAnnotationByUserId(userId: string): Promise<AnnotationRecord | null> {
     return this.withServiceRoleClient(
       async client => {
         const { data, error } = await client
@@ -90,18 +80,7 @@ export class PromptService extends SupabaseService {
   static async getContentAnnotationBySession(
     userId: string,
     sessionId: string
-  ): Promise<{
-    canonical_url: string | null;
-    main_kw: string | null;
-    kw: string | null;
-    impressions: string | null;
-    persona: string | null;
-    needs: string | null;
-    goal: string | null;
-    prep: string | null;
-    basic_structure: string | null;
-    opening_proposal: string | null;
-  } | null> {
+  ): Promise<AnnotationRecord | null> {
     return this.withServiceRoleClient(
       async client => {
         const { data, error } = await client
@@ -131,20 +110,7 @@ export class PromptService extends SupabaseService {
    * テンプレ側は {{contentPersona}} / {{contentNeeds}} / {{contentGoal}}
    * {{contentMainKw}} / {{contentKw}} / {{contentImpressions}} を使用可能
    */
-  static buildContentVariables(
-    annotation: {
-      canonical_url: string | null;
-      main_kw: string | null;
-      kw: string | null;
-      impressions: string | null;
-      persona: string | null;
-      needs: string | null;
-      goal: string | null;
-      prep: string | null;
-      basic_structure: string | null;
-      opening_proposal: string | null;
-    } | null
-  ): Record<string, string> {
+  static buildContentVariables(annotation: AnnotationRecord | null): Record<string, string> {
     if (!annotation) return {};
     return {
       contentPersona: annotation.persona || '',

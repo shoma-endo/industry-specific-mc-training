@@ -5,6 +5,11 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { WordPressSettings } from '@/types/wordpress';
 import { WordPressService, WordPressAuth } from '@/server/services/wordpressService';
+import type {
+  AnnotationRecord,
+  ContentAnnotationPayload,
+  SessionAnnotationUpsertPayload,
+} from '@/types/annotation';
 
 const supabaseService = new SupabaseService();
 
@@ -352,20 +357,6 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
 // Annotations (ユーザー入力) CRUD
 // ==========================================
 
-export type ContentAnnotationPayload = {
-  wp_post_id: number;
-  canonical_url?: string | null;
-  main_kw?: string | null;
-  kw?: string | null;
-  impressions?: string | null;
-  persona?: string | null; // デモグラ・ペルソナ
-  needs?: string | null; // ニーズ
-  goal?: string | null; // ゴール
-  prep?: string | null; // PREP構成メモ
-  basic_structure?: string | null; // 基本構成メモ
-  opening_proposal?: string | null; // 書き出し案メモ
-};
-
 export async function upsertContentAnnotation(payload: ContentAnnotationPayload) {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
@@ -404,7 +395,10 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
   return { success: true as const };
 }
 
-export async function getContentAnnotationsForUser() {
+export async function getContentAnnotationsForUser(): Promise<
+  | { success: false; error: string }
+  | { success: true; data: AnnotationRecord[] }
+> {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
@@ -420,7 +414,8 @@ export async function getContentAnnotationsForUser() {
     .eq('user_id', authResult.userId);
 
   if (error) return { success: false as const, error: error.message };
-  return { success: true as const, data };
+  const typedData = (data ?? []) as AnnotationRecord[];
+  return { success: true as const, data: typedData };
 }
 
 // ==========================================
@@ -568,7 +563,10 @@ export async function testWordPressConnectionAction() {
 // セッション基盤の保存/取得/公開機能
 // ==========================================
 
-export async function getContentAnnotationBySession(session_id: string) {
+export async function getContentAnnotationBySession(session_id: string): Promise<
+  | { success: false; error: string }
+  | { success: true; data: AnnotationRecord | null }
+> {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
@@ -585,23 +583,16 @@ export async function getContentAnnotationBySession(session_id: string) {
     .maybeSingle();
 
   if (error) return { success: false as const, error: error.message };
-  return { success: true as const, data };
+  const typedData = (data ?? null) as AnnotationRecord | null;
+  return { success: true as const, data: typedData };
 }
 
-export async function upsertContentAnnotationBySession(payload: {
-  session_id: string;
-  main_kw?: string | null;
-  kw?: string | null;
-  impressions?: string | null;
-  persona?: string | null;
-  needs?: string | null;
-  goal?: string | null;
-  prep?: string | null;
-  basic_structure?: string | null;
-  opening_proposal?: string | null;
+export async function upsertContentAnnotationBySession(payload: SessionAnnotationUpsertPayload & {
   wp_post_id?: number | null;
-  canonical_url?: string | null;
-}) {
+}): Promise<
+  | { success: false; error: string }
+  | { success: true; canonical_url?: string | null; wp_post_id?: number | null }
+> {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
