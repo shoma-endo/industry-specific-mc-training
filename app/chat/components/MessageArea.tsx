@@ -6,7 +6,14 @@ import { Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import BlogPreviewTile from './common/BlogPreviewTile';
 import { BLOG_STEP_LABELS } from '@/lib/constants';
+import type { BlogStepId } from '@/lib/constants';
 import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/blog-canvas';
+
+type BlogPreviewMeta = {
+  step: BlogStepId;
+  title: string | null;
+  excerpt: string | null;
+};
 
 interface MessageAreaProps {
   messages: ChatMessage[];
@@ -156,28 +163,42 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     return message.role === 'assistant' && extractBlogStepFromModel(message.model) !== null;
   };
 
-  const derivePreviewMeta = (message: ChatMessage) => {
+  const derivePreviewMeta = (message: ChatMessage): BlogPreviewMeta | null => {
     const step = extractBlogStepFromModel(message.model);
     if (!step) return null;
 
-    const normalized = normalizeCanvasContent(message.content ?? '');
-    const lines = normalized
-      .split('\n')
-      .map(line => line.trim())
-      .filter(Boolean);
+    const normalized = normalizeCanvasContent(message.content ?? '').trim();
+    if (!normalized) {
+      return {
+        step,
+        title: null,
+        excerpt: null,
+      };
+    }
 
-    const headingLine = lines.find(line => /^#+\s*/.test(line));
-    const titleSource = headingLine ?? lines[0] ?? '';
+    const rawLines = normalized.split('\n');
+    const headingIndex = rawLines.findIndex(line => /^#+\s*/.test(line.trim()));
+    const firstContentIndex = rawLines.findIndex(line => line.trim().length > 0);
+    const titleSourceIndex = headingIndex >= 0 ? headingIndex : firstContentIndex;
+    const titleLine =
+      titleSourceIndex >= 0 && titleSourceIndex < rawLines.length
+        ? rawLines[titleSourceIndex]
+        : rawLines[0] ?? '';
+    const titleSource = (titleLine ?? '').trim();
     const titleCandidate = titleSource.replace(/^#+\s*/, '').trim();
 
-    const bodyLines = lines.filter(line => line !== headingLine);
-    const body = bodyLines
-      .map(line => line.replace(/^[-*]\s+/, '').replace(/^[0-9]+\.\s+/, ''))
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const bodyLines = rawLines.filter((_, index) => index !== headingIndex);
+    const bodyForDisplay = bodyLines.join('\n').trim();
 
-    const excerptCandidate = body.length > 140 ? `${body.slice(0, 140)}…` : body;
+    const plainExcerptSource = bodyForDisplay || normalized;
+    const excerptPlain = plainExcerptSource
+      .split('\n')
+      .map(line => line.trim().replace(/^[-*]\s+/, '').replace(/^[0-9]+\.\s+/, ''))
+      .filter(Boolean)
+      .join(' ');
+
+    const excerptCandidate =
+      excerptPlain.length > 140 ? `${excerptPlain.slice(0, 140)}…` : excerptPlain;
 
     return {
       step,

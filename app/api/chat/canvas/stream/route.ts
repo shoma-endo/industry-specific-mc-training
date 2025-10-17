@@ -126,36 +126,12 @@ export async function POST(req: NextRequest) {
       '3. **絶対に省略しない：** 「...（省略）...」「※以下同様」「（中略）」などの表現は禁止',
       '4. **選択範囲以外の部分も必ず全て含める：** タイトル、見出し、本文、すべてのセクションを出力',
       '5. **文章の一部だけを返すことは厳禁：** 必ず冒頭から末尾まで完全な文章を返す',
-      '6. **編集後は必ず変更箇所の説明を追記：** 文章の最後に「---」区切りを入れ、検証結果と変更内容を詳細に記載する',
       '',
       '## 編集の進め方',
       '**ステップ1：** 下記の「現在の文章全体」を確認する',
       '**ステップ2：** 「ユーザーが選択した範囲」に対する改善指示を適用する',
       '**ステップ3：** 選択範囲外の部分も含めて、文章全体の整合性を確認し適宜修正する',
       '**ステップ4：** apply_full_text_replacement で文章全体（冒頭〜末尾）を完全に出力する',
-      '**ステップ5：** 文章の最後に以下のフォーマットで検証結果と変更内容を追記する',
-      '',
-      '```',
-      '---',
-      '',
-      '## 検証結果',
-      '[選択されたテキストについて、Web検索で具体的に何を調査したか、その結果どう判断したかを記載]',
-      '例: 「ビタミンE含有量が約3倍」という記述について、厚生労働省データベース、学術論文、公的機関の栄養データを調査しましたが、この具体的な数値の根拠となる公的なデータは見つかりませんでした。比較対象も不明確です。',
-      '',
-      '## 修正内容と理由',
-      '変更前後の内容を明確に記載し、何をどのように変更したか、なぜその変更をしたかを具体的に説明する',
-      '',
-      '1. **削除**: 「[削除した具体的な文章]」',
-      '   - 理由: [なぜこの部分を削除したのか]',
-      '   - 例: 「ビタミンE含有量が約3倍」という記述を削除。エビデンスが確認できず、読者に誤解を与える可能性があるため。',
-      '',
-      '2. **変更**: 「[変更前の文章]」 → 「[変更後の文章]」',
-      '   - 理由: [なぜこのように変更したのか]',
-      '   - 例: 「必須アミノ酸のバランスも優れており」→「一般的に認められているメリットの列挙」に変更。読者が自身で判断できる情報を提供するため。',
-      '',
-      '3. **追加**: 「[追加した具体的な文章]」',
-      '   - 理由: [なぜこの部分を追加したのか]',
-      '```',
       '',
       '---',
       '',
@@ -170,7 +146,7 @@ export async function POST(req: NextRequest) {
       '```',
       '',
       '上記の「選択した範囲」に対する改善指示がユーザーメッセージで送られます。',
-      '改善を適用した上で、**文章全体を省略なく完全に出力し、最後に変更箇所の説明を必ず追記してください。**',
+      '改善を適用した上で、**文章全体を省略なく完全に出力してください。**',
     ]
       .filter(Boolean)
       .join('\n');
@@ -369,18 +345,134 @@ export async function POST(req: NextRequest) {
                 fullMarkdown = toolInput.full_markdown || '';
               }
 
-              // チャット履歴に保存
-              const model = `blog_creation_${targetStep}`;
+              // ✅ 第3段階: 編集内容の分析（検証結果と修正内容）
+              controller.enqueue(sendSSE('analysis_start', { message: '変更内容を分析しています...' }));
+
+              const analysisSystemPrompt = [
+                '# 文章編集内容の分析専門モード',
+                '',
+                '## あなたの役割',
+                '編集前後の文章を比較し、検証結果と主要な変更点を簡潔にまとめます。',
+                '',
+                '## 出力形式',
+                '以下のフォーマットでプレーンテキスト（Markdownの太字・箇条書き・見出しは禁止）として最大5行で出力してください。',
+                '',
+                '【検証結果】',
+                `- ${
+                  enableWebSearch
+                    ? 'Web検索の判断も含めて記載する。'
+                    : '検証の観点と判断を記載する。'
+                }`,
+                '【主な修正内容】',
+                '- 必要に応じて「削除」「変更」「追加」を列挙し、内容と理由を記載する（例: 削除 - 「キーワード」…理由）。不要な項目は省略してよい',
+                '- 各行の末尾には改行を入れ、行頭に余計な記号を付けないこと',
+                '',
+                '---',
+                '',
+                '## 編集前の文章全体',
+                '```markdown',
+                canvasContent,
+                '```',
+                '',
+                '## 編集後の文章全体',
+                '```markdown',
+                fullMarkdown,
+                '```',
+                '',
+                '## ユーザーが選択した範囲（この部分を改善した）',
+                '```',
+                selectedText,
+                '```',
+                '',
+                '## ユーザーの改善指示',
+                instruction,
+                '',
+                ...(searchResults
+                  ? [
+                      '## Web検索で取得した情報',
+                      '```',
+                      searchResults,
+                      '```',
+                      '',
+                    ]
+                  : []),
+                '上記の情報を元に、何が変更されたか、なぜ変更したかを分析して、指示したフォーマットのプレーンテキストで出力してください。',
+              ]
+                .filter(Boolean)
+                .join('\n');
+
+              const analysisStream = await anthropic.messages.stream({
+                model: actualModel,
+                max_tokens: 500, // 簡潔な出力のためトークン数を削減
+                temperature: 0.3,
+                system: [
+                  {
+                    type: 'text',
+                    text: analysisSystemPrompt,
+                  },
+                ],
+                messages: [
+                  {
+                    role: 'user',
+                    content:
+                      '編集内容を分析して、検証結果と主な修正内容をプレーンテキストで簡潔に説明してください。Markdownの装飾は禁止です。指示した各行ごとに改行を入れつつ、全体で5行以内に収めてください。',
+                  },
+                ],
+              });
+
+              let analysisResult = '';
+              for await (const analysisEvent of analysisStream) {
+                if (abortController?.signal.aborted) break;
+                resetIdleTimeout();
+
+                if (
+                  analysisEvent.type === 'content_block_delta' &&
+                  analysisEvent.delta.type === 'text_delta'
+                ) {
+                  analysisResult += analysisEvent.delta.text;
+                  controller.enqueue(sendSSE('analysis_chunk', { content: analysisEvent.delta.text }));
+                }
+              }
+
+              console.log('[Canvas Analysis] Analysis completed. Length:', analysisResult.length);
+              controller.enqueue(sendSSE('analysis_complete', { message: '分析が完了しました' }));
+
+              // ✅ チャット履歴に2つのアシスタントメッセージを別々に保存
+              // continueChat は必ずユーザーメッセージとアシスタントメッセージのペアを保存するため、
+              // 1回だけ呼び出してユーザーメッセージを保存し、2つのアシスタントメッセージは別々に保存する
+
+              // 1つ目: Canvas編集結果（blog_creation_${targetStep}）
+              const canvasModel = `blog_creation_${targetStep}`;
               await chatService.continueChat(
                 userId!,
                 sessionId,
                 [instruction, fullMarkdown],
                 '', // systemPromptは履歴に保存しない
                 [],
-                model
+                canvasModel
               );
 
-              controller.enqueue(sendSSE('done', { fullMarkdown }));
+              // 2つ目: 分析結果（blog_creation_improvement）
+              // アシスタントメッセージのみを追加保存（ユーザーメッセージは既に上で保存済み）
+              if (analysisResult) {
+                const { randomUUID } = await import('crypto');
+                const assistantAnalysisMessage = {
+                  id: randomUUID(),
+                  user_id: userId!,
+                  session_id: sessionId,
+                  role: 'assistant' as const,
+                  content: analysisResult,
+                  model: 'blog_creation_improvement',
+                  created_at: Date.now() + 2, // Canvas編集結果の後に表示されるよう順序を保証
+                };
+
+                // Supabaseに直接保存
+                const { SupabaseService } = await import('@/server/services/supabaseService');
+                const supabaseService = new SupabaseService();
+                await supabaseService.createChatMessage(assistantAnalysisMessage);
+              }
+
+              controller.enqueue(sendSSE('done', { fullMarkdown, analysis: analysisResult }));
             }
           }
 

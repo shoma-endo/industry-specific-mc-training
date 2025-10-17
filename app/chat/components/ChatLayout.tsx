@@ -25,6 +25,7 @@ import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
+import type { AnnotationRecord } from '@/types/annotation';
 
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
@@ -106,14 +107,7 @@ type ChatLayoutCtx = {
     annotation: {
       open: boolean;
       loading: boolean;
-      data: {
-        main_kw?: string;
-        kw?: string;
-        impressions?: string;
-        persona?: string;
-        needs?: string;
-        goal?: string;
-      } | null;
+      data: AnnotationRecord | null;
       openWith: () => void;
       setOpen: (open: boolean) => void;
     };
@@ -316,17 +310,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const { getAccessToken } = useLiffContext();
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
-  const [annotationData, setAnnotationData] = useState<{
-    main_kw?: string;
-    kw?: string;
-    impressions?: string;
-    persona?: string;
-    needs?: string;
-    goal?: string;
-    prep?: string;
-    basic_structure?: string;
-    opening_proposal?: string;
-  } | null>(null);
+  const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [canvasStep, setCanvasStep] = useState<BlogStepId | null>(null);
@@ -784,8 +768,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         // ストリーミングコンテンツをリセット
         setCanvasStreamingContent('');
 
-        // ✅ 楽観的更新: ストリーミング開始時にメッセージを追加してBlogPreviewTileを表示
-        const tempAssistantId = `temp-assistant-${Date.now()}`;
+        // ✅ 楽観的更新: ストリーミング開始時に2つのメッセージを追加
+        // 1つ目: BlogPreviewTile用（Canvas編集結果）
+        // 2つ目: 分析結果用（通常のチャット）
+        const tempAssistantCanvasId = `temp-assistant-canvas-${Date.now()}`;
+        const tempAssistantAnalysisId = `temp-assistant-analysis-${Date.now() + 1}`;
         const userMessage: ChatMessage = {
           id: `temp-user-${Date.now()}`,
           role: 'user',
@@ -794,15 +781,23 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           model: `blog_creation_${targetStep}`,
         };
 
-        const assistantMessage: ChatMessage = {
-          id: tempAssistantId,
+        const assistantCanvasMessage: ChatMessage = {
+          id: tempAssistantCanvasId,
           role: 'assistant',
           content: '', // ストリーミング中は空
           timestamp: new Date(),
           model: `blog_creation_${targetStep}`,
         };
 
-        setOptimisticMessages([userMessage, assistantMessage]);
+        const assistantAnalysisMessage: ChatMessage = {
+          id: tempAssistantAnalysisId,
+          role: 'assistant',
+          content: '', // ストリーミング中は空
+          timestamp: new Date(),
+          model: 'blog_creation_improvement', // 分析結果用のモデル
+        };
+
+        setOptimisticMessages([userMessage, assistantCanvasMessage, assistantAnalysisMessage]);
 
         if (annotationOpen) {
           setAnnotationOpen(false);
@@ -854,6 +849,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
         let buffer = '';
         let fullMarkdown = '';
+        let analysisResult = '';
 
         while (true) {
           const { done, value } = await reader.read();
@@ -877,16 +873,36 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             if (eventType === 'chunk') {
               fullMarkdown += eventData.content;
               setCanvasStreamingContent(fullMarkdown);
-              // アシスタントメッセージのコンテンツを更新
+              // 1つ目のアシスタントメッセージ（Canvas用の文章）を更新
               setOptimisticMessages(prev =>
-                prev.map(msg => (msg.id === tempAssistantId ? { ...msg, content: fullMarkdown } : msg))
+                prev.map(msg =>
+                  msg.id === tempAssistantCanvasId ? { ...msg, content: fullMarkdown } : msg
+                )
+              );
+            } else if (eventType === 'analysis_chunk') {
+              // 分析結果のストリーミング（通常のチャット用）
+              analysisResult += eventData.content;
+              // 2つ目のアシスタントメッセージ（分析結果）を更新
+              setOptimisticMessages(prev =>
+                prev.map(msg =>
+                  msg.id === tempAssistantAnalysisId ? { ...msg, content: analysisResult } : msg
+                )
               );
             } else if (eventType === 'done') {
               fullMarkdown = eventData.fullMarkdown || fullMarkdown;
+              analysisResult = eventData.analysis || analysisResult;
               setCanvasStreamingContent(fullMarkdown);
-              // アシスタントメッセージのコンテンツを更新
+              // 両方のアシスタントメッセージを最終更新
               setOptimisticMessages(prev =>
-                prev.map(msg => (msg.id === tempAssistantId ? { ...msg, content: fullMarkdown } : msg))
+                prev.map(msg => {
+                  if (msg.id === tempAssistantCanvasId) {
+                    return { ...msg, content: fullMarkdown };
+                  }
+                  if (msg.id === tempAssistantAnalysisId) {
+                    return { ...msg, content: analysisResult };
+                  }
+                  return msg;
+                })
               );
             } else if (eventType === 'error') {
               throw new Error(eventData.message || 'ストリーミングエラーが発生しました');

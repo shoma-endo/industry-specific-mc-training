@@ -27,7 +27,7 @@ const BlogPreviewTile: React.FC<BlogPreviewTileProps> = ({
         'group w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2',
         className
       )}
-      aria-label={`${stepLabel}をCanvasで開く`}
+      aria-label={`${stepLabel}${title ? `: ${title}` : ''}をCanvasで開く`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -38,7 +38,7 @@ const BlogPreviewTile: React.FC<BlogPreviewTileProps> = ({
             <p className="mt-2 line-clamp-1 text-sm font-semibold text-slate-900">{title}</p>
           )}
           {excerpt && (
-            <p className="mt-2 line-clamp-2 text-xs text-slate-500 leading-relaxed">{excerpt}</p>
+            <p className="mt-1 text-xs text-slate-500 leading-relaxed line-clamp-3">{excerpt}</p>
           )}
         </div>
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-colors duration-200 group-hover:bg-slate-800">
