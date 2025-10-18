@@ -8,6 +8,11 @@ import { MODEL_CONFIGS } from '@/lib/constants';
 export const runtime = 'nodejs';
 export const maxDuration = 800;
 
+type WebReference = {
+  url: string;
+  context?: string;
+};
+
 interface CanvasStreamRequest {
   sessionId: string;
   instruction: string;
@@ -26,6 +31,11 @@ interface CanvasStreamRequest {
 const anthropic = new Anthropic({
   apiKey: env.ANTHROPIC_API_KEY,
 });
+
+const URL_REGEX = /(https?:\/\/[^\s)'"<>]+)(?![^[]*])/gi;
+const DISALLOWED_HOST_NAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0']);
+const DISALLOWED_HOST_KEYWORDS = ['internal', 'intranet', 'corp', 'local'];
+const DISALLOWED_TLDS = new Set(['local', 'internal', 'test', 'invalid', 'example']);
 
 // Tool Use スキーマ定義
 const CANVAS_EDIT_TOOL = {
@@ -47,6 +57,41 @@ const CANVAS_EDIT_TOOL = {
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
   let eventId = 0;
+
+  const extractWebReferences = (text: string): WebReference[] => {
+    const references = new Map<string, WebReference>();
+    if (!text) return [];
+
+    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    for (const line of lines) {
+      const matches = line.match(URL_REGEX);
+      if (!matches) continue;
+
+      for (const rawUrl of matches) {
+        let parsed: URL | null = null;
+        try {
+          parsed = new URL(rawUrl);
+        } catch {
+          continue;
+        }
+
+        const hostname = parsed.hostname.toLowerCase();
+        if (!hostname.includes('.')) continue;
+        if (DISALLOWED_HOST_NAMES.has(hostname)) continue;
+        if (DISALLOWED_HOST_KEYWORDS.some(keyword => hostname.includes(keyword))) continue;
+
+        const tld = hostname.split('.').pop() ?? '';
+        if (!/^[a-z]{2,24}$/.test(tld)) continue;
+        if (DISALLOWED_TLDS.has(tld)) continue;
+
+        if (!references.has(parsed.href)) {
+          references.set(parsed.href, { url: parsed.href, context: line });
+        }
+      }
+    }
+
+    return Array.from(references.values());
+  };
 
   const sendSSE = (event: string, data: unknown) => {
     return encoder.encode(`id: ${++eventId}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -198,6 +243,7 @@ export async function POST(req: NextRequest) {
 
           // ✅ 第1段階: Web検索の実行（shouldEnableWebSearchがtrueの場合のみ）
           let searchResults = '';
+          let extractedReferences: WebReference[] = [];
           if (shouldEnableWebSearch) {
             try {
               console.log('[Canvas Web Search] Starting web search phase...');
@@ -255,10 +301,12 @@ export async function POST(req: NextRequest) {
                 '[Canvas Web Search] Search completed. Results length:',
                 searchResults.length
               );
+              extractedReferences = extractWebReferences(searchResults);
             } catch (searchError) {
               console.error('[Canvas Web Search] Search failed:', searchError);
               // 検索失敗時は空の結果で続行
               searchResults = '';
+              extractedReferences = [];
             }
           }
 
@@ -270,12 +318,33 @@ export async function POST(req: NextRequest) {
                   '',
                   '---',
                   '',
-                  '## Web検索で取得した最新情報',
+                  extractedReferences.length > 0
+                    ? [
+                        '## Web検索で確認できた外部リンク（以下のみ使用可）',
+                        ...extractedReferences.map(
+                          (reference, index) =>
+                            `${index + 1}. ${reference.url}${
+                              reference.context ? ` （関連情報: ${reference.context}）` : ''
+                            }`
+                        ),
+                        '',
+                        '外部リンクを挿入する場合は、上記のURLのみを利用してください。新しいドメインや存在しないURLを生成してはいけません。',
+                      ].join('\n')
+                    : [
+                        '## Web検索で利用可能な外部リンクは見つかりませんでした',
+                        '外部リンクを提示せず、文章そのものを改善してください。存在しないURLを作成してはいけません。',
+                      ].join('\n'),
+                  '',
+                  '---',
+                  '',
+                  '## Web検索結果の要約テキスト',
                   '```',
                   searchResults,
                   '```',
                   '',
-                  '上記の最新情報を活用して、文章を編集してください。',
+                  extractedReferences.length > 0
+                    ? '上記リンクと要約を活用して文章を編集してください。'
+                    : '要約は参考情報に留め、外部リンクは追加しないでください。',
                 ]
               : []),
           ].join('\n');
@@ -391,7 +460,30 @@ export async function POST(req: NextRequest) {
                 instruction,
                 '',
                 ...(searchResults
-                  ? ['## Web検索で取得した情報', '```', searchResults, '```', '']
+                  ? [
+                      '## Web検索で取得した情報',
+                      '```',
+                      searchResults,
+                      '```',
+                      '',
+                      extractedReferences.length > 0
+                        ? [
+                            '## 利用可能な外部リンク（以下のみ参照可）',
+                            ...extractedReferences.map(
+                              (reference, index) =>
+                                `${index + 1}. ${reference.url}${
+                                  reference.context ? ` （関連情報: ${reference.context}）` : ''
+                                }`
+                            ),
+                            '',
+                            '分析結果では、上記に含まれないURLは言及しないでください。',
+                          ].join('\n')
+                        : [
+                            '## 利用可能な外部リンクはありません',
+                            '検証結果では「外部リンクは未掲載」等と明示してください。存在しないドメインを例示してはいけません。',
+                          ].join('\n'),
+                      '',
+                    ]
                   : []),
                 '上記の情報を元に、何が変更されたか、なぜ変更したかを分析して、指示したフォーマットのプレーンテキストで出力してください。',
               ]
