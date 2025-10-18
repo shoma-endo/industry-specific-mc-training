@@ -5,7 +5,6 @@ import { MODEL_CONFIGS } from '@/lib/constants';
 import { getSystemPrompt as getSystemPromptShared } from '@/lib/prompts';
 import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '../chat.actions';
-import { PromptRetrievalService } from '@/server/services/promptRetrievalService';
 import { BriefService } from '@/server/services/briefService';
 import { PromptService } from '@/server/services/promptService';
 
@@ -108,38 +107,15 @@ export class ModelHandlerService {
         model
       );
     } else if (model === 'lp_draft_creation') {
-      // RAG対応: LP継続生成でもRAG機能を使用
+      const variables = await BriefService.getVariablesByUserId(userId).catch(() => ({}));
+      const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
+
+      const validMessages = messages.map(msg => ({
+        role: msg.role as 'user' | 'assistant' | 'system',
+        content: msg.content,
+      }));
+
       try {
-        // 高速モードフラグ: 短いクエリや一般的なクエリは高速モード
-        const fastMode =
-          userMessage.length < 50 ||
-          ['お願いします', '事業者', 'LP作成してください', 'LP'].some(q =>
-            userMessage.toLowerCase().includes(q.toLowerCase())
-          );
-
-        if (fastMode) {
-          console.log('[Fast Mode] 高速モードでLP継続生成を実行');
-        }
-
-        // 並列処理化: RAGシステムメッセージ構築と事業者情報取得を同時実行
-        const [ragSystemPrompt, variables] = await Promise.all([
-          PromptRetrievalService.buildRagSystemMessage(
-            'lp_draft_creation',
-            userMessage.trim(),
-            undefined,
-            { skipQueryOptimization: fastMode }
-          ),
-          BriefService.getVariablesByUserId(userId),
-        ]);
-
-        // 事業者情報による変数置換
-        const finalSystemPrompt = PromptService.replaceVariables(ragSystemPrompt, variables);
-
-        const validMessages = messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content,
-        }));
-
         return await chatService.continueChat(
           userId,
           sessionId,
@@ -149,22 +125,12 @@ export class ModelHandlerService {
           'lp_draft_creation'
         );
       } catch (error) {
-        console.error('RAG LP継続生成エラー:', error);
-
-        // 単一のフォールバック処理に簡素化
-        const variables = await BriefService.getVariablesByUserId(userId).catch(() => ({}));
-        const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
-
-        const validMessages = messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content,
-        }));
-
+        console.error('LP継続生成エラー:', error);
         return await chatService.continueChat(
           userId,
           sessionId,
           userMessage,
-          finalSystemPrompt,
+          systemPrompt,
           validMessages,
           'lp_draft_creation'
         );
@@ -257,34 +223,10 @@ export class ModelHandlerService {
     systemPrompt: string,
     userMessage: string
   ): Promise<ChatResponse> {
+    const variables = await BriefService.getVariablesByUserId(userId).catch(() => ({}));
+    const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
+
     try {
-      // 高速モードフラグ: 短いクエリや一般的なクエリは高速モード
-      const fastMode =
-        userMessage.length < 50 ||
-        ['お願いします', '事業者', 'LP作成してください', 'LP'].some(q =>
-          userMessage.toLowerCase().includes(q.toLowerCase())
-        );
-
-      if (fastMode) {
-        console.log('[Fast Mode] 高速モードでLP生成を実行');
-      }
-
-      // 並列処理化: RAGシステムメッセージ構築と事業者情報取得を同時実行
-      const [ragSystemPrompt, variables] = await Promise.all([
-        PromptRetrievalService.buildRagSystemMessage(
-          'lp_draft_creation',
-          userMessage.trim(),
-          undefined,
-          { skipQueryOptimization: fastMode }
-        ),
-        BriefService.getVariablesByUserId(userId),
-      ]);
-
-      // 事業者情報による変数置換
-      const finalSystemPrompt = PromptService.replaceVariables(ragSystemPrompt, variables);
-
-      // チャットサービス経由でセッション保存とRAG版生成
-      // 論理キー "lp_draft_creation" を渡すことで maxTokens=20000 が適用される
       return await chatService.startChat(
         userId,
         finalSystemPrompt,
@@ -292,15 +234,10 @@ export class ModelHandlerService {
         'lp_draft_creation'
       );
     } catch (error) {
-      console.error('RAG LP生成エラー:', error);
-
-      // 単一のフォールバック処理に簡素化
-      const variables = await BriefService.getVariablesByUserId(userId).catch(() => ({}));
-      const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
-
+      console.error('LP生成エラー:', error);
       return await chatService.startChat(
         userId,
-        finalSystemPrompt,
+        systemPrompt,
         userMessage.trim(),
         'lp_draft_creation'
       );
@@ -316,9 +253,6 @@ export class ModelHandlerService {
     return await chatService.startChat(userId, systemPrompt, userMessage.trim(), model);
   }
 
-  /**
-   * RAGモデルの処理（新機能）
-   */
   /**
    * ユーザーメッセージからキーワードを抽出
    */

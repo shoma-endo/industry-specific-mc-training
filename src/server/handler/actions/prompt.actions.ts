@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { PromptService } from '@/server/services/promptService';
-import { PromptChunkService } from '@/server/services/promptChunkService';
 import { canUseServices } from '@/auth-utils';
 import {
   CreatePromptTemplateInput,
@@ -108,17 +107,6 @@ export async function createPromptTemplate(
 
     const result = await PromptService.createTemplate(createInput);
 
-    // RAG対応: lp_draft_creationの場合はチャンクを作成
-    if (validatedData.name === 'lp_draft_creation') {
-      try {
-        await PromptChunkService.updatePromptChunks(result.id, validatedData.content);
-        console.log('RAGチャンク作成完了:', result.id);
-      } catch (chunkError) {
-        console.error('RAGチャンク作成エラー:', chunkError);
-        // チャンク作成失敗は非致命的エラーとして扱う
-      }
-    }
-
     // キャッシュ無効化
     revalidatePath('/admin/prompts');
 
@@ -176,17 +164,6 @@ export async function updatePromptTemplate(
     };
 
     const result = await PromptService.updateTemplate(id, updateInput);
-
-    // RAG対応: lp_draft_creationの場合はチャンクを更新
-    if (validatedData.name === 'lp_draft_creation') {
-      try {
-        await PromptChunkService.updatePromptChunks(id, validatedData.content);
-        console.log('RAGチャンク更新完了:', id);
-      } catch (chunkError) {
-        console.error('RAGチャンク更新エラー:', chunkError);
-        // チャンク更新失敗は非致命的エラーとして扱う
-      }
-    }
 
     // 全プロンプトキャッシュを無効化（即座反映）
     await PromptService.invalidateAllCaches();
