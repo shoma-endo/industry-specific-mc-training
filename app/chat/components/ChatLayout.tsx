@@ -27,6 +27,126 @@ import { getContentAnnotationBySession } from '@/server/handler/actions/wordpres
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 
+const FULL_MARKDOWN_PREFIX = '"full_markdown":"';
+
+type FullMarkdownDecoder = {
+  feed: (chunk: string) => string;
+  reset: () => void;
+};
+
+const createFullMarkdownDecoder = (): FullMarkdownDecoder => {
+  const prefix = FULL_MARKDOWN_PREFIX;
+  let prefixIndex = 0;
+  let capturing = false;
+  let escapeNext = false;
+  let unicodeRemaining = 0;
+  let unicodeBuffer = '';
+  let result = '';
+
+  const feed = (chunk: string) => {
+    for (let i = 0; i < chunk.length; i += 1) {
+      const char = chunk[i]!;
+
+      if (!capturing) {
+        if (char === prefix[prefixIndex]!) {
+          prefixIndex += 1;
+          if (prefixIndex === prefix.length) {
+            capturing = true;
+            prefixIndex = 0;
+          }
+        } else {
+          prefixIndex = char === prefix[0] ? 1 : 0;
+        }
+        continue;
+      }
+
+      if (unicodeRemaining > 0) {
+        if (/[0-9a-fA-F]/.test(char)) {
+          unicodeBuffer += char;
+          unicodeRemaining -= 1;
+          if (unicodeRemaining === 0) {
+            const codePoint = Number.parseInt(unicodeBuffer, 16);
+            if (!Number.isNaN(codePoint)) {
+              result += String.fromCodePoint(codePoint);
+            }
+            unicodeBuffer = '';
+          }
+        } else {
+          unicodeRemaining = 0;
+          unicodeBuffer = '';
+          if (char === '"') {
+            capturing = false;
+          }
+        }
+        continue;
+      }
+
+      if (escapeNext) {
+        switch (char) {
+          case '\\':
+            result += '\\';
+            break;
+          case '"':
+            result += '"';
+            break;
+          case '/':
+            result += '/';
+            break;
+          case 'b':
+            result += '\b';
+            break;
+          case 'f':
+            result += '\f';
+            break;
+          case 'n':
+            result += '\n';
+            break;
+          case 'r':
+            result += '\r';
+            break;
+          case 't':
+            result += '\t';
+            break;
+          case 'u':
+            unicodeRemaining = 4;
+            unicodeBuffer = '';
+            break;
+          default:
+            result += char;
+            break;
+        }
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"') {
+        capturing = false;
+        continue;
+      }
+
+      result += char;
+    }
+
+    return result;
+  };
+
+  const reset = () => {
+    prefixIndex = 0;
+    capturing = false;
+    escapeNext = false;
+    unicodeRemaining = 0;
+    unicodeBuffer = '';
+    result = '';
+  };
+
+  return { feed, reset };
+};
+
 interface ChatLayoutProps {
   chatSession: ChatSessionHook;
   subscription: SubscriptionHook;
@@ -824,6 +944,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         setCanvasStreamingContent('');
         setCanvasPanelOpen(true);
 
+        const markdownDecoder = createFullMarkdownDecoder();
+
         // ✅ ストリーミングAPI呼び出し（必要に応じてWeb検索を利用）
         const response = await fetch('/api/chat/canvas/stream', {
           method: 'POST',
@@ -880,12 +1002,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             const eventData = JSON.parse(dataMatch[1]);
 
             if (eventType === 'chunk') {
-              fullMarkdown += eventData.content;
-              setCanvasStreamingContent(fullMarkdown);
+              const decodedMarkdown = markdownDecoder.feed(eventData.content);
+              fullMarkdown = decodedMarkdown;
+              setCanvasStreamingContent(decodedMarkdown);
               // 1つ目のアシスタントメッセージ（Canvas用の文章）を更新
               setOptimisticMessages(prev =>
                 prev.map(msg =>
-                  msg.id === tempAssistantCanvasId ? { ...msg, content: fullMarkdown } : msg
+                  msg.id === tempAssistantCanvasId
+                    ? { ...msg, content: decodedMarkdown }
+                    : msg
                 )
               );
             } else if (eventType === 'analysis_chunk') {
