@@ -30,7 +30,7 @@
 4. フロント実装は Tailwind クラスを主とし、UI ルールに従う（shadcn コンポーネントを優先）。
 5. 変更後は `npm run lint` や関連コマンドで検証。実行できない場合は理由を明記。
 6. 出力は要点を簡潔にまとめ、日本語で報告。差分のパスと重要箇所を引用する。
-7. 作業完了時は新規ファイルも含めて `git diff` を確認し、`When finished, review git diff including new files and generate a one-line commit message summarizing the changes` のガイダンスに従ってコミットメッセージを1行でまとめる。
+7. 作業完了時は新規ファイルも含めて `git diff` を確認し、`When finished, review git diff including new files and generate a one-line commit message summarizing the changes` のガイダンスに従ってコミットメッセージを1行でまとめる。**コミットメッセージは必ず日本語で記述する。**
 
 > TIP: `ln -s AGENTS.md CLAUDE.md` を設定すると、Claude Code でも AGENTS.md の指示を参照できます。
 
