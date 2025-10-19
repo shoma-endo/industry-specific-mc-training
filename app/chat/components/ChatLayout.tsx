@@ -435,7 +435,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [canvasStep, setCanvasStep] = useState<BlogStepId | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [, setSelectedBlogStep] = useState<BlogStepId>('step1');
   const [selectedVersionByStep, setSelectedVersionByStep] = useState<
     Partial<Record<BlogStepId, string | null>>
   >({});
@@ -648,8 +647,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // モデル変更ハンドラ
   const handleModelChange = useCallback((model: string, step?: BlogStepId) => {
+    void step;
     setSelectedModel(model);
-    if (step) setSelectedBlogStep(step);
   }, []);
 
   // nextStepの変更ハンドラ
@@ -663,16 +662,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     !!chatSession.state.currentSessionId &&
     selectedModel === 'blog_creation';
 
-  // ✅ 手動編集フラグを追加
-  const [, setIsManualEdit] = useState(false);
-
   // ✅ セッション切り替え時にパネルを自動的に閉じる
   useEffect(() => {
     setCanvasPanelOpen(false);
     setAnnotationOpen(false);
     setAnnotationData(null);
     setAnnotationLoading(false);
-    setIsManualEdit(false);
     setCanvasStep(null);
     setSelectedVersionByStep({});
     setFollowLatestByStep({});
@@ -690,15 +685,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       // （ユーザーが明示的に他のモデルを選択した場合は尊重）
       if (!selectedModel || selectedModel === 'blog_creation') {
         setSelectedModel('blog_creation');
-        setSelectedBlogStep(latestBlogStep);
       }
     }
   }, [latestBlogStep, selectedModel]);
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = async (content: string, model: string) => {
-    // 新規メッセージ送信時は手動編集フラグをリセット
-    setIsManualEdit(false);
+    // 新規メッセージ送信時はプレースホルダー状態をリセット
     setNextStepForPlaceholder(null);
     // メッセージ送信（エラーハンドリングは上位に委譲）
     await chatSession.actions.sendMessage(content, model);
@@ -734,7 +727,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         next[detectedStep] = targetVersionId !== null && targetVersionId === latestVersionId;
         return next;
       });
-      setIsManualEdit(true);
 
       if (annotationOpen) {
         setAnnotationOpen(false);
@@ -747,7 +739,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       blogCanvasVersionsByStep,
       latestBlogStep,
       setCanvasStreamingContent,
-      setIsManualEdit,
     ]
   );
 
@@ -768,7 +759,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       // Canvasパネルが開いている場合は同時に切り替え
       if (canvasPanelOpen) {
         setCanvasPanelOpen(false);
-        setIsManualEdit(false);
       }
 
       // データ取得完了後にパネルを表示
@@ -780,7 +770,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       // エラーでも切り替えを実行
       if (canvasPanelOpen) {
         setCanvasPanelOpen(false);
-        setIsManualEdit(false);
       }
       setAnnotationOpen(true);
     } finally {
@@ -805,9 +794,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         next[step] = latestId !== null && versionId === latestId;
         return next;
       });
-      setIsManualEdit(true);
     },
-    [blogCanvasVersionsByStep, resolvedCanvasStep, setIsManualEdit]
+    [blogCanvasVersionsByStep, resolvedCanvasStep]
   );
 
   const handleCanvasStepChange = useCallback(
@@ -834,9 +822,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         }
         return next;
       });
-      setIsManualEdit(true);
     },
-    [blogCanvasVersionsByStep, setIsManualEdit]
+    [blogCanvasVersionsByStep]
   );
 
   const handleCanvasStepSelect = useCallback(
@@ -854,7 +841,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
 
       canvasEditInFlightRef.current = true;
-      setIsManualEdit(true);
       setIsCanvasStreaming(true);
 
       try {
@@ -1077,8 +1063,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           buffer = '';
         }
 
-        // 改善指示を出したステップから続行できるように状態を更新
-        setSelectedBlogStep(targetStep);
         handleModelChange('blog_creation', targetStep);
 
         // セッションを再読み込みして最新メッセージを取得
@@ -1114,7 +1098,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setCanvasPanelOpen,
       setCanvasStep,
       setFollowLatestByStep,
-      setIsManualEdit,
       setOptimisticMessages,
       setCanvasStreamingContent,
       setSelectedVersionByStep,
@@ -1156,7 +1139,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         <CanvasPanel
           onClose={() => {
             setCanvasPanelOpen(false);
-            setIsManualEdit(false); // Canvas閉じる時も手動編集フラグをリセット
           }}
           content={canvasContent}
           isVisible={canvasPanelOpen}
