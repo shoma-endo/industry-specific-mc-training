@@ -1,11 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import { env } from '@/env';
 import { cache } from 'react';
-
-const supabase = createClient(
-  env.NEXT_PUBLIC_SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE
-);
+import { SupabaseService } from '@/server/services/supabaseService';
 
 export interface Brief {
   id: string;
@@ -16,12 +10,15 @@ export interface Brief {
 }
 
 export class BriefService {
+  private static readonly supabaseService = new SupabaseService();
+
   /**
    * ユーザーIDで事業者情報を取得
    */
   static async getByUserId(userId: string): Promise<Brief | null> {
     try {
-      const { data, error } = await supabase
+      const client = this.supabaseService.getClient();
+      const { data, error } = await client
         .from('briefs')
         .select('*')
         .eq('user_id', userId)
