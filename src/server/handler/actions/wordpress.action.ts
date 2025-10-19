@@ -698,7 +698,6 @@ export async function testWordPressConnectionAction() {
       message: `${
         context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
       }接続テストが成功しました`,
-      siteInfo: connectionTest.data,
     };
   } catch (error) {
     return {

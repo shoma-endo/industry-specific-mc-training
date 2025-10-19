@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
       message: `${
         context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
       }に接続済み`,
-      siteInfo: connectionTest.data,
       wpType: context.wpSettings.wpType,
     });
   } catch (error) {
@@ -109,7 +108,6 @@ export async function POST(request: NextRequest) {
       message: `${
         context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
       }接続テストが成功しました`,
-      siteInfo: connectionTest.data,
     });
   } catch (error) {
     console.error('WordPress connection test error:', error);

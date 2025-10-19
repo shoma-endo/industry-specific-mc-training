@@ -61,7 +61,6 @@ export interface WordPressApiResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
-  siteInfo?: WordPressSiteInfo; // testConnection で使用していたが、dataに含める形に変更したため、重複の可能性あり
 }
 
 export type WordPressRenderedField = { rendered?: string } | string | undefined;
