@@ -982,6 +982,83 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         let fullMarkdown = '';
         let analysisResult = '';
 
+        const processEventBlock = (block: string) => {
+          if (!block.trim() || block.startsWith(': ')) {
+            return;
+          }
+
+          const eventMatch = block.match(/^event: (.+)$/m);
+          const dataMatch = block.match(/^data: (.+)$/m);
+
+          if (!eventMatch || !dataMatch || !eventMatch[1] || !dataMatch[1]) {
+            return;
+          }
+
+          const eventType = eventMatch[1];
+          let eventData: unknown;
+
+          try {
+            eventData = JSON.parse(dataMatch[1]);
+          } catch (error) {
+            console.error('Failed to parse SSE data payload', error, { raw: dataMatch[1] });
+            return;
+          }
+
+          if (eventType === 'chunk' && typeof eventData === 'object' && eventData !== null) {
+            const decodedMarkdown = markdownDecoder.feed(
+              (eventData as { content?: string }).content ?? ''
+            );
+            fullMarkdown = decodedMarkdown;
+            setCanvasStreamingContent(decodedMarkdown);
+            setOptimisticMessages(prev =>
+              prev.map(msg =>
+                msg.id === tempAssistantCanvasId ? { ...msg, content: decodedMarkdown } : msg
+              )
+            );
+            return;
+          }
+
+          if (
+            eventType === 'analysis_chunk' &&
+            typeof eventData === 'object' &&
+            eventData !== null
+          ) {
+            analysisResult += (eventData as { content?: string }).content ?? '';
+            setOptimisticMessages(prev =>
+              prev.map(msg =>
+                msg.id === tempAssistantAnalysisId ? { ...msg, content: analysisResult } : msg
+              )
+            );
+            return;
+          }
+
+          if (eventType === 'done' && typeof eventData === 'object' && eventData !== null) {
+            fullMarkdown =
+              (eventData as { fullMarkdown?: string }).fullMarkdown ?? fullMarkdown;
+            analysisResult = (eventData as { analysis?: string }).analysis ?? analysisResult;
+            setCanvasStreamingContent(fullMarkdown);
+            setOptimisticMessages(prev =>
+              prev.map(msg => {
+                if (msg.id === tempAssistantCanvasId) {
+                  return { ...msg, content: fullMarkdown };
+                }
+                if (msg.id === tempAssistantAnalysisId) {
+                  return { ...msg, content: analysisResult };
+                }
+                return msg;
+              })
+            );
+            return;
+          }
+
+          if (eventType === 'error' && typeof eventData === 'object' && eventData !== null) {
+            const message =
+              (eventData as { message?: string }).message ||
+              'ストリーミングエラーが発生しました';
+            throw new Error(message);
+          }
+        };
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -991,57 +1068,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           buffer = lines.pop() || '';
 
           for (const line of lines) {
-            if (!line.trim() || line.startsWith(': ')) continue;
-
-            const eventMatch = line.match(/^event: (.+)$/m);
-            const dataMatch = line.match(/^data: (.+)$/m);
-
-            if (!eventMatch || !dataMatch || !eventMatch[1] || !dataMatch[1]) continue;
-
-            const eventType = eventMatch[1];
-            const eventData = JSON.parse(dataMatch[1]);
-
-            if (eventType === 'chunk') {
-              const decodedMarkdown = markdownDecoder.feed(eventData.content);
-              fullMarkdown = decodedMarkdown;
-              setCanvasStreamingContent(decodedMarkdown);
-              // 1つ目のアシスタントメッセージ（Canvas用の文章）を更新
-              setOptimisticMessages(prev =>
-                prev.map(msg =>
-                  msg.id === tempAssistantCanvasId
-                    ? { ...msg, content: decodedMarkdown }
-                    : msg
-                )
-              );
-            } else if (eventType === 'analysis_chunk') {
-              // 分析結果のストリーミング（通常のチャット用）
-              analysisResult += eventData.content;
-              // 2つ目のアシスタントメッセージ（分析結果）を更新
-              setOptimisticMessages(prev =>
-                prev.map(msg =>
-                  msg.id === tempAssistantAnalysisId ? { ...msg, content: analysisResult } : msg
-                )
-              );
-            } else if (eventType === 'done') {
-              fullMarkdown = eventData.fullMarkdown || fullMarkdown;
-              analysisResult = eventData.analysis || analysisResult;
-              setCanvasStreamingContent(fullMarkdown);
-              // 両方のアシスタントメッセージを最終更新
-              setOptimisticMessages(prev =>
-                prev.map(msg => {
-                  if (msg.id === tempAssistantCanvasId) {
-                    return { ...msg, content: fullMarkdown };
-                  }
-                  if (msg.id === tempAssistantAnalysisId) {
-                    return { ...msg, content: analysisResult };
-                  }
-                  return msg;
-                })
-              );
-            } else if (eventType === 'error') {
-              throw new Error(eventData.message || 'ストリーミングエラーが発生しました');
-            }
+            processEventBlock(line);
           }
+        }
+
+        if (buffer.trim()) {
+          processEventBlock(buffer);
+          buffer = '';
         }
 
         // 改善指示を出したステップから続行できるように状態を更新

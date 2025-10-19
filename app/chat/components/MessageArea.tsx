@@ -15,6 +15,19 @@ type BlogPreviewMeta = {
   excerpt: string | null;
 };
 
+const URL_SAFE_CHAR_SET = new Set<string>([
+  ...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+  '-', '.', '_', '~', ':', '/', '?', '#', '[', ']', '@',
+  '!', '$', '&', "'", '(', ')', '*', '+', ',', ';', '=', '%',
+]);
+
+const TRIMMABLE_TRAILING_CHAR_SET = new Set<string>([
+  '.', ',', '!', '?', ';', ':', '、', '。', '，', '．', '）', '】', '〉', '》', '」', '』',
+]);
+
+const isUrlSafeChar = (char: string) => URL_SAFE_CHAR_SET.has(char);
+const isTrimmableTrailingChar = (char: string) => TRIMMABLE_TRAILING_CHAR_SET.has(char);
+
 interface MessageAreaProps {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -65,6 +78,40 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     const lines = content.split('\n');
     const processed: React.ReactNode[] = [];
 
+    const splitUrlAndTrailing = (value: string) => {
+      if (!value) {
+        return { href: '', trailing: '' };
+      }
+
+      let firstUnsafeIndex = value.length;
+      for (let index = 0; index < value.length; index += 1) {
+        const char = value[index]!;
+        if (!isUrlSafeChar(char)) {
+          firstUnsafeIndex = index;
+          break;
+        }
+      }
+
+      let href = value.slice(0, firstUnsafeIndex);
+      let trailing = value.slice(firstUnsafeIndex);
+
+      while (href) {
+        const lastChar = href[href.length - 1]!;
+        if (
+          !isUrlSafeChar(lastChar) ||
+          isTrimmableTrailingChar(lastChar) ||
+          (lastChar === ')' && href.lastIndexOf('(') === -1)
+        ) {
+          trailing = `${lastChar}${trailing}`;
+          href = href.slice(0, -1);
+          continue;
+        }
+        break;
+      }
+
+      return { href, trailing };
+    };
+
     const renderLine = (line: string, lineIndex: number) => {
       if (!line) return [];
 
@@ -75,21 +122,36 @@ const MessageArea: React.FC<MessageAreaProps> = ({
       markdownLinkPattern.lastIndex = 0;
       while ((match = markdownLinkPattern.exec(line)) !== null) {
         const [fullMatch, label, href] = match;
+        const matchedHref = href ?? '';
         const start = match.index;
         if (start > cursor) {
           nodes.push(<span key={`text-${lineIndex}-${cursor}`}>{line.slice(cursor, start)}</span>);
         }
-        nodes.push(
-          <a
-            key={`md-${lineIndex}-${start}`}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
-          >
-            {label}
-          </a>
-        );
+        const { href: trimmedHref, trailing } = splitUrlAndTrailing(matchedHref);
+
+        if (trimmedHref) {
+          nodes.push(
+            <a
+              key={`md-${lineIndex}-${start}`}
+              href={trimmedHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              {label}
+            </a>
+          );
+
+          if (trailing) {
+            nodes.push(
+              <span key={`md-trail-${lineIndex}-${start + trimmedHref.length}`}>{trailing}</span>
+            );
+          }
+        } else {
+          nodes.push(
+            <span key={`md-text-${lineIndex}-${start}`}>{line.slice(start, start + fullMatch.length)}</span>
+          );
+        }
         cursor = start + fullMatch.length;
       }
 
@@ -109,28 +171,29 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             );
           }
 
-          let href = rawMatch[0];
-          const trailingPunctuationMatch = href.match(/[.,!?]+$/);
-          let trailing = '';
-          if (trailingPunctuationMatch) {
-            trailing = trailingPunctuationMatch[0];
-            href = href.slice(0, -trailing.length);
-          }
+          const originalUrl = rawMatch[0];
+          const { href, trailing } = splitUrlAndTrailing(originalUrl);
 
-          nodes.push(
-            <a
-              key={`url-${lineIndex}-${cursor + start}`}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline break-all"
-            >
-              {href}
-            </a>
-          );
+          if (href) {
+            nodes.push(
+              <a
+                key={`url-${lineIndex}-${cursor + start}`}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline break-all"
+              >
+                {href}
+              </a>
+            );
 
-          if (trailing) {
-            nodes.push(<span key={`trail-${lineIndex}-${cursor + end}`}>{trailing}</span>);
+            if (trailing) {
+              nodes.push(<span key={`trail-${lineIndex}-${cursor + end}`}>{trailing}</span>);
+            }
+          } else {
+            nodes.push(
+              <span key={`url-text-${lineIndex}-${cursor + start}`}>{originalUrl}</span>
+            );
           }
 
           rawCursor = end;
