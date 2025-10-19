@@ -74,7 +74,8 @@ const MessageArea: React.FC<MessageAreaProps> = ({
   // URL/Markdownリンクを検出してリンクに変換（hrefは純粋なURLのみ）
   const formatMessageContent = (content: string) => {
     const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-    const rawUrlPattern = /https?:\/\/[^\s)\]]+/g;
+    const rawUrlPattern =
+      /https?:\/\/[^\s)\]「」『』【】〈〉《》〔〕（）<>→、。？！；：・…]+/g;
     const lines = content.split('\n');
     const processed: React.ReactNode[] = [];
 
