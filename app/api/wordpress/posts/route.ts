@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWordPressContext } from '@/server/services/wordpressContext';
+import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
+import type { WordPressRestPost, WordPressNormalizedPost } from '@/types/wordpress';
 
-type WpPostTitle = { rendered?: string } | string | undefined;
-type WpPostExcerpt = { rendered?: string } | string | undefined;
-
-interface WpRestTerm {
-  id?: number;
-  name?: string;
-}
-
-interface WpRestPost {
-  id?: number;
-  ID?: number;
-  date?: string;
-  modified?: string;
-  title?: WpPostTitle;
-  link?: string;
-  categories?: number[];
-  excerpt?: WpPostExcerpt;
-  _embedded?: {
-    'wp:term'?: Array<Array<WpRestTerm>>;
-  };
-}
+type ApiWordPressPost = Omit<WordPressNormalizedPost, 'canonical_url'>;
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,43 +39,17 @@ export async function GET(request: NextRequest) {
     }
 
     const postsJson: unknown = await resp.json();
-    const posts: WpRestPost[] = Array.isArray(postsJson) ? (postsJson as WpRestPost[]) : [];
+    const posts: WordPressRestPost[] = Array.isArray(postsJson)
+      ? (postsJson as WordPressRestPost[])
+      : [];
     const total = parseInt(resp.headers.get('X-WP-Total') || '0', 10);
 
-    // 必要フィールドのみ整形
-    const normalized = posts.map(
-      (
-        p
-      ): {
-        id: number | string | undefined;
-        date: string | undefined;
-        title: string | undefined;
-        link: string | undefined;
-        categories: number[] | undefined;
-        categoryNames: string[];
-        excerpt: string | undefined;
-      } => {
-        const termsNested = p._embedded?.['wp:term'] ?? [];
-        const firstTaxonomy =
-          Array.isArray(termsNested) && termsNested.length > 0 ? termsNested[0] : [];
-        const categoryNames = (firstTaxonomy || [])
-          .filter((t: WpRestTerm) => Boolean(t && t.name))
-          .map((t: WpRestTerm) => t.name as string);
-
-        const renderedTitle = typeof p.title === 'string' ? p.title : p.title?.rendered;
-        const renderedExcerpt = typeof p.excerpt === 'string' ? p.excerpt : p.excerpt?.rendered;
-
-        return {
-          id: p.id ?? p.ID,
-          date: p.date ?? p.modified,
-          title: renderedTitle,
-          link: p.link,
-          categories: p.categories,
-          categoryNames,
-          excerpt: renderedExcerpt,
-        };
-      }
-    );
+    const normalizedRaw = normalizeWordPressRestPosts(posts);
+    const normalized: ApiWordPressPost[] = normalizedRaw.map(post => {
+      const { canonical_url, ...rest } = post;
+      void canonical_url;
+      return rest;
+    });
 
     return NextResponse.json({ success: true, data: { posts: normalized, total } });
   } catch (error) {

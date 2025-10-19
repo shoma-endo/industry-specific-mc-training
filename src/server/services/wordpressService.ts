@@ -1,4 +1,13 @@
-import { WordPressPostResponse, WordPressSiteInfo, WordPressApiResult, WordPressType } from '@/types/wordpress';
+import {
+  WordPressPostResponse,
+  WordPressSiteInfo,
+  WordPressApiResult,
+  WordPressType,
+  WordPressRestPost,
+  WordPressNormalizedPost,
+  WordPressRenderedField,
+  WordPressRestTerm,
+} from '@/types/wordpress';
 
 // WordPress.com認証情報
 export interface WordPressComAuth {
@@ -275,4 +284,65 @@ export class WordPressService {
   public getWordPressComSiteId(): string | undefined {
     return this.siteId;
   }
+}
+
+const resolveRenderedField = (field: WordPressRenderedField): string | undefined => {
+  if (typeof field === 'string') {
+    return field;
+  }
+  if (!field) {
+    return undefined;
+  }
+  return field.rendered;
+};
+
+const extractCategoryNames = (terms: Array<WordPressRestTerm> | undefined): string[] => {
+  if (!terms || !Array.isArray(terms)) return [];
+  return terms
+    .filter((term): term is WordPressRestTerm & { name: string } => Boolean(term && term.name))
+    .map(term => term.name as string);
+};
+
+export function normalizeWordPressRestPosts(posts: WordPressRestPost[]): WordPressNormalizedPost[] {
+  return posts.map(post => {
+    const termsNested = post._embedded?.['wp:term'] ?? [];
+    const firstTaxonomy =
+      Array.isArray(termsNested) && termsNested.length > 0 ? termsNested[0] : undefined;
+    const categoryNames = extractCategoryNames(firstTaxonomy);
+
+    const normalized: WordPressNormalizedPost = {
+      id: post.id ?? post.ID,
+      categoryNames,
+    };
+
+    const date = post.date ?? post.modified;
+    if (date !== undefined) {
+      normalized.date = date;
+    }
+
+    const title = resolveRenderedField(post.title);
+    if (title !== undefined) {
+      normalized.title = title;
+    }
+
+    if (post.link !== undefined) {
+      normalized.link = post.link;
+    }
+
+    const canonical = post.yoast_head_json?.canonical ?? post.link;
+    if (canonical !== undefined) {
+      normalized.canonical_url = canonical;
+    }
+
+    if (post.categories !== undefined) {
+      normalized.categories = post.categories;
+    }
+
+    const excerpt = resolveRenderedField(post.excerpt);
+    if (excerpt !== undefined) {
+      normalized.excerpt = excerpt;
+    }
+
+    return normalized;
+  });
 }

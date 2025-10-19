@@ -3,11 +3,16 @@
 import { cookies } from 'next/headers';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { WordPressSettings } from '@/types/wordpress';
+import {
+  WordPressSettings,
+  WordPressRestPost,
+  WordPressNormalizedPost,
+} from '@/types/wordpress';
 import {
   buildWordPressServiceFromSettings,
   resolveWordPressContext,
 } from '@/server/services/wordpressContext';
+import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
 import type {
   AnnotationRecord,
   ContentAnnotationPayload,
@@ -38,49 +43,6 @@ export async function getWordPressSettings(): Promise<WordPressSettings | null> 
 
   return await supabaseService.getWordPressSettingsByUserId(authResult.userId);
 }
-
-// ==========================================
-// WordPress 投稿一覧取得（現在ユーザー）
-// ==========================================
-
-type WpPostTitle = { rendered?: string } | string | undefined;
-type WpPostExcerpt = { rendered?: string } | string | undefined;
-
-interface WpRestTerm {
-  id?: number;
-  name?: string;
-}
-
-interface WpRestPost {
-  id?: number;
-  ID?: number;
-  date?: string;
-  modified?: string;
-  title?: WpPostTitle;
-  link?: string;
-  categories?: number[];
-  excerpt?: WpPostExcerpt;
-  yoast_head_json?: {
-    canonical?: string;
-  };
-  _embedded?: {
-    'wp:term'?: Array<Array<WpRestTerm>>;
-  };
-}
-
-// ==========================================
-// ヘルパー型
-// ==========================================
-type NormalizedPost = {
-  id: number;
-  date?: string;
-  title?: string;
-  link?: string;
-  canonical_url?: string;
-  categories?: number[];
-  categoryNames?: string[];
-  excerpt?: string;
-};
 
 type RestRequestConfig = {
   headers: Record<string, string>;
@@ -334,7 +296,7 @@ async function parseRssAndNormalize(
   siteUrlClean: string,
   page: number,
   perPage: number
-): Promise<{ normalized: NormalizedPost[]; total: number } | null> {
+): Promise<{ normalized: WordPressNormalizedPost[]; total: number } | null> {
   const rssCandidates = [`${siteUrlClean}/feed/`, `${siteUrlClean}/?feed=rss2`];
   for (const rssUrl of rssCandidates) {
     try {
@@ -407,8 +369,11 @@ async function parseRssAndNormalize(
       const end = start + perPage;
       const sliced = items.slice(start, end);
 
-      const normalized = sliced.map((it, idx) => {
-        const n: NormalizedPost = { id: (start + idx + 1) as number };
+      const normalized: WordPressNormalizedPost[] = sliced.map((it, idx) => {
+        const n: WordPressNormalizedPost = {
+          id: start + idx + 1,
+          categoryNames: [],
+        };
         if (it.pubDate) n.date = it.pubDate;
         if (it.title) n.title = it.title;
         if (it.link) {
@@ -428,32 +393,6 @@ async function parseRssAndNormalize(
     }
   }
   return null;
-}
-
-function normalizeFromRest(posts: WpRestPost[]): NormalizedPost[] {
-  return posts.map(p => {
-    const termsNested = p._embedded?.['wp:term'] ?? [];
-    const firstTaxonomy =
-      Array.isArray(termsNested) && termsNested.length > 0 ? termsNested[0] : [];
-    const categoryNames = (firstTaxonomy || [])
-      .filter((t: WpRestTerm) => Boolean(t && t.name))
-      .map((t: WpRestTerm) => t.name as string);
-
-    const renderedTitle = typeof p.title === 'string' ? p.title : p.title?.rendered;
-    const renderedExcerpt = typeof p.excerpt === 'string' ? p.excerpt : p.excerpt?.rendered;
-
-    const canonicalFromYoast = p.yoast_head_json?.canonical;
-    return {
-      id: (p.id ?? p.ID) as number,
-      date: p.date ?? p.modified,
-      title: renderedTitle,
-      link: p.link,
-      canonical_url: canonicalFromYoast ?? p.link,
-      categories: p.categories,
-      categoryNames,
-      excerpt: renderedExcerpt,
-    } as NormalizedPost;
-  });
 }
 
 export async function getWordPressPostsForCurrentUser(page: number, perPage: number) {
@@ -505,8 +444,10 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
       : Array.isArray(postsJson)
         ? (postsJson as unknown[]).length
         : 0;
-  const posts: WpRestPost[] = Array.isArray(postsJson) ? (postsJson as WpRestPost[]) : [];
-  const normalized = normalizeFromRest(posts);
+  const posts: WordPressRestPost[] = Array.isArray(postsJson)
+    ? (postsJson as WordPressRestPost[])
+    : [];
+  const normalized = normalizeWordPressRestPosts(posts);
 
   return { success: true as const, data: { posts: normalized, total } };
 }

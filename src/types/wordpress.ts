@@ -63,3 +63,38 @@ export interface WordPressApiResult<T = unknown> {
   error?: string;
   siteInfo?: WordPressSiteInfo; // testConnection で使用していたが、dataに含める形に変更したため、重複の可能性あり
 }
+
+export type WordPressRenderedField = { rendered?: string } | string | undefined;
+
+export interface WordPressRestTerm {
+  id?: number;
+  name?: string;
+}
+
+export interface WordPressRestPost {
+  id?: number;
+  ID?: number;
+  date?: string;
+  modified?: string;
+  title?: WordPressRenderedField;
+  link?: string;
+  categories?: number[];
+  excerpt?: WordPressRenderedField;
+  yoast_head_json?: {
+    canonical?: string;
+  };
+  _embedded?: {
+    'wp:term'?: Array<Array<WordPressRestTerm>>;
+  };
+}
+
+export interface WordPressNormalizedPost {
+  id: number | string | undefined;
+  date?: string;
+  title?: string;
+  link?: string;
+  canonical_url?: string;
+  categories?: number[];
+  categoryNames: string[];
+  excerpt?: string;
+}
