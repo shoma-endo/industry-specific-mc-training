@@ -1,200 +1,78 @@
 # CLAUDE.md
 
-必ず日本語で回答してください。
-タスクを終えたら npx ccusage@latest を叩いて、コストを表示してください。
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+必ず日本語で回答してください。作業完了前にローカルで可能な検証（`npm run lint` 等）を実行し、必要に応じて `npx ccusage@latest` で Anthropic API のコストを確認してください。
 
-**Last Updated**: February 18, 2026
-**Framework Versions**: Next.js 15.4.7, React 19, TypeScript 5
+**主要スタック**: Next.js 15.4.7 (App Router) / React 19 / TypeScript 5.9 / Tailwind CSS v4 / Supabase / Stripe / Anthropic Claude Sonnet 4.5
 
-## プロジェクト基本情報
+---
 
-このプロジェクトは **Next.js** で構築された **AI搭載マーケティングコピー生成アプリケーション** です。LINE LIFF認証とSupabaseデータベースを統合し、マルチプロバイダAI（OpenAI + Anthropic）を使用した高度なコンテンツ生成機能を提供します。
+## プロジェクト概要
 
-### 主要技術スタック
+- LINE LIFF 認証を入口とした B2B SaaS。業界特化の広告・LP・ブログ制作を AI で支援します。
+- Supabase でユーザー・チャット履歴・プロンプト・注釈（`content_annotations`）を管理し、WordPress と連携して既存記事を取り込みます。
+- Stripe サブスクリプションとユーザーロール（`user`/`admin`/`unavailable`）で機能制御を行います。
 
-- **Frontend**: Next.js 15.4.7 + React 19 + TypeScript 5 + Tailwind CSS v4
-- **Backend**: Next.js API Routes + Supabase (PostgreSQL)
-- **Authentication**: LINE LIFF + JWTトークン自動更新
-- **AI Services**: OpenAI GPT + Anthropic Claude（SSEストリーミング対応）
-- **Payments**: Stripe サブスクリプションマネジメント
-- **External APIs**: Google Custom Search（API本体は410を返すため利用停止中／回数カウンタのみ稼働）+ WordPress REST API
+## ディレクトリ速見表
 
-### プロジェクト特性
+- `app/` … Next.js App Router ルート。`chat`, `analytics`, `business-info`, `setup`, `admin` などが機能単位で配置。
+- `app/api/` … Route Handlers。`chat/anthropic`, `chat/canvas`, `wordpress`, `admin`, `line`, `refresh`, `user`, `log-relay` を実装。
+- `src/server/` … サーバーサイドの中核。`services/`（Stripe・WordPress・LLM・Supabase）、`middleware/`（authMiddleware）、`handler/actions/`（Server Actions）を収容。
+- `src/domain/` … フロントエンド用サービス層（ChatService, SubscriptionService）。
+- `src/components/` … shadcn ベースの UI と共通コンポーネント（CanvasPanel, AnnotationFormFields 等）。
+- `src/lib/` … `constants`, `prompts`, `client-manager` などのユーティリティと設定。
+- `supabase/migrations/` … PostgreSQL スキーマを管理。変更時は必ずロールバック方法をコメントで提示。
 
-- **マルチテナント対応**: Supabase RLSによるデータ分離
-- **リアルタイム処理**: Server-Sent Events (SSE) ベースのストリーミングチャット
-- **RAG統合**: ベクター検索によるコンテンツ拡張
-- **モバイル最適化**: LINE LIFFによるモバイルファースト設計
+## 作業フローの基本
 
-- Follow the user’s requirements carefully & to the letter.
-- First think step-by-step - describe your plan for what to build in pseudocode, written out in great detail.
-- Confirm, then write code!
-- Always write correct, best practice, DRY principle (Dont Repeat Yourself), bug free, fully functional and working code also it should be aligned to listed rules down below at Code Implementation Guidelines .
-- Focus on easy and readability code, over being performant.
-- Fully implement all requested functionality.
-- Leave NO todo’s, placeholders or missing pieces.
-- Ensure code is complete! Verify thoroughly finalised.
-- Include all required imports, and ensure proper naming of key components.
-- Be concise Minimize any other prose.
-- If you think there might not be a correct answer, you say so.
-- If you do not know the answer, say so, instead of guessing.
+1. 目的と仕様を整理し、必要なら段階的な作業計画を提示。
+2. ソースを調査する際は `rg` を優先し、`shell` コマンドでは `workdir` を忘れない。
+3. 変更は `apply_patch` で部分編集する。自動生成ファイルには使わない。
+4. フロント実装は Tailwind クラスを主とし、UI ルールに従う（shadcn コンポーネントを優先）。
+5. 変更後は `npm run lint` や関連コマンドで検証。実行できない場合は理由を明記。
+6. 出力は要点を簡潔にまとめ、日本語で報告。差分のパスと重要箇所を引用する。
+7. 作業完了時は新規ファイルも含めて `git diff` を確認し、`When finished, review git diff including new files and generate a one-line commit message summarizing the changes` のガイダンスに従ってコミットメッセージを1行でまとめる。
 
-## 共通コマンド
+> TIP: `ln -s AGENTS.md CLAUDE.md` を設定すると、Claude Code でも AGENTS.md の指示を参照できます。
 
-### 開発環境
+## 実装指針
 
-```bash
-# 開発サーバー起動（TypeScript監視コンパイル）
-npm run dev
+- TypeScript は strict 前提。型・`zod` スキーマを積極的に活用し、`any` は避ける。
+- Server Actions（`use server`）と Route Handlers を使い分け、クライアントへの機密情報露出を防ぐ。
+- Chat/Canvas の SSE 実装ではタイムアウトや ping を既存実装に合わせる。
+- 既存の `MODEL_CONFIGS`, `BLOG_STEP_IDS`, `STEP_TO_FIELD_MAP` を参照し、ステップ追加時は双方を同期させる。
+- WordPress 連携は WordPress.com / Self-hosted の両方を考慮し、URL 正規化とエラーハンドリングを追加する。
+- Stripe を扱う処理では `env.STRIPE_ENABLED` を必ずチェックし、無効時の例外を投げるパターンを踏襲。
+- Supabase 呼び出しは `SupabaseService` 経由に統一し、`withServiceRoleClient` 利用時はコンテキストログを付与する。
 
-# 本番ビルド
-npm run build
+## テストと検証
 
-# コード品質チェック
-npm run lint
-```
+- 自動テストは未整備。動作確認は `npm run dev` での手動検証と API 叩きで行う。
+- auth や Stripe 周りの改修では `/app/page.tsx` や `/subscription` の UI フローまで確認する。
+- WordPress 連携変更時は `/app/analytics` と `AnnotationPanel` の表示・保存動作を手動で確認。
+- マイグレーション追加時は `supabase db push` 実行とロールバック方針を README / PR で共有する。
 
-### テスト・デバッグ
+## 主要機能の把握
 
-```bash
-# LINE LIFF開発用にngrokで外部公開
-npm run ngrok
-```
+- **Chat**: `useChatSession` + `ChatService` でセッション CRUD、`MessageArea` と `CanvasPanel` で AI 応答と編集体験を提供。
+- **Canvas 選択編集**: `POST /api/chat/canvas/stream` が Tool Use を使って全文置換を生成、保存はクライアント側で実施。
+- **Annotation**: `AnnotationPanel` から `content_annotations` を upsert。ブログ生成時に `PromptService.buildContentVariables` 経由で利用。
+- **WordPress**: `WordPressService` が REST API を複数候補で試行し、ステータスや投稿一覧を返す。OAuth トークンは cookie 管理。
+- **Stripe**: `SubscriptionService` + `stripeService` で購買／解約／ポータル遷移を行う。`authMiddleware` が `requiresSubscription` を返却。
+- **Admin**: `/admin/prompts` がテンプレート編集とバージョン管理、`/admin/users` がロール切り替えとキャッシュクリアを実装。
+- **Business Info**: `briefs` テーブルに 5W2H を含む JSON を保存し、プロンプトの変数へ注入。
 
-### ワークフロー
+## 外部サービスと環境変数
 
-- **開発開始時**: `npm run dev` でサーバー起動
-- **コード変更時**: 変更完了後に必ず `npm run lint` で品質チェック
-- **LINE連携テスト時**: `npm run ngrok` で外部アクセスを有効化
-- **本番デプロイ前**: `npm run build` でビルドテスト
+- `.env.local` に 19 個の必須変数を設定（詳細は README 参照）。Stripe を無効化したい場合もダミー値を入れる。
+- WordPress.com OAuth を使う場合は `WORDPRESS_COM_*`, `COOKIE_SECRET`, `OAUTH_*` を忘れずに。
+- `FEATURE_RPC_V2=true` で新しい Supabase RPC を有効化。デフォルトは `false`。
+- LIFF と Stripe は sandbox／本番でキーを切り替える。
 
-## Architecture Overview
+## トラブルシューティングのヒント
 
-This is a Next.js application that provides AI-powered marketing copy generation with multi-service integration.
+- LIFF トークンエラーは `authMiddleware` のログと `app/api/refresh` を確認。
+- SSE が途切れる場合は ping 間隔（20 秒）と 5 分の idle timeout、`sendPing` 実装を照らし合わせる。
+- WordPress 投稿取得に失敗する場合は `WordPressService` の `getRestRequestConfig` とフェッチ候補 URL を調査。
+- Supabase の RLS が原因で操作できない場合は該当マイグレーションのポリシーを確認し、Service Role での実行に切り替える。
 
-### Core Services Integration
-
-- **Authentication**: LINE LIFF (LINE Frontend Framework) with automatic token refresh
-- **Database**: Supabase with Row Level Security policies
-- **Payments**: Stripe subscription management with feature gating
-- **AI Services**:
-  - **OpenAI**: API with fine-tuned models for keyword categorization and text generation
-  - **Anthropic**: Claude models for advanced conversational AI with SSE streaming via `app/api/chat/anthropic/stream/route.ts`
-- **RAG System**: Retrieval-Augmented Generation using vector search for enhanced content generation
-
-### Authentication Flow
-
-1. Users authenticate through LINE LIFF (`src/components/ClientLiffProvider.tsx`)
-2. Access tokens are verified server-side (`src/server/services/lineAuthService.ts`)
-3. Automatic token refresh handles expiration
-4. All protected routes use `checkAuth()` middleware pattern
-5. Subscription status gates feature access
-
-### Chat System Architecture
-
-The chat system uses multiple AI models and services in sequence:
-
-1. **Fine-tuned Model**: `ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2` classifies keywords
-2. **Google Search**: (現在は `/api/user/search-count` が410 Goneを返し、回数トラッキングのみ稼働)
-3. **AI Generation**: Leverages multi-provider AI services for content generation over SSE
-4. **RAG Enhancement**: Integrates vector search for enhanced content retrieval
-
-All chat sessions are persisted in Supabase with user isolation. The system supports real-time SSE streaming responses from integrated AI providers.
-
-### Environment Configuration
-
-Environment variables are type-safe using `@t3-oss/env-nextjs` in `src/env.ts`. Key integrations require:
-
-- **LINE**: Channel ID and secret for LIFF authentication
-- **Supabase**: URL and service role key for database operations
-- **Stripe**: Product/price IDs and API keys for subscription management
-- **AI Services**:
-  - **OpenAI**: API key for chat completions and fine-tuned models
-  - **Anthropic**: API key for Claude models and SSE streaming
-- **Google**: Search API key and Custom Search Engine ID（API本体は停止中のため回数トラッキング用途のみ）
-- **Webhooks**: BASE_WEBHOOK_URL and RELAY_BEARER_TOKEN for external integrations
-
-### Key Code Patterns
-
-**Service Layer**: All external API calls go through service classes in `src/server/services/`
-
-**Error Handling**: Custom error types like `LineTokenExpiredError` with automatic recovery
-
-**Type Safety**: Strict TypeScript with Zod validation for API responses
-
-**Client/Server Separation**: Client components handle LIFF auth, server actions handle business logic
-
-**AI Integration**: Unified multi-provider interface through `LLMService` with SSE streaming support
-
-### Database Schema
-
-Supabase migrations in `supabase/migrations/` define:
-
-- User profiles linked to LINE accounts
-- Chat sessions and message history
-- WordPress connection settings
-- Content annotations for RAG system
-- Prompt templates and chunks for AI generation
-- Google search count tracking
-
-### API Endpoints
-
-#### Core Chat APIs
-
-- `POST /api/chat/anthropic/stream` - Anthropic Claude SSE streaming chat
-- `POST /api/refresh` - Token refresh and validation
-
-#### Authentication APIs
-
-- `POST /api/auth/check-role` - User role verification
-- `POST /api/auth/clear-cache` - Authentication cache clearing
-- `POST /api/line/callback` - LINE OAuth callback handling
-
-#### User Management APIs
-
-- `GET /api/user/current` - Current user profile
-- `GET /api/user/search-count` - Google search usage tracking
-
-#### WordPress Integration APIs
-
-- `GET/POST /api/wordpress/settings` - WordPress connection settings
-- `POST /api/wordpress/test-connection` - Connection testing
-- `GET /api/wordpress/posts` - Post retrieval
-- `GET/POST /api/wordpress/oauth/start` - OAuth flow initiation
-- `GET/POST /api/wordpress/oauth/callback` - OAuth callback handling
-- `GET /api/wordpress/status` - Connection status
-
-#### Admin APIs
-
-- `GET /api/admin/wordpress/stats` - WordPress usage statistics
-
-#### Utility APIs
-
-- `POST /api/log-relay` - External log forwarding
-
-### Development Notes
-
-- Use TypeScript strict mode (all strict options enabled)
-- LIFF components must disable SSR (`ssr: false`)
-- API routes follow Next.js 13+ App Router patterns
-- Subscription checks are required for all premium features
-- Token refresh happens automatically in auth service
-- **Route Groups**: Don't confuse route groups like `/(admin)/page.tsx` with nested routing. Route groups (parentheses) are not recognized as part of the routing structure. Having `/(admin)/page.tsx` and `/page.tsx` will cause conflicts as they both represent the root page.
-- **Avoid Overusing useEffect**: Best practice is server-side data fetching. Create data fetching utilities in a DAL (Data Access Layer) and call them from Server Components instead of using useEffect in Client Components.
-- **Implement Streaming Data Fetching**: When using Server Components for data fetching, implement streaming with Suspense boundaries for skeleton states. This provides better UX with progressive loading.
-- **Prefer Server Actions**: When implementing forms or mutations, explicitly use Server Actions instead of defaulting to event handlers. Server Actions provide better type safety and reduce client-server round trips.
-- **Async Params and SearchParams**: When accessing dynamic route params (`/blog/[id]`) or searchParams via `useSearchParams`, remember these are now async in Next.js 14+. Always use async/await to prevent errors.
-- **Supabase Client Usage**: Use `createServerClient()` for server-side operations (Server Components, Server Actions, Route Handlers) and `createClient()` for client-side operations. Import from `@supabase/supabase-js` and `@supabase/ssr` modules.
-
-### Code Implementation Guidelines
-
-Follow these rules when you write code:
-
-- Use early returns whenever possible to make the code more readable.
-- Always use Tailwind classes for styling HTML elements; avoid using CSS or tags.
-- Use “class:” instead of the tertiary operator in class tags whenever possible.
-- Use descriptive variable and function/const names. Also, event functions should be named with a “handle” prefix, like “handleClick” for onClick and “handleKeyDown” for onKeyDown.
-- Implement accessibility features on elements. For example, a tag should have a tabindex=“0”, aria-label, on:click, and on:keydown, and similar attributes.
-- Use consts instead of functions, for example, “const toggle = () =>”. Also, define a type if possible.
-- Never use any in a type definition.
+上記を守ることで、Claude Code でも安全かつ一貫性のある変更が可能になります。

@@ -1,33 +1,72 @@
 # Repository Guidelines
 
-# 必ず日本語で回答してください。
+## プロジェクト概要
 
-## Project Structure & Module Organization
-- `app/` contains Next.js App Router routes; keep layouts minimal and co-locate feature-specific components.
-- `src/` hosts reusable code: `components/` (shadcn UI), `domain/` (business logic), `server/` (server actions and integrations), `lib/` helpers, `types/` shared contracts, and `hooks/` composition utilities.
-- Database assets live in `supabase/migrations/`; pair any schema change with clear rollback notes.
-- Root configs (`eslint.config.mjs`, `.prettierrc`, `next.config.ts`) are source-of-truth; update them rather than creating per-folder overrides.
+- LINE LIFF 認証を入り口に、業界特化のマーケティングコンテンツ（広告・LP・ブログ等）を AI で生成・管理する Next.js 15 ベースの SaaS。
+- Supabase がユーザー・セッション・注釈・プロンプトなどのデータを保持し、WordPress 連携で既存記事を取り込みます。
+- Stripe サブスクリプションとロール（`user` / `admin` / `unavailable`）により機能制御を行い、Anthropic Claude と OpenAI モデルを用途に応じて切替します。
 
-## Build, Test, and Development Commands
-- `npm run dev`: type-check with `tsc-watch` then launch `next dev --turbopack`.
-- `npm run build` / `npm run start`: production build and runtime smoke test; run before merging backend or routing edits.
-- `npm run lint`: ESLint with Next and Tailwind rules; invoked by Husky `pre-commit`.
-- `npm run ngrok`: expose port 3000 during LIFF or mobile QA sessions.
-- `npx supabase db push`: sync PostgreSQL schema from `supabase/migrations/` after editing SQL or RLS policies.
+## 主要ディレクトリ
 
-## Coding Style & Naming Conventions
-- TypeScript-first: export explicit types from `src/types/` and reuse them in server actions.
-- Prettier (2-space indent, single quotes, semicolons, 100-char width) governs formatting; run `npx prettier --write <file>` when editors drift.
-- Components/hooks use PascalCase and camelCase names; keep server-only utilities suffixed with `.server.ts` or `.action.ts`.
-- Tailwind classes should remain purposeful—derive variants through `cva` utilities in `src/components/ui`.
+- `app/` — Next.js App Router の各機能境界（`chat`, `analytics`, `business-info`, `setup`, `subscription`, `admin`, `api`）。
+- `src/components/` — shadcn/ui ベースの共通 UI コンポーネント群。
+- `src/domain/` — フロント向けサービス層（`ChatService`, `SubscriptionService` など）。
+- `src/server/` — Server Actions・ミドルウェア・外部サービス連携（WordPress / Stripe / LLM / Supabase）。
+- `src/types/` — 共通型定義。環境変数・チャット・WordPress などを集約。
+- `supabase/migrations/` — PostgreSQL スキーマと RLS のマイグレーションファイル。
 
-## Testing Guidelines
-- No automated suite is wired yet; add new tests alongside implementations (e.g., `src/domain/foo.test.ts`) and expose them via a script such as `npm run test` when introduced.
-- Validate flows manually today: run `npm run dev`, perform LIFF sign-in, exercise Supabase writes, and inspect network logs for Stripe or WordPress calls.
-- Capture reproduction steps and sample payloads in PRs so reviewers can replay changes quickly.
+## コミュニケーションと回答スタイル
 
-## Commit & Pull Request Guidelines
-- Follow the existing concise, present-tense commit style (often Japanese verbs, e.g., `チャット保存機能削除`); keep each commit single-purpose.
-- Always run `npm run lint` before committing; Husky blocks failures.
-- PRs should outline user impact, deployment or env updates, linked issues, and include screenshots/GIFs for UI updates under `app/`.
-- Highlight Supabase migrations or env schema changes in the description so deployers can coordinate secrets and rollbacks.
+- すべての応答は日本語で行ってください。
+- コマンド出力は要点を抜粋し、無制限な貼り付けを避けます。
+- 不明点があれば推測せず、ユーザーに確認を取ってください。
+
+## 開発ワークフローの原則
+
+- 可能な限り段階的な作業計画を共有し、重要な差分を逐次報告します。
+- ファイル操作は `apply_patch` を用いた最小編集が基本です。生成物や整形は専用コマンドを使用します。
+- `rg` / `rg --files` を優先してリポジトリを探索してください。
+- 作業の終わりに `npm run lint` を実行し、結果を共有します（実行できない場合は理由を明記）。
+- Supabase スキーマを変更する際は `supabase/migrations/` に SQL を追加し、ロールバック案をコメントで残します。
+- 作業完了時は新規ファイルを含めて `git diff` を確認し、`When finished, review git diff including new files and generate a one-line commit message summarizing the changes` の指針どおり一行のコミットメッセージを生成してください。
+
+## プロジェクト構造の把握
+
+- `app/` ― Next.js App Router。`chat`, `analytics`, `business-info`, `setup`, `subscription`, `admin`, `api` が主要な機能境界です。
+- `src/` ― 共有ロジック。`components/`（shadcn UI + 共通部品）、`domain/`（フロントサービス層）、`hooks/`, `lib/`, `server/`（サービス・ミドルウェア・Server Actions）、`types/` に整理されています。
+- `supabase/migrations/` ― PostgreSQL テーブル／ポリシー管理。追加時は README との整合性を保つこと。
+- ルート直下の設定ファイル（`eslint.config.mjs`, `next.config.ts`, `postcss.config.mjs` など）が唯一のソース・オブ・トゥルースです。フォルダ別の設定を増やさないでください。
+
+## ビルド・テスト・開発コマンド
+
+- `npm run dev` ― `tsc-watch` + `next dev --turbopack`
+- `npm run build` / `npm run start` ― 本番ビルドと動作確認
+- `npm run lint` ― ESLint（Next/Tailwind）＋ Prettier 連携
+- `npm run ngrok` ― LIFF 実機検証用 HTTPS トンネル
+- `npx supabase db push` ― Supabase スキーマ反映（本番反映前は要確認）
+
+## コーディングスタイル
+
+- TypeScript ファースト。共有型は `src/types/` に追加し、フロント・サーバー双方で再利用します。
+- Tailwind CSS でスタイルを記述し、冗長なユーティリティクラスは `cva` などで整理します。
+- React コンポーネント・カスタムフックは PascalCase / camelCase を徹底。サーバー専用ファイルは `.server.ts` / `.action.ts` を語尾に付けます。
+- 既存の hooks/service クラス（`ChatService`, `SubscriptionService` 等）を流用し、重複実装を避けてください。
+- Supabase 呼び出しは `src/server/services/SupabaseService` 経由に統一し、直接 `createClient` を増やさないこと。
+
+## テストと検証
+
+- 重要フロー（LIFF 認証、Stripe、WordPress 投稿取得、Canvas 編集）はローカルで手動検証し、手順や想定結果を PR に記述します。
+- Stripe・WordPress・LIFF は本番キーとサンドボックスで環境変数が変わるため、変更時は README と `.env.local` 用のメモを更新します。
+
+## ドキュメントとナレッジ
+
+- README / CLAUDE.md / AGENTS.md はプロジェクトの入口です。機能追加・環境変数変更・マイグレーション追加時は必ず最新情報を反映します。
+- 画面変更やフロー追加を行った場合は、スクリーンショットや再現手順を PR に添付し、関係者が即座に追体験できるよう配慮してください。
+
+## 注意事項
+
+- 不要な `git reset --hard` や `git checkout --` など、破壊的なコマンドは使用禁止です。
+- 作業中に予期しない変更を検知した場合は即座にユーザーへ確認を取り、勝手に破棄しないでください。
+- ネットワークアクセスや権限昇格が必要なコマンドは、事前に明確な目的と理由を添えて承認を得ます。
+
+上記方針に従うことで、複数エージェントや複数人での開発でも一貫性と安全性を保ちながら進められます。

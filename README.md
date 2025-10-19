@@ -1,100 +1,124 @@
 # Industry-Specific MC Training Platform
 
-LINE認証をベースとした業界特化型AIマーケティング支援プラットフォーム。Fine-tuned AIモデル、広告/LP/ブログ向けテンプレート群、Canvas描画機能、WordPress連携、サブスクリプション決済を統合した包括的なSaaSアプリケーションです。
+LINE LIFF を入り口に、業界特化のマーケティングコンテンツを一括生成・管理する SaaS アプリケーションです。Next.js 15 App Router を基盤に、マルチベンダー AI、WordPress 連携、Stripe サブスクリプション、Supabase による堅牢なデータ管理を統合しています。
 
-## 🚀 主要機能
+## 🧭 プロダクト概要
+- LIFF でログインしたユーザー向けに、広告／LP／ブログ制作を支援する AI ワークスペースを提供
+- Anthropic Claude Sonnet 4.5 と OpenAI の Fine-tuned モデル `ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2` を用途に応じて切り替え
+- WordPress.com / 自社ホスティングを問わない投稿取得と、Supabase へのコンテンツ注釈保存
+- Stripe を用いた有料プラン管理と、ロール／サブスクリプション連動による機能制御
+- 管理者向けのプロンプトテンプレート編集・ユーザー権限管理 UI を内蔵
 
-### 📱 LINE LIFF認証
+## 🚀 主な機能
 
-- LINE Loginによるシームレスな認証
-- アクセストークンの自動リフレッシュ・メモリキャッシュ
-- 管理者権限による階層化ユーザー管理
-- Row Level Security（RLS）による厳格なデータ分離
+### LINE LIFF 認証とユーザー管理
+- LIFF v2.25 を利用したシームレスな LINE ログインと自動トークンリフレッシュ
+- サーバーサイドの `authMiddleware` でアクセストークン検証・ロール判定を一元管理
+- Supabase `users` テーブルにプロフィール・サブスクリプション ID・ロール・最終ログインを保存
 
-### 🤖 AIマーケティング支援機能
+### AI コンテンツ支援ワークスペース
+- `app/chat` 配下の ChatLayout で、セッション管理・モデル選択・AI 応答ストリーミングを統合
+- `MODEL_CONFIGS` に定義した 7 ステップのブログ作成フロー（ニーズ整理〜本文作成）と広告／LP テンプレートを提供
+- `POST /api/chat/anthropic/stream` による SSE で Claude 応答をリアルタイム描画
+- ステップ毎のプロンプト変数へ `content_annotations` と 事業者ブリーフ (`briefs`) をマージし、文脈の再利用を最小化
 
-- **Fine-tuned AIモデル**：`ft:gpt-4.1-nano-2025-04-14` によるキーワード分類
-- **テンプレート体系**：広告文（作成/仕上げ）、16パートLP草案/改善、7ステップのブログ作成フローなど複数の業務特化プロンプトを提供
-- **プロンプト管理**：管理者専用リアルタイム編集・バージョン履歴・変数付きテンプレート管理
-- **外部API統合**：Google検索回数トラッキング（※検索API本体は廃止済み）
-- **チャット機能**：Anthropic Claude Sonnet-4.5（`claude-sonnet-4-5-20250929`）とのストリーミング会話、セッション管理、AIモデル選択
+### キャンバス編集と選択範囲リライト
+- TipTap 3 ベースの `CanvasPanel` に Markdown レンダリング／見出しアウトライン／バージョン履歴を実装
+- `POST /api/chat/canvas/stream` で選択範囲と指示を送信し、Claude の Tool Use による全文差し替えを適用
+- 選択テキストの履歴・プレビュー・Web 検索トリガー（Claude ツール `web_search_20250305`）をサポート
 
-### 🎨 ランディングページ作成・WordPress連携
+### WordPress 連携とコンテンツ注釈
+- WordPress.com OAuth とセルフホスト版 Application Password の両対応（`app/setup/wordpress`）
+- `WordPressService` が REST API の候補 URL を試行し、投稿情報を正規化
+- `app/analytics` の一覧で投稿と Supabase `content_annotations` を突き合わせ、未紐付けの注釈も表示
+- `AnnotationPanel` でセッション単位のメモ・キーワード・ペルソナ・PREP 等を保存し、ブログ生成時に再利用
 
-- **WordPress.com / セルフホスト WordPress**：両方式対応
-- **プレビュー機能**：リアルタイムプレビュー・下書きモード
-- **OAuth認証**：WordPress.com 連携
-- **Application Password**：セルフホスト WordPress 対応
+### サブスクリプションと権限
+- Stripe v17.7 で Checkout / Billing Portal / Subscription 状態確認を実装（`SubscriptionService`）
+- `SubscriptionService` とカスタムフック `useSubscriptionStatus` で UI 側から有効プランを判定
+- `authMiddleware` が `requiresSubscription` を返し、有料機能へアクセス制御を適用
+- ユーザー権限（`user` / `admin` / `unavailable`）を Supabase 側で管理し、LIFF ログイン時に自動同期
 
-### 🖼️ Canvas描画機能
+### 管理者ダッシュボード
+- `/admin` でプロンプトテンプレート、ユーザー情報の管理 UI を提供
+- `/admin/prompts` からテンプレート編集とバージョン保存、暗黙パラメータ（content 系変数）説明を表示
+- `/admin/users` ではロール切り替え後に `POST /api/auth/clear-cache` を呼び出し、キャッシュを即時無効化
 
-- **TipTap 3.0.7**：マークダウン・テーブル・リンク・画像・コードハイライト
-- **AI統合**：チャット返信の直接挿入・見出しナビゲーション・多形式エクスポート
+### 事業者情報ブリーフ
+- `/business-info` でサービス概要や 5W2H、決済方法などを入力し、`briefs` テーブルに JSON として保存
+- ブリーフはプロンプトテンプレートの変数へ流用され、広告文や LP のコンテキストを自動補完
 
-### 💳 サブスクリプション・権限管理
+### セットアップ導線
+- `/setup/wordpress` で WordPress 連携の初期設定を案内
+- `/setup/gsc` は将来的な Google Search Console 連携のプレースホルダー
+- `/subscription` でプラン購入、`/analytics` で WordPress 投稿と注釈を照合
 
-- **Stripe Checkout**：サブスクリプション管理
-- **使用量制限**：Google検索回数制限・プラン別機能制御
-- **管理者ダッシュボード**：ユーザー・プロンプト管理
-
-## 🏗️ システムアーキテクチャ（2025年8月最新版）
+## 🏗️ システムアーキテクチャ
 
 ```mermaid
 graph TB
-    subgraph "Frontend Layer"
-        A[Next.js 15 App Router]
-        B[React 19 Components]
-        C[Canvas / TipTap Editor]
-        D[LIFF Hooks]
-    end
+  subgraph Client["Next.js 15 (App Router)"]
+    LIFFProvider["LIFF Provider & Auth Hooks"]
+    ChatUI["Chat Layout / Session Sidebar"]
+    Canvas["CanvasPanel (TipTap)"]
+    Annotation["AnnotationPanel"]
+    Analytics["Analytics Table"]
+    BusinessForm["Business Info Form"]
+    AdminUI["Admin Dashboards"]
+  end
 
-    subgraph "Authentication"
-        E[LINE LIFF 2.25]
-        F[Token Auto-Refresh Middleware]
-    end
+  subgraph Server["Next.js Route Handlers & Server Actions"]
+    AuthMiddleware["authMiddleware"]
+    ChatStream["/api/chat/anthropic/stream"]
+    CanvasStream["/api/chat/canvas/stream"]
+    WordPressAPI["/api/wordpress/*"]
+    AdminAPI["/api/admin/*"]
+    SubscriptionAPI["/api/refresh, /api/user/*"]
+    ServerActions["server/handler/actions/*"]
+  end
 
-    subgraph "Business Logic"
-        G[Server Actions]
-        H[Prompt Template Service]
-        I[WordPress Integration]
-        J[Chat Streaming Controller]
-    end
+  subgraph Data["Supabase PostgreSQL"]
+    UsersTable["users"]
+    SessionsTable["chat_sessions"]
+    MessagesTable["chat_messages"]
+    BriefsTable["briefs"]
+    AnnotationsTable["content_annotations"]
+    PromptsTable["prompt_templates"]
+    VersionsTable["prompt_versions"]
+    WordpressTable["wordpress_settings"]
+  end
 
-    subgraph "Data Layer"
-        K[Supabase PostgreSQL + RLS]
-        L[Prompt Templates & Versions]
-        M[WordPress Settings]
-    end
+  subgraph External["External Services"]
+    LINE["LINE Platform (LIFF / Verify)"]
+    Anthropic["Anthropic Claude"]
+    OpenAI["OpenAI GPT-4.1 nano FT"]
+    Stripe["Stripe Subscriptions"]
+    WordPress["WordPress REST API"]
+  end
 
-    subgraph "AI Models"
-        N[Fine-tuned OpenAI GPT-4.1 Nano]
-    O[Anthropic Claude Sonnet-4.5]
-    end
+  LIFFProvider --> AuthMiddleware
+  ChatUI --> ChatStream
+  Canvas --> CanvasStream
+  Annotation --> ServerActions
+  Analytics --> WordPressAPI
+  BusinessForm --> ServerActions
+  AdminUI --> AdminAPI
 
-    subgraph "External APIs"
-        R[Stripe 17.7]
-        S[WordPress REST / OAuth]
-        T[Google Search Quota Tracker]
-        V[LINE Platform API]
-    end
+  ServerActions --> UsersTable
+  ServerActions --> BriefsTable
+  ServerActions --> AnnotationsTable
+  ChatStream --> MessagesTable
+  ChatStream --> SessionsTable
+  WordPressAPI --> WordpressTable
+  AdminAPI --> PromptsTable
+  AdminAPI --> VersionsTable
 
-    A --> E
-    A --> G
-    B --> C
-    C --> J
-    E --> F
-    F --> G
-    G --> H
-    G --> I
-    G --> K
-    H --> L
-    I --> M
-    J --> O
-    H --> N
-    G --> R
-    I --> S
-    G --> T
-    F --> V
+  AuthMiddleware --> LINE
+  ChatStream --> Anthropic
+  CanvasStream --> Anthropic
+  ChatStream --> OpenAI
+  SubscriptionAPI --> Stripe
+  WordPressAPI --> WordPress
 ```
 
 ## 🔄 認証フロー
@@ -102,35 +126,39 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant C as Client
+    participant C as Client (LIFF)
     participant L as LINE Platform
-    participant S as Server
+    participant S as Next.js Server
     participant DB as Supabase
 
-    U->>C: アプリアクセス
-    C->>L: LIFF初期化
-    alt 未認証の場合
-        C->>L: LINE Login
-        L->>U: 認証画面表示
+    U->>C: アプリへアクセス
+    C->>L: LIFF 初期化
+    alt 未ログイン
+        C->>L: LINE Login リクエスト
+        L->>U: 認証画面を表示
         U->>L: 認証許可
-        L->>C: アクセストークン
+        L->>C: アクセストークン付与
     end
-    C->>S: トークン検証リクエスト
-    S->>L: トークン検証
-    L->>S: ユーザー情報
-    S->>DB: ユーザー情報保存/更新
-    S->>C: 認証完了
+    C->>S: アクセストークン検証
+    S->>L: Verify API 照会
+    L->>S: ユーザー情報を返却
+    S->>DB: users テーブルを upsert / last_login_at 更新
+    opt 管理者 or サブスクリプション確認
+        S->>DB: role / subscription state を参照
+    end
+    S->>C: 認証済みセッションを返却
 ```
 
 ## 🛠️ 技術スタック
+- **フロントエンド**: Next.js 15.4.7 (App Router), React 19, TypeScript 5.9, Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react
+- **エディタ**: TipTap 3.7.x + lowlight ハイライト、カスタム UI コンポーネント群
+- **バックエンド**: Next.js Route Handlers & Server Actions, Supabase JS 2.75 (PostgreSQL + RLS)
+- **AI**: Anthropic Claude Sonnet 4.5（SSE ストリーミング）, OpenAI Chat Completions（Fine-tuned モデル含む）
+- **認証**: LINE LIFF 2.25.1, Vercel Edge Cookie ストア, 独自ミドルウェアによるロール判定
+- **決済**: Stripe 17.7（Checkout / Billing Portal / Subscription API）
+- **開発ツール**: TypeScript strict, ESLint 9, Prettier 3, tsc-watch, Husky, ngrok
 
-**フロントエンド**: Next.js 15.4.7 + React 19 + TypeScript 5 + Tailwind CSS 4 + Radix UI + TipTap 3.0.7
-**バックエンド**: Supabase 2.49.1（PostgreSQL + RLS）+ プロンプトテンプレート/WordPress連携サービス
-**AI**: OpenAI GPT-4.1 Nano（Fine-tuned）+ Anthropic Claude Sonnet-4.5（`claude-sonnet-4-5-20250929`）
-**外部API**: Google Custom Search（回数カウントのみ）+ LINE LIFF 2.25.1 + Stripe 17.7 + WordPress REST API
-**開発**: Vercel + Husky + ESLint 9 + Prettier + tsc-watch + ngrok
-
-## 📊 データベーススキーマ
+## 📊 データベーススキーマ（主要テーブル）
 
 ```mermaid
 erDiagram
@@ -140,20 +168,18 @@ erDiagram
         text line_display_name
         text line_picture_url
         text line_status_message
+        text full_name
+        text role
         text stripe_customer_id
         text stripe_subscription_id
-        text role
-        text full_name
-        integer google_search_count
-        timestamp google_search_reset_at
-        timestamp last_login_at
+        bigint last_login_at
         bigint created_at
         bigint updated_at
     }
 
     chat_sessions {
         text id PK
-        uuid user_id FK
+        text user_id FK
         text title
         text system_prompt
         bigint last_message_at
@@ -162,12 +188,38 @@ erDiagram
 
     chat_messages {
         text id PK
-        uuid user_id FK
+        text user_id FK
         text session_id FK
         text role
         text content
         text model
         bigint created_at
+    }
+
+    briefs {
+        uuid id PK
+        text user_id UK
+        jsonb data
+        bigint created_at
+        bigint updated_at
+    }
+
+    content_annotations {
+        uuid id PK
+        text user_id FK
+        bigint wp_post_id
+        text session_id
+        text canonical_url
+        text main_kw
+        text kw
+        text impressions
+        text persona
+        text needs
+        text goal
+        text prep
+        text basic_structure
+        text opening_proposal
+        timestamptz updated_at
     }
 
     wordpress_settings {
@@ -180,228 +232,168 @@ erDiagram
         text wp_site_url
         text wp_username
         text wp_application_password
-        timestamp created_at
-        timestamp updated_at
+        timestamptz created_at
+        timestamptz updated_at
     }
-
 
     prompt_templates {
         uuid id PK
         text name UK
-        text description
+        text display_name
         text content
+        jsonb variables
         boolean is_active
-        timestamp created_at
-        timestamp updated_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     prompt_versions {
         uuid id PK
         uuid template_id FK
+        integer version
         text content
-        text change_description
-        timestamp created_at
+        text change_summary
+        timestamptz created_at
     }
 
-    briefs {
-        uuid id PK
-        uuid user_id FK
-        text name
-        jsonb content
-        timestamp created_at
-        timestamp updated_at
-    }
-
-
-    users ||--o{ chat_sessions : has
-    users ||--o{ chat_messages : owns
-    users ||--o{ briefs : creates
-    users ||--o| wordpress_settings : configures
+    users ||--o{ chat_sessions : owns
     chat_sessions ||--o{ chat_messages : contains
-    prompt_templates ||--o{ prompt_versions : has
+    users ||--|| briefs : "stores one brief"
+    users ||--o{ content_annotations : annotates
+    users ||--o| wordpress_settings : configures
+    prompt_templates ||--o{ prompt_versions : captures
 ```
 
-## 📋 環境変数設定（全19項目）
+## 📋 環境変数（19 項目）
 
-`src/env.ts` で型定義されているサーバー/クライアント環境変数は以下の19項目です。`.env.example` はリポジトリに含まれないため、`.env.local` を手動で作成して設定してください。
+`src/env.ts` で厳格にバリデーションされるサーバー／クライアント環境変数です。`.env.local` を手動で用意してください。
 
 | 種別 | 変数名 | 必須 | 用途 |
 | ---- | ------ | ---- | ---- |
-| Server | `DBPASS` | ✅ | Supabase から接続されるデータベースパスワード |
-| Server | `SUPABASE_SERVICE_ROLE` | ✅ | サーバーサイド処理で使用する Service Role キー |
-| Server | `STRIPE_ENABLED` | 任意 | Stripe を有効化するフラグ（`true/false`） |
-| Server | `STRIPE_SECRET_KEY` | ✅（決済有効時） | Stripe シークレットキー |
-| Server | `STRIPE_PRICE_ID` | ✅（決済有効時） | Stripe サブスクリプションの Price ID |
+| Server | `DBPASS` | ✅ | Supabase からアクセスされる Postgres password |
+| Server | `SUPABASE_SERVICE_ROLE` | ✅ | サーバーサイド特権操作用 Service Role キー |
+| Server | `STRIPE_ENABLED` | 任意 | Stripe 機能の有効化フラグ（`true` / `false`） |
+| Server | `STRIPE_SECRET_KEY` | ✅（Stripe 無効でもダミー値必須） | Stripe API 呼び出し用シークレット |
+| Server | `STRIPE_PRICE_ID` | ✅（Stripe 無効でもダミー値必須） | サブスクリプションで使用する Price ID |
 | Server | `OPENAI_API_KEY` | ✅ | Fine-tuned モデル利用時の OpenAI キー |
 | Server | `ANTHROPIC_API_KEY` | ✅ | Claude ストリーミング用 API キー |
-| Server | `GOOGLE_CUSTOM_SEARCH_KEY` | ✅ | Google Custom Search API キー（回数カウントで利用） |
+| Server | `GOOGLE_CUSTOM_SEARCH_KEY` | ✅ | Google Custom Search キー（現在は回数カウントのみ） |
 | Server | `GOOGLE_CSE_ID` | ✅ | Google Custom Search Engine ID |
 | Server | `LINE_CHANNEL_ID` | ✅ | LINE Login 用チャネル ID |
 | Server | `LINE_CHANNEL_SECRET` | ✅ | LINE Login 用チャネルシークレット |
-| Server | `BASE_WEBHOOK_URL` | ✅ | ログ転送先（Lark Base など）の Webhook URL |
-| Server | `RELAY_BEARER_TOKEN` | ✅ | `/api/log-relay` の Bearer 認証トークン |
+| Server | `BASE_WEBHOOK_URL` | ✅ | ログ／通知転送先の Webhook URL |
+| Server | `RELAY_BEARER_TOKEN` | ✅ | `/api/log-relay` 用の Bearer トークン |
 | Client | `NEXT_PUBLIC_LIFF_ID` | ✅ | LIFF アプリ ID |
 | Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID` | ✅ | LIFF Channel ID |
 | Client | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase プロジェクト URL |
 | Client | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon キー |
-| Client | `NEXT_PUBLIC_SITE_URL` | ✅ | サイト公開 URL |
-| Client | `NEXT_PUBLIC_STRIPE_ENABLED` | 任意 | クライアント側の Stripe 有効化フラグ |
+| Client | `NEXT_PUBLIC_SITE_URL` | ✅ | サイトの公開 URL |
+| Client | `NEXT_PUBLIC_STRIPE_ENABLED` | 任意 | クライアント側での Stripe 有効化フラグ（未設定時は `STRIPE_ENABLED` を継承） |
 
 ### 追加で利用できる任意設定
+- `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`: WordPress.com OAuth 連携で必須
+- `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress OAuth のセキュアな Cookie 管理
+- `FEATURE_RPC_V2`: `true` で新しい Supabase RPC 経路を有効化（`FEATURE_FLAGS.USE_RPC_V2`）
 
-- `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`: WordPress.com OAuth を利用する場合に必要。
-- `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`: WordPress OAuth 状態管理用クッキー名をカスタマイズする際に利用。
-- `COOKIE_SECRET`: WordPress OAuth コールバックで安全にトークンを保存するために必須。
-- `RELAY_PROJECT_ID`: `/api/log-relay` の自己ループ防止用に設定可能。
+## 🚀 セットアップ手順
 
-## 🚀 環境構築手順
-
-### 1. 前提条件
-
-- Node.js 18.x 以上
-- npm または yarn
-- Supabase アカウント
-- LINE Developers アカウント
-- Stripe アカウント（決済機能使用時）
+### 必要条件
+- Node.js 18 以上
+- npm
+- Supabase プロジェクト（Service Role キー取得済み）
+- LINE Developers アカウント（LIFF & Login 設定）
+- Stripe アカウント（サブスクリプション利用時）
 
 ### クイックスタート
 
 ```bash
-git clone <repository-url> && cd industry-specific-mc-training
+git clone <repository-url>
+cd industry-specific-mc-training
 npm install
-# .env.local を作成し上記19項目を設定
-npx supabase db push       # DBマイグレーション
-npm run dev               # 開発サーバー起動
-npm run ngrok             # LINE LIFF用HTTPSトンネル（別ターミナル）
+# .env.local に上記環境変数を設定
+npx supabase db push       # マイグレーション適用
+npm run dev                # tsc-watch + next dev --turbopack
+# LIFF 実機確認が必要な場合は別ターミナルで
+npm run ngrok
 ```
 
-### WordPress連携設定
+### ローカル開発のポイント
+- `npm run lint` で ESLint + Next/Tailwind ルールを検証（Husky pre-commit でも実行）
+- `npm run build` → `npm run start` で本番ビルドの健全性をチェック
+- Supabase への変更は `supabase/migrations/` に SQL を追加し、ロールバック手順をコメントに残す
+- LIFF 連携の動作確認は ngrok などで https 公開した上で LINE Developers のコールバック URL を更新
 
-**WordPress.com**: [Developer Console](https://developer.wordpress.com/apps/) でClient ID/Secret取得
-**セルフホスト**: 管理画面からApplication Password生成
-
-## 📁 プロジェクト構造（リファクタリング後・2025年8月）
+## 📁 プロジェクト構成
 
 ```
-├── app/                       # Next.js App Router（メイン）
-│   ├── admin/                # 管理者機能（権限制御）
-│   │   ├── prompts/         # プロンプト管理システム
-│   │   └── layout.tsx       # 管理者レイアウト
-│   ├── api/                 # API Routes
-│   │   ├── admin/         # 管理者専用API（プロンプト・統計）
-│   │   ├── auth/          # ロール確認・キャッシュクリア
-│   │   ├── chat/          # AnthropicストリーミングAPI
-│   │   ├── line/          # LINE認証API
-│   │   ├── log-relay/     # Vercel Log Drain 中継
-│   │   ├── refresh/       # LINEトークンリフレッシュ
-│   │   ├── user/          # ユーザー情報API
-│   │   └── wordpress/     # WordPress連携API
-│   ├── chat/               # チャット機能
-│   │   ├── components/     # チャット専用コンポーネント
-│   │   │   ├── CanvasPanel.tsx    # Canvas描画パネル
-│   │   │   ├── InputArea.tsx      # AIモデル選択・入力
-│   │   │   ├── MessageArea.tsx    # メッセージ表示
-│   │   │   └── SessionSidebar.tsx # セッション管理
-│   │   └── page.tsx        # チャットメインページ
-│   ├── analytics/          # アナリティクス表示
-│   ├── business-info/      # 事業情報入力
-│   ├── setup/              # 初期設定ウィザード
-│   └── subscription/       # サブスクリプション管理
-└── src/                    # ソースコード（統合済み）
-    ├── components/         # 共通コンポーネント
-    │   └── ui/            # shadcn/ui コンポーネント
-    ├── domain/            # ドメインドリブン設計
-    │   ├── errors/        # カスタムエラークラス
-    │   ├── interfaces/    # ビジネスインターフェース
-    │   ├── models/        # ドメインモデル
-    │   └── services/      # ドメインサービス
-    ├── hooks/             # React カスタムフック
-    ├── lib/               # ユーティリティ・定数
-    ├── server/            # サーバーサイドロジック
-    │   ├── handler/actions/ # Server Actions
-    │   ├── middleware/      # 認証・権限ミドルウェア
-    │   └── services/        # 外部API・データアクセス
-    └── types/             # TypeScript型定義
+├── app/
+│   ├── chat/                # AI チャットワークスペース（Canvas / Annotation / Step UI）
+│   ├── analytics/           # WordPress 投稿 + 注釈ダッシュボード
+│   ├── business-info/       # 事業者情報フォーム（Server Components + Actions）
+│   ├── setup/               # WordPress / GSC 等の初期セットアップ導線
+│   ├── subscription/        # サブスクリプション購入ページ
+│   ├── login/・unauthorized # 認証ステータス別ページ
+│   ├── admin/               # 管理者向け機能（プロンプト・ユーザー管理）
+│   ├── api/                 # Route Handlers（chat, wordpress, admin, auth, user, line, log-relay）
+│   └── layout.tsx など      # App Router ルートレイアウト
+├── src/
+│   ├── components/          # 再利用可能な UI（shadcn/ui, AnnotationFormFields 等）
+│   ├── domain/              # フロント向けサービス層（ChatService / SubscriptionService）
+│   ├── hooks/               # LIFF / サブスクリプション / UI ユーティリティ
+│   ├── lib/                 # 定数・プロンプト管理・Supabase クライアント生成
+│   ├── server/
+│   │   ├── handler/actions/ # Server Actions 経由のビジネスロジック
+│   │   ├── middleware/      # 認証・ロール判定ミドルウェア
+│   │   └── services/        # Stripe / WordPress / Supabase / LLM などの統合層
+│   └── types/               # 共通型定義（chat, prompt, annotation, wordpress 等）
+├── supabase/migrations/     # データベースマイグレーション
+└── config files             # eslint.config.mjs, next.config.ts, tailwind/postcss 設定
 ```
 
-## 🔧 主要なAPIエンドポイント
+## 🔧 主な API エンドポイント
 
-### 管理者向け
+| エンドポイント | メソッド | 概要 | 認証 |
+| -------------- | -------- | ---- | ---- |
+| `/api/chat/anthropic/stream` | POST | Claude とのチャット SSE ストリーム | `Authorization: Bearer <LIFF>` |
+| `/api/chat/canvas/stream` | POST | Canvas 編集リクエスト（選択範囲差し替え） | `Authorization: Bearer <LIFF>` |
+| `/api/refresh` | POST | LINE リフレッシュトークンからアクセストークン再発行 | Cookie (`line_refresh_token`) |
+| `/api/user/current` | GET | ログインユーザーのプロファイル・ロール情報 | Cookie (`line_access_token`) |
+| `/api/user/search-count` | GET | Google 検索機能廃止の 410 応答 | 任意 |
+| `/api/auth/check-role` | GET | ロールのサーバー検証 | Cookie |
+| `/api/auth/clear-cache` | POST | Edge キャッシュクリア通知 | 任意 |
+| `/api/line/callback` | GET | LINE OAuth コールバック | 公開（state チェックあり） |
+| `/api/wordpress/settings` | GET/POST | WordPress 設定の取得・保存（server action と共有） | Cookie |
+| `/api/wordpress/status` | GET | WordPress 接続状況の確認 | Cookie |
+| `/api/wordpress/posts` | GET | WordPress 投稿一覧の取得 | Cookie + WP 認証 |
+| `/api/wordpress/test-connection` | POST | WordPress 接続テスト | Cookie |
+| `/api/wordpress/oauth/start` | GET | WordPress.com OAuth リダイレクト開始 | 公開（環境変数必須） |
+| `/api/wordpress/oauth/callback` | GET | WordPress.com OAuth コールバック | Cookie |
+| `/api/admin/prompts` | GET | プロンプトテンプレート一覧（管理者専用） | Cookie + admin ロール |
+| `/api/admin/prompts/[id]` | POST | テンプレート更新・バージョン生成 | Cookie + admin ロール |
+| `/api/admin/wordpress/stats` | GET | WordPress 連携状況集計 | Cookie + admin ロール |
+| `/api/log-relay` | POST/GET | Vercel Log Drain のリレー | Bearer (`RELAY_BEARER_TOKEN`) |
 
-| エンドポイント | メソッド | 主な役割 | 認証 |
-| -------------- | -------- | -------- | ---- |
-| `/api/admin/prompts` | GET | 全プロンプトテンプレートの一覧取得 | LINEアクセス/リフレッシュトークン + 管理者ロール |
-| `/api/admin/prompts/[id]` | GET/POST | 個別テンプレートの閲覧・更新 | LINEアクセス/リフレッシュトークン + 管理者ロール |
-| `/api/admin/wordpress/stats` | GET | WordPress連携状況の集計 | LINEアクセス/リフレッシュトークン + 管理者ロール |
+サーバーアクション (`src/server/handler/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
 
-### 認証・ユーザー
+## 🛡️ セキュリティと運用の注意点
+- Supabase では主要テーブルに RLS を適用済み（開発ポリシーが残る箇所は運用前に見直す）
+- `authMiddleware` がロール・サブスクリプションを検証し、`requiresSubscription` でプレミアム機能を保護
+- WordPress アプリケーションパスワードや OAuth トークンは HTTP-only Cookie に保存（本番では安全な KMS / Secrets 管理を推奨）
+- SSE は 20 秒ごとの ping と 5 分アイドルタイムアウトで接続維持を調整
+- `AnnotationPanel` の URL 正規化で内部／ローカルホストへの誤登録を防止
 
-| エンドポイント | メソッド | 主な役割 | 認証 |
-| -------------- | -------- | -------- | ---- |
-| `/api/line/callback` | GET | LINE OAuth コールバック・トークン保存 | 公開（state チェックあり） |
-| `/api/refresh` | POST | LINE リフレッシュトークンから再発行 | リフレッシュトークン Cookie |
-| `/api/auth/check-role` | GET | 現在のユーザーロール確認 | LINE アクセストークン Cookie |
-| `/api/auth/clear-cache` | POST | クライアントへキャッシュクリア通知 | 任意（特権操作不要） |
-| `/api/user/current` | GET | ログインユーザー情報・ロール取得 | LINE アクセス/リフレッシュトークン Cookie |
-| `/api/user/search-count` | GET | Google検索機能の提供終了通知（410返却） | 任意 |
-
-### WordPress連携
-
-| エンドポイント | メソッド | 主な役割 | 認証 |
-| -------------- | -------- | -------- | ---- |
-| `/api/wordpress/settings` | POST | WordPress.com/セルフホスト設定の保存 | LINE アクセス/リフレッシュトークン Cookie |
-| `/api/wordpress/status` | GET | WordPress接続状態の確認 | LINE アクセス/リフレッシュトークン Cookie |
-| `/api/wordpress/test-connection` | GET/POST | WordPress接続テストの実行 | LINE アクセス/リフレッシュトークン Cookie |
-| `/api/wordpress/posts` | GET | WordPress投稿一覧の取得 | LINE アクセス/リフレッシュトークン Cookie + WP 認証 |
-| `/api/wordpress/oauth/start` | GET | WordPress.com OAuth リダイレクト開始 | 公開（WordPress OAuth 環境変数必須） |
-| `/api/wordpress/oauth/callback` | GET | WordPress.com OAuth コールバック処理 | LINE アクセス/リフレッシュトークン Cookie |
-
-### その他
-
-| エンドポイント | メソッド | 主な役割 | 認証 |
-| -------------- | -------- | -------- | ---- |
-| `/api/chat/anthropic/stream` | POST | Claude Sonnet-4 とのSSEストリーミング | Authorization Bearer（LIFFアクセストークン） |
-| `/api/log-relay` | POST/GET/HEAD/OPTIONS | Vercel Log Drain の受け口・Bearer検証・Webhook転送 | `Authorization: Bearer ${RELAY_BEARER_TOKEN}` |
-
-## 🛡️ セキュリティ機能
-
-- **Row Level Security (RLS)** - データベースレベルでのマルチテナント分離
-- **認可ミドルウェア** - `/login`・`/unauthorized`・`/` 以外のページは LIFF アクセストークン必須、`/admin/*` は管理者ロール限定、`/analytics` `/business-info` `/setup` `/subscription` などは認証済みユーザー専用
-- **JWT Token管理** - 自動リフレッシュ + 5分TTLメモリキャッシュ
-- **CSRF保護** - 状態トークンによる保護
-- **環境変数管理** - @t3-oss/env-nextjs による型安全な機密情報管理
-- **使用量制限** - Google検索API制限・プラン別機能ゲート
-
-## 📱 デプロイメント
-
-### Vercel デプロイ
-
-1. Vercel アカウント作成
-2. プロジェクト接続
-3. 環境変数設定
-4. 自動デプロイ実行
-
-### 環境固有設定
-
-- **開発環境**: ngrok + ローカル開発
-- **ステージング**: Vercel プレビュー環境
-- **本番環境**: Vercel 本番デプロイ
-
-**主要ページ**: `/chat`（AIチャット）, `/admin`（プロンプト管理）, `/business-info`（事業情報入力）, `/subscription`（決済管理）
-
-## 📈 2025年8月最新アップデート
-
-**新機能**: Canvas描画（TipTap 3.0.7）、多段ブログ作成フロー、プロンプト管理システム、WordPress連携強化、管理者ダッシュボード
-**アーキテクチャ**: Clean Architecture準拠、型安全性向上（19項目の型付き環境変数管理）
-**開発効率**: ESLint 9 + Prettier統合、自動品質管理
+## 📱 デプロイと運用
+- Vercel を想定（Edge Runtime と Node.js Runtime をルートごとに切り分け）
+- デプロイ前チェック: `npm run lint` → `npm run build`
+- 環境変数は Vercel Project Settings へ反映し、本番は Stripe 本番キー・WordPress 本番サイトに切り替え
+- Supabase マイグレーションは `npx supabase db push` で同期、ロールバック手順（コメント）を常に更新
 
 ## 🤝 コントリビューション
-
-1. フィーチャーブランチ作成
-2. 変更実装・TypeScript型チェック・ESLint
-3. Husky pre-commit hooks による自動テスト・フォーマット
-4. プルリクエスト作成
+1. フィーチャーブランチを作成
+2. 変更を実装し、`npm run lint` の結果を確認
+3. 必要に応じて Supabase マイグレーションを追加し、ロールバック手順を明記
+4. 変更内容を簡潔にまとめた PR を作成（ユーザー影響・環境変数・スクリーンショットを添付）
 
 ## 📄 ライセンス
 
-このプロジェクトは私的利用目的で作成されています。
+このリポジトリは私的利用目的で運用されています。再配布や商用利用は事前相談のうえでお願いいたします。
