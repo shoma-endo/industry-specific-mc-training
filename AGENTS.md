@@ -28,7 +28,7 @@
 - `rg` / `rg --files` を優先してリポジトリを探索してください。
 - 作業の終わりに `npm run lint` を実行し、結果を共有します（実行できない場合は理由を明記）。
 - Supabase スキーマを変更する際は `supabase/migrations/` に SQL を追加し、ロールバック案をコメントで残します。
-- 作業完了時は新規ファイルを含めて `git diff` を確認し、`When finished, review git diff including new files and generate a one-line commit message summarizing the changes` の指針どおり一行のコミットメッセージを生成してください。
+- 作業完了時は新規ファイルを含めて `git diff` を確認し、`When finished, review git diff including new files and generate a one-line commit message summarizing the changes` の指針どおり一行のコミットメッセージを生成してください。**コミットメッセージは必ず日本語で記述します。**
 
 ## プロジェクト構造の把握
 
