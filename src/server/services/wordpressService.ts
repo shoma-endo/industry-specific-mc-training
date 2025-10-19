@@ -250,4 +250,29 @@ export class WordPressService {
     }
   }
 
+  /**
+   * REST API 呼び出し向けの共通ヘッダーを取得
+   */
+  public getRestHeaders(): Record<string, string> {
+    return this.getAuthHeaders();
+  }
+
+  /**
+   * REST API ベースURLを取得
+   */
+  public getRestBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  public getAuthType(): WordPressType {
+    return this.type;
+  }
+
+  public getSelfHostedSiteUrl(): string | undefined {
+    return this.siteUrl;
+  }
+
+  public getWordPressComSiteId(): string | undefined {
+    return this.siteId;
+  }
 }

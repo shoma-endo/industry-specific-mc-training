@@ -1,77 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { SupabaseService } from '@/server/services/supabaseService';
-import { WordPressService, WordPressAuth } from '@/server/services/wordpressService';
+import { resolveWordPressContext } from '@/server/services/wordpressContext';
 
 export async function GET(request: NextRequest) {
   try {
-    const liffAccessToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const context = await resolveWordPressContext(name => request.cookies.get(name)?.value);
 
-    if (!liffAccessToken) {
-      return NextResponse.json({ success: false, error: 'LINE認証が必要です' }, { status: 401 });
-    }
+    if (!context.success) {
+      if (context.reason === 'settings_missing') {
+        return NextResponse.json({
+          success: true,
+          data: {
+            connected: false,
+            status: 'not_configured',
+            message: 'WordPress設定が未完了です',
+          },
+        });
+      }
 
-    const authResult = await authMiddleware(liffAccessToken, refreshToken);
-    if (authResult.error || !authResult.userId) {
-      return NextResponse.json(
-        { success: false, error: 'ユーザー認証に失敗しました' },
-        { status: 401 }
-      );
-    }
-
-    const supabaseService = new SupabaseService();
-    const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
-
-    if (!wpSettings) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          connected: false,
-          status: 'not_configured',
-          message: 'WordPress設定が未完了です',
-        },
-      });
-    }
-
-    // WordPressサービスを構築
-    let wpService: WordPressService;
-    if (wpSettings.wpType === 'wordpress_com') {
-      const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
-      const accessToken = request.cookies.get(tokenCookieName)?.value;
-      if (!accessToken) {
+      if (context.reason === 'wordpress_auth_missing' && context.wpSettings) {
         return NextResponse.json({
           success: true,
           data: {
             connected: false,
             status: 'error',
-            message: 'WordPress.comとの連携が必要です',
-            wpType: wpSettings.wpType,
-            lastUpdated: wpSettings.updatedAt,
+            message: context.message,
+            wpType: context.wpSettings.wpType,
+            lastUpdated: context.wpSettings.updatedAt,
           },
         });
       }
-      const auth: WordPressAuth = {
-        type: 'wordpress_com',
-        wpComAuth: {
-          accessToken,
-          siteId: wpSettings.wpSiteId || '',
-        },
-      };
-      wpService = new WordPressService(auth);
-    } else {
-      const auth: WordPressAuth = {
-        type: 'self_hosted',
-        selfHostedAuth: {
-          siteUrl: wpSettings.wpSiteUrl || '',
-          username: wpSettings.wpUsername || '',
-          applicationPassword: wpSettings.wpApplicationPassword || '',
-        },
-      };
-      wpService = new WordPressService(auth);
+
+      return NextResponse.json({
+        success: false,
+        error: context.message,
+      }, { status: context.status });
     }
 
-    const testResult = await wpService.testConnection();
+    const testResult = await context.service.testConnection();
 
     if (!testResult.success) {
       return NextResponse.json({
@@ -80,8 +45,8 @@ export async function GET(request: NextRequest) {
           connected: false,
           status: 'error',
           message: testResult.error || '接続エラー',
-          wpType: wpSettings.wpType,
-          lastUpdated: wpSettings.updatedAt,
+          wpType: context.wpSettings.wpType,
+          lastUpdated: context.wpSettings.updatedAt,
         },
       });
     }
@@ -91,9 +56,11 @@ export async function GET(request: NextRequest) {
       data: {
         connected: true,
         status: 'connected',
-        message: `WordPress (${wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'}) に接続済み`,
-        wpType: wpSettings.wpType,
-        lastUpdated: wpSettings.updatedAt,
+        message: `WordPress (${
+          context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'
+        }) に接続済み`,
+        wpType: context.wpSettings.wpType,
+        lastUpdated: context.wpSettings.updatedAt,
       },
     });
   } catch (error) {

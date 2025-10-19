@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { SupabaseService } from '@/server/services/supabaseService';
-import { WordPressService, WordPressAuth } from '@/server/services/wordpressService';
+import { resolveWordPressContext } from '@/server/services/wordpressContext';
 
 type WpPostTitle = { rendered?: string } | string | undefined;
 type WpPostExcerpt = { rendered?: string } | string | undefined;
@@ -27,18 +25,16 @@ interface WpRestPost {
 
 export async function GET(request: NextRequest) {
   try {
-    const liffAccessToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const context = await resolveWordPressContext(name => request.cookies.get(name)?.value);
 
-    if (!liffAccessToken) {
-      return NextResponse.json({ success: false, error: 'LINE認証が必要です' }, { status: 401 });
-    }
+    if (!context.success) {
+      if (context.reason === 'settings_missing') {
+        return NextResponse.json({ success: true, data: { posts: [], total: 0 } });
+      }
 
-    const authResult = await authMiddleware(liffAccessToken, refreshToken);
-    if (authResult.error || !authResult.userId) {
       return NextResponse.json(
-        { success: false, error: 'ユーザー認証に失敗しました' },
-        { status: 401 }
+        { success: false, error: context.message },
+        { status: context.status }
       );
     }
 
@@ -47,69 +43,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const perPage = Math.min(parseInt(searchParams.get('per_page') || '20', 10), 100);
 
-    const supabaseService = new SupabaseService();
-    const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
-
-    if (!wpSettings) {
-      return NextResponse.json({ success: true, data: { posts: [], total: 0 } });
-    }
-
-    // WordPressサービスを構築
-    let auth: WordPressAuth;
-    if (wpSettings.wpType === 'wordpress_com') {
-      const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
-      const accessToken = request.cookies.get(tokenCookieName)?.value;
-      if (!accessToken) {
-        return NextResponse.json(
-          { success: false, error: 'WordPress.comの認証がありません' },
-          { status: 400 }
-        );
-      }
-      auth = {
-        type: 'wordpress_com',
-        wpComAuth: {
-          accessToken,
-          siteId: wpSettings.wpSiteId || '',
-        },
-      };
-      // 認証検証目的でインスタンス化（以降は自前でURL/ヘッダを計算）
-      new WordPressService(auth);
-    } else {
-      auth = {
-        type: 'self_hosted',
-        selfHostedAuth: {
-          siteUrl: wpSettings.wpSiteUrl || '',
-          username: wpSettings.wpUsername || '',
-          applicationPassword: wpSettings.wpApplicationPassword || '',
-        },
-      };
-      // 認証検証目的でインスタンス化（以降は自前でURL/ヘッダを計算）
-      new WordPressService(auth);
-    }
-
-    // WordPress REST API から投稿を取得（サービスのプライベート値に依存せず自前で算出）
-    const commonHeaders: Record<string, string> = {
-      Accept: 'application/json',
-      'User-Agent': 'IndustrySpecificMC/1.0 (+app)',
-    };
-
-    let baseUrl: string;
-    let headers: Record<string, string>;
-
-    if (wpSettings.wpType === 'wordpress_com') {
-      baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${wpSettings.wpSiteId || ''}`;
-      const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
-      const accessToken = request.cookies.get(tokenCookieName)?.value || '';
-      headers = { ...commonHeaders, Authorization: `Bearer ${accessToken}` };
-    } else {
-      const siteUrl = (wpSettings.wpSiteUrl || '').replace(/\/$/, '');
-      baseUrl = `${siteUrl}/wp-json/wp/v2`;
-      const username = wpSettings.wpUsername || '';
-      const appPass = wpSettings.wpApplicationPassword || '';
-      const credentials = Buffer.from(`${username}:${appPass}`).toString('base64');
-      headers = { ...commonHeaders, Authorization: `Basic ${credentials}` };
-    }
-
+    const baseUrl = context.service.getRestBaseUrl();
+    const headers = context.service.getRestHeaders();
     const postsUrl = `${baseUrl}/posts?_embed=true&per_page=${perPage}&page=${page}`;
     const resp = await fetch(postsUrl, { headers });
 

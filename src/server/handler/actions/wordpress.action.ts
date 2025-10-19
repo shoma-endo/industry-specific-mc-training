@@ -4,7 +4,10 @@ import { cookies } from 'next/headers';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { WordPressSettings } from '@/types/wordpress';
-import { WordPressService, WordPressAuth } from '@/server/services/wordpressService';
+import {
+  buildWordPressServiceFromSettings,
+  resolveWordPressContext,
+} from '@/server/services/wordpressContext';
 import type {
   AnnotationRecord,
   ContentAnnotationPayload,
@@ -87,54 +90,38 @@ type RestRequestConfig = {
   error?: string;
 };
 
-// ==========================================
-// ヘルパー関数
-// ==========================================
-function buildCommonHeaders(): Record<string, string> {
-  return {
-    Accept: 'application/json',
-    'User-Agent': 'IndustrySpecificMC/1.0 (+app)',
-  };
-}
-
 async function getRestRequestConfig(
   wpSettings: WordPressSettings,
   getCookie: (name: string) => string | undefined,
   page: number,
   perPage: number
 ): Promise<RestRequestConfig> {
-  const commonHeaders = buildCommonHeaders();
-  let headers: Record<string, string> = {};
-  let candidates: string[] = [];
+  const buildResult = buildWordPressServiceFromSettings(wpSettings, getCookie);
+  if (!buildResult.success) {
+    return {
+      headers: {},
+      candidates: [],
+      siteUrlClean: '',
+      isSelfHosted: wpSettings.wpType === 'self_hosted',
+      error: buildResult.message,
+    };
+  }
 
-  if (wpSettings.wpType === 'wordpress_com') {
-    const baseUrl = `https://public-api.wordpress.com/wp/v2/sites/${wpSettings.wpSiteId || ''}`;
-    const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
-    const accessToken = getCookie(tokenCookieName) || '';
-    if (!accessToken) {
-      return {
-        headers: {},
-        candidates: [],
-        siteUrlClean: '',
-        isSelfHosted: false,
-        error: 'WordPress.comのアクセストークンが見つかりません（OAuth連携が必要です）',
-      };
-    }
-    headers = { ...commonHeaders, Authorization: `Bearer ${accessToken}` };
-    candidates = [
+  const service = buildResult.service;
+  const headers = service.getRestHeaders();
+
+  if (service.getAuthType() === 'wordpress_com') {
+    const baseUrl = service.getRestBaseUrl();
+    const candidates = [
       `${baseUrl}/posts?_embed=true&per_page=${perPage}&page=${page}`,
       `${baseUrl}/posts?per_page=${perPage}&page=${page}`,
     ];
     return { headers, candidates, siteUrlClean: '', isSelfHosted: false };
   }
 
-  // セルフホスト
-  const siteUrlClean = (wpSettings.wpSiteUrl || '').replace(/\/$/, '');
-  const username = wpSettings.wpUsername || '';
-  const appPass = wpSettings.wpApplicationPassword || '';
-  const credentials = Buffer.from(`${username}:${appPass}`).toString('base64');
-  headers = { ...commonHeaders, Authorization: `Basic ${credentials}` };
-  candidates = [
+  const siteUrlRaw = service.getSelfHostedSiteUrl() || '';
+  const siteUrlClean = siteUrlRaw.replace(/\/$/, '');
+  const candidates = [
     `${siteUrlClean}/wp-json/wp/v2/posts?_embed=true&per_page=${perPage}&page=${page}`,
     `${siteUrlClean}/wp-json/wp/v2/posts?per_page=${perPage}&page=${page}`,
     `${siteUrlClean}/index.php?rest_route=/wp/v2/posts&_embed=true&per_page=${perPage}&page=${page}`,
@@ -272,39 +259,14 @@ async function resolveCanonicalAndWpPostId(params: {
     };
   }
 
-  let wpService: WordPressService;
-  if (wpSettings.wpType === 'wordpress_com') {
-    const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
-    const accessToken = cookieStore.get(tokenCookieName)?.value;
-    if (!accessToken) {
-      return {
-        success: false as const,
-        error: 'WordPress.comのアクセストークンが見つかりません。再連携してください。',
-      };
-    }
-    wpService = new WordPressService({
-      type: 'wordpress_com',
-      wpComAuth: {
-        accessToken,
-        siteId: wpSettings.wpSiteId || '',
-      },
-    });
-  } else {
-    if (!wpSettings.wpSiteUrl || !wpSettings.wpUsername || !wpSettings.wpApplicationPassword) {
-      return {
-        success: false as const,
-        error: 'セルフホストWordPressの認証情報が不足しています。設定を確認してください。',
-      };
-    }
-    wpService = new WordPressService({
-      type: 'self_hosted',
-      selfHostedAuth: {
-        siteUrl: wpSettings.wpSiteUrl,
-        username: wpSettings.wpUsername,
-        applicationPassword: wpSettings.wpApplicationPassword,
-      },
-    });
+  const buildResult = buildWordPressServiceFromSettings(
+    wpSettings,
+    name => cookieStore.get(name)?.value
+  );
+  if (!buildResult.success) {
+    return { success: false as const, error: buildResult.message };
   }
+  const wpService = buildResult.service;
 
   type ResolveResult = { id: number; link?: string } | { error: string } | null;
   const resolveByType = async (type: 'posts' | 'pages'): Promise<ResolveResult> => {
@@ -753,70 +715,48 @@ export async function saveWordPressSettingsAction(params: {
 export async function testWordPressConnectionAction() {
   const cookieStore = await cookies();
   try {
-    // 認証情報はCookieから取得（セキュリティベストプラクティス）
-    const liffToken = cookieStore.get('line_access_token')?.value;
-    const refreshToken = cookieStore.get('line_refresh_token')?.value;
+    const context = await resolveWordPressContext(
+      name => cookieStore.get(name)?.value,
+      { supabaseService }
+    );
 
-    if (!liffToken) {
-      return { success: false as const, error: 'LINE認証が必要です' };
-    }
-
-    const authResult = await authMiddleware(liffToken, refreshToken);
-    if (authResult.error || !authResult.userId) {
-      return { success: false as const, error: 'ユーザー認証に失敗しました' };
-    }
-
-    const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
-    if (!wpSettings) {
-      return { success: false as const, error: 'WordPress設定が登録されていません' };
-    }
-
-    let wordpressService: WordPressService;
-
-    if (wpSettings.wpType === 'wordpress_com') {
-      const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
-      const accessToken = cookieStore.get(tokenCookieName)?.value;
-      if (!accessToken) {
-        return {
-          success: false as const,
-          error: 'WordPress.comのアクセストークンが見つかりません。連携を行ってください。',
-          needsWordPressAuth: true,
-        } as const;
+    if (!context.success) {
+      switch (context.reason) {
+        case 'line_auth_missing':
+          return { success: false as const, error: 'LINE認証が必要です' };
+        case 'line_auth_invalid':
+        case 'requires_reauth':
+          return { success: false as const, error: context.message || 'ユーザー認証に失敗しました' };
+        case 'settings_missing':
+          return { success: false as const, error: 'WordPress設定が登録されていません' };
+        case 'wordpress_auth_missing':
+          return {
+            success: false as const,
+            error: context.message,
+            needsWordPressAuth: true,
+          } as const;
+        default:
+          return { success: false as const, error: context.message };
       }
-
-      const auth: WordPressAuth = {
-        type: 'wordpress_com',
-        wpComAuth: {
-          accessToken,
-          siteId: wpSettings.wpSiteId || '',
-        },
-      };
-      wordpressService = new WordPressService(auth);
-    } else {
-      const auth: WordPressAuth = {
-        type: 'self_hosted',
-        selfHostedAuth: {
-          siteUrl: wpSettings.wpSiteUrl || '',
-          username: wpSettings.wpUsername || '',
-          applicationPassword: wpSettings.wpApplicationPassword || '',
-        },
-      };
-      wordpressService = new WordPressService(auth);
     }
 
-    const connectionTest = await wordpressService.testConnection();
+    const connectionTest = await context.service.testConnection();
     if (!connectionTest.success) {
       return {
         success: false as const,
         error:
           connectionTest.error ||
-          `${wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'}への接続テストに失敗しました。`,
+          `${
+            context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
+          }への接続テストに失敗しました。`,
       };
     }
 
     return {
       success: true as const,
-      message: `${wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'}接続テストが成功しました`,
+      message: `${
+        context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
+      }接続テストが成功しました`,
       siteInfo: connectionTest.data,
     };
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { WPCOM_TOKEN_COOKIE_NAME } from '@/server/services/wordpressContext';
 
 const supabaseService = new SupabaseService();
 
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   const clientSecret = process.env.WORDPRESS_COM_CLIENT_SECRET;
   const redirectUri = process.env.WORDPRESS_COM_REDIRECT_URI;
   const stateCookieName = process.env.OAUTH_STATE_COOKIE_NAME || 'wpcom_oauth_state';
-  const tokenCookieName = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
+  const tokenCookieName = WPCOM_TOKEN_COOKIE_NAME;
   const cookieSecret = process.env.COOKIE_SECRET;
 
   if (!clientId || !clientSecret || !redirectUri || !cookieSecret) {
