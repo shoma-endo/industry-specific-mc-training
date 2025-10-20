@@ -2,6 +2,7 @@ import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
 import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
 import type { DbUser } from '@/types/user';
+import type { UserRole } from '@/types/user';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 
 export type SupabaseErrorInfo = {
@@ -178,6 +179,127 @@ export class SupabaseService {
     }
 
     return this.success((data as DbUser) ?? null);
+  }
+
+  async getUserById(id: string): Promise<SupabaseResult<DbUser | null>> {
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('ユーザー情報の取得に失敗しました', {
+        error,
+        developerMessage: 'Error getting user by ID',
+        context: { id },
+      });
+    }
+
+    return this.success((data as DbUser) ?? null);
+  }
+
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<SupabaseResult<DbUser | null>> {
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('*')
+      .eq('stripe_customer_id', stripeCustomerId)
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('ユーザー情報の取得に失敗しました', {
+        error,
+        developerMessage: 'Error getting user by Stripe customer ID',
+        context: { stripeCustomerId },
+      });
+    }
+
+    return this.success((data as DbUser) ?? null);
+  }
+
+  async createUser(user: DbUser): Promise<SupabaseResult<DbUser>> {
+    const { data, error } = await this.supabase
+      .from('users')
+      .insert(user)
+      .select('*')
+      .single();
+
+    if (error) {
+      return this.failure('ユーザーの作成に失敗しました', {
+        error,
+        developerMessage: 'Error creating user',
+        context: { userId: user.id, lineUserId: user.line_user_id },
+      });
+    }
+
+    return this.success((data as DbUser) ?? user);
+  }
+
+  async updateUserById(
+    id: string,
+    updates: Partial<DbUser>
+  ): Promise<SupabaseResult<DbUser | null>> {
+    const { data, error } = await this.supabase
+      .from('users')
+      .update(updates)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('ユーザー情報の更新に失敗しました', {
+        error,
+        developerMessage: 'Error updating user by ID',
+        context: { id, updates },
+      });
+    }
+
+    return this.success((data as DbUser) ?? null);
+  }
+
+  async updateUserByLineUserId(
+    lineUserId: string,
+    updates: Partial<DbUser>
+  ): Promise<SupabaseResult<DbUser | null>> {
+    const { data, error } = await this.supabase
+      .from('users')
+      .update(updates)
+      .eq('line_user_id', lineUserId)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('ユーザー情報の更新に失敗しました', {
+        error,
+        developerMessage: 'Error updating user by LINE user ID',
+        context: { lineUserId, updates },
+      });
+    }
+
+    return this.success((data as DbUser) ?? null);
+  }
+
+  async updateUserRole(userId: string, newRole: UserRole): Promise<SupabaseResult<DbUser | null>> {
+    return this.updateUserById(userId, {
+      role: newRole,
+      updated_at: Date.now(),
+    });
+  }
+
+  async getAllUsers(): Promise<SupabaseResult<DbUser[]>> {
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return this.failure('ユーザー一覧の取得に失敗しました', {
+        error,
+        developerMessage: 'Error fetching all users',
+      });
+    }
+
+    return this.success((data as DbUser[]) ?? []);
   }
 
   async createChatSession(session: DbChatSession): Promise<SupabaseResult<string>> {
