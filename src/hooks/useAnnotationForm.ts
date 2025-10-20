@@ -140,11 +140,15 @@ export function useAnnotationForm({
         setCanonicalUrl(nextCanonical);
         setCanonicalUrlError('');
 
-        return {
+        const outcome: SubmitOutcome = {
           success: true,
-          response,
           normalizedCanonicalUrl: normalizedUrl,
         };
+        if (response) {
+          outcome.response = response;
+        }
+
+        return outcome;
       }
 
       const message = response?.error || '保存に失敗しました';
@@ -153,11 +157,15 @@ export function useAnnotationForm({
         setCanonicalUrlError(response?.error ?? '');
       }
 
-      return {
+      const outcome: SubmitOutcome = {
         success: false,
-        response,
         normalizedCanonicalUrl: normalizedUrl,
       };
+      if (response) {
+        outcome.response = response;
+      }
+
+      return outcome;
     } catch {
       setErrorMessage('保存に失敗しました');
       return { success: false, normalizedCanonicalUrl: normalizedUrl };
