@@ -4,6 +4,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { env } from '@/env';
 import { MODEL_CONFIGS } from '@/lib/constants';
+import { htmlToMarkdownForCanvas } from '@/lib/blog-canvas';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -440,8 +441,35 @@ export async function POST(req: NextRequest) {
               );
 
               if (toolUseBlock && toolUseBlock.type === 'tool_use') {
-                const toolInput = toolUseBlock.input as { full_markdown?: string };
-                fullMarkdown = toolInput.full_markdown || '';
+                const toolInput = toolUseBlock.input as {
+                  full_markdown?: string;
+                  markdown?: string;
+                  replacement_html?: string;
+                  replacement?: string;
+                  full_html?: string;
+                  html?: string;
+                };
+
+                const markdownCandidate =
+                  toolInput.full_markdown ?? toolInput.markdown ?? '';
+                fullMarkdown = markdownCandidate.trim();
+
+                if (!fullMarkdown) {
+                  const htmlCandidate =
+                    toolInput.replacement_html ??
+                    toolInput.replacement ??
+                    toolInput.full_html ??
+                    toolInput.html;
+                  if (typeof htmlCandidate === 'string' && htmlCandidate.trim().length > 0) {
+                    fullMarkdown = htmlToMarkdownForCanvas(htmlCandidate);
+                  }
+                }
+
+                fullMarkdown = fullMarkdown.trim();
+
+                if (!fullMarkdown.trim()) {
+                  throw new Error('Claude から編集後Markdownを受け取れませんでした');
+                }
               }
 
               // ✅ 第3段階: 編集内容の分析（検証結果と修正内容）
