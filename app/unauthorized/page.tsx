@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShieldX, Home } from 'lucide-react';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { getUserRole } from '@/auth-utils';
+import { getUserRole, getRoleDisplayName } from '@/auth-utils';
 import type { UserRole } from '@/types/user';
 
 export const dynamic = 'force-dynamic';
@@ -57,11 +57,8 @@ export default async function UnauthorizedPage() {
             {currentUserRole && (
               <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">現在の権限:</div>
-                <Badge
-                  variant={currentUserRole === 'admin' ? 'default' : 'outline'}
-                  className="text-sm"
-                >
-                  {currentUserRole === 'admin' ? '管理者' : '一般ユーザー'}
+                <Badge variant={currentUserRole === 'admin' ? 'default' : 'outline'} className="text-sm">
+                  {getRoleDisplayName(currentUserRole)}
                 </Badge>
               </div>
             )}

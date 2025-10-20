@@ -21,6 +21,7 @@ import { env } from '@/env';
 import { SubscriptionService } from '@/domain/services/SubscriptionService';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import type { SubscriptionDetails as DomainSubscriptionDetails } from '@/domain/interfaces/ISubscriptionService';
+import { hasPaidFeatureAccess, type UserRole } from '@/types/user';
 
 const STRIPE_ENABLED = env.NEXT_PUBLIC_STRIPE_ENABLED === 'true'; // サブスクリプション機能が有効かどうか
 
@@ -101,8 +102,8 @@ export default function Home() {
   const { getAccessToken, isLoading, isLoggedIn, user } = useLiffContext();
   const subscriptionService = useMemo(() => new SubscriptionService(), []);
   const subscription = useSubscriptionStatus(subscriptionService, getAccessToken, isLoggedIn);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isAdminLoading, setIsAdminLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
   const [pendingAction, setPendingAction] = useState<
     null | 'subscribe' | 'updatePayment' | 'cancel' | 'resume'
   >(null);
@@ -115,6 +116,9 @@ export default function Home() {
 
   // フルネーム関連ステート
   const [showFullNameDialog, setShowFullNameDialog] = useState(false);
+
+  const isAdmin = userRole === 'admin';
+  const hasManagementAccess = hasPaidFeatureAccess(userRole);
 
   // 日付フォーマット関数（constパターン）
   const formatDate = (value: Date | string | null | undefined) => {
@@ -137,43 +141,43 @@ export default function Home() {
     }
   }, [isLoggedIn, user, isLoading]);
 
-  // 管理者権限チェック（設定カード用）
+  // ユーザーロールの取得（管理系カードの表示制御用）
   useEffect(() => {
     let cancelled = false;
 
-    const evaluateAdminRole = async () => {
+    const evaluateUserRole = async () => {
       if (isLoading) {
-        setIsAdminLoading(true);
+        setIsRoleLoading(true);
         return;
       }
 
       if (!isLoggedIn) {
         if (!cancelled) {
-          setIsAdmin(false);
-          setIsAdminLoading(false);
+          setUserRole(null);
+          setIsRoleLoading(false);
         }
         return;
       }
 
-      setIsAdminLoading(true);
+      setIsRoleLoading(true);
       try {
         const token = await getAccessToken();
         const result = await checkUserRole(token);
         if (!cancelled) {
-          setIsAdmin(result.success && result.role === 'admin');
+          setUserRole(result.success ? result.role : null);
         }
       } catch {
         if (!cancelled) {
-          setIsAdmin(false);
+          setUserRole(null);
         }
       } finally {
         if (!cancelled) {
-          setIsAdminLoading(false);
+          setIsRoleLoading(false);
         }
       }
     };
 
-    evaluateAdminRole();
+    evaluateUserRole();
 
     return () => {
       cancelled = true;
@@ -322,11 +326,11 @@ export default function Home() {
           <AdminAccessCard
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
-            isLoading={isLoading || isAdminLoading}
+            isLoading={isLoading || isRoleLoading}
           />
 
-          {/* 管理者のみ 設定ページ導線 */}
-          {isLoggedIn && isAdmin && !isAdminLoading && (
+          {/* 有料/管理者向け 設定ページ導線 */}
+          {isLoggedIn && hasManagementAccess && !isRoleLoading && (
           <Card className="w-full max-w-md mb-6">
             <CardHeader>
               <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
@@ -347,8 +351,8 @@ export default function Home() {
           </Card>
           )}
 
-          {/* 管理者のみ コンテンツ一覧導線 */}
-          {isLoggedIn && isAdmin && !isAdminLoading && (
+          {/* 有料/管理者向け コンテンツ一覧導線 */}
+          {isLoggedIn && hasManagementAccess && !isRoleLoading && (
           <Card className="w-full max-w-md mb-6">
             <CardHeader>
               <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">

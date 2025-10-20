@@ -37,7 +37,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - Stripe v17.7 で Checkout / Billing Portal / Subscription 状態確認を実装（`SubscriptionService`）
 - `SubscriptionService` とカスタムフック `useSubscriptionStatus` で UI 側から有効プランを判定
 - `authMiddleware` が `requiresSubscription` を返し、有料機能へアクセス制御を適用
-- ユーザー権限（`user` / `admin` / `unavailable`）を Supabase 側で管理し、LIFF ログイン時に自動同期
+- ユーザー権限（`trial` / `paid` / `admin` / `unavailable`）を Supabase 側で管理し、LIFF ログイン時に自動同期（`trial` はチャット送信が1日3回まで、`paid` は無制限）
 
 ### 管理者ダッシュボード
 - `/admin` でプロンプトテンプレート、ユーザー情報の管理 UI を提供

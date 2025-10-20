@@ -19,8 +19,10 @@ export function getRoleDisplayName(role: UserRole | null): string {
   switch (role) {
     case 'admin':
       return '管理者';
-    case 'user':
-      return '一般ユーザー';
+    case 'trial':
+      return 'お試しユーザー';
+    case 'paid':
+      return '有料契約ユーザー';
     case 'unavailable':
       return 'サービス利用停止';
     default:
@@ -41,7 +43,7 @@ export async function getUserRole(accessToken: string): Promise<UserRole | null>
     if (!user) {
       return null;
     }
-    return user.role || 'user';
+    return user.role || 'trial';
   } catch (error) {
     console.error('[Auth Utils] Failed to get user role:', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -72,7 +74,7 @@ export async function getUserRoleWithRefresh(
     if (!result.user) {
       return { role: null };
     }
-    const role = result.user.role || 'user';
+    const role = result.user.role || 'trial';
     const returnValue: {
       role: UserRole;
       newAccessToken?: string;

@@ -69,7 +69,7 @@ export const updateUserRole = async (
     }
 
     // バリデーション: 有効なロールかチェック
-    const validRoles: UserRole[] = ['user', 'admin', 'unavailable'];
+    const validRoles: UserRole[] = ['trial', 'paid', 'admin', 'unavailable'];
     if (!validRoles.includes(newRole)) {
       return { success: false, error: '無効な権限が指定されました' };
     }

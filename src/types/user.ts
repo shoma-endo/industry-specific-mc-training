@@ -1,7 +1,18 @@
 /**
  * ユーザーロールの型定義
  */
-export type UserRole = 'user' | 'admin' | 'unavailable';
+export type UserRole = 'trial' | 'paid' | 'admin' | 'unavailable';
+
+/**
+ * 管理機能（設定・コンテンツ一覧）へのアクセスを許可するロール
+ */
+export const PAID_FEATURE_ROLES = ['paid', 'admin'] as const;
+
+export type PaidFeatureRole = (typeof PAID_FEATURE_ROLES)[number];
+
+export function hasPaidFeatureAccess(role: UserRole | null): role is PaidFeatureRole {
+  return role === 'paid' || role === 'admin';
+}
 
 /**
  * ユーザー情報の型定義
@@ -26,7 +37,7 @@ export interface User {
   stripeSubscriptionId?: string | undefined; // Stripeサブスクリプション ID
 
   // 権限管理
-  role: UserRole; // ユーザーロール（user: 一般ユーザー, admin: 管理者, unavailable: サービス利用不可）
+  role: UserRole; // ユーザーロール（trial: お試し, paid: 有料契約, admin: 管理者, unavailable: サービス利用不可）
 }
 
 /**

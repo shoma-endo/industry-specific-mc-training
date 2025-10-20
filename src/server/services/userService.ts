@@ -91,7 +91,7 @@ export class UserService {
           lineStatusMessage: lineProfile.statusMessage ?? undefined,
           stripeCustomerId: undefined,
           stripeSubscriptionId: undefined,
-          role: 'user',
+          role: 'trial',
         };
 
         const createResult = await this.supabaseService.createUser(toDbUser(newUser));

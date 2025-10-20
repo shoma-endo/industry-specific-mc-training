@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { isAdmin, isUnavailable, getUserRoleWithRefresh } from '@/auth-utils';
-import type { UserRole } from '@/types/user';
+import { hasPaidFeatureAccess, type UserRole } from '@/types/user';
 
 const ADMIN_REQUIRED_PATHS = ['/admin'] as const;
+const PAID_FEATURE_REQUIRED_PATHS = ['/setup', '/analytics'] as const;
 
 // 認証不要なパスの定義
 const PUBLIC_PATHS = ['/login', '/unauthorized', '/'] as const;
@@ -77,6 +78,16 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/unavailable', request.url));
     }
 
+    if (requiresPaidFeatureAccess(pathname) && !hasPaidFeatureAccess(authResult.role)) {
+      logMiddleware(
+        pathname,
+        'FEATURE_ACCESS_DENIED',
+        Date.now() - startTime,
+        authResult.role
+      );
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+
     // 🔍 6. 管理者権限チェック
     if (requiresAdminAccess(pathname)) {
       if (!isAdmin(authResult.role)) {
@@ -144,8 +155,12 @@ function requiresAdminAccess(pathname: string): boolean {
   return ADMIN_REQUIRED_PATHS.some(path => pathname.startsWith(path));
 }
 
+function requiresPaidFeatureAccess(pathname: string): boolean {
+  return PAID_FEATURE_REQUIRED_PATHS.some(path => pathname.startsWith(path));
+}
+
 // 🚀 パフォーマンス最適化：メモリキャッシュ
-const roleCache = new Map<string, { role: string; timestamp: number }>();
+const roleCache = new Map<string, { role: UserRole; timestamp: number }>();
 const CACHE_TTL = 30 * 1000; // 30秒キャッシュ（権限変更の反映を早くするため）
 
 async function getUserRoleWithCacheAndRefresh(accessToken: string, refreshToken?: string) {
@@ -154,7 +169,7 @@ async function getUserRoleWithCacheAndRefresh(accessToken: string, refreshToken?
 
   // キャッシュが有効かチェック
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return { role: cached.role as UserRole };
+    return { role: cached.role };
   }
 
   try {

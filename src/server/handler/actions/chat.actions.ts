@@ -67,7 +67,7 @@ function getCurrentJstRange() {
 }
 
 async function checkDailyLimit(role: UserRole, userId: string) {
-  if (role !== 'user') return null;
+  if (role !== 'trial') return null;
 
   const supabase = new SupabaseService();
   const { fromUtcMs, toUtcMs } = getCurrentJstRange();
@@ -113,7 +113,7 @@ async function checkAuth(
         requiresSubscription: false,
       };
     }
-    return { isError: false as const, userId: authResult.userId!, role: user?.role ?? 'user' };
+    return { isError: false as const, userId: authResult.userId!, role: user?.role ?? 'trial' };
   } catch (error) {
     console.error('User role check failed in checkAuth:', error);
     return {
@@ -138,7 +138,7 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
       };
     }
 
-    // 1日3回の送信制限（JST）: user 権限のみ適用
+    // 1日3回の送信制限（JST）: trial 権限のみ適用
     const limitError = await checkDailyLimit(auth.role, auth.userId);
     if (limitError) {
       return {
@@ -174,7 +174,7 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
       };
     }
 
-    // 1日3回の送信制限（JST）: user 権限のみ適用
+    // 1日3回の送信制限（JST）: trial 権限のみ適用
     const limitError = await checkDailyLimit(auth.role, auth.userId);
     if (limitError) {
       return {

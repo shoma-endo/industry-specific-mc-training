@@ -197,6 +197,42 @@ const withTokens = (
       }
     }
 
+    if (isSubscribed) {
+      if (user.role !== 'paid' && user.role !== 'admin') {
+        try {
+          const updated = await userService.updateUserRole(user.id, 'paid');
+          if (updated) {
+            user.role = 'paid';
+            if (baseResult.userDetails) {
+              baseResult.userDetails = { ...baseResult.userDetails, role: 'paid' };
+            }
+          }
+        } catch (roleUpdateError) {
+          console.error(
+            '[Auth Middleware] Failed to promote user role to paid:',
+            roleUpdateError
+          );
+        }
+      }
+    } else {
+      if (user.role === 'paid') {
+        try {
+          const updated = await userService.updateUserRole(user.id, 'trial');
+          if (updated) {
+            user.role = 'trial';
+            if (baseResult.userDetails) {
+              baseResult.userDetails = { ...baseResult.userDetails, role: 'trial' };
+            }
+          }
+        } catch (roleUpdateError) {
+          console.error(
+            '[Auth Middleware] Failed to downgrade user role to trial:',
+            roleUpdateError
+          );
+        }
+      }
+    }
+
     if (!isSubscribed) {
       return {
         ...baseResult,

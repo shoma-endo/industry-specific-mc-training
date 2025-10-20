@@ -374,7 +374,7 @@ export const checkUserRole = async (liffAccessToken: string) => {
       return {
         success: false,
         error: 'ユーザー情報が見つかりません',
-        role: 'user' as const,
+        role: 'trial' as const,
       };
     }
 
@@ -383,20 +383,20 @@ export const checkUserRole = async (liffAccessToken: string) => {
       return {
         success: false,
         error: 'サービスの利用が停止されています',
-        role: user.role || ('user' as const),
+        role: user.role || ('trial' as const),
       };
     }
 
     return {
       success: true,
-      role: user.role || ('user' as const),
+      role: user.role || ('trial' as const),
     };
   } catch (error) {
     console.error('権限チェックエラー:', error);
     return {
       success: false,
       error: '権限の確認に失敗しました',
-      role: 'user' as const,
+      role: 'trial' as const,
     };
   }
 };

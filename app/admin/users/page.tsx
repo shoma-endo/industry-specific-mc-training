@@ -24,7 +24,9 @@ const getRoleColor = (role: UserRole | null) => {
   switch (role) {
     case 'admin':
       return 'bg-red-100 text-red-800';
-    case 'user':
+    case 'trial':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'paid':
       return 'bg-green-100 text-green-800';
     case 'unavailable':
       return 'bg-gray-100 text-gray-800';
@@ -192,7 +194,8 @@ export default function UsersPage() {
                             onChange={e => handleRoleChange(user.id, e.target.value as UserRole)}
                             disabled={updatingUserId === user.id}
                           >
-                            <option value="user">一般ユーザー</option>
+                            <option value="trial">お試しユーザー</option>
+                            <option value="paid">有料契約ユーザー</option>
                             <option value="admin">管理者</option>
                             <option value="unavailable">サービス利用停止</option>
                           </select>

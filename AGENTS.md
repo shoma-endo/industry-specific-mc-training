@@ -28,7 +28,7 @@ AI運用5原則
 
 - LINE LIFF 認証を入り口に、業界特化のマーケティングコンテンツ（広告・LP・ブログ等）を AI で生成・管理する Next.js 15 ベースの SaaS。
 - Supabase がユーザー・セッション・注釈・プロンプトなどのデータを保持し、WordPress 連携で既存記事を取り込みます。
-- Stripe サブスクリプションとロール（`user` / `admin` / `unavailable`）により機能制御を行い、Anthropic Claude と OpenAI モデルを用途に応じて切替します。
+- Stripe サブスクリプションとロール（`trial` / `paid` / `admin` / `unavailable`）により機能制御を行い、Anthropic Claude と OpenAI モデルを用途に応じて切替します。
 
 ## 主要ディレクトリ
 

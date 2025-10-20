@@ -36,7 +36,7 @@ AI運用5原則
 
 - LINE LIFF 認証を入口とした B2B SaaS。業界特化の広告・LP・ブログ制作を AI で支援します。
 - Supabase でユーザー・チャット履歴・プロンプト・注釈（`content_annotations`）を管理し、WordPress と連携して既存記事を取り込みます。
-- Stripe サブスクリプションとユーザーロール（`user`/`admin`/`unavailable`）で機能制御を行います。
+- Stripe サブスクリプションとユーザーロール（`trial`/`paid`/`admin`/`unavailable`）で機能制御を行います。
 
 ## ディレクトリ速見表
 
