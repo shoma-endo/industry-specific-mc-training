@@ -81,7 +81,7 @@ export default function AnnotationEditButton({
       </Button>
       {open && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 text-left">
-          <div className="bg-white w-full max-w-2xl max-h-[85vh] p-4 rounded shadow text-left flex flex-col overflow-hidden -translate-y-[20px]">
+          <div className="bg-white w-full max-w-[682px] max-h-[85vh] p-4 rounded shadow text-left flex flex-col overflow-hidden -translate-y-[20px]">
             <h3 className="text-lg font-semibold mb-3 shrink-0">メモ・補足情報を編集</h3>
             {errorMessage && (
               <div className="mb-3 p-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded shrink-0">

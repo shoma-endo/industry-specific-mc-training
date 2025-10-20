@@ -57,14 +57,14 @@ export default function AnnotationFormFields({
   canonicalUrlInputId = 'wp-canonical-url',
 }: Props) {
   return (
-    <div className={cn('space-y-5', className)}>
+    <div className={cn('space-y-5 px-[5px]', className)}>
       {ANNOTATION_FIELD_KEYS.map(key => (
         <div key={key}>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             {COLUMN_LABELS[key]}
           </label>
           <textarea
-            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="w-full border border-gray-300 rounded-lg p-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:border-blue-500"
             rows={TEXTAREA_ROWS[key]}
             value={form[key]}
             onChange={e => onFormChange(key, e.target.value)}
@@ -86,7 +86,7 @@ export default function AnnotationFormFields({
           <input
             id={canonicalUrlInputId}
             type="text"
-            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="w-full border border-gray-300 rounded-lg p-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:border-blue-500"
             value={canonicalUrl}
             onChange={e => onCanonicalUrlChange(e.target.value)}
             placeholder="例: https://example.com/article-title/"
