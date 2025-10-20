@@ -111,7 +111,7 @@ export function useAnnotationForm({
         normalizedUrl = parsed.toString();
       } catch {
         setCanonicalUrlError('有効なURLを入力してください');
-        return { success: false, response: undefined, normalizedCanonicalUrl: null };
+        return { success: false, normalizedCanonicalUrl: null };
       }
     }
 
@@ -160,7 +160,7 @@ export function useAnnotationForm({
       };
     } catch {
       setErrorMessage('保存に失敗しました');
-      return { success: false, response: undefined, normalizedCanonicalUrl: normalizedUrl };
+      return { success: false, normalizedCanonicalUrl: normalizedUrl };
     } finally {
       setIsSaving(false);
     }
