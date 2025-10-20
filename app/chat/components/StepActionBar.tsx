@@ -4,7 +4,7 @@ import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { BookMarked } from 'lucide-react';
 
-type Props = {
+interface StepActionBarProps {
   step?: BlogStepId | undefined;
   className?: string | undefined;
   disabled?: boolean | undefined;
@@ -13,13 +13,13 @@ type Props = {
   annotationLoading?: boolean | undefined;
   onNextStepChange?: ((nextStep: BlogStepId | null) => void) | undefined;
   flowStatus?: string | undefined;
-};
+}
 
-export type StepActionBarRef = {
+export interface StepActionBarRef {
   getCurrentStepInfo: () => { currentStep: BlogStepId; nextStep: BlogStepId | null };
-};
+}
 
-const StepActionBar = forwardRef<StepActionBarRef, Props>(
+const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
   (
     {
       className,

@@ -10,14 +10,14 @@ import { isUnavailable } from '@/auth-utils';
 import { env } from '@/env';
 import type { User } from '@/types/user';
 
-export type EnsureAuthenticatedOptions = {
+export interface EnsureAuthenticatedOptions {
   accessToken?: string;
   refreshToken?: string;
   allowDevelopmentBypass?: boolean;
   skipSubscriptionCheck?: boolean;
-};
+}
 
-export type AuthenticatedUser = {
+export interface AuthenticatedUser {
   lineUserId: string;
   userId: string;
   requiresSubscription: boolean;
@@ -28,28 +28,28 @@ export type AuthenticatedUser = {
   newAccessToken?: string;
   newRefreshToken?: string;
   needsReauth?: boolean;
-};
+}
 
 export type AuthMiddlewareResult = AuthenticatedUser;
 
-export type RefreshTokensResult = {
+export interface RefreshTokensResult {
   success: boolean;
   accessToken?: string;
   refreshToken?: string;
   error?: string;
   status?: number;
-};
+}
 
 const DEFAULT_ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 3; // 3日
 const DEFAULT_REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 90; // 90日
 
-export type AuthCookieOptions = {
+export interface AuthCookieOptions {
   sameSite?: 'lax' | 'strict' | 'none';
   accessTokenMaxAge?: number;
   refreshTokenMaxAge?: number;
   secure?: boolean;
   path?: string;
-};
+}
 
 export async function ensureAuthenticated({
   accessToken,

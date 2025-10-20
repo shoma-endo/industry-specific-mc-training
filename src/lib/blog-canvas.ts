@@ -3,10 +3,10 @@ import { BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 
 const BLOG_MODEL_PREFIX = 'blog_creation_';
 
-type CanvasStructuredContent = {
+export interface CanvasStructuredContent {
   markdown?: string;
   html?: string;
-};
+}
 
 const isBlogStepId = (value: string): value is BlogStepId =>
   BLOG_STEP_IDS.includes(value as BlogStepId);

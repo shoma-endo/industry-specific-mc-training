@@ -8,10 +8,10 @@ import { MODEL_CONFIGS } from '@/lib/constants';
 export const runtime = 'nodejs';
 export const maxDuration = 800;
 
-type WebReference = {
+interface WebReference {
   url: string;
   context?: string;
-};
+}
 
 interface CanvasStreamRequest {
   sessionId: string;

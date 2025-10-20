@@ -20,9 +20,9 @@ interface PostRow {
   excerpt?: string | undefined;
 }
 
-type AnalyticsPageProps = {
+interface AnalyticsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-};
+}
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const params = await searchParams;
