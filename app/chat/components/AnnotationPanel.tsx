@@ -10,13 +10,13 @@ import { AnnotationRecord } from '@/types/annotation';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
 import { useAnnotationForm } from '@/hooks/useAnnotationForm';
 
-type Props = {
+interface Props {
   sessionId: string;
   initialData?: AnnotationRecord | null;
   onClose: () => void;
   isVisible?: boolean;
   onSaveSuccess?: () => void;
-};
+}
 
 export default function AnnotationPanel({
   sessionId,

@@ -37,13 +37,13 @@ import type {
 } from '@/types/canvas';
 import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 
-type CanvasVersionOption = {
+interface CanvasVersionOption {
   id: string;
   content: string;
   versionNumber: number;
   isLatest?: boolean;
   raw?: string;
-};
+}
 
 interface CanvasPanelProps {
   onClose: () => void;

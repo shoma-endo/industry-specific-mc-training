@@ -5,14 +5,14 @@ import type { DbUser } from '@/types/user';
 import type { UserRole } from '@/types/user';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 
-export type SupabaseErrorInfo = {
+export interface SupabaseErrorInfo {
   userMessage: string;
   developerMessage?: string | undefined;
   code?: string | undefined;
   details?: string | null | undefined;
   hint?: string | null | undefined;
   context?: Record<string, unknown> | undefined;
-};
+}
 
 export type SupabaseResult<T> =
   | { success: true; data: T }

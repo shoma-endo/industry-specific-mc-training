@@ -9,11 +9,11 @@ import { BLOG_STEP_LABELS } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
 import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/blog-canvas';
 
-type BlogPreviewMeta = {
+interface BlogPreviewMeta {
   step: BlogStepId;
   title: string | null;
   excerpt: string | null;
-};
+}
 
 const URL_SAFE_CHAR_SET = new Set<string>([
   ...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',

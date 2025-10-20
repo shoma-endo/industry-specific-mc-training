@@ -44,13 +44,13 @@ export async function getWordPressSettings(): Promise<WordPressSettings | null> 
   return await supabaseService.getWordPressSettingsByUserId(authResult.userId);
 }
 
-type RestRequestConfig = {
+interface RestRequestConfig {
   headers: Record<string, string>;
   candidates: string[];
   siteUrlClean: string;
   isSelfHosted: boolean;
   error?: string;
-};
+}
 
 async function getRestRequestConfig(
   wpSettings: WordPressSettings,

@@ -12,20 +12,20 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-type ColumnOption = {
+interface ColumnOption {
   id: string;
   label: string;
   defaultVisible?: boolean;
-};
+}
 
-type FieldConfiguratorProps = {
+interface FieldConfiguratorProps {
   columns: ColumnOption[];
   storageKey: string;
   onChange?: (visibleIds: string[]) => void;
   children: (visibleSet: Set<string>) => React.ReactNode;
   hideTrigger?: boolean;
   triggerId?: string;
-};
+}
 
 export default function FieldConfigurator({
   columns,

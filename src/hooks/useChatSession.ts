@@ -15,7 +15,10 @@ export type { ChatSessionActions, ChatSessionHook };
 
 const MAX_MESSAGES = 10;
 
-type SerializableMessage = { role: string; content: string };
+interface SerializableMessage {
+  role: string;
+  content: string;
+}
 
 const createRequestMessages = (messages: ChatMessage[]): SerializableMessage[] =>
   messages.slice(-MAX_MESSAGES).map(({ role, content }) => ({ role, content }));
@@ -33,14 +36,14 @@ const createStreamingMessagePair = (content: string, model: string) => ({
   assistantMessage: createAssistantMessage('', model),
 });
 
-type StreamingParams = {
+interface StreamingParams {
   content: string;
   model: string;
   accessToken: string;
   currentSessionId: string;
   recentMessages: SerializableMessage[];
   systemPrompt?: string;
-};
+}
 
 export const useChatSession = (
   chatService: IChatService,

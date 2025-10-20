@@ -37,7 +37,7 @@ const TEXTAREA_ROWS: Record<AnnotationFieldKey, number> = {
   opening_proposal: 3,
 };
 
-type Props = {
+interface Props {
   form: Record<AnnotationFieldKey, string>;
   onFormChange: (field: AnnotationFieldKey, value: string) => void;
   canonicalUrl: string;
@@ -45,7 +45,7 @@ type Props = {
   canonicalUrlError?: string;
   className?: string;
   canonicalUrlInputId?: string;
-};
+}
 
 export default function AnnotationFormFields({
   form,

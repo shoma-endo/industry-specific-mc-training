@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
-type Options = {
+interface Options {
   storageKey?: string;
   defaultWidth: number;
   minWidth: number;
   maxWidth: number;
-};
+}
 
-type UsePersistedResizableWidthResult = {
+interface UsePersistedResizableWidthResult {
   width: number;
   isResizing: boolean;
   handleMouseDown: (event: ReactMouseEvent) => void;
-};
+}
 
 export function usePersistedResizableWidth({
   storageKey,

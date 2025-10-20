@@ -24,31 +24,31 @@ const toFormState = (
   );
 };
 
-type SubmissionHandlerResult = {
+interface SubmissionHandlerResult {
   success?: boolean;
   error?: string;
   canonical_url?: string | null;
   [key: string]: unknown;
-};
+}
 
-type SubmitPayload = {
+interface SubmitPayload {
   fields: AnnotationFormState;
   canonicalUrl: string | null;
-};
+}
 
-type SubmitOutcome = {
+interface SubmitOutcome {
   success: boolean;
   response?: SubmissionHandlerResult;
   normalizedCanonicalUrl: string | null;
-};
+}
 
-type Options = {
+interface Options {
   initialFields?: AnnotationFields | AnnotationRecord | null;
   initialCanonicalUrl?: string | null;
   onSubmit: (payload: SubmitPayload) => Promise<SubmissionHandlerResult | void>;
-};
+}
 
-type UseAnnotationFormResult = {
+interface UseAnnotationFormResult {
   form: AnnotationFormState;
   updateField: (field: AnnotationFieldKey, value: string) => void;
   canonicalUrl: string;
@@ -58,7 +58,7 @@ type UseAnnotationFormResult = {
   isSaving: boolean;
   saveDone: boolean;
   submit: () => Promise<SubmitOutcome>;
-};
+}
 
 export function useAnnotationForm({
   initialFields,

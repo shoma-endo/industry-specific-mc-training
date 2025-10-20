@@ -12,12 +12,12 @@ import { AnnotationFields } from '@/types/annotation';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
 import { useAnnotationForm } from '@/hooks/useAnnotationForm';
 
-type Props = {
+interface Props {
   wpPostId?: number; // 紐付け済み投稿に対する編集
   sessionId?: string; // 未紐付け（セッション基点）に対する編集
   canonicalUrl?: string | null;
   initial?: AnnotationFields;
-};
+}
 
 export default function AnnotationEditButton({
   wpPostId,
