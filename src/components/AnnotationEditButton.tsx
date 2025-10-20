@@ -38,7 +38,7 @@ export default function AnnotationEditButton({
     saveDone,
     submit,
   } = useAnnotationForm({
-    initialFields: initial,
+    initialFields: initial ?? null,
     initialCanonicalUrl: canonicalUrl ?? null,
     onSubmit: ({ fields, canonicalUrl }) => {
       if (sessionId) {

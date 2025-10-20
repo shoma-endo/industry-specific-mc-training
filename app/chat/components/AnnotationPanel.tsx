@@ -36,7 +36,7 @@ export default function AnnotationPanel({
     saveDone,
     submit,
   } = useAnnotationForm({
-    initialFields: initialData,
+    initialFields: initialData ?? null,
     initialCanonicalUrl: initialData?.canonical_url ?? null,
     onSubmit: ({ fields, canonicalUrl }) =>
       upsertContentAnnotationBySession({
