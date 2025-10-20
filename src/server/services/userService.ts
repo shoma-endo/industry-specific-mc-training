@@ -264,7 +264,7 @@ export class UserService {
       return false;
     }
 
-    return Boolean(result.data);
+    return true;
   }
 
   async updateFullName(userId: string, fullName: string): Promise<boolean> {
@@ -279,7 +279,7 @@ export class UserService {
       return false;
     }
 
-    return Boolean(result.data);
+    return true;
   }
 
   async getAllUsers(): Promise<User[]> {
@@ -304,7 +304,7 @@ export class UserService {
       return false;
     }
 
-    return Boolean(result.data);
+    return true;
   }
 }
 
