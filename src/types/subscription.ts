@@ -1,22 +1,22 @@
 import type { authMiddleware } from '@/server/middleware/auth.middleware';
 import type { UserService } from '@/server/services/userService';
 
-export type EnsureAuthorizedUserSuccess = {
+export interface EnsureAuthorizedUserSuccess {
   success: true;
   authResult: Awaited<ReturnType<typeof authMiddleware>>;
   user: Awaited<ReturnType<UserService['getUserFromLiffToken']>>;
-};
+}
 
-export type EnsureAuthorizedUserFailure = {
+export interface EnsureAuthorizedUserFailure {
   success: false;
   error: string;
   requiresSubscription?: boolean;
-};
+}
 
 export type EnsureAuthorizedUserResult =
   | EnsureAuthorizedUserSuccess
   | EnsureAuthorizedUserFailure;
 
-export type EnsureAuthorizedUserOptions = {
+export interface EnsureAuthorizedUserOptions {
   allowRequiresSubscription?: boolean;
-};
+}

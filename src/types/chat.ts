@@ -23,12 +23,12 @@ export interface ChatSession {
   createdAt: number; // 作成日時
 }
 
-export type ChatResponse = {
+export interface ChatResponse {
   message: string;
   error?: string | undefined;
   sessionId?: string | undefined;
   requiresSubscription?: boolean | undefined;
-};
+}
 
 /**
  * チャットの役割
@@ -152,7 +152,7 @@ export interface ServerChatSession {
 /**
  * Google検索結果のデータベースモデル
  */
-export type DbSearchResult = {
+export interface DbSearchResult {
   id: string;
   user_id: string;
   session_id: string;
@@ -161,5 +161,5 @@ export type DbSearchResult = {
   snippet: string;
   link: string;
   created_at: number;
-};
+}
 

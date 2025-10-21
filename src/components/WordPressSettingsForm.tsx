@@ -21,14 +21,14 @@ import {
   testWordPressConnectionAction,
 } from '@/server/handler/actions/wordpress.action';
 
-type StatusOutcome = {
+interface StatusOutcome {
   success: boolean;
   primary: string;
   cause?: string;
   hints?: string[];
   details?: string;
   needsOAuth?: boolean;
-};
+}
 
 const StatusPanel: React.FC<{
   status: StatusOutcome;
@@ -86,12 +86,12 @@ const StatusPanel: React.FC<{
   );
 };
 
-type TestConnectionActionResult = {
+interface TestConnectionActionResult {
   success: boolean;
   message?: string;
   error?: string;
   needsWordPressAuth?: boolean;
-};
+}
 
 function diagnoseErrorDetails(raw: string) {
   const lower = (raw || '').toLowerCase();

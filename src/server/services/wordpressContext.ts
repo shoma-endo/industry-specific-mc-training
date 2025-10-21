@@ -3,7 +3,9 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { WordPressService, WordPressAuth } from '@/server/services/wordpressService';
 import type { WordPressSettings, WordPressType } from '@/types/wordpress';
 
-type CookieGetter = (name: string) => string | undefined;
+interface CookieGetter {
+  (name: string): string | undefined;
+}
 
 export const WPCOM_TOKEN_COOKIE_NAME = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
 
@@ -104,9 +106,9 @@ export type WordPressContextResult =
       wpSettings?: WordPressSettings;
     };
 
-type ResolveWordPressContextOptions = {
+interface ResolveWordPressContextOptions {
   supabaseService?: SupabaseService;
-};
+}
 
 export async function resolveWordPressContext(
   getCookie: CookieGetter,
