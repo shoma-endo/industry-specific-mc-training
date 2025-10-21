@@ -97,3 +97,79 @@ export interface WordPressNormalizedPost {
   categoryNames: string[];
   excerpt?: string;
 }
+
+/**
+ * REST APIリクエスト設定
+ */
+export interface RestRequestConfig {
+  headers: Record<string, string>;
+  candidates: string[];
+  siteUrlClean: string;
+  isSelfHosted: boolean;
+  error?: string;
+}
+
+/**
+ * フェッチ候補の結果
+ */
+export interface FetchCandidatesResult {
+  resp: Response | null;
+  lastStatus: number;
+  lastErrorText: string;
+}
+
+/**
+ * RSS正規化結果
+ */
+export interface RssNormalizeResult {
+  normalized: WordPressNormalizedPost[];
+  total: number;
+}
+
+/**
+ * RSSアイテム
+ */
+export interface RssItem {
+  title?: string;
+  link?: string;
+  pubDate?: string;
+  description?: string;
+  categories?: string[];
+}
+
+/**
+ * 正規化された投稿レスポンス
+ */
+export interface NormalizedPostResponse {
+  id: number | null;
+  link?: string;
+}
+
+/**
+ * 正規URL解決パラメータ
+ */
+export interface ResolveCanonicalParams {
+  canonicalUrl: string | null | undefined;
+  supabaseService: unknown; // SupabaseService型を避けるためunknownを使用
+  userId: string;
+  cookieStore: unknown; // CookieStore型を避けるためunknownを使用
+}
+
+/**
+ * 既存のアノテーションデータ
+ */
+export interface ExistingAnnotationData {
+  canonical_url: string | null;
+  wp_post_id: number | null;
+}
+
+/**
+ * WordPress設定保存パラメータ
+ */
+export interface SaveWordPressSettingsParams {
+  wpType: 'wordpress_com' | 'self_hosted';
+  wpSiteId?: string;
+  wpSiteUrl?: string;
+  wpUsername?: string;
+  wpApplicationPassword?: string;
+}

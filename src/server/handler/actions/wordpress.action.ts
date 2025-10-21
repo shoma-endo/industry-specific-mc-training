@@ -7,6 +7,14 @@ import {
   WordPressSettings,
   WordPressRestPost,
   WordPressNormalizedPost,
+  RestRequestConfig,
+  FetchCandidatesResult,
+  RssNormalizeResult,
+  RssItem,
+  NormalizedPostResponse,
+  ResolveCanonicalParams,
+  ExistingAnnotationData,
+  SaveWordPressSettingsParams,
 } from '@/types/wordpress';
 import {
   buildWordPressServiceFromSettings,
@@ -42,14 +50,6 @@ export async function getWordPressSettings(): Promise<WordPressSettings | null> 
   }
 
   return await supabaseService.getWordPressSettingsByUserId(authResult.userId);
-}
-
-interface RestRequestConfig {
-  headers: Record<string, string>;
-  candidates: string[];
-  siteUrlClean: string;
-  isSelfHosted: boolean;
-  error?: string;
 }
 
 async function getRestRequestConfig(
@@ -95,7 +95,7 @@ async function getRestRequestConfig(
 async function tryFetchCandidates(
   candidates: string[],
   headers: Record<string, string>
-): Promise<{ resp: Response | null; lastStatus: number; lastErrorText: string }> {
+): Promise<FetchCandidatesResult> {
   let resp: Response | null = null;
   let lastStatus = 0;
   let lastErrorText = '';
@@ -161,13 +161,13 @@ const buildSlugCandidates = (url: URL): string[] => {
   return Array.from(candidates);
 };
 
-const normalizePostResponse = (data: unknown): { id: number | null; link?: string } => {
+const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
   if (!data || typeof data !== 'object') return { id: null };
   const record = data as Record<string, unknown>;
   const idValue = record.id ?? record.ID;
   const id =
     typeof idValue === 'number' && Number.isSafeInteger(idValue) ? (idValue as number) : null;
-  const result: { id: number | null; link?: string } = { id };
+  const result: NormalizedPostResponse = { id };
   if (typeof record.link === 'string') {
     result.link = record.link as string;
   }
@@ -178,12 +178,12 @@ type CanonicalResolutionResult =
   | { success: true; canonicalUrl: string | null; wpPostId: number | null }
   | { success: false; error: string };
 
-async function resolveCanonicalAndWpPostId(params: {
-  canonicalUrl: string | null | undefined;
-  supabaseService: SupabaseService;
-  userId: string;
-  cookieStore: CookieStore;
-}): Promise<CanonicalResolutionResult> {
+async function resolveCanonicalAndWpPostId(
+  params: ResolveCanonicalParams & {
+    supabaseService: SupabaseService;
+    cookieStore: CookieStore;
+  }
+): Promise<CanonicalResolutionResult> {
   const { canonicalUrl, supabaseService: supabaseServiceLocal, userId, cookieStore } = params;
 
   const trimmed = typeof canonicalUrl === 'string' ? canonicalUrl.trim() : '';
@@ -296,7 +296,7 @@ async function parseRssAndNormalize(
   siteUrlClean: string,
   page: number,
   perPage: number
-): Promise<{ normalized: WordPressNormalizedPost[]; total: number } | null> {
+): Promise<RssNormalizeResult | null> {
   const rssCandidates = [`${siteUrlClean}/feed/`, `${siteUrlClean}/?feed=rss2`];
   for (const rssUrl of rssCandidates) {
     try {
@@ -317,13 +317,7 @@ async function parseRssAndNormalize(
       }
       const xml = await rssResp.text();
 
-      const items: Array<{
-        title?: string;
-        link?: string;
-        pubDate?: string;
-        description?: string;
-        categories?: string[];
-      }> = [];
+      const items: RssItem[] = [];
 
       const itemRegex = /<item[\s\S]*?<\/item>/g;
       const titleRegex = /<title>([\s\S]*?)<\/title>/i;
@@ -350,13 +344,7 @@ async function parseRssAndNormalize(
         while ((m = catRegex.exec(raw)) !== null) {
           if (m[1]) cats.push(stripTags(decodeCdata(m[1])));
         }
-        const item: {
-          title?: string;
-          link?: string;
-          pubDate?: string;
-          description?: string;
-          categories?: string[];
-        } = {};
+        const item: RssItem = {};
         if (titleMatch) item.title = stripTags(decodeCdata(titleMatch));
         if (linkMatch) item.link = linkMatch.trim();
         if (pubDateMatch) item.pubDate = pubDateMatch.trim();
@@ -475,12 +463,7 @@ export async function upsertContentAnnotation(
 
   const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
   const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
-  let existingAnnotation:
-    | {
-        canonical_url: string | null;
-        wp_post_id: number | null;
-      }
-    | null = null;
+  let existingAnnotation: ExistingAnnotationData | null = null;
   let canonicalMatchesExisting = false;
 
   if (canonicalProvided && payload.wp_post_id !== undefined && payload.wp_post_id !== null) {
@@ -491,7 +474,7 @@ export async function upsertContentAnnotation(
       .eq('wp_post_id', payload.wp_post_id)
       .maybeSingle();
     if (!existingError && existingData) {
-      const typed = existingData as { canonical_url: string | null; wp_post_id: number | null };
+      const typed = existingData as ExistingAnnotationData;
       existingAnnotation = {
         canonical_url: typed.canonical_url ?? null,
         wp_post_id: typed.wp_post_id ?? null,
@@ -593,13 +576,7 @@ export async function getContentAnnotationsForUser(): Promise<
 // WordPress 設定の保存（サーバーアクション）
 // ==========================================
 
-export async function saveWordPressSettingsAction(params: {
-  wpType: 'wordpress_com' | 'self_hosted';
-  wpSiteId?: string;
-  wpSiteUrl?: string;
-  wpUsername?: string;
-  wpApplicationPassword?: string;
-}) {
+export async function saveWordPressSettingsAction(params: SaveWordPressSettingsParams) {
   const cookieStore = await cookies();
   try {
     const { wpType, wpSiteId, wpSiteUrl, wpUsername, wpApplicationPassword } = params;
@@ -753,12 +730,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
 
   const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
   const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
-  let existingAnnotation:
-    | {
-        canonical_url: string | null;
-        wp_post_id: number | null;
-      }
-    | null = null;
+  let existingAnnotation: ExistingAnnotationData | null = null;
   let canonicalMatchesExisting = false;
 
   if (canonicalProvided) {
@@ -769,7 +741,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
       .eq('session_id', payload.session_id)
       .maybeSingle();
     if (!existingError && existingData) {
-      const typed = existingData as { canonical_url: string | null; wp_post_id: number | null };
+      const typed = existingData as ExistingAnnotationData;
       existingAnnotation = {
         canonical_url: typed.canonical_url ?? null,
         wp_post_id: typed.wp_post_id ?? null,

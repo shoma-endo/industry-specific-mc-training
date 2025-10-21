@@ -33,3 +33,44 @@ export interface SessionAnnotationUpsertPayload extends AnnotationFields {
   session_id: string;
   canonical_url?: string | null;
 }
+
+/**
+ * useAnnotationForm関連の型定義
+ */
+export type AnnotationFormState = Record<AnnotationFieldKey, string>;
+
+export interface SubmissionHandlerResult {
+  success?: boolean;
+  error?: string;
+  canonical_url?: string | null;
+  [key: string]: unknown;
+}
+
+export interface SubmitPayload {
+  fields: AnnotationFormState;
+  canonicalUrl: string | null;
+}
+
+export interface SubmitOutcome {
+  success: boolean;
+  response?: SubmissionHandlerResult;
+  normalizedCanonicalUrl: string | null;
+}
+
+export interface UseAnnotationFormOptions {
+  initialFields?: AnnotationFields | AnnotationRecord | null;
+  initialCanonicalUrl?: string | null;
+  onSubmit: (payload: SubmitPayload) => Promise<SubmissionHandlerResult | void>;
+}
+
+export interface UseAnnotationFormResult {
+  form: AnnotationFormState;
+  updateField: (field: AnnotationFieldKey, value: string) => void;
+  canonicalUrl: string;
+  updateCanonicalUrl: (value: string) => void;
+  canonicalUrlError: string;
+  errorMessage: string;
+  isSaving: boolean;
+  saveDone: boolean;
+  submit: () => Promise<SubmitOutcome>;
+}

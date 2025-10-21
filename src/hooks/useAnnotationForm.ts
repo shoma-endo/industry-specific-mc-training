@@ -5,9 +5,11 @@ import {
   type AnnotationFieldKey,
   type AnnotationFields,
   type AnnotationRecord,
+  type AnnotationFormState,
+  type SubmitOutcome,
+  type UseAnnotationFormOptions,
+  type UseAnnotationFormResult,
 } from '@/types/annotation';
-
-type AnnotationFormState = Record<AnnotationFieldKey, string>;
 
 const EMPTY_FORM_ENTRIES = ANNOTATION_FIELD_KEYS.map(key => [key, ''] as const);
 const EMPTY_FORM = Object.fromEntries(EMPTY_FORM_ENTRIES) as AnnotationFormState;
@@ -24,47 +26,11 @@ const toFormState = (
   );
 };
 
-interface SubmissionHandlerResult {
-  success?: boolean;
-  error?: string;
-  canonical_url?: string | null;
-  [key: string]: unknown;
-}
-
-interface SubmitPayload {
-  fields: AnnotationFormState;
-  canonicalUrl: string | null;
-}
-
-interface SubmitOutcome {
-  success: boolean;
-  response?: SubmissionHandlerResult;
-  normalizedCanonicalUrl: string | null;
-}
-
-interface Options {
-  initialFields?: AnnotationFields | AnnotationRecord | null;
-  initialCanonicalUrl?: string | null;
-  onSubmit: (payload: SubmitPayload) => Promise<SubmissionHandlerResult | void>;
-}
-
-interface UseAnnotationFormResult {
-  form: AnnotationFormState;
-  updateField: (field: AnnotationFieldKey, value: string) => void;
-  canonicalUrl: string;
-  updateCanonicalUrl: (value: string) => void;
-  canonicalUrlError: string;
-  errorMessage: string;
-  isSaving: boolean;
-  saveDone: boolean;
-  submit: () => Promise<SubmitOutcome>;
-}
-
 export function useAnnotationForm({
   initialFields,
   initialCanonicalUrl,
   onSubmit,
-}: Options): UseAnnotationFormResult {
+}: UseAnnotationFormOptions): UseAnnotationFormResult {
   const [form, setForm] = useState<AnnotationFormState>(() => toFormState(initialFields));
   const [canonicalUrl, setCanonicalUrl] = useState<string>(() => initialCanonicalUrl ?? '');
   const [canonicalUrlError, setCanonicalUrlError] = useState('');
