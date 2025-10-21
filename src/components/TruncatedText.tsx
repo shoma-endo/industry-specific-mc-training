@@ -3,11 +3,11 @@
 import React from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-type Props = {
+interface Props {
   text: string;
   lines?: number; // default 2
   className?: string;
-};
+}
 
 export default function TruncatedText({ text, lines = 2, className }: Props) {
   const ref = React.useRef<HTMLDivElement | null>(null);

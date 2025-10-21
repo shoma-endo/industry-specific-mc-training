@@ -29,10 +29,10 @@ import type { AnnotationRecord } from '@/types/annotation';
 
 const FULL_MARKDOWN_PREFIX = '"full_markdown":"';
 
-type FullMarkdownDecoder = {
+interface FullMarkdownDecoder {
   feed: (chunk: string) => string;
   reset: () => void;
-};
+}
 
 const createFullMarkdownDecoder = (): FullMarkdownDecoder => {
   const prefix = FULL_MARKDOWN_PREFIX;
@@ -199,19 +199,19 @@ const ErrorAlert: React.FC<{ error: string; onClose?: () => void }> = ({ error, 
   </div>
 );
 
-type BlogCanvasVersion = {
+interface BlogCanvasVersion {
   id: string;
   content: string;
   raw: string;
   step: BlogStepId;
   model?: string;
   createdAt: number;
-};
+}
 
 type StepVersionsMap = Record<BlogStepId, BlogCanvasVersion[]>;
 
 // 自動開始は行わず、明示ボタンで開始する
-type ChatLayoutCtx = {
+interface ChatLayoutCtx {
   chatSession: ChatSessionHook;
   subscription: SubscriptionHook;
   isMobile: boolean;
@@ -236,7 +236,7 @@ type ChatLayoutCtx = {
   handleModelChange: (model: string, step?: BlogStepId) => void;
   nextStepForPlaceholder: BlogStepId | null;
   onNextStepChange: (nextStep: BlogStepId | null) => void;
-};
+}
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const {

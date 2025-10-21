@@ -59,11 +59,11 @@ const ProfileDisplay = () => {
 };
 
 // 管理者向けカードコンポーネント（constパターン使用）
-type AdminAccessCardProps = {
+interface AdminAccessCardProps {
   isAdmin: boolean;
   isLoggedIn: boolean;
   isLoading: boolean;
-};
+}
 
 const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProps) => {
   if (isLoading || !isLoggedIn || !isAdmin) {

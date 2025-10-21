@@ -63,6 +63,7 @@ AI運用5原則
 ## 実装指針
 
 - TypeScript は strict 前提。型・`zod` スキーマを積極的に活用し、`any` は避ける。
+- TypeScript でオブジェクト型を定義する際は、可能な限り `interface` を使用し、`type` は `interface` で表現できない場合に限定する。
 - Server Actions（`use server`）と Route Handlers を使い分け、クライアントへの機密情報露出を防ぐ。
 - Chat/Canvas の SSE 実装ではタイムアウトや ping を既存実装に合わせる。
 - 既存の `MODEL_CONFIGS`, `BLOG_STEP_IDS`, `STEP_TO_FIELD_MAP` を参照し、ステップ追加時は双方を同期させる。

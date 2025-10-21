@@ -7,7 +7,7 @@ import TruncatedText from '@/components/TruncatedText';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 
-type PostRow = {
+interface PostRow {
   id: number | string;
   date?: string | undefined;
   title?: string | undefined;
@@ -15,12 +15,12 @@ type PostRow = {
   categories?: number[] | undefined;
   categoryNames?: string[] | undefined;
   excerpt?: string | undefined;
-};
+}
 
-type Props = {
+interface Props {
   posts: PostRow[];
   annotations: AnnotationRecord[];
-};
+}
 
 export default function AnalyticsTable({ posts, annotations }: Props) {
   // 紐付け判定用に投稿IDセットを作成

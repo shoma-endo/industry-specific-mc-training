@@ -61,11 +61,11 @@ export interface WordPressSettingsState {
 /**
  * セッションリスト関連の型定義
  */
-export type SessionListItem = {
+export interface SessionListItem {
   id: string;
   title: string;
   updatedAt: Date;
-};
+}
 
 export interface SessionListContentProps {
   sessions: SessionListItem[];
