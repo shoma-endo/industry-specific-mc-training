@@ -167,8 +167,6 @@ const withTokens = (
       );
     }
 
-    const shouldCheckSubscription = !skipSubscriptionCheck && env.STRIPE_ENABLED === 'true';
-
     const baseResult: AuthenticatedUser = withTokens(
       {
         lineUserId: lineProfile.userId,
@@ -180,6 +178,12 @@ const withTokens = (
       },
       { accessToken: latestAccessToken ?? null, refreshToken: latestRefreshToken ?? null }
     );
+
+    if (user.role === 'admin') {
+      return baseResult;
+    }
+
+    const shouldCheckSubscription = !skipSubscriptionCheck && env.STRIPE_ENABLED === 'true';
 
     if (!shouldCheckSubscription) {
       return baseResult;
@@ -198,7 +202,7 @@ const withTokens = (
     }
 
     if (isSubscribed) {
-      if (user.role !== 'paid' && user.role !== 'admin') {
+      if (user.role !== 'paid') {
         try {
           const updated = await userService.updateUserRole(user.id, 'paid');
           if (updated) {
