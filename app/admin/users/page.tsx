@@ -39,7 +39,7 @@ const formatDateTime = (timestamp: number | undefined) => {
 const getRoleColor = (role: UserRole | null) => {
   switch (role) {
     case 'admin':
-      return 'bg-red-100 text-red-800';
+      return 'bg-blue-100 text-blue-800';
     case 'trial':
       return 'bg-yellow-100 text-yellow-800';
     case 'paid':
