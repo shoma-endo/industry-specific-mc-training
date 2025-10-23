@@ -6,6 +6,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useFeedbackDialog } from '@/hooks/useFeedbackDialog';
 import { useLiffContext } from '@/components/LiffProvider';
 import { saveBrief, getBrief } from '@/server/handler/actions/brief.actions';
 import { paymentEnum, type Payment, type BriefInput } from '@/server/handler/actions/brief.schema';
@@ -56,6 +65,7 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string>('');
+  const { feedback, showFeedback, closeFeedback } = useFeedbackDialog();
 
   // 初期データの読み込み
   useEffect(() => {
@@ -139,19 +149,32 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
 
         if (!success) {
           setError(saveError || '事業者情報の保存に失敗しました');
+          showFeedback({
+            title: '保存に失敗しました',
+            message: saveError || '事業者情報の保存に失敗しました',
+            variant: 'error',
+          });
           return;
         }
 
-        // 保存成功の場合、何らかのフィードバックを表示
-        alert('事業者情報を保存しました');
+        showFeedback({
+          title: '事業者情報を保存しました',
+          message: '入力内容が保存されました。',
+          variant: 'success',
+        });
       } catch (err) {
         console.error('保存エラー:', err);
         setError('保存処理でエラーが発生しました');
+        showFeedback({
+          title: '保存に失敗しました',
+          message: '保存処理でエラーが発生しました',
+          variant: 'error',
+        });
       } finally {
         setIsSaving(false);
       }
     },
-    [form, getAccessToken, isLoggedIn]
+    [form, getAccessToken, isLoggedIn, showFeedback]
   );
 
   // 早期リターン - LIFF未ログイン状態
@@ -411,6 +434,34 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
           </Button>
         </div>
       </form>
+
+      <Dialog
+        open={feedback.open}
+        onOpenChange={open => {
+          if (!open) {
+            closeFeedback();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle
+              className={feedback.variant === 'success' ? 'text-green-600' : 'text-red-600'}
+            >
+              {feedback.title}
+            </DialogTitle>
+            {feedback.message && <DialogDescription>{feedback.message}</DialogDescription>}
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant={feedback.variant === 'success' ? 'default' : 'destructive'}
+              onClick={closeFeedback}
+            >
+              閉じる
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
