@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -16,6 +17,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
 import { useLiffContext } from '@/components/LiffProvider';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
+import { AlertTriangle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useFeedbackDialog } from '@/hooks/useFeedbackDialog';
 
 export default function PromptsPage() {
   const { getAccessToken } = useLiffContext();
@@ -25,6 +36,7 @@ export default function PromptsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { feedback, showFeedback, closeFeedback } = useFeedbackDialog();
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -87,13 +99,29 @@ export default function PromptsPage() {
         const updatedTemplate = { ...selectedTemplate, content: editedContent };
         setSelectedTemplate(updatedTemplate);
         setError(null);
-        alert('プロンプトを保存しました');
+        showFeedback({
+          variant: 'success',
+          title: 'プロンプトを保存しました',
+          message: '内容が更新されました。',
+        });
       } else {
-        setError(result?.error || '保存に失敗しました');
+        const message = result?.error || '保存に失敗しました';
+        setError(message);
+        showFeedback({
+          variant: 'error',
+          title: '保存に失敗しました',
+          message,
+        });
       }
     } catch (error) {
       console.error('保存エラー:', error);
-      setError('保存中にエラーが発生しました');
+      const message = '保存中にエラーが発生しました';
+      setError(message);
+      showFeedback({
+        variant: 'error',
+        title: '保存に失敗しました',
+        message,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -132,15 +160,27 @@ export default function PromptsPage() {
       <div className="space-y-6">
         <h1 className="text-3xl font-bold text-gray-900">プロンプト管理</h1>
         <Card>
-          <CardContent className="text-center py-12">
-            <div className="text-red-500">
-              <div className="text-4xl mb-4">⚠️</div>
-              <div className="text-lg mb-2">エラーが発生しました</div>
-              <div className="text-sm mb-4">{error}</div>
-              <Button onClick={loadTemplates} aria-label="再試行" tabIndex={0}>
-                再試行
-              </Button>
-            </div>
+          <CardContent className="py-12">
+            <Alert variant="destructive" className="mx-auto max-w-md">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 text-red-600">
+                  <AlertTriangle className="h-5 w-5" aria-hidden />
+                </div>
+                <div className="space-y-1 text-left">
+                  <h2 className="text-lg font-semibold">エラーが発生しました</h2>
+                  <p className="text-sm text-red-700">{error}</p>
+                  <Button
+                    onClick={loadTemplates}
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    aria-label="再試行"
+                  >
+                    再試行
+                  </Button>
+                </div>
+              </div>
+            </Alert>
           </CardContent>
         </Card>
       </div>
@@ -317,6 +357,31 @@ export default function PromptsPage() {
           </CardContent>
         </Card>
       )}
+      <Dialog
+        open={feedback.open}
+        onOpenChange={open => {
+          if (!open) {
+            closeFeedback();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className={feedback.variant === 'success' ? 'text-green-600' : 'text-red-600'}>
+              {feedback.title}
+            </DialogTitle>
+            {feedback.message && <DialogDescription>{feedback.message}</DialogDescription>}
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant={feedback.variant === 'success' ? 'default' : 'destructive'}
+              onClick={closeFeedback}
+            >
+              閉じる
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
