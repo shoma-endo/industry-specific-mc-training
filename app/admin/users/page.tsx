@@ -2,6 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { getAllUsers, updateUserRole } from '@/server/handler/actions/admin.actions';
 import { getRoleDisplayName } from '@/auth-utils';
 import type { User, UserRole } from '@/types/user';
@@ -41,6 +57,17 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    variant: 'success' | 'error';
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    variant: 'success',
+  });
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -76,8 +103,13 @@ export default function UsersPage() {
         );
         setEditingUserId(null);
 
-        // 成功アラートを表示
-        alert('ユーザー権限を更新しました');
+        // 成功フィードバックを表示
+        setFeedback({
+          open: true,
+          title: 'ユーザー権限を更新しました',
+          message: `新しい権限: ${getRoleDisplayName(newRole)}`,
+          variant: 'success',
+        });
 
         // キャッシュクリア通知を送信（権限変更の即座反映のため）
         try {
@@ -86,15 +118,27 @@ export default function UsersPage() {
           console.warn('Cache clear failed:', error);
         }
       } else {
-        alert(result.error || 'ユーザー権限の更新に失敗しました');
+        setFeedback({
+          open: true,
+          title: '権限の更新に失敗しました',
+          message: result.error || 'ユーザー権限の更新に失敗しました',
+          variant: 'error',
+        });
       }
     } catch (error) {
       console.error('ユーザー権限更新エラー:', error);
-      alert('ユーザー権限の更新中にエラーが発生しました');
+      setFeedback({
+        open: true,
+        title: '権限の更新でエラーが発生しました',
+        message: 'ユーザー権限の更新中にエラーが発生しました',
+        variant: 'error',
+      });
     } finally {
       setUpdatingUserId(null);
     }
   };
+
+  const isFeedbackSuccess = feedback.variant === 'success';
 
   if (isLoading) {
     return (
@@ -188,17 +232,21 @@ export default function UsersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {editingUserId === user.id ? (
-                          <select
-                            className="border border-gray-300 rounded px-2 py-1 text-xs"
-                            defaultValue={user.role}
-                            onChange={e => handleRoleChange(user.id, e.target.value as UserRole)}
+                          <Select
+                            value={user.role ?? 'unavailable'}
+                            onValueChange={value => handleRoleChange(user.id, value as UserRole)}
                             disabled={updatingUserId === user.id}
                           >
-                            <option value="trial">お試しユーザー</option>
-                            <option value="paid">有料契約ユーザー</option>
-                            <option value="admin">管理者</option>
-                            <option value="unavailable">サービス利用停止</option>
-                          </select>
+                            <SelectTrigger size="sm" className="w-40 text-xs">
+                              <SelectValue placeholder="権限を選択" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="trial">お試しユーザー</SelectItem>
+                              <SelectItem value="paid">有料契約ユーザー</SelectItem>
+                              <SelectItem value="admin">管理者</SelectItem>
+                              <SelectItem value="unavailable">サービス利用停止</SelectItem>
+                            </SelectContent>
+                          </Select>
                         ) : (
                           <span
                             className={`px-2 py-1 text-xs rounded-full ${getRoleColor(user.role)}`}
@@ -235,6 +283,27 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+      <Dialog
+        open={feedback.open}
+        onOpenChange={open => setFeedback(prev => ({ ...prev, open }))}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className={isFeedbackSuccess ? 'text-green-600' : 'text-red-600'}>
+              {feedback.title}
+            </DialogTitle>
+            <DialogDescription>{feedback.message}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setFeedback(prev => ({ ...prev, open: false }))}
+              variant={isFeedbackSuccess ? 'default' : 'destructive'}
+            >
+              閉じる
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
