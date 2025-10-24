@@ -10,6 +10,7 @@ import {
 } from '@/domain/models/chat.models';
 import { ChatError } from '@/domain/errors/ChatError';
 import type { ChatSessionActions, ChatSessionHook } from '@/types/hooks';
+import { ERROR_MESSAGES } from '@/lib/constants';
 
 export type { ChatSessionActions, ChatSessionHook };
 
@@ -65,6 +66,8 @@ export const useChatSession = (
       setState(prev => ({
         ...prev,
         messages: [...prev.messages, userMessage, assistantMessage],
+        error: null,
+        warning: null,
       }));
 
       try {
@@ -86,8 +89,31 @@ export const useChatSession = (
           }),
         });
 
+        if (response.status === 429) {
+          const bodyText = await response.text().catch(() => '');
+          const warningMessage = extractWarningMessage(bodyText);
+
+          setState(prev => {
+            const updatedMessages =
+              prev.messages.length > 0 && prev.messages[prev.messages.length - 1]?.role === 'assistant'
+                ? prev.messages.slice(0, -1)
+                : prev.messages;
+
+            return {
+              ...prev,
+              messages: updatedMessages,
+              warning: warningMessage,
+              error: null,
+              isLoading: false,
+            };
+          });
+
+          return;
+        }
+
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorText = await response.text().catch(() => '');
+          throw new Error(errorText || `HTTP error! status: ${response.status}`);
         }
 
         const reader = response.body?.getReader();
@@ -192,6 +218,7 @@ export const useChatSession = (
           ...prev,
           isLoading: false,
           error: error instanceof Error ? error.message : 'ストリーミングに失敗しました',
+          warning: null,
         }));
       }
     },
@@ -200,7 +227,7 @@ export const useChatSession = (
 
   const sendMessage = useCallback(
     async (content: string, model: string, options?: { systemPrompt?: string }) => {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      setState(prev => ({ ...prev, isLoading: true, error: null, warning: null }));
 
       try {
         const accessToken = await getAccessToken();
@@ -230,6 +257,7 @@ export const useChatSession = (
           ...prev,
           isLoading: false,
           error: errorMessage,
+          warning: null,
         }));
       }
     },
@@ -238,20 +266,20 @@ export const useChatSession = (
 
   const loadSessions = useCallback(async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      setState(prev => ({ ...prev, isLoading: true, error: null, warning: null }));
       const sessions = await chatService.loadSessions();
       setState(prev => ({ ...prev, sessions, isLoading: false }));
     } catch (error) {
       console.error('Load sessions error:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'セッション一覧の読み込みに失敗しました';
-      setState(prev => ({ ...prev, error: errorMessage, isLoading: false }));
+      setState(prev => ({ ...prev, error: errorMessage, isLoading: false, warning: null }));
     }
   }, [chatService]);
 
   const loadSession = useCallback(
     async (sessionId: string) => {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      setState(prev => ({ ...prev, isLoading: true, error: null, warning: null }));
 
       try {
         const messages = await chatService.loadSessionMessages(sessionId);
@@ -269,6 +297,7 @@ export const useChatSession = (
           ...prev,
           isLoading: false,
           error: errorMessage,
+          warning: null,
         }));
       }
     },
@@ -294,7 +323,7 @@ export const useChatSession = (
         console.error('Delete session error:', error);
         const errorMessage =
           error instanceof Error ? error.message : 'セッションの削除に失敗しました';
-        setState(prev => ({ ...prev, error: errorMessage }));
+        setState(prev => ({ ...prev, error: errorMessage, warning: null }));
       }
     },
     [chatService]
@@ -306,6 +335,7 @@ export const useChatSession = (
       currentSessionId: '',
       messages: [],
       error: null,
+      warning: null,
     }));
   }, []);
 
@@ -322,3 +352,27 @@ export const useChatSession = (
     actions,
   };
 };
+
+function extractWarningMessage(rawBody: string): string {
+  if (!rawBody) {
+    return ERROR_MESSAGES.daily_chat_limit;
+  }
+
+  const dataMatch = rawBody.match(/data:\s*(\{.*\})/);
+  if (dataMatch) {
+    const payload = dataMatch[1];
+    if (!payload) {
+      return ERROR_MESSAGES.daily_chat_limit;
+    }
+    try {
+      const parsed = JSON.parse(payload) as { message?: unknown };
+      if (parsed && typeof parsed === 'object' && typeof parsed.message === 'string') {
+        return parsed.message;
+      }
+    } catch {
+      // no-op fall back to default
+    }
+  }
+
+  return ERROR_MESSAGES.daily_chat_limit;
+}

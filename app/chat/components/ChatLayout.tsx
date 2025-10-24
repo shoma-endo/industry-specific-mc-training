@@ -6,7 +6,7 @@ import { SubscriptionHook } from '@/hooks/useSubscriptionStatus';
 import { useLiffContext } from '@/components/LiffProvider';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Menu } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -199,6 +199,29 @@ const ErrorAlert: React.FC<{ error: string; onClose?: () => void }> = ({ error, 
   </div>
 );
 
+const WarningAlert: React.FC<{ message: string; onClose?: () => void }> = ({ message, onClose }) => (
+  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-3" role="status" aria-live="polite">
+    <div className="flex">
+      <div className="flex-shrink-0">
+        <AlertTriangle className="h-5 w-5 text-yellow-500" />
+      </div>
+      <div className="ml-3 flex-1 break-words">
+        <p className="text-sm text-yellow-800 break-words">{message}</p>
+      </div>
+      {onClose && (
+        <button
+          type="button"
+          className="text-sm text-yellow-700 ml-4 hover:text-yellow-900 focus-visible:ring-2 focus-visible:ring-yellow-300 rounded"
+          onClick={onClose}
+          aria-label="閉じる"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  </div>
+);
+
 interface BlogCanvasVersion {
   id: string;
   content: string;
@@ -271,12 +294,17 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   };
 
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
+  const [isWarningDismissed, setIsWarningDismissed] = useState(false);
   const [isSubscriptionErrorDismissed, setIsSubscriptionErrorDismissed] = useState(false);
 
   // エラーの表示制御
   useEffect(() => {
     setIsErrorDismissed(false);
   }, [chatSession.state.error]);
+
+  useEffect(() => {
+    setIsWarningDismissed(false);
+  }, [chatSession.state.warning]);
 
   useEffect(() => {
     setIsSubscriptionErrorDismissed(false);
@@ -370,6 +398,13 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
         {chatSession.state.error && !isErrorDismissed && (
           <ErrorAlert error={chatSession.state.error} onClose={() => setIsErrorDismissed(true)} />
+        )}
+
+        {chatSession.state.warning && !isWarningDismissed && (
+          <WarningAlert
+            message={chatSession.state.warning}
+            onClose={() => setIsWarningDismissed(true)}
+          />
         )}
 
         <MessageArea

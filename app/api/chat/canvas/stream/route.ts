@@ -5,6 +5,8 @@ import { chatService } from '@/server/services/chatService';
 import { env } from '@/env';
 import { MODEL_CONFIGS } from '@/lib/constants';
 import { htmlToMarkdownForCanvas } from '@/lib/blog-canvas';
+import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
+import type { UserRole } from '@/types/user';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -146,7 +148,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { userId } = authResult;
+    const { userId, userDetails } = authResult;
+    const userRole = (userDetails?.role ?? 'trial') as UserRole;
+
+    const limitError = await checkTrialDailyLimit(userRole, userId);
+    if (limitError) {
+      return new Response(sendSSE('error', { type: 'daily_limit', message: limitError }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-store',
+          Connection: 'keep-alive',
+        },
+      });
+    }
 
     // MODEL_CONFIGSから設定を取得
     const modelKey = `blog_creation_${targetStep}`;
@@ -596,6 +611,17 @@ export async function POST(req: NextRequest) {
 
               // 1つ目: Canvas編集結果（blog_creation_${targetStep}）
               const canvasModel = `blog_creation_${targetStep}`;
+              const postStreamLimitError = await checkTrialDailyLimit(userRole, userId);
+              if (postStreamLimitError) {
+                controller.enqueue(
+                  sendSSE('error', { type: 'daily_limit', message: postStreamLimitError })
+                );
+                if (pingInterval) clearInterval(pingInterval);
+                cleanup();
+                controller.close();
+                return;
+              }
+
               await chatService.continueChat(
                 userId!,
                 sessionId,

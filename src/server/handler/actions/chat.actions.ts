@@ -6,10 +6,10 @@ import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
 import { canUseServices } from '@/auth-utils';
 import { userService } from '@/server/services/userService';
-import { SupabaseService } from '@/server/services/supabaseService';
 import type { UserRole } from '@/types/user';
-import { ERROR_MESSAGES } from '@/lib/constants';
 import { z } from 'zod';
+import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
+import { SupabaseService } from '@/server/services/supabaseService';
 
 const startChatSchema = z.object({
   userMessage: z.string(),
@@ -44,48 +44,6 @@ export type StartChatInput = z.infer<typeof startChatSchema>;
 export type ContinueChatInput = z.infer<typeof continueChatSchema>;
 
 const modelHandler = new ModelHandlerService();
-
-const DAILY_CHAT_LIMIT = 3;
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-function getCurrentJstRange() {
-  const nowUtc = new Date();
-  const nowJst = new Date(nowUtc.getTime() + JST_OFFSET_MS);
-  const startOfJstUtcMs = Date.UTC(
-    nowJst.getUTCFullYear(),
-    nowJst.getUTCMonth(),
-    nowJst.getUTCDate(),
-    0,
-    0,
-    0,
-    0
-  );
-  const fromUtcMs = startOfJstUtcMs - JST_OFFSET_MS;
-  const toUtcMs = fromUtcMs + 24 * 60 * 60 * 1000;
-
-  return { fromUtcMs, toUtcMs };
-}
-
-async function checkDailyLimit(role: UserRole, userId: string) {
-  if (role !== 'trial') return null;
-
-  const supabase = new SupabaseService();
-  const { fromUtcMs, toUtcMs } = getCurrentJstRange();
-  const sentCountResult = await supabase.countUserMessagesBetween(userId, fromUtcMs, toUtcMs);
-
-  if (!sentCountResult.success) {
-    console.warn('Daily limit check failed:', sentCountResult.error);
-    return sentCountResult.error.userMessage;
-  }
-
-  const sentCountToday = sentCountResult.data;
-
-  if (sentCountToday >= DAILY_CHAT_LIMIT) {
-    return ERROR_MESSAGES.daily_chat_limit;
-  }
-
-  return null;
-}
 
 // 認証チェックを共通化（ロールも返す）
 async function checkAuth(
@@ -139,7 +97,7 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
     }
 
     // 1日3回の送信制限（JST）: trial 権限のみ適用
-    const limitError = await checkDailyLimit(auth.role, auth.userId);
+    const limitError = await checkTrialDailyLimit(auth.role, auth.userId);
     if (limitError) {
       return {
         message: '',
@@ -175,7 +133,7 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
     }
 
     // 1日3回の送信制限（JST）: trial 権限のみ適用
-    const limitError = await checkDailyLimit(auth.role, auth.userId);
+    const limitError = await checkTrialDailyLimit(auth.role, auth.userId);
     if (limitError) {
       return {
         message: '',

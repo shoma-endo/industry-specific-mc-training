@@ -6,6 +6,8 @@ import { env } from '@/env';
 import { MODEL_CONFIGS } from '@/lib/constants';
 import { ChatError } from '@/domain/errors/ChatError';
 import { getSystemPrompt } from '@/lib/prompts';
+import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
+import type { UserRole } from '@/types/user';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -67,7 +69,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const { userId } = authResult;
+    const { userId, userDetails } = authResult;
+    const userRole = (userDetails?.role ?? 'trial') as UserRole;
+
+    const limitError = await checkTrialDailyLimit(userRole, userId);
+    if (limitError) {
+      return new Response(sendSSE('error', { type: 'daily_limit', message: limitError }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-store',
+          Connection: 'keep-alive',
+        },
+      });
+    }
 
     // 共有サービスのプロンプト取得を利用
 
@@ -200,6 +215,17 @@ export async function POST(req: NextRequest) {
             } else if (chunk.type === 'message_stop') {
               // 完了時にメッセージをデータベースに保存
               try {
+                const postStreamLimitError = await checkTrialDailyLimit(userRole, userId);
+                if (postStreamLimitError) {
+                  controller.enqueue(
+                    sendSSE('error', { type: 'daily_limit', message: postStreamLimitError })
+                  );
+                  if (pingInterval) clearInterval(pingInterval);
+                  cleanup();
+                  controller.close();
+                  return;
+                }
+
                 let result;
                 if (sessionId) {
                   result = await chatService.continueChat(

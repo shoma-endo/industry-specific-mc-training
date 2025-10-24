@@ -6,6 +6,7 @@ export interface ChatState {
   readonly currentSessionId: string;
   readonly isLoading: boolean;
   readonly error: string | null;
+  readonly warning: string | null;
 }
 
 export const initialChatState: ChatState = {
@@ -14,6 +15,7 @@ export const initialChatState: ChatState = {
   currentSessionId: '',
   isLoading: false,
   error: null,
+  warning: null,
 };
 
 export const createUserMessage = (content: string, model?: string): ChatMessage => ({
