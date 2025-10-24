@@ -8,7 +8,6 @@ import { canUseServices } from '@/auth-utils';
 import { userService } from '@/server/services/userService';
 import type { UserRole } from '@/types/user';
 import { z } from 'zod';
-import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
 import { SupabaseService } from '@/server/services/supabaseService';
 
 const startChatSchema = z.object({
@@ -96,16 +95,6 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
       };
     }
 
-    // 1日3回の送信制限（JST）: trial 権限のみ適用
-    const limitError = await checkTrialDailyLimit(auth.role, auth.userId);
-    if (limitError) {
-      return {
-        message: '',
-        error: limitError,
-        requiresSubscription: false,
-      };
-    }
-
     // モデル処理に委譲
     return await modelHandler.handleStart(auth.userId, validatedData);
   } catch (e: unknown) {
@@ -129,16 +118,6 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
         message: '',
         error: auth.error,
         requiresSubscription: auth.requiresSubscription,
-      };
-    }
-
-    // 1日3回の送信制限（JST）: trial 権限のみ適用
-    const limitError = await checkTrialDailyLimit(auth.role, auth.userId);
-    if (limitError) {
-      return {
-        message: '',
-        error: limitError,
-        requiresSubscription: false,
       };
     }
 
