@@ -14,9 +14,6 @@ export interface WordPressSettings {
   wpClientId?: string;
   wpClientSecret?: string;
   wpSiteId?: string;
-  wpAccessToken?: string;
-  wpRefreshToken?: string;
-  wpTokenExpiresAt?: string;
   // セルフホスト用
   wpSiteUrl?: string;
   wpUsername?: string;
