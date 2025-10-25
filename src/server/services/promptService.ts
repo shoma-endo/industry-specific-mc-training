@@ -155,7 +155,6 @@ export class PromptService extends SupabaseService {
           .from('prompt_templates')
           .select('*')
           .eq('name', name)
-          .eq('is_active', true)
           .single();
 
         if (error && error.code !== 'PGRST116') {
@@ -338,31 +337,6 @@ export class PromptService extends SupabaseService {
       },
       {
         logMessage: 'プロンプト更新エラー:',
-      }
-    );
-  }
-
-  /**
-   * プロンプトテンプレートを削除（論理削除）
-   */
-  static async deleteTemplate(id: string, updatedBy: string): Promise<void> {
-    await this.withServiceRoleClient(
-      async client => {
-        const { error } = await client
-          .from('prompt_templates')
-          .update({
-            is_active: false,
-            updated_by: updatedBy,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', id);
-
-        if (error) {
-          throw new Error(`プロンプト削除エラー: ${error.message}`);
-        }
-      },
-      {
-        logMessage: 'プロンプト削除エラー:',
       }
     );
   }

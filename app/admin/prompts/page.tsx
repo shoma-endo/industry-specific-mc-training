@@ -86,7 +86,6 @@ export default function PromptsPage() {
           display_name: selectedTemplate.display_name,
           content: editedContent,
           variables: selectedTemplate.variables,
-          is_active: selectedTemplate.is_active,
         }),
       });
       const result = await res.json();

@@ -10,7 +10,6 @@ export interface PromptTemplate {
   content: string;
   variables: PromptVariable[];
   version: number;
-  is_active: boolean;
   created_by: string;
   updated_by?: string | undefined;
   created_at: string;
@@ -31,7 +30,6 @@ export interface CreatePromptTemplateInput {
   display_name: string;
   content: string;
   variables: PromptVariable[];
-  is_active?: boolean;
   created_by: string;
 }
 
@@ -40,7 +38,6 @@ export interface UpdatePromptTemplateInput {
   display_name?: string;
   content?: string;
   variables?: PromptVariable[];
-  is_active?: boolean;
   updated_by: string;
 }
 

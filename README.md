@@ -243,7 +243,6 @@ erDiagram
         text display_name
         text content
         jsonb variables
-        boolean is_active
         timestamptz created_at
         timestamptz updated_at
     }

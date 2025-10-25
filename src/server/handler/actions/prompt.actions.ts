@@ -28,7 +28,6 @@ const promptSchema = z.object({
     .max(255, '表示名は255文字以内で入力してください'),
   content: z.string().min(1, 'プロンプト内容は必須です'),
   variables: z.array(promptVariableSchema).default([]),
-  is_active: z.boolean().default(true),
 });
 
 type PromptActionResponse<T = unknown> = T extends void
@@ -231,40 +230,6 @@ export async function getPromptTemplate(
 }
 
 /**
- * プロンプトテンプレートを削除（論理削除）
- */
-export async function deletePromptTemplate(
-  liffAccessToken: string,
-  id: string
-): Promise<PromptActionResponse<void>> {
-  try {
-    // 管理者権限チェック
-    const adminCheck = await checkAdminPermission(liffAccessToken);
-    if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
-    }
-
-    // 存在チェック
-    const existingTemplate = await PromptService.getTemplateById(id);
-    if (!existingTemplate) {
-      return { success: false, error: 'プロンプトが見つかりません' };
-    }
-
-    // 削除実行
-    await PromptService.deleteTemplate(id, adminCheck.userId!);
-
-    // キャッシュ無効化
-    await PromptService.invalidateAllCaches();
-    revalidatePath('/admin/prompts');
-
-    return { success: true };
-  } catch (error) {
-    console.error('プロンプト削除エラー:', error);
-    return { success: false, error: 'プロンプトの削除に失敗しました' };
-  }
-}
-
-/**
  * プロンプトテンプレートの検証
  */
 export async function validatePromptTemplate(
@@ -289,7 +254,6 @@ export async function validatePromptTemplate(
       content: validatedData.content,
       variables: validatedData.variables,
       version: 1,
-      is_active: validatedData.is_active,
       created_by: adminCheck.userId!,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -310,45 +274,5 @@ export async function validatePromptTemplate(
       };
     }
     return { success: false, error: 'プロンプトの検証に失敗しました' };
-  }
-}
-
-/**
- * プロンプトテンプレートをアクティブ/非アクティブ切り替え
- */
-export async function togglePromptTemplateStatus(
-  liffAccessToken: string,
-  id: string
-): Promise<PromptActionResponse<PromptTemplate>> {
-  try {
-    // 管理者権限チェック
-    const adminCheck = await checkAdminPermission(liffAccessToken);
-    if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
-    }
-
-    // 存在チェック
-    const existingTemplate = await PromptService.getTemplateById(id);
-    if (!existingTemplate) {
-      return { success: false, error: 'プロンプトが見つかりません' };
-    }
-
-    // ステータス切り替え
-    const updateInput: UpdatePromptTemplateInput = {
-      is_active: !existingTemplate.is_active,
-      updated_by: adminCheck.userId!,
-    };
-
-    const result = await PromptService.updateTemplate(id, updateInput);
-
-    // キャッシュ無効化
-    await PromptService.invalidateAllCaches();
-    revalidatePath('/admin/prompts');
-    revalidatePath(`/admin/prompts/${id}`);
-
-    return { success: true, data: result };
-  } catch (error) {
-    console.error('プロンプトステータス切り替えエラー:', error);
-    return { success: false, error: 'プロンプトのステータス切り替えに失敗しました' };
   }
 }

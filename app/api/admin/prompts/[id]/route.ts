@@ -15,7 +15,6 @@ const promptSchema = z.object({
   display_name: z.string(),
   content: z.string(),
   variables: z.array(promptVariableSchema).default([]),
-  is_active: z.boolean().default(true),
 });
 
 export async function GET(request: NextRequest) {
@@ -110,7 +109,6 @@ export async function POST(request: NextRequest) {
       display_name: validated.display_name,
       content: validated.content,
       variables: validated.variables,
-      is_active: validated.is_active,
       updated_by: authResult.userId!,
     } as const;
 
