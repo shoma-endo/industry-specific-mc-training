@@ -24,7 +24,7 @@ export const PROMPT_DESCRIPTIONS: Record<string, PromptDescription> = {
   },
   blog_creation: {
     description: 'ブログ（記事）の下書きを作成するプロンプト',
-    variables: 'canonicalUrls（改行区切りの内部リンク候補URL一覧）が利用可能です',
+    variables: 'canonicalLinkPairs（改行区切りの内部リンク候補「タイトル | URL」一覧）が利用可能です',
   },
 };
 
@@ -65,7 +65,7 @@ export const VARIABLE_TYPE_DESCRIPTIONS: Record<string, string> = {
   persona: 'ペルソナ情報',
   benchmarkUrl: 'ベンチマークURL（参考サイト）',
   // ブログ作成用（内部リンク候補）
-  canonicalUrls: '内部リンク候補のURL一覧（改行区切り）',
+  canonicalLinkPairs: '内部リンク候補の「タイトル | URL」一覧（改行区切り）',
   // ブログ作成用（content_annotations 由来）
   contentNeeds: 'ユーザーのニーズ',
   contentPersona: 'デモグラ・ペルソナ',

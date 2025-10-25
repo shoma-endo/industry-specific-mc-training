@@ -18,11 +18,18 @@ export class PromptService extends SupabaseService {
    * 指定ユーザーの canonical_url 一覧を取得（重複排除・更新日時降順）
    */
   static async getCanonicalUrlsByUserId(userId: string): Promise<string[]> {
+    const entries = await this.getCanonicalLinkEntriesByUserId(userId);
+    return entries.map(entry => entry.canonical_url).filter(url => url.length > 0);
+  }
+
+  static async getCanonicalLinkEntriesByUserId(
+    userId: string
+  ): Promise<Array<{ canonical_url: string; wp_post_title: string }>> {
     return this.withServiceRoleClient(
       async client => {
         const { data, error } = await client
           .from('content_annotations')
-          .select('canonical_url')
+          .select('canonical_url, wp_post_title')
           .eq('user_id', userId)
           .not('canonical_url', 'is', null)
           .order('updated_at', { ascending: false });
@@ -31,11 +38,23 @@ export class PromptService extends SupabaseService {
           throw error;
         }
 
-        const urls = (data || [])
-          .map((row: Pick<AnnotationRecord, 'canonical_url'>) => row.canonical_url || '')
-          .filter(u => typeof u === 'string' && u.trim().length > 0);
+        const entries = (data || []).reduce<Array<{ canonical_url: string; wp_post_title: string }>>(
+          (acc, row: Pick<AnnotationRecord, 'canonical_url' | 'wp_post_title'>) => {
+            const canonical = row.canonical_url ? row.canonical_url.trim() : '';
+            if (!canonical) return acc;
+            if (acc.some(entry => entry.canonical_url === canonical)) {
+              return acc;
+            }
+            acc.push({
+              canonical_url: canonical,
+              wp_post_title: (row.wp_post_title || '').trim(),
+            });
+            return acc;
+          },
+          []
+        );
 
-        return Array.from(new Set(urls));
+        return entries;
       },
       {
         logMessage: 'canonical_url 取得処理エラー:',
@@ -122,6 +141,8 @@ export class PromptService extends SupabaseService {
       contentPrep: annotation.prep || '',
       contentBasicStructure: annotation.basic_structure || '',
       contentOpeningProposal: annotation.opening_proposal || '',
+      wpPostTitle: annotation.wp_post_title || '',
+      contentWpPostTitle: annotation.wp_post_title || '',
     };
   }
   /**

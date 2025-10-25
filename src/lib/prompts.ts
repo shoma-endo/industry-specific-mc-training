@@ -782,8 +782,13 @@ export async function generateBlogCreationPromptByStep(
 
       const userId = auth.error ? undefined : auth.userId;
       const isStep7 = isBlogStep7(step); // 現step7を本文作成として扱う
-      const canonicalUrls =
-        isStep7 && userId ? await PromptService.getCanonicalUrlsByUserId(userId) : [];
+      const canonicalLinkEntries =
+        isStep7 && userId ? await PromptService.getCanonicalLinkEntriesByUserId(userId) : [];
+      const canonicalUrls = canonicalLinkEntries.map(entry => entry.canonical_url);
+      const canonicalLinkPairsFormatted = canonicalLinkEntries.map(entry => {
+        const title = entry.wp_post_title || '';
+        return title ? `${title} | ${entry.canonical_url}` : entry.canonical_url;
+      });
       if (isStep7) {
         console.log('[BlogPrompt] Step7 canonicalUrls loaded', {
           step,
@@ -821,7 +826,11 @@ export async function generateBlogCreationPromptByStep(
 
       // コンテンツ変数は全ステップで適用。canonicalUrls はStep7のみ適用
       const vars: Record<string, string> = isStep7
-        ? { ...contentVars, canonicalUrls: canonicalUrls.join('\n') }
+        ? {
+            ...contentVars,
+            canonicalUrls: canonicalUrls.join('\n'),
+            canonicalLinkPairs: canonicalLinkPairsFormatted.join('\n'),
+          }
         : { ...contentVars };
       console.log('[BlogPrompt][Vars] 置換に使用する変数ソース', {
         step,

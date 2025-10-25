@@ -189,11 +189,13 @@ export default function PromptsPage() {
 
   const promptDescription = selectedTemplate ? getPromptDescription(selectedTemplate.name) : null;
   const variablesInfoText = (() => {
-    const names = new Set((selectedTemplate?.variables || []).map(v => v.name));
+    const sanitizedVariables = (selectedTemplate?.variables || []).filter(
+      v => v.name !== 'canonicalUrls' && v.name !== 'wpPostTitle'
+    );
+    const names = new Set(sanitizedVariables.map(v => v.name));
     const extra: string[] = [];
-    // canonicalUrls は既にDB変数に含まれるケースが多いが、念のため補足
-    if (names.has('canonicalUrls')) {
-      extra.push(getVariableDescription('canonicalUrls'));
+    if (names.has('canonicalLinkPairs')) {
+      extra.push(getVariableDescription('canonicalLinkPairs'));
     }
     // ブログ作成ステップ用の content_annotations 由来の暗黙変数（テンプレ内に現れなくても説明に提示）
     const contentVars = [
@@ -315,7 +317,9 @@ export default function PromptsPage() {
 
             {/* 変数一覧 */}
             {(() => {
-              const displayedVariables = selectedTemplate.variables || [];
+              const displayedVariables = (selectedTemplate.variables || []).filter(
+                v => v.name !== 'canonicalUrls' && v.name !== 'wpPostTitle'
+              );
               const implicitContentVars = [
                 { name: 'contentNeeds', description: getVariableDescription('contentNeeds') },
                 { name: 'contentPersona', description: getVariableDescription('contentPersona') },
@@ -331,12 +335,23 @@ export default function PromptsPage() {
                 },
               ];
               const implicitCanonical = [
-                { name: 'canonicalUrls', description: getVariableDescription('canonicalUrls') },
+                {
+                  name: 'canonicalLinkPairs',
+                  description: getVariableDescription('canonicalLinkPairs'),
+                },
               ];
               const showImplicit = selectedTemplate.name.startsWith('blog_creation_');
-              const allVars = showImplicit
+              const combinedVars = showImplicit
                 ? [...displayedVariables, ...implicitContentVars, ...implicitCanonical]
                 : displayedVariables;
+              const seen = new Set<string>();
+              const allVars = combinedVars.filter(variable => {
+                if (seen.has(variable.name)) {
+                  return false;
+                }
+                seen.add(variable.name);
+                return true;
+              });
 
               return allVars.length > 0 ? (
                 <div className="mt-6">
