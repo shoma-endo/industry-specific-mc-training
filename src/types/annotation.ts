@@ -20,6 +20,7 @@ export type AnnotationFields = Partial<Record<AnnotationFieldKey, AnnotationFiel
 export interface AnnotationRecord extends AnnotationFields {
   canonical_url?: string | null;
   wp_post_id?: number | null;
+  wp_post_title?: string | null;
   session_id?: string | null;
   memo?: string | null;
 }
@@ -43,6 +44,7 @@ export interface SubmissionHandlerResult {
   success?: boolean;
   error?: string;
   canonical_url?: string | null;
+  wp_post_title?: string | null;
   [key: string]: unknown;
 }
 
@@ -60,6 +62,7 @@ export interface SubmitOutcome {
 export interface UseAnnotationFormOptions {
   initialFields?: AnnotationFields | AnnotationRecord | null;
   initialCanonicalUrl?: string | null;
+  initialWpPostTitle?: string | null;
   onSubmit: (payload: SubmitPayload) => Promise<SubmissionHandlerResult | void>;
 }
 
@@ -72,5 +75,6 @@ export interface UseAnnotationFormResult {
   errorMessage: string;
   isSaving: boolean;
   saveDone: boolean;
+  wpPostTitle: string;
   submit: () => Promise<SubmitOutcome>;
 }

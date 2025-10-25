@@ -53,7 +53,7 @@ export class PromptService extends SupabaseService {
         const { data, error } = await client
           .from('content_annotations')
           .select(
-            'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
+            'canonical_url, wp_post_title, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
           )
           .eq('user_id', userId)
           .order('updated_at', { ascending: false })
@@ -86,7 +86,7 @@ export class PromptService extends SupabaseService {
         const { data, error } = await client
           .from('content_annotations')
           .select(
-            'canonical_url, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
+            'canonical_url, wp_post_title, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
           )
           .eq('user_id', userId)
           .eq('session_id', sessionId)

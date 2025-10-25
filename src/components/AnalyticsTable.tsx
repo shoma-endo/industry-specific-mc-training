@@ -126,7 +126,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     公開日
                   </th>
                 )}
-                {visibleSet.has('title') && (
+                {visibleSet.has('wp_post_title') && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[360px]">
                     タイトル
                   </th>
@@ -223,9 +223,9 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           {p.date ? new Date(p.date).toLocaleDateString('ja-JP') : '—'}
                         </td>
                       )}
-                      {visibleSet.has('title') && (
+                      {visibleSet.has('wp_post_title') && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {p.title || '（無題）'}
+                          {p.title || a?.wp_post_title || '（無題）'}
                         </td>
                       )}
                       {visibleSet.has('url') && (
@@ -269,6 +269,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                             basic_structure: a?.basic_structure ?? null,
                             opening_proposal: a?.opening_proposal ?? null,
                           }}
+                          initialWpPostTitle={a?.wp_post_title ?? null}
                         />
                       </td>
                     </tr>
@@ -336,9 +337,9 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     {visibleSet.has('date') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">—</td>
                     )}
-                    {visibleSet.has('title') && (
+                    {visibleSet.has('wp_post_title') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        （未紐付け）
+                        {a.wp_post_title || '（未紐付け）'}
                       </td>
                     )}
                     {visibleSet.has('url') && (
@@ -380,6 +381,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           basic_structure: a?.basic_structure ?? null,
                           opening_proposal: a?.opening_proposal ?? null,
                         }}
+                        initialWpPostTitle={a?.wp_post_title ?? null}
                       />
                     </td>
                   </tr>

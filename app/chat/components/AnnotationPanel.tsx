@@ -34,10 +34,12 @@ export default function AnnotationPanel({
     errorMessage,
     isSaving,
     saveDone,
+    wpPostTitle,
     submit,
   } = useAnnotationForm({
     initialFields: initialData ?? null,
     initialCanonicalUrl: initialData?.canonical_url ?? null,
+    initialWpPostTitle: initialData?.wp_post_title ?? null,
     onSubmit: ({ fields, canonicalUrl }) =>
       upsertContentAnnotationBySession({
         session_id: sessionId,
@@ -115,6 +117,7 @@ export default function AnnotationPanel({
             onCanonicalUrlChange={updateCanonicalUrl}
             canonicalUrlError={canonicalUrlError}
             canonicalUrlInputId="panel-wp-canonical-url"
+            wpPostTitle={wpPostTitle}
           />
 
           {/* アクションボタン */}

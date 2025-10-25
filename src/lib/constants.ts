@@ -162,7 +162,7 @@ export const ANALYTICS_COLUMNS = [
   { id: 'opening_proposal', label: '書き出し案' },
   { id: 'categories', label: 'カテゴリ' },
   { id: 'date', label: '公開日' },
-  { id: 'title', label: 'タイトル' },
+  { id: 'wp_post_title', label: 'タイトル' },
   { id: 'url', label: 'URL' },
   { id: 'memo', label: 'メモ' },
   { id: 'rank', label: '順位' },

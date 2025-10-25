@@ -143,6 +143,7 @@ export interface RssItem {
 export interface NormalizedPostResponse {
   id: number | null;
   link?: string;
+  title?: string;
 }
 
 /**
@@ -161,6 +162,7 @@ export interface ResolveCanonicalParams {
 export interface ExistingAnnotationData {
   canonical_url: string | null;
   wp_post_id: number | null;
+  wp_post_title?: string | null;
 }
 
 /**

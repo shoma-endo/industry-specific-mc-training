@@ -171,11 +171,24 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
   if (typeof record.link === 'string') {
     result.link = record.link as string;
   }
+  const titleValue = record.title;
+  if (typeof titleValue === 'string' && titleValue.trim().length > 0) {
+    result.title = titleValue;
+  } else if (
+    titleValue &&
+    typeof titleValue === 'object' &&
+    typeof (titleValue as { rendered?: unknown }).rendered === 'string'
+  ) {
+    const rendered = (titleValue as { rendered?: string }).rendered?.trim() || '';
+    if (rendered) {
+      result.title = rendered;
+    }
+  }
   return result;
 };
 
 type CanonicalResolutionResult =
-  | { success: true; canonicalUrl: string | null; wpPostId: number | null }
+  | { success: true; canonicalUrl: string | null; wpPostId: number | null; wpPostTitle: string | null }
   | { success: false; error: string };
 
 async function resolveCanonicalAndWpPostId(
@@ -188,7 +201,7 @@ async function resolveCanonicalAndWpPostId(
 
   const trimmed = typeof canonicalUrl === 'string' ? canonicalUrl.trim() : '';
   if (!trimmed) {
-    return { success: true as const, canonicalUrl: null, wpPostId: null };
+    return { success: true as const, canonicalUrl: null, wpPostId: null, wpPostTitle: null };
   }
 
   let targetUrl: URL;
@@ -201,20 +214,18 @@ async function resolveCanonicalAndWpPostId(
   const canonicalCandidate = targetUrl.toString();
 
   const directId = extractDirectPostId(targetUrl);
-  if (directId !== null) {
-    return { success: true as const, canonicalUrl: canonicalCandidate, wpPostId: directId };
-  }
-
-  const slugCandidates = buildSlugCandidates(targetUrl);
-  if (!slugCandidates.length) {
-    return {
-      success: false as const,
-      error: 'URLから投稿IDを特定できませんでした。編集URLまたは公開URLを入力してください。',
-    };
-  }
+  const slugCandidates = directId === null ? buildSlugCandidates(targetUrl) : [];
 
   const wpSettings = await supabaseServiceLocal.getWordPressSettingsByUserId(userId);
   if (!wpSettings) {
+    if (directId !== null) {
+      return {
+        success: true as const,
+        canonicalUrl: canonicalCandidate,
+        wpPostId: directId,
+        wpPostTitle: null,
+      };
+    }
     return {
       success: false as const,
       error: 'WordPress設定が登録されていません。設定画面から連携を完了してください。',
@@ -230,7 +241,37 @@ async function resolveCanonicalAndWpPostId(
   }
   const wpService = buildResult.service;
 
-  type ResolveResult = { id: number; link?: string } | { error: string } | null;
+  if (directId !== null) {
+    const byId = await wpService.resolveContentById(directId);
+    if (!byId.success) {
+      return { success: false as const, error: byId.error || 'WordPress APIの呼び出しに失敗しました' };
+    }
+    if (!byId.data) {
+      return {
+        success: false as const,
+        error: '指定された投稿IDがWordPressで見つかりませんでした。URLをご確認ください。',
+      };
+    }
+    const normalized = normalizePostResponse(byId.data);
+    return {
+      success: true as const,
+      canonicalUrl: normalized.link ?? canonicalCandidate,
+      wpPostId: normalized.id ?? directId,
+      wpPostTitle: normalized.title ?? null,
+    };
+  }
+
+  if (!slugCandidates.length) {
+    return {
+      success: false as const,
+      error: 'URLから投稿IDを特定できませんでした。編集URLまたは公開URLを入力してください。',
+    };
+  }
+
+  type ResolveResult =
+    | ({ id: number } & Partial<{ link: string; title: string }>)
+    | { error: string }
+    | null;
   const resolveByType = async (type: 'posts' | 'pages'): Promise<ResolveResult> => {
     let lastError: string | undefined;
     for (const slug of slugCandidates) {
@@ -242,10 +283,16 @@ async function resolveCanonicalAndWpPostId(
       if (result.data) {
         const normalized = normalizePostResponse(result.data);
         if (normalized.id) {
+          const payload: { id: number } & Partial<{ link: string; title: string }> = {
+            id: normalized.id,
+          };
           if (normalized.link) {
-            return { id: normalized.id, link: normalized.link };
+            payload.link = normalized.link;
           }
-          return { id: normalized.id };
+          if (normalized.title) {
+            payload.title = normalized.title;
+          }
+          return payload;
         }
       }
     }
@@ -257,6 +304,7 @@ async function resolveCanonicalAndWpPostId(
 
   let canonicalFromApi: string | undefined;
   let resolvedWpId: number | null = null;
+  let resolvedTitle: string | null = null;
 
   const postResult = await resolveByType('posts');
   if (postResult && 'error' in postResult) {
@@ -265,6 +313,7 @@ async function resolveCanonicalAndWpPostId(
   if (postResult && postResult !== null) {
     resolvedWpId = postResult.id;
     canonicalFromApi = postResult.link ?? canonicalFromApi;
+    resolvedTitle = postResult.title ?? resolvedTitle;
   }
 
   if (resolvedWpId == null) {
@@ -275,6 +324,7 @@ async function resolveCanonicalAndWpPostId(
     if (pageResult && pageResult !== null) {
       resolvedWpId = pageResult.id;
       canonicalFromApi = pageResult.link ?? canonicalFromApi;
+      resolvedTitle = pageResult.title ?? resolvedTitle;
     }
   }
 
@@ -289,6 +339,7 @@ async function resolveCanonicalAndWpPostId(
     success: true as const,
     canonicalUrl: canonicalFromApi ?? canonicalCandidate,
     wpPostId: resolvedWpId,
+    wpPostTitle: resolvedTitle ?? null,
   };
 }
 
@@ -448,7 +499,7 @@ export async function upsertContentAnnotation(
   payload: ContentAnnotationPayload
 ): Promise<
   | { success: false; error: string }
-  | { success: true; canonical_url?: string | null; wp_post_id?: number | null }
+  | { success: true; canonical_url?: string | null; wp_post_id?: number | null; wp_post_title?: string | null }
 > {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
@@ -469,7 +520,7 @@ export async function upsertContentAnnotation(
   if (canonicalProvided && payload.wp_post_id !== undefined && payload.wp_post_id !== null) {
     const { data: existingData, error: existingError } = await client
       .from('content_annotations')
-      .select('canonical_url, wp_post_id')
+      .select('canonical_url, wp_post_id, wp_post_title')
       .eq('user_id', authResult.userId)
       .eq('wp_post_id', payload.wp_post_id)
       .maybeSingle();
@@ -478,6 +529,7 @@ export async function upsertContentAnnotation(
       existingAnnotation = {
         canonical_url: typed.canonical_url ?? null,
         wp_post_id: typed.wp_post_id ?? null,
+        wp_post_title: typed.wp_post_title ?? null,
       };
 
       const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
@@ -497,6 +549,7 @@ export async function upsertContentAnnotation(
 
   let resolvedCanonicalUrl: string | null = payload.canonical_url ?? null;
   let resolvedWpId: number | null = payload.wp_post_id ?? null;
+  let resolvedWpTitle: string | null | undefined = undefined;
 
   if (canonicalProvided) {
     const resolution = await resolveCanonicalAndWpPostId({
@@ -509,33 +562,40 @@ export async function upsertContentAnnotation(
       if (canonicalMatchesExisting && existingAnnotation) {
         resolvedCanonicalUrl = existingAnnotation.canonical_url ?? null;
         resolvedWpId = existingAnnotation.wp_post_id ?? null;
+        resolvedWpTitle = existingAnnotation.wp_post_title ?? null;
       } else {
         return { success: false as const, error: resolution.error };
       }
     } else {
       resolvedCanonicalUrl = resolution.canonicalUrl;
       resolvedWpId = resolution.wpPostId;
+      resolvedWpTitle = resolution.wpPostTitle ?? null;
     }
   }
 
-  const { error } = await client.from('content_annotations').upsert(
-    {
-      user_id: authResult.userId,
-      wp_post_id: resolvedWpId,
-      canonical_url: canonicalProvided ? resolvedCanonicalUrl : payload.canonical_url ?? null,
-      main_kw: payload.main_kw ?? null,
-      kw: payload.kw ?? null,
-      impressions: payload.impressions ?? null,
-      persona: payload.persona ?? null,
-      needs: payload.needs ?? null,
-      goal: payload.goal ?? null,
-      prep: payload.prep ?? null,
-      basic_structure: payload.basic_structure ?? null,
-      opening_proposal: payload.opening_proposal ?? null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,wp_post_id' }
-  );
+  const upsertData: Record<string, unknown> = {
+    user_id: authResult.userId,
+    wp_post_id: resolvedWpId,
+    canonical_url: canonicalProvided ? resolvedCanonicalUrl : payload.canonical_url ?? null,
+    main_kw: payload.main_kw ?? null,
+    kw: payload.kw ?? null,
+    impressions: payload.impressions ?? null,
+    persona: payload.persona ?? null,
+    needs: payload.needs ?? null,
+    goal: payload.goal ?? null,
+    prep: payload.prep ?? null,
+    basic_structure: payload.basic_structure ?? null,
+    opening_proposal: payload.opening_proposal ?? null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (canonicalProvided) {
+    upsertData.wp_post_title = resolvedWpTitle ?? null;
+  }
+
+  const { error } = await client
+    .from('content_annotations')
+    .upsert(upsertData, { onConflict: 'user_id,wp_post_id' });
 
   if (error) {
     return { success: false as const, error: error.message };
@@ -546,6 +606,7 @@ export async function upsertContentAnnotation(
     ...(canonicalProvided
       ? { canonical_url: resolvedCanonicalUrl ?? null, wp_post_id: resolvedWpId ?? null }
       : {}),
+    ...(canonicalProvided ? { wp_post_title: resolvedWpTitle ?? null } : {}),
   };
 }
 
@@ -716,7 +777,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
   wp_post_id?: number | null;
 }): Promise<
   | { success: false; error: string }
-  | { success: true; canonical_url?: string | null; wp_post_id?: number | null }
+  | { success: true; canonical_url?: string | null; wp_post_id?: number | null; wp_post_title?: string | null }
 > {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
@@ -736,7 +797,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
   if (canonicalProvided) {
     const { data: existingData, error: existingError } = await client
       .from('content_annotations')
-      .select('canonical_url, wp_post_id')
+      .select('canonical_url, wp_post_id, wp_post_title')
       .eq('user_id', authResult.userId)
       .eq('session_id', payload.session_id)
       .maybeSingle();
@@ -745,6 +806,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
       existingAnnotation = {
         canonical_url: typed.canonical_url ?? null,
         wp_post_id: typed.wp_post_id ?? null,
+        wp_post_title: typed.wp_post_title ?? null,
       };
 
       const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
@@ -764,6 +826,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
 
   let resolvedCanonicalUrl: string | null | undefined = undefined;
   let resolvedWpId: number | null | undefined = undefined;
+  let resolvedWpTitle: string | null | undefined = undefined;
 
   if (canonicalProvided) {
     const resolution = await resolveCanonicalAndWpPostId({
@@ -776,12 +839,14 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
       if (canonicalMatchesExisting && existingAnnotation) {
         resolvedCanonicalUrl = existingAnnotation.canonical_url ?? null;
         resolvedWpId = existingAnnotation.wp_post_id ?? null;
+        resolvedWpTitle = existingAnnotation.wp_post_title ?? null;
       } else {
         return { success: false as const, error: resolution.error };
       }
     } else {
       resolvedCanonicalUrl = resolution.canonicalUrl;
       resolvedWpId = resolution.wpPostId;
+      resolvedWpTitle = resolution.wpPostTitle ?? null;
     }
   }
 
@@ -803,6 +868,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
   if (canonicalProvided) {
     upsertPayload.canonical_url = resolvedCanonicalUrl ?? null;
     upsertPayload.wp_post_id = resolvedWpId ?? null;
+    upsertPayload.wp_post_title = resolvedWpTitle ?? null;
   }
 
   const { error } = await client
@@ -818,5 +884,6 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
           wp_post_id: resolvedWpId ?? null,
         }
       : {}),
+    ...(canonicalProvided ? { wp_post_title: resolvedWpTitle ?? null } : {}),
   };
 }

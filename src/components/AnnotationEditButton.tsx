@@ -17,6 +17,7 @@ interface Props {
   sessionId?: string; // 未紐付け（セッション基点）に対する編集
   canonicalUrl?: string | null;
   initial?: AnnotationFields;
+  initialWpPostTitle?: string | null;
 }
 
 export default function AnnotationEditButton({
@@ -24,6 +25,7 @@ export default function AnnotationEditButton({
   sessionId,
   canonicalUrl,
   initial,
+  initialWpPostTitle,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -36,10 +38,12 @@ export default function AnnotationEditButton({
     errorMessage,
     isSaving,
     saveDone,
+    wpPostTitle,
     submit,
   } = useAnnotationForm({
     initialFields: initial ?? null,
     initialCanonicalUrl: canonicalUrl ?? null,
+    initialWpPostTitle: initialWpPostTitle ?? null,
     onSubmit: ({ fields, canonicalUrl }) => {
       if (sessionId) {
         return upsertContentAnnotationBySession({
@@ -95,6 +99,7 @@ export default function AnnotationEditButton({
                 canonicalUrl={canonicalUrlInput}
                 onCanonicalUrlChange={updateCanonicalUrl}
                 canonicalUrlError={canonicalUrlError}
+                wpPostTitle={wpPostTitle}
                 className="space-y-5"
                 canonicalUrlInputId="modal-wp-canonical-url"
               />

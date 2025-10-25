@@ -260,6 +260,54 @@ export class WordPressService {
   }
 
   /**
+   * 投稿IDからコンテンツ詳細を取得（投稿→固定ページの順で検索）
+   */
+  async resolveContentById(id: number): Promise<WordPressApiResult<WordPressPostResponse | null>> {
+    const tryFetch = async (
+      type: 'posts' | 'pages'
+    ): Promise<WordPressApiResult<WordPressPostResponse | null>> => {
+      try {
+        const endpoint = `${this.baseUrl}/${type}/${id}`;
+        const response = await fetch(endpoint, { headers: this.getAuthHeaders() });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            return { success: true, data: null };
+          }
+          const errorBody = await response.json().catch(() => ({ message: response.statusText }));
+          return {
+            success: false,
+            error: `${type === 'pages' ? '固定ページ' : '投稿'}取得エラー (${id}): ${errorBody.message || response.statusText}`,
+          };
+        }
+
+        const item: WordPressPostResponse = await response.json();
+        return { success: true, data: item };
+      } catch (error) {
+        console.error(`Error in getContentById for id ${id} (type: ${type}):`, error);
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : `Unknown error during getContentById for ${id} (type: ${type})`,
+        };
+      }
+    };
+
+    const postResult = await tryFetch('posts');
+    if (!postResult.success) {
+      return postResult;
+    }
+    if (postResult.data) {
+      return postResult;
+    }
+
+    const pageResult = await tryFetch('pages');
+    return pageResult;
+  }
+
+  /**
    * REST API 呼び出し向けの共通ヘッダーを取得
    */
   public getRestHeaders(): Record<string, string> {

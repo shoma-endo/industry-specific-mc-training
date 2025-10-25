@@ -210,6 +210,7 @@ erDiagram
         bigint wp_post_id
         text session_id
         text canonical_url
+        text wp_post_title
         text main_kw
         text kw
         text impressions

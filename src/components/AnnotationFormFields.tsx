@@ -45,6 +45,7 @@ interface Props {
   canonicalUrlError?: string;
   className?: string;
   canonicalUrlInputId?: string;
+  wpPostTitle?: string;
 }
 
 export default function AnnotationFormFields({
@@ -55,6 +56,7 @@ export default function AnnotationFormFields({
   canonicalUrlError,
   className,
   canonicalUrlInputId = 'wp-canonical-url',
+  wpPostTitle,
 }: Props) {
   return (
     <div className={cn('space-y-5 px-[5px]', className)}>
@@ -92,6 +94,16 @@ export default function AnnotationFormFields({
             placeholder="例: https://example.com/article-title/"
           />
           {canonicalUrlError && <p className="text-sm text-red-600">{canonicalUrlError}</p>}
+        </div>
+        <div className="space-y-1">
+          <span className="block text-sm font-medium text-gray-700">取得された記事タイトル</span>
+          <p className="text-sm text-gray-800">
+            {wpPostTitle && wpPostTitle.trim().length > 0 ? (
+              wpPostTitle
+            ) : (
+              <span className="text-gray-500">タイトルはまだ取得されていません</span>
+            )}
+          </p>
         </div>
       </div>
     </div>

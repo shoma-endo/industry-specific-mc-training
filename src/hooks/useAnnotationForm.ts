@@ -29,6 +29,7 @@ const toFormState = (
 export function useAnnotationForm({
   initialFields,
   initialCanonicalUrl,
+  initialWpPostTitle,
   onSubmit,
 }: UseAnnotationFormOptions): UseAnnotationFormResult {
   const [form, setForm] = useState<AnnotationFormState>(() => toFormState(initialFields));
@@ -37,6 +38,7 @@ export function useAnnotationForm({
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveDone, setSaveDone] = useState(false);
+  const [wpPostTitle, setWpPostTitle] = useState<string>(() => initialWpPostTitle ?? '');
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -47,6 +49,10 @@ export function useAnnotationForm({
     setCanonicalUrl(initialCanonicalUrl ?? '');
     setCanonicalUrlError('');
   }, [initialCanonicalUrl]);
+
+  useEffect(() => {
+    setWpPostTitle(initialWpPostTitle ?? '');
+  }, [initialWpPostTitle]);
 
   useEffect(() => {
     return () => {
@@ -105,6 +111,11 @@ export function useAnnotationForm({
             : normalizedUrl ?? '';
         setCanonicalUrl(nextCanonical);
         setCanonicalUrlError('');
+        if (response?.wp_post_title !== undefined) {
+          setWpPostTitle(response.wp_post_title ?? '');
+        } else if (normalizedUrl === null && trimmed.length === 0) {
+          setWpPostTitle('');
+        }
 
         const outcome: SubmitOutcome = {
           success: true,
@@ -149,6 +160,7 @@ export function useAnnotationForm({
     errorMessage,
     isSaving,
     saveDone,
+    wpPostTitle,
     submit,
   };
 }
