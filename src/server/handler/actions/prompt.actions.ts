@@ -129,8 +129,7 @@ export async function createPromptTemplate(
 export async function updatePromptTemplate(
   liffAccessToken: string,
   id: string,
-  data: z.infer<typeof promptSchema>,
-  changeSummary?: string
+  data: z.infer<typeof promptSchema>
 ): Promise<PromptActionResponse<PromptTemplate>> {
   try {
     // 管理者権限チェック
@@ -160,7 +159,6 @@ export async function updatePromptTemplate(
     const updateInput: UpdatePromptTemplateInput = {
       ...validatedData,
       updated_by: adminCheck.userId!,
-      change_summary: changeSummary || undefined,
     };
 
     const result = await PromptService.updateTemplate(id, updateInput);
@@ -339,7 +337,6 @@ export async function togglePromptTemplateStatus(
     const updateInput: UpdatePromptTemplateInput = {
       is_active: !existingTemplate.is_active,
       updated_by: adminCheck.userId!,
-      change_summary: existingTemplate.is_active ? '非アクティブ化' : 'アクティブ化',
     };
 
     const result = await PromptService.updateTemplate(id, updateInput);

@@ -253,7 +253,6 @@ erDiagram
         uuid template_id FK
         integer version
         text content
-        text change_summary
         timestamptz created_at
     }
 

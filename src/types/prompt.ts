@@ -22,7 +22,6 @@ export interface PromptVersion {
   template_id: string;
   version: number;
   content: string;
-  change_summary?: string;
   created_by: string;
   created_at: string;
 }
@@ -43,7 +42,6 @@ export interface UpdatePromptTemplateInput {
   variables?: PromptVariable[];
   is_active?: boolean;
   updated_by: string;
-  change_summary?: string | undefined;
 }
 
 export interface PromptTemplateWithVersions extends PromptTemplate {

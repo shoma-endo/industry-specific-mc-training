@@ -16,7 +16,6 @@ const promptSchema = z.object({
   content: z.string(),
   variables: z.array(promptVariableSchema).default([]),
   is_active: z.boolean().default(true),
-  change_summary: z.string().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -113,7 +112,6 @@ export async function POST(request: NextRequest) {
       variables: validated.variables,
       is_active: validated.is_active,
       updated_by: authResult.userId!,
-      change_summary: validated.change_summary,
     } as const;
 
     const result = await PromptService.updateTemplate(id, updateInput);

@@ -289,7 +289,7 @@ export class PromptService extends SupabaseService {
     );
 
     // 初期バージョンを履歴に保存
-    await this.saveVersion(result.id, data.content, 1, data.created_by, '初期作成');
+    await this.saveVersion(result.id, data.content, 1, data.created_by);
 
     return result;
   }
@@ -313,24 +313,16 @@ export class PromptService extends SupabaseService {
 
     // バージョン履歴を保存（内容が変更された場合のみ）
     if (hasContentChange && data.content) {
-      await this.saveVersion(
-        id,
-        current.content,
-        current.version,
-        data.updated_by,
-        data.change_summary || '内容を更新'
-      );
+      await this.saveVersion(id, current.content, current.version, data.updated_by);
     }
 
     // メインテーブルを更新
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { change_summary, ...updateData } = data;
     return this.withServiceRoleClient(
       async client => {
         const { data: result, error } = await client
           .from('prompt_templates')
           .update({
-            ...updateData,
+            ...data,
             version: newVersion,
             updated_at: new Date().toISOString(),
           })
@@ -382,8 +374,7 @@ export class PromptService extends SupabaseService {
     templateId: string,
     content: string,
     version: number,
-    createdBy: string,
-    changeSummary?: string
+    createdBy: string
   ): Promise<void> {
     await this.withServiceRoleClient(
       async client => {
@@ -391,7 +382,6 @@ export class PromptService extends SupabaseService {
           template_id: templateId,
           version,
           content,
-          change_summary: changeSummary,
           created_by: createdBy,
           created_at: new Date().toISOString(),
         });

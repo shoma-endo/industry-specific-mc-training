@@ -87,7 +87,6 @@ export default function PromptsPage() {
           content: editedContent,
           variables: selectedTemplate.variables,
           is_active: selectedTemplate.is_active,
-          change_summary: 'プロンプト内容を更新',
         }),
       });
       const result = await res.json();
