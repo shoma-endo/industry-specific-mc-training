@@ -72,7 +72,6 @@ export interface UseAnnotationFormResult {
   canonicalUrl: string;
   updateCanonicalUrl: (value: string) => void;
   canonicalUrlError: string;
-  errorMessage: string;
   isSaving: boolean;
   saveDone: boolean;
   wpPostTitle: string;

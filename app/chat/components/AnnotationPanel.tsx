@@ -31,7 +31,6 @@ export default function AnnotationPanel({
     canonicalUrl,
     updateCanonicalUrl,
     canonicalUrlError,
-    errorMessage,
     isSaving,
     saveDone,
     wpPostTitle,
@@ -105,11 +104,6 @@ export default function AnnotationPanel({
       {/* コンテンツエリア - ヘッダーとの重なりを防ぐため上部パディングを調整 */}
       <div className="flex-1 overflow-auto p-4 ml-2" style={{ paddingTop: '80px' }}>
         <div className="space-y-5">
-          {errorMessage && (
-            <div className="p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded">
-              {errorMessage}
-            </div>
-          )}
           <AnnotationFormFields
             form={form}
             onFormChange={updateField}

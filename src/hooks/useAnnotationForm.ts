@@ -35,7 +35,6 @@ export function useAnnotationForm({
   const [form, setForm] = useState<AnnotationFormState>(() => toFormState(initialFields));
   const [canonicalUrl, setCanonicalUrl] = useState<string>(() => initialCanonicalUrl ?? '');
   const [canonicalUrlError, setCanonicalUrlError] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveDone, setSaveDone] = useState(false);
   const [wpPostTitle, setWpPostTitle] = useState<string>(() => initialWpPostTitle ?? '');
@@ -87,7 +86,7 @@ export function useAnnotationForm({
       }
     }
 
-    setErrorMessage('');
+    setCanonicalUrlError('');
     setIsSaving(true);
     setSaveDone(false);
 
@@ -129,10 +128,7 @@ export function useAnnotationForm({
       }
 
       const message = response?.error || '保存に失敗しました';
-      setErrorMessage(message);
-      if (normalizedUrl) {
-        setCanonicalUrlError(response?.error ?? '');
-      }
+      setCanonicalUrlError(message);
 
       const outcome: SubmitOutcome = {
         success: false,
@@ -144,7 +140,7 @@ export function useAnnotationForm({
 
       return outcome;
     } catch {
-      setErrorMessage('保存に失敗しました');
+      setCanonicalUrlError('保存に失敗しました');
       return { success: false, normalizedCanonicalUrl: normalizedUrl };
     } finally {
       setIsSaving(false);
@@ -157,7 +153,6 @@ export function useAnnotationForm({
     canonicalUrl,
     updateCanonicalUrl,
     canonicalUrlError,
-    errorMessage,
     isSaving,
     saveDone,
     wpPostTitle,
