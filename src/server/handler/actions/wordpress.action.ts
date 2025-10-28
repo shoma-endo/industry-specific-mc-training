@@ -29,6 +29,26 @@ import type {
 
 const supabaseService = new SupabaseService();
 
+const DUPLICATE_CANONICAL_ERROR_MESSAGE =
+  'このWordPress記事URLは別のコンテンツで既に登録されています';
+const DUPLICATE_CONSTRAINT_IDENTIFIERS = [
+  'content_annotations_user_id_wp_post_id_key',
+  'idx_content_annotations_user_canonical_unique',
+];
+
+function isDuplicateCanonicalConstraint(error: {
+  code?: string;
+  message: string;
+  details?: string | null;
+  hint?: string | null;
+}): boolean {
+  if (error.code !== '23505') {
+    return false;
+  }
+  const payload = [error.message, error.details, error.hint].filter(Boolean).join(' ');
+  return DUPLICATE_CONSTRAINT_IDENTIFIERS.some(identifier => payload.includes(identifier));
+}
+
 /**
  * WordPress設定を取得
  */
@@ -573,6 +593,34 @@ export async function upsertContentAnnotation(
     }
   }
 
+  if (canonicalProvided && resolvedCanonicalUrl && !canonicalMatchesExisting) {
+    const { data: duplicateRows, error: duplicateError } = await client
+      .from('content_annotations')
+      .select('session_id, wp_post_id')
+      .eq('user_id', authResult.userId)
+      .eq('canonical_url', resolvedCanonicalUrl);
+
+    if (duplicateError) {
+      return { success: false as const, error: duplicateError.message };
+    }
+
+    const hasConflict = (duplicateRows ?? []).some(row => {
+      const typed = row as Pick<AnnotationRecord, 'session_id' | 'wp_post_id'>;
+      const sameWp =
+        typeof typed.wp_post_id === 'number' && typeof resolvedWpId === 'number'
+          ? typed.wp_post_id === resolvedWpId
+          : false;
+      return !sameWp;
+    });
+
+    if (hasConflict) {
+      return {
+        success: false as const,
+        error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
+      };
+    }
+  }
+
   const upsertData: Record<string, unknown> = {
     user_id: authResult.userId,
     wp_post_id: resolvedWpId,
@@ -598,6 +646,9 @@ export async function upsertContentAnnotation(
     .upsert(upsertData, { onConflict: 'user_id,wp_post_id' });
 
   if (error) {
+    if (isDuplicateCanonicalConstraint(error)) {
+      return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
+    }
     return { success: false as const, error: error.message };
   }
 
@@ -850,6 +901,36 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
     }
   }
 
+  if (canonicalProvided && resolvedCanonicalUrl && !canonicalMatchesExisting) {
+    const { data: duplicateRows, error: duplicateError } = await client
+      .from('content_annotations')
+      .select('session_id, wp_post_id')
+      .eq('user_id', authResult.userId)
+      .eq('canonical_url', resolvedCanonicalUrl);
+
+    if (duplicateError) {
+      return { success: false as const, error: duplicateError.message };
+    }
+
+    const hasConflict = (duplicateRows ?? []).some(row => {
+      const typed = row as Pick<AnnotationRecord, 'session_id' | 'wp_post_id'>;
+      const sameSession =
+        typeof typed.session_id === 'string' && typed.session_id === payload.session_id;
+      const sameWp =
+        typeof typed.wp_post_id === 'number' && typeof resolvedWpId === 'number'
+          ? typed.wp_post_id === resolvedWpId
+          : false;
+      return !(sameSession || sameWp);
+    });
+
+    if (hasConflict) {
+      return {
+        success: false as const,
+        error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
+      };
+    }
+  }
+
   const upsertPayload: Record<string, unknown> = {
     user_id: authResult.userId,
     session_id: payload.session_id,
@@ -875,7 +956,12 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
     .from('content_annotations')
     .upsert(upsertPayload, { onConflict: 'user_id,session_id' });
 
-  if (error) return { success: false as const, error: error.message };
+  if (error) {
+    if (isDuplicateCanonicalConstraint(error)) {
+      return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
+    }
+    return { success: false as const, error: error.message };
+  }
   return {
     success: true as const,
     ...(canonicalProvided
