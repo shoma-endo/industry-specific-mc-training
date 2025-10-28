@@ -39,6 +39,12 @@ const getSavedIdsSchema = z.object({
   liffAccessToken: z.string(),
 });
 
+const updateChatSessionTitleSchema = z.object({
+  sessionId: z.string(),
+  title: z.string().min(1).max(60),
+  liffAccessToken: z.string(),
+});
+
 export type StartChatInput = z.infer<typeof startChatSchema>;
 export type ContinueChatInput = z.infer<typeof continueChatSchema>;
 
@@ -169,6 +175,34 @@ export async function deleteChatSession(sessionId: string, liffAccessToken: stri
   }
 }
 
+export async function updateChatSessionTitle(
+  sessionId: string,
+  title: string,
+  liffAccessToken: string
+) {
+  const parsed = updateChatSessionTitleSchema.parse({
+    sessionId,
+    title: title.trim(),
+    liffAccessToken,
+  });
+
+  const auth = await checkAuth(parsed.liffAccessToken);
+  if (auth.isError) {
+    return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
+  }
+
+  const supabase = new SupabaseService();
+  const updateResult = await supabase.updateChatSession(parsed.sessionId, auth.userId, {
+    title: parsed.title.trim(),
+  });
+
+  if (!updateResult.success) {
+    return { success: false, error: updateResult.error.userMessage };
+  }
+
+  return { success: true, error: null };
+}
+
 // === メッセージ保存関連のサーバーアクション ===
 
 export async function saveMessage(data: z.infer<typeof saveMessageSchema>) {
@@ -250,6 +284,7 @@ export const continueChatSA = continueChat;
 export const getChatSessionsSA = getChatSessions;
 export const getSessionMessagesSA = getSessionMessages;
 export const deleteChatSessionSA = deleteChatSession;
+export const updateChatSessionTitleSA = updateChatSessionTitle;
 export const saveMessageSA = saveMessage;
 export const unsaveMessageSA = unsaveMessage;
 export const getSavedMessageIdsSA = getSavedMessageIds;

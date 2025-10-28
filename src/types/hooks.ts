@@ -69,6 +69,7 @@ export interface ChatSessionActions {
   loadSessions: () => Promise<void>;
   loadSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
+  updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
   startNewSession: () => void;
 }
 

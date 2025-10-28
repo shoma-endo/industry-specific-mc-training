@@ -329,6 +329,29 @@ export const useChatSession = (
     [chatService]
   );
 
+  const updateSessionTitle = useCallback(
+    async (sessionId: string, title: string) => {
+      try {
+        await chatService.updateSessionTitle(sessionId, title);
+        setState(prev => ({
+          ...prev,
+          sessions: prev.sessions.map(session =>
+            session.id === sessionId ? { ...session, title } : session
+          ),
+        }));
+      } catch (error) {
+        console.error('Update session title error:', error);
+        if (error instanceof ChatError) {
+          throw error;
+        }
+        throw new Error(
+          error instanceof Error ? error.message : 'チャットタイトルの更新に失敗しました'
+        );
+      }
+    },
+    [chatService]
+  );
+
   const startNewSession = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -344,6 +367,7 @@ export const useChatSession = (
     loadSessions,
     loadSession,
     deleteSession,
+    updateSessionTitle,
     startNewSession,
   };
 

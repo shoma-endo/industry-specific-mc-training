@@ -25,6 +25,7 @@ export enum ChatErrorCode {
   SESSION_CREATION_FAILED = 'CHAT_SESSION_CREATION_FAILED',
   SESSION_LOAD_FAILED = 'CHAT_SESSION_LOAD_FAILED',
   SESSION_DELETE_FAILED = 'CHAT_SESSION_DELETE_FAILED',
+  SESSION_UPDATE_FAILED = 'CHAT_SESSION_UPDATE_FAILED',
 
   // メッセージ送信エラー
   MESSAGE_SEND_FAILED = 'CHAT_MESSAGE_SEND_FAILED',
@@ -73,6 +74,7 @@ export class ChatError extends DomainError {
       [ChatErrorCode.SESSION_CREATION_FAILED]: 'チャットセッションの作成に失敗しました。',
       [ChatErrorCode.SESSION_LOAD_FAILED]: 'チャットセッションの読み込みに失敗しました。',
       [ChatErrorCode.SESSION_DELETE_FAILED]: 'チャットセッションの削除に失敗しました。',
+      [ChatErrorCode.SESSION_UPDATE_FAILED]: 'チャットセッションの更新に失敗しました。',
       [ChatErrorCode.MESSAGE_SEND_FAILED]: 'メッセージの送信に失敗しました。',
       [ChatErrorCode.MESSAGE_LOAD_FAILED]: 'メッセージの読み込みに失敗しました。',
       [ChatErrorCode.AI_SERVICE_ERROR]:

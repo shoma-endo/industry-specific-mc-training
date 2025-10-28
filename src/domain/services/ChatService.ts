@@ -11,6 +11,7 @@ import {
   getChatSessionsSA,
   getSessionMessagesSA,
   deleteChatSessionSA,
+  updateChatSessionTitleSA,
 } from '@/server/handler/actions/chat.actions';
 import { ChatError, ChatErrorCode } from '../errors/ChatError';
 import type { ChatMessage as ServerChatMessage } from '@/types/chat';
@@ -58,6 +59,29 @@ export class ChatService implements IChatService {
         'セッションの削除中にエラーが発生しました',
         ChatErrorCode.SESSION_DELETE_FAILED,
         { sessionId, error }
+      );
+    }
+  }
+
+  async updateSessionTitle(sessionId: string, title: string): Promise<void> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const result = await updateChatSessionTitleSA(sessionId, title, accessToken);
+      if (!result.success) {
+        throw new ChatError(
+          result.error || 'チャットタイトルの更新に失敗しました',
+          ChatErrorCode.SESSION_UPDATE_FAILED,
+          { sessionId, title }
+        );
+      }
+    } catch (error) {
+      if (error instanceof ChatError) {
+        throw error;
+      }
+      throw new ChatError(
+        'チャットタイトルの更新中にエラーが発生しました',
+        ChatErrorCode.SESSION_UPDATE_FAILED,
+        { sessionId, title, error }
       );
     }
   }

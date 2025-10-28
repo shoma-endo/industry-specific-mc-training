@@ -258,6 +258,15 @@ interface ChatLayoutCtx {
   onSendMessage: (content: string, model: string) => Promise<void>;
   handleModelChange: (model: string, step?: BlogStepId) => void;
   nextStepForPlaceholder: BlogStepId | null;
+  currentSessionTitle: string;
+  isEditingSessionTitle: boolean;
+  draftSessionTitle: string;
+  sessionTitleError: string | null;
+  isSavingSessionTitle: boolean;
+  onSessionTitleEditStart: () => void;
+  onSessionTitleEditChange: (value: string) => void;
+  onSessionTitleEditCancel: () => void;
+  onSessionTitleEditConfirm: () => void;
   onNextStepChange: (nextStep: BlogStepId | null) => void;
 }
 
@@ -276,6 +285,16 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onSendMessage,
     handleModelChange,
     nextStepForPlaceholder,
+    currentSessionTitle,
+    isEditingSessionTitle,
+    draftSessionTitle,
+    sessionTitleError,
+    isSavingSessionTitle,
+    onSessionTitleEditStart,
+    onSessionTitleEditChange,
+    onSessionTitleEditCancel,
+    onSessionTitleEditConfirm,
+    onNextStepChange,
   } = ctx;
   const router = useRouter();
 
@@ -424,10 +443,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onSaveClick={() => ui.annotation.openWith()}
           annotationLoading={ui.annotation.loading}
           stepActionBarDisabled={chatSession.state.isLoading || ui.annotation.loading}
-          currentSessionTitle={
-            chatSession.state.sessions.find(s => s.id === chatSession.state.currentSessionId)
-              ?.title || '新しいチャット'
-          }
+          currentSessionTitle={currentSessionTitle}
           currentSessionId={chatSession.state.currentSessionId}
           isMobile={isMobile}
           onMenuToggle={isMobile ? () => ui.sidebar.setOpen(!ui.sidebar.open) : undefined}
@@ -437,7 +453,15 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           blogFlowStatus={flowStatus}
           selectedModelExternal={selectedModel}
           nextStepForPlaceholder={nextStepForPlaceholder}
-          onNextStepChange={ctx.onNextStepChange}
+          onNextStepChange={onNextStepChange}
+          isEditingTitle={isEditingSessionTitle}
+          draftSessionTitle={draftSessionTitle}
+          sessionTitleError={sessionTitleError}
+          onSessionTitleEditStart={onSessionTitleEditStart}
+          onSessionTitleEditChange={onSessionTitleEditChange}
+          onSessionTitleEditCancel={onSessionTitleEditCancel}
+          onSessionTitleEditConfirm={onSessionTitleEditConfirm}
+          isSavingSessionTitle={isSavingSessionTitle}
           {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}
         />
       </div>
@@ -480,10 +504,22 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [canvasStreamingContent, setCanvasStreamingContent] = useState<string>('');
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const [isCanvasStreaming, setIsCanvasStreaming] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
   const latestBlogStep = useMemo(
     () => findLatestAssistantBlogStep(chatSession.state.messages ?? []),
     [chatSession.state.messages]
   );
+  const currentSession = useMemo(
+    () =>
+      chatSession.state.sessions.find(
+        session => session.id === chatSession.state.currentSessionId
+      ) || null,
+    [chatSession.state.sessions, chatSession.state.currentSessionId]
+  );
+  const currentSessionTitle = currentSession?.title ?? '新しいチャット';
 
   // 保存済みステップを計算（保存されているフィールドから判断）
   const chatStateRef = useRef(chatSession.state);
@@ -709,7 +745,115 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setNextStepForPlaceholder(null);
     // セッション切り替え時はモデル選択もリセット（後続のuseEffectで復元される）
     setSelectedModel('');
+    setIsEditingTitle(false);
+    setTitleError(null);
+    setIsSavingTitle(false);
   }, [chatSession.state.currentSessionId]);
+
+  useEffect(() => {
+    if (!chatSession.state.currentSessionId) {
+      setDraftTitle('');
+      return;
+    }
+
+    if (isEditingTitle) {
+      return;
+    }
+
+    if (currentSession) {
+      setDraftTitle(currentSession.title);
+    }
+  }, [
+    chatSession.state.currentSessionId,
+    chatSession.state.sessions,
+    currentSession,
+    isEditingTitle,
+  ]);
+
+  const handleTitleEditStart = useCallback(() => {
+    if (!chatSession.state.currentSessionId || !currentSession) {
+      return;
+    }
+    setDraftTitle(currentSession.title);
+    setTitleError(null);
+    setIsEditingTitle(true);
+  }, [chatSession.state.currentSessionId, currentSession]);
+
+  const handleTitleEditChange = useCallback(
+    (value: string) => {
+      const sanitized = value.replace(/[\r\n]+/g, '');
+      setDraftTitle(sanitized);
+      if (titleError) {
+        setTitleError(null);
+      }
+    },
+    [titleError]
+  );
+
+  const handleTitleEditCancel = useCallback(() => {
+    setIsEditingTitle(false);
+    setTitleError(null);
+    if (currentSession) {
+      setDraftTitle(currentSession.title);
+    }
+  }, [currentSession]);
+
+  const validateTitle = useCallback((value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return 'タイトルを入力してください';
+    }
+    if (trimmed.length > 60) {
+      return 'タイトルは60文字以内で入力してください';
+    }
+    return null;
+  }, []);
+
+  const handleTitleEditConfirm = useCallback(async () => {
+    const sessionId = chatSession.state.currentSessionId;
+    if (!sessionId || !currentSession) {
+      return;
+    }
+
+    if (isSavingTitle) {
+      return;
+    }
+
+    const trimmed = draftTitle.trim();
+    const validationError = validateTitle(trimmed);
+    if (validationError) {
+      setTitleError(validationError);
+      return;
+    }
+
+    if (currentSession.title === trimmed) {
+      setIsEditingTitle(false);
+      setTitleError(null);
+      return;
+    }
+
+    setIsSavingTitle(true);
+    try {
+      await chatSession.actions.updateSessionTitle(sessionId, trimmed);
+      setIsEditingTitle(false);
+      setTitleError(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'タイトルの更新に失敗しました。時間をおいて再試行してください。';
+      setTitleError(message);
+    } finally {
+      setIsSavingTitle(false);
+    }
+  }, [
+    chatSession.actions,
+    chatSession.state.currentSessionId,
+    currentSession,
+    draftTitle,
+    validateTitle,
+    isSavingTitle,
+  ]);
 
   // ✅ メッセージ履歴にブログステップがある場合、自動的にブログ作成モデルを選択
   // セッション切り替え後、latestBlogStepが確定してから実行される
@@ -1166,6 +1310,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onSendMessage: handleSendMessage,
           handleModelChange,
           nextStepForPlaceholder,
+          currentSessionTitle,
+          isEditingSessionTitle: isEditingTitle,
+          draftSessionTitle: draftTitle,
+          sessionTitleError: titleError,
+          isSavingSessionTitle: isSavingTitle,
+          onSessionTitleEditStart: handleTitleEditStart,
+          onSessionTitleEditChange: handleTitleEditChange,
+          onSessionTitleEditCancel: handleTitleEditCancel,
+          onSessionTitleEditConfirm: handleTitleEditConfirm,
           onNextStepChange: handleNextStepChange,
         }}
       />

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -10,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Bot, Send, Menu } from 'lucide-react';
+import { Bot, Send, Menu, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
@@ -49,6 +50,14 @@ interface InputAreaProps {
   selectedModelExternal?: string;
   initialBlogStep?: BlogStepId;
   nextStepForPlaceholder?: BlogStepId | null;
+  isEditingTitle?: boolean;
+  draftSessionTitle?: string;
+  sessionTitleError?: string | null;
+  onSessionTitleEditStart?: () => void;
+  onSessionTitleEditChange?: (value: string) => void;
+  onSessionTitleEditCancel?: () => void;
+  onSessionTitleEditConfirm?: () => void;
+  isSavingSessionTitle?: boolean;
   // StepActionBar props
   shouldShowStepActionBar?: boolean;
   stepActionBarRef?: React.RefObject<StepActionBarRef | null>;
@@ -74,6 +83,14 @@ const InputArea: React.FC<InputAreaProps> = ({
   selectedModelExternal,
   initialBlogStep,
   nextStepForPlaceholder,
+  isEditingTitle = false,
+  draftSessionTitle,
+  sessionTitleError,
+  onSessionTitleEditStart,
+  onSessionTitleEditChange,
+  onSessionTitleEditCancel,
+  onSessionTitleEditConfirm,
+  isSavingSessionTitle = false,
   shouldShowStepActionBar,
   stepActionBarRef,
   displayStep,
@@ -87,6 +104,9 @@ const InputArea: React.FC<InputAreaProps> = ({
   const [selectedModel, setSelectedModel] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = propIsMobile ?? false;
+  const titleErrorId = useId();
+  const isTitleEditable = Boolean(currentSessionId);
+  const effectiveDraftTitle = draftSessionTitle ?? currentSessionTitle ?? '';
 
   const isModelSelected = Boolean(selectedModel);
   const isInputDisabled = disabled || !isModelSelected;
@@ -242,14 +262,102 @@ const InputArea: React.FC<InputAreaProps> = ({
             )}
             <div className="flex items-center space-x-2">
               <Bot className="h-6 w-6 text-[#06c755]" />
-              <span className="font-medium text-sm md:text-base truncate max-w-[120px] md:max-w-[250px]">
-                {currentSessionTitle || '新しいチャット'}
-              </span>
-              {blogFlowActive && blogProgress && (
-                <span className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded">
-                  {blogProgress.currentIndex + 1}/{blogProgress.total}
-                </span>
-              )}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  {isEditingTitle ? (
+                    <>
+                      <Input
+                        value={effectiveDraftTitle}
+                        onChange={event => onSessionTitleEditChange?.(event.target.value)}
+                        className="h-8 w-[160px] md:w-[240px] text-sm"
+                        placeholder="チャットタイトルを入力"
+                        autoFocus
+                        maxLength={60}
+                        disabled={isSavingSessionTitle}
+                        aria-label="チャットタイトルを入力"
+                        aria-invalid={sessionTitleError ? true : false}
+                        aria-describedby={sessionTitleError ? titleErrorId : undefined}
+                        onKeyDown={event => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            onSessionTitleEditConfirm?.();
+                          }
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            onSessionTitleEditCancel?.();
+                          }
+                        }}
+                      />
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onSessionTitleEditConfirm?.()}
+                          disabled={isSavingSessionTitle}
+                          aria-label="タイトルを保存"
+                          className="h-8 w-8 text-[#06c755]"
+                        >
+                          {isSavingSessionTitle ? (
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Check className="h-4 w-4" aria-hidden="true" />
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onSessionTitleEditCancel?.()}
+                          aria-label="タイトル編集をキャンセル"
+                          className="h-8 w-8 text-gray-500"
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className={cn(
+                        'group flex items-center gap-2 text-left focus-visible:ring-2 focus-visible:ring-[#06c755]/40 rounded px-2 py-1 transition',
+                        isTitleEditable ? 'hover:bg-gray-100 cursor-pointer' : 'cursor-default'
+                      )}
+                      onClick={() => {
+                        if (!isTitleEditable) return;
+                        onSessionTitleEditStart?.();
+                      }}
+                      aria-label="タイトルを編集"
+                      disabled={!isTitleEditable}
+                    >
+                      <span className="font-medium text-sm md:text-base truncate max-w-[120px] md:max-w-[250px]">
+                        {currentSessionTitle || '新しいチャット'}
+                      </span>
+                      {isTitleEditable && (
+                        <Pencil
+                          className="h-4 w-4 text-gray-400 group-hover:text-[#06c755]"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </button>
+                  )}
+                  {blogFlowActive && blogProgress && (
+                    <span className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded">
+                      {blogProgress.currentIndex + 1}/{blogProgress.total}
+                    </span>
+                  )}
+                </div>
+                {isEditingTitle && sessionTitleError && (
+                  <p
+                    id={titleErrorId}
+                    className="text-xs text-red-500 mt-1"
+                    role="alert"
+                    aria-live="polite"
+                  >
+                    {sessionTitleError}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

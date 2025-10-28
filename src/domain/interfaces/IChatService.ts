@@ -36,5 +36,6 @@ export interface IChatService {
   loadSessions(): Promise<ChatSession[]>;
   loadSessionMessages(sessionId: string): Promise<ChatMessage[]>;
   deleteSession(sessionId: string): Promise<void>;
+  updateSessionTitle(sessionId: string, title: string): Promise<void>;
   startNewSession(): string;
 }
