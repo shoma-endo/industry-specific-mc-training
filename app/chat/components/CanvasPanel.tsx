@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { BLOG_STEP_LABELS } from '@/lib/constants';
+import { BLOG_STEP_LABELS, isStep7 as isBlogStep7 } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
 import type {
   CanvasSelectionEditPayload,
@@ -89,6 +89,53 @@ const parseAsMarkdown = (text: string): string => {
       return line;
     })
     .join('\n');
+};
+
+const MARKDOWN_LINK_PATTERN = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g;
+
+const convertMarkdownLinksToAnchors = (value: string): string => {
+  if (!value) return value;
+
+  return value.replace(MARKDOWN_LINK_PATTERN, (match, label: string, url: string) => {
+    const trimmedLabel = label?.trim() ?? '';
+    const trimmedUrl = url?.trim() ?? '';
+
+    if (!trimmedLabel || !trimmedUrl) {
+      return match;
+    }
+
+    const escapedUrl = trimmedUrl.replace(/"/g, '&quot;');
+    return `<a href="${escapedUrl}">${trimmedLabel}</a>`;
+  });
+};
+
+const ensureAnchorsOpenInNewTab = (html: string): string => {
+  if (!html) return html;
+
+  return html.replace(/<a\b([^>]*)>/gi, (match, rawAttributes = '') => {
+    let updatedAttributes = rawAttributes;
+    const targetRegex = /target\s*=\s*(['"])(.*?)\1/i;
+    const relRegex = /rel\s*=\s*(['"])(.*?)\1/i;
+
+    if (targetRegex.test(updatedAttributes)) {
+      updatedAttributes = updatedAttributes.replace(targetRegex, ' target="_blank"');
+    } else {
+      updatedAttributes = `${updatedAttributes} target="_blank"`;
+    }
+
+    if (relRegex.test(updatedAttributes)) {
+      updatedAttributes = updatedAttributes.replace(relRegex, (_full: string, quote: string, relValue: string) => {
+        const relParts = new Set(relValue.split(/\s+/).filter(Boolean));
+        relParts.add('noopener');
+        relParts.add('noreferrer');
+        return ` rel=${quote}${Array.from(relParts).join(' ')}${quote}`;
+      });
+    } else {
+      updatedAttributes = `${updatedAttributes} rel="noopener noreferrer"`;
+    }
+
+    return `<a${updatedAttributes}>`;
+  });
 };
 
 const MENU_SIZE = {
@@ -381,6 +428,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   // ✅ コンテンツが更新された時の処理
   useEffect(() => {
     const currentContent = streamingContent || content;
+    const effectiveStepId = activeStepId ?? (stepOptions.length > 0 ? stepOptions[stepOptions.length - 1] : null);
+    const shouldOpenLinksInNewTab = effectiveStepId ? isBlogStep7(effectiveStepId) : false;
+
     if (currentContent) {
       const markdown = parseAsMarkdown(currentContent);
       setMarkdownContent(markdown);
@@ -405,7 +455,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             const text = match[2];
             const id = `heading-${index}-${generateHeadingId(text)}`;
             const tagName = `h${level}`;
-            const replacement = `<${tagName} id="${id}">${text}</${tagName}>`;
+            const replacement = `<${tagName} id="${id}">${convertMarkdownLinksToAnchors(text)}</${tagName}>`;
 
             // 元の行を置換
             htmlContent = htmlContent.replace(line, replacement);
@@ -421,27 +471,31 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           // ChatGPT風リスト処理 - 改行を考慮
           .split('\n')
           .map(line => {
+            const trimmedLine = line.trim();
+
             // チェックマーク付きリスト
-            if (line.match(/^[✅✓☑️]\s/)) {
-              return `<p class="checklist-item">${line}</p>`;
+            if (trimmedLine.match(/^[✅✓☑️]\s/)) {
+              return `<p class="checklist-item">${convertMarkdownLinksToAnchors(trimmedLine)}</p>`;
             }
             // 通常のリスト
-            if (line.match(/^[-*]\s/)) {
-              return `<li>${line.replace(/^[-*]\s/, '')}</li>`;
+            if (trimmedLine.match(/^[-*]\s/)) {
+              const listBody = trimmedLine.replace(/^[-*]\s*/, '');
+              return `<li>${convertMarkdownLinksToAnchors(listBody)}</li>`;
             }
             // 番号付きリスト
-            if (line.match(/^\d+\.\s/)) {
-              return `<li>${line.replace(/^\d+\.\s/, '')}</li>`;
+            if (trimmedLine.match(/^\d+\.\s/)) {
+              const listBody = trimmedLine.replace(/^\d+\.\s*/, '');
+              return `<li>${convertMarkdownLinksToAnchors(listBody)}</li>`;
             }
             // 空行は無視（pタグのmarginで十分な間隔が確保される）
-            if (line.trim() === '') {
+            if (trimmedLine === '') {
               return '';
             }
             // 通常の段落
-            if (!line.match(/^[#<]/)) {
-              return `<p>${line}</p>`;
+            if (!trimmedLine.match(/^[#<]/)) {
+              return `<p>${convertMarkdownLinksToAnchors(line)}</p>`;
             }
-            return line;
+            return convertMarkdownLinksToAnchors(line);
           })
           .filter(line => line !== '') // 空文字列を除去
           .join('\n')
@@ -450,10 +504,22 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
         // 見出しIDは既に正しく設定されているため、この処理は不要
 
+        if (shouldOpenLinksInNewTab) {
+          htmlContent = ensureAnchorsOpenInNewTab(htmlContent);
+        }
+
         editor.commands.setContent(htmlContent);
       }
     }
-  }, [editor, content, streamingContent, extractHeadings, generateHeadingId]);
+  }, [
+    editor,
+    content,
+    streamingContent,
+    extractHeadings,
+    generateHeadingId,
+    activeStepId,
+    stepOptions,
+  ]);
 
   useEffect(() => {
     setSelectionMode(null);
