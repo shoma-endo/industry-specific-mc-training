@@ -4,7 +4,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { env } from '@/env';
 import { MODEL_CONFIGS } from '@/lib/constants';
-import { htmlToMarkdownForCanvas } from '@/lib/blog-canvas';
+import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/blog-canvas';
 import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
 import type { UserRole } from '@/types/user';
 
@@ -476,7 +476,8 @@ export async function POST(req: NextRequest) {
                     toolInput.full_html ??
                     toolInput.html;
                   if (typeof htmlCandidate === 'string' && htmlCandidate.trim().length > 0) {
-                    fullMarkdown = htmlToMarkdownForCanvas(htmlCandidate);
+                    const sanitized = sanitizeHtmlForCanvas(htmlCandidate);
+                    fullMarkdown = htmlToMarkdownForCanvas(sanitized);
                   }
                 }
 

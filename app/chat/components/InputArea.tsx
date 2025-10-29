@@ -67,6 +67,7 @@ interface InputAreaProps {
   annotationLoading?: boolean;
   stepActionBarDisabled?: boolean;
   onNextStepChange?: (nextStep: BlogStepId | null) => void;
+  onLoadBlogArticle?: (() => Promise<void>) | undefined;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -99,6 +100,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   annotationLoading,
   stepActionBarDisabled,
   onNextStepChange,
+  onLoadBlogArticle,
 }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>('');
@@ -107,6 +109,8 @@ const InputArea: React.FC<InputAreaProps> = ({
   const titleErrorId = useId();
   const isTitleEditable = Boolean(currentSessionId);
   const effectiveDraftTitle = draftSessionTitle ?? currentSessionTitle ?? '';
+  const [isLoadingBlogArticle, setIsLoadingBlogArticle] = useState(false);
+  const [blogArticleError, setBlogArticleError] = useState<string | null>(null);
 
   const isModelSelected = Boolean(selectedModel);
   const isInputDisabled = disabled || !isModelSelected;
@@ -179,6 +183,26 @@ const InputArea: React.FC<InputAreaProps> = ({
       onModelChange?.('blog_creation', initialBlogStep);
     }
   }, [blogFlowStatus, selectedModel, onModelChange, initialBlogStep]);
+
+  const handleLoadBlogArticle = useCallback(async () => {
+    if (!onLoadBlogArticle || isLoadingBlogArticle) return;
+    setBlogArticleError(null);
+    setIsLoadingBlogArticle(true);
+    try {
+      await onLoadBlogArticle();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'ブログ記事の取得に失敗しました';
+      setBlogArticleError(message);
+    } finally {
+      setIsLoadingBlogArticle(false);
+    }
+  }, [onLoadBlogArticle, isLoadingBlogArticle]);
+
+  useEffect(() => {
+    setBlogArticleError(null);
+    setIsLoadingBlogArticle(false);
+  }, [currentSessionId]);
 
   // テキストエリアの高さを自動調整する関数
   const adjustTextareaHeight = useCallback(() => {
@@ -409,7 +433,12 @@ const InputArea: React.FC<InputAreaProps> = ({
               annotationLoading={annotationLoading}
               onNextStepChange={onNextStepChange}
               flowStatus={blogFlowStatus}
+              onLoadBlogArticle={handleLoadBlogArticle}
+              isLoadBlogArticleLoading={isLoadingBlogArticle}
             />
+            {blogArticleError && (
+              <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>
+            )}
           </div>
         )}
         <div className="px-3 py-2">

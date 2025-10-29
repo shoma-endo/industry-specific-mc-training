@@ -64,30 +64,82 @@ const extractCanvasStructuredContent = (raw: string): CanvasStructuredContent | 
   return null;
 };
 
-const htmlToMarkdownForCanvas = (html: string): string => {
+const sanitizeHtmlForCanvas = (html: string): string => {
+  if (!html) return '';
   return html
-    .replace(/<h1[^>]*>(.*?)<\/h1>/g, '# $1')
-    .replace(/<h2[^>]*>(.*?)<\/h2>/g, '## $1')
-    .replace(/<h3[^>]*>(.*?)<\/h3>/g, '### $1')
-    .replace(/<h4[^>]*>(.*?)<\/h4>/g, '#### $1')
-    .replace(/<h5[^>]*>(.*?)<\/h5>/g, '##### $1')
-    .replace(/<h6[^>]*>(.*?)<\/h6>/g, '###### $1')
-    .replace(/<strong[^>]*>(.*?)<\/strong>/g, '**$1**')
-    .replace(/<em[^>]*>(.*?)<\/em>/g, '*$1*')
-    .replace(/<code[^>]*>(.*?)<\/code>/g, '`$1`')
-    .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/g, '```\n$1\n```')
-    .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/g, (match, content) => {
-      return content.replace(/<li[^>]*>(.*?)<\/li>/g, '- $1\n');
-    })
-    .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/g, (match, content) => {
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<\/?(iframe|noscript|svg|canvas|form|input|button)[^>]*>/gi, '')
+    .replace(/\r\n/g, '\n');
+};
+
+const htmlToMarkdownForCanvas = (html: string): string => {
+  const sanitized = sanitizeHtmlForCanvas(html);
+  return sanitized
+    .replace(/<\/?(article|section|main|header|footer)[^>]*>/gi, '\n')
+    .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, (_, content) => `# ${content.trim()}\n\n`)
+    .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, (_, content) => `## ${content.trim()}\n\n`)
+    .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, (_, content) => `### ${content.trim()}\n\n`)
+    .replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, (_, content) => `#### ${content.trim()}\n\n`)
+    .replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, (_, content) => `##### ${content.trim()}\n\n`)
+    .replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, (_, content) => `###### ${content.trim()}\n\n`)
+    .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, (_, content) => `**${content.trim()}**`)
+    .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, (_, content) => `**${content.trim()}**`)
+    .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, (_, content) => `*${content.trim()}*`)
+    .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, (_, content) => `*${content.trim()}*`)
+    .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, content) => `\`${content.trim()}\``)
+    .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, content) => `\`\`\`\n${content.trim()}\n\`\`\`\n\n`)
+    .replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_: string, content: string) =>
+      content
+        .split('\n')
+        .map((line: string) => line.trim())
+        .filter(Boolean)
+        .map((line: string) => `> ${line}`)
+        .join('\n')
+    )
+    .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_, content) =>
+      content
+        .replace(/<\/li>\s*<li/gi, '</li>\n<li')
+        .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_: string, item: string) => {
+          const trimmed = item.trim();
+          return trimmed ? `- ${trimmed}\n` : '';
+        })
+    )
+    .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_, content) => {
       let counter = 1;
-      return content.replace(/<li[^>]*>(.*?)<\/li>/g, () => `${counter++}. $1\n`);
+      return content
+        .replace(/<\/li>\s*<li/gi, '</li>\n<li')
+        .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_: string, item: string) => {
+          const trimmed = item.trim();
+          return trimmed ? `${counter++}. ${trimmed}\n` : '';
+        });
     })
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
-    .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/g, '![$2]($1)')
-    .replace(/<br\s*\/?>/g, '\n')
-    .replace(/<p[^>]*>(.*?)<\/p>/g, '$1\n\n')
-    .replace(/\n\n+/g, '\n\n')
+    .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => {
+      const label = (text || '').trim();
+      const url = (href || '').trim();
+      if (!label || !url) return label || url || '';
+      return `[${label}](${url})`;
+    })
+    .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, (_, src, alt) => {
+      const altText = (alt || '').trim();
+      const url = (src || '').trim();
+      return url ? `![${altText}](${url})` : '';
+    })
+    .replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, (_, src) => {
+      const url = (src || '').trim();
+      return url ? `![](${url})` : '';
+    })
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<p[^>]*>/gi, '')
+    .replace(/<\/?(div|span|figure|figcaption)[^>]*>/gi, '\n')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+\n/g, '\n')
     .trim();
 };
 
@@ -112,6 +164,7 @@ export {
   findLatestAssistantBlogStep,
   normalizeCanvasContent,
   htmlToMarkdownForCanvas,
+  sanitizeHtmlForCanvas,
   extractCanvasStructuredContent,
   isBlogStepId,
 };

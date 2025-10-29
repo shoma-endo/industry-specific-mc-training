@@ -268,6 +268,7 @@ interface ChatLayoutCtx {
   onSessionTitleEditCancel: () => void;
   onSessionTitleEditConfirm: () => void;
   onNextStepChange: (nextStep: BlogStepId | null) => void;
+  onLoadBlogArticle?: (() => Promise<void>) | null | undefined;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -295,6 +296,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onSessionTitleEditCancel,
     onSessionTitleEditConfirm,
     onNextStepChange,
+    onLoadBlogArticle,
   } = ctx;
   const router = useRouter();
 
@@ -307,6 +309,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     const index = BLOG_STEP_IDS.indexOf(displayStep);
     return index >= 0 ? index : 0;
   }, [displayStep]);
+  const shouldShowLoadButton = displayStep === 'step7';
 
   const goToSubscription = () => {
     router.push('/subscription');
@@ -463,6 +466,11 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onSessionTitleEditConfirm={onSessionTitleEditConfirm}
           isSavingSessionTitle={isSavingSessionTitle}
           {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}
+          onLoadBlogArticle={
+            shouldShowStepActionBar && shouldShowLoadButton && onLoadBlogArticle
+              ? onLoadBlogArticle
+              : undefined
+          }
         />
       </div>
 
@@ -520,7 +528,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     [chatSession.state.sessions, chatSession.state.currentSessionId]
   );
   const currentSessionTitle = currentSession?.title ?? '新しいチャット';
-
   // 保存済みステップを計算（保存されているフィールドから判断）
   const chatStateRef = useRef(chatSession.state);
   const canvasEditInFlightRef = useRef(false);
@@ -558,6 +565,65 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       isActive = false;
     };
   }, [chatSession.state.currentSessionId]);
+
+  const handleLoadBlogArticle = useCallback(async () => {
+    if (!chatSession.state.currentSessionId) {
+      throw new Error('セッションが選択されていません');
+    }
+    const sessionId = chatSession.state.currentSessionId;
+    try {
+      const annotationRes = await getContentAnnotationBySession(sessionId);
+      if (!annotationRes.success) {
+        throw new Error(annotationRes.error || 'ブログ記事情報の取得に失敗しました');
+      }
+
+      const latestAnnotation = annotationRes.data ?? null;
+      setAnnotationData(latestAnnotation);
+
+      const canonicalUrl = latestAnnotation?.canonical_url?.trim() ?? '';
+      if (!canonicalUrl) {
+        throw new Error('ブログ記事URLが登録されていません');
+      }
+
+      const accessToken = await getAccessToken();
+      const response = await fetch('/api/chat/canvas/load-wordpress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ sessionId }),
+        credentials: 'include',
+      });
+
+      const responseData: { success?: boolean; error?: string } | null = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok || !responseData?.success) {
+        const message =
+          (responseData && typeof responseData.error === 'string' && responseData.error.length > 0
+            ? responseData.error
+            : null) ?? 'WordPress記事の取得に失敗しました';
+        throw new Error(message);
+      }
+
+      await chatSession.actions.loadSession(sessionId);
+      setFollowLatestByStep(prev => ({
+        ...prev,
+        step7: true,
+      }));
+      setSelectedVersionByStep(prev => ({
+        ...prev,
+        step7: null,
+      }));
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('WordPress記事の取得に失敗しました');
+    }
+  }, [chatSession.actions, chatSession.state.currentSessionId, getAccessToken]);
 
   const blogCanvasVersionsByStep = useMemo<StepVersionsMap>(() => {
     const initialMap = BLOG_STEP_IDS.reduce((acc, step) => {
@@ -1320,6 +1386,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onSessionTitleEditCancel: handleTitleEditCancel,
           onSessionTitleEditConfirm: handleTitleEditConfirm,
           onNextStepChange: handleNextStepChange,
+          onLoadBlogArticle: handleLoadBlogArticle,
         }}
       />
 
