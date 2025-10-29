@@ -118,7 +118,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   // ブログ作成中は「次に進む」タイミングでは次ステップのプレースホルダーを表示
   const placeholderMessage = (() => {
     if (!isModelSelected) {
-      return 'チャットモデルを選択してください';
+      return '画面上部のチャットモデルを選択してください';
     }
 
     if (selectedModel === 'blog_creation') {
