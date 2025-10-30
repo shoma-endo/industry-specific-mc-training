@@ -124,12 +124,15 @@ const ensureAnchorsOpenInNewTab = (html: string): string => {
     }
 
     if (relRegex.test(updatedAttributes)) {
-      updatedAttributes = updatedAttributes.replace(relRegex, (_full: string, quote: string, relValue: string) => {
-        const relParts = new Set(relValue.split(/\s+/).filter(Boolean));
-        relParts.add('noopener');
-        relParts.add('noreferrer');
-        return ` rel=${quote}${Array.from(relParts).join(' ')}${quote}`;
-      });
+      updatedAttributes = updatedAttributes.replace(
+        relRegex,
+        (_full: string, quote: string, relValue: string) => {
+          const relParts = new Set(relValue.split(/\s+/).filter(Boolean));
+          relParts.add('noopener');
+          relParts.add('noreferrer');
+          return ` rel=${quote}${Array.from(relParts).join(' ')}${quote}`;
+        }
+      );
     } else {
       updatedAttributes = `${updatedAttributes} rel="noopener noreferrer"`;
     }
@@ -142,6 +145,21 @@ const MENU_SIZE = {
   menu: { width: 120, height: 40 },
   input: { width: 260, height: 190 },
 } as const;
+
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+const applyInlineFormatting = (value: string): string => {
+  if (!value) return '';
+  const withStrong = value.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const withEmphasis = withStrong.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  const withCode = withEmphasis.replace(/`([^`]+)`/g, '<code>$1</code>');
+  return convertMarkdownLinksToAnchors(withCode);
+};
+
+const IMAGE_PATTERN = /^!?\[(.*?)\]\((https?:\/\/[^\s)]+)\)(?:\s+"(.*?)")?$/;
+const RAW_HTML_BLOCK_PATTERN =
+  /^<\/?(table|thead|tbody|tr|th|td|figure|figcaption|img|blockquote|pre|code|ul|ol|li|h[1-6]|p|div|span|section|article|header|footer|main|hr|br)(\s|>|$)/i;
 
 const CanvasPanel: React.FC<CanvasPanelProps> = ({
   onClose,
@@ -232,6 +250,150 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       .replace(/^-|-$/g, '');
   }, []);
 
+  const buildHtmlFromMarkdown = useCallback(
+    (markdown: string): string => {
+      const lines = markdown.split('\n');
+      const segments: string[] = [];
+
+      let currentList: 'ul' | 'ol' | null = null;
+      const closeList = () => {
+        if (currentList) {
+          segments.push(currentList === 'ul' ? '</ul>' : '</ol>');
+          currentList = null;
+        }
+      };
+
+      let inCodeBlock = false;
+      let codeLanguage: string | null = null;
+      let codeLines: string[] = [];
+      const flushCodeBlock = () => {
+        if (!inCodeBlock) return;
+        const codeContent = codeLines.join('\n');
+        const escaped = escapeHtml(codeContent);
+        const classAttr = codeLanguage ? ` class="language-${codeLanguage}"` : '';
+        segments.push(`<pre><code${classAttr}>${escaped}</code></pre>`);
+        inCodeBlock = false;
+        codeLanguage = null;
+        codeLines = [];
+      };
+
+      let blockquoteLines: string[] = [];
+      const flushBlockquote = () => {
+        if (!blockquoteLines.length) return;
+        closeList();
+        const content = blockquoteLines
+          .map(line => `<p>${applyInlineFormatting(line)}</p>`)
+          .join('');
+        segments.push(`<blockquote>${content}</blockquote>`);
+        blockquoteLines = [];
+      };
+
+      lines.forEach((line, index) => {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('```')) {
+          if (inCodeBlock) {
+            flushCodeBlock();
+          } else {
+            flushBlockquote();
+            closeList();
+            inCodeBlock = true;
+            codeLanguage = trimmed.slice(3).trim() || null;
+            codeLines = [];
+          }
+          return;
+        }
+
+        if (inCodeBlock) {
+          codeLines.push(line);
+          return;
+        }
+
+        if (!trimmed) {
+          if (blockquoteLines.length) {
+            flushBlockquote();
+          }
+          return;
+        }
+
+        if (trimmed.startsWith('>')) {
+          closeList();
+          blockquoteLines.push(trimmed.replace(/^>\s?/, ''));
+          return;
+        }
+
+        flushBlockquote();
+
+        const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+        if (headingMatch && headingMatch[1] && headingMatch[2]) {
+          closeList();
+          const level = headingMatch[1].length;
+          const text = headingMatch[2];
+          const id = `heading-${index}-${generateHeadingId(text)}`;
+          segments.push(`<h${level} id="${id}">${applyInlineFormatting(text)}</h${level}>`);
+          return;
+        }
+
+        const imageMatch = trimmed.match(IMAGE_PATTERN);
+        if (imageMatch) {
+          closeList();
+          const alt = applyInlineFormatting(imageMatch[1] ?? '');
+          const src = imageMatch[2] ?? '';
+          const caption = imageMatch[3] ? applyInlineFormatting(imageMatch[3]) : '';
+          const figureContent = `<img src="${src}" alt="${alt.replace(/<[^>]+>/g, '')}" class="max-w-full h-auto rounded" />${caption ? `<figcaption>${caption}</figcaption>` : ''}`;
+          segments.push(`<figure class="wp-block-image">${figureContent}</figure>`);
+          return;
+        }
+
+        if (RAW_HTML_BLOCK_PATTERN.test(trimmed)) {
+          closeList();
+          segments.push(trimmed);
+          return;
+        }
+
+        if (/^[\-\*]\s+/.test(trimmed)) {
+          if (currentList !== 'ul') {
+            closeList();
+            currentList = 'ul';
+            segments.push('<ul>');
+          }
+          const listBody = trimmed.replace(/^[\-\*]\s+/, '');
+          segments.push(`<li>${applyInlineFormatting(listBody)}</li>`);
+          return;
+        }
+
+        if (/^\d+\.\s+/.test(trimmed)) {
+          if (currentList !== 'ol') {
+            closeList();
+            currentList = 'ol';
+            segments.push('<ol>');
+          }
+          const listBody = trimmed.replace(/^\d+\.\s+/, '');
+          segments.push(`<li>${applyInlineFormatting(listBody)}</li>`);
+          return;
+        }
+
+        if (/^[✅✓☑️]\s/.test(trimmed)) {
+          closeList();
+          segments.push(`<p class="checklist-item">${applyInlineFormatting(trimmed)}</p>`);
+          return;
+        }
+
+        closeList();
+        segments.push(`<p>${applyInlineFormatting(line)}</p>`);
+      });
+
+      flushBlockquote();
+      closeList();
+      flushCodeBlock();
+
+      const html = segments.filter(Boolean).join('\n');
+
+      return html;
+    },
+    [generateHeadingId]
+  );
+
   // ✅ マークダウンから見出しを抽出する関数
   const extractHeadings = useCallback(
     (markdown: string): CanvasHeadingItem[] => {
@@ -257,7 +419,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   );
 
   const updateSelectionMenuPosition = useCallback(
-    (modeOverride?: 'menu' | 'choice' | 'input', anchorOverride?: { top: number; left: number } | null) => {
+    (
+      modeOverride?: 'menu' | 'choice' | 'input',
+      anchorOverride?: { top: number; left: number } | null
+    ) => {
       const container = scrollContainerRef.current;
       if (!container) return;
 
@@ -340,6 +505,12 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     content: '',
     editable: false,
     immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class:
+          'tiptap prose prose-lg max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2',
+      },
+    },
   });
 
   // ✅ 選択範囲の監視（Canvas AI編集用）
@@ -428,7 +599,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   // ✅ コンテンツが更新された時の処理
   useEffect(() => {
     const currentContent = streamingContent || content;
-    const effectiveStepId = activeStepId ?? (stepOptions.length > 0 ? stepOptions[stepOptions.length - 1] : null);
+    const effectiveStepId =
+      activeStepId ?? (stepOptions.length > 0 ? stepOptions[stepOptions.length - 1] : null);
     const shouldOpenLinksInNewTab = effectiveStepId ? isBlogStep7(effectiveStepId) : false;
 
     if (currentContent) {
@@ -440,70 +612,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       setHeadings(extractedHeadings);
 
       if (editor) {
-        // ChatGPT風マークダウンをHTMLに変換してエディタに設定
-        // ✅ 見出しIDの一貫性を保つために、行インデックスを使用してHTMLに変換
-        const lines = markdown.split('\n');
-        let htmlContent = markdown;
-
-        // 見出し処理をインデックス付きで実行
-        lines.forEach((line, index) => {
-          const trimmed = line.trim();
-          const match = trimmed.match(/^(#{1,6})\s+(.+)$/);
-
-          if (match && match[1] && match[2]) {
-            const level = match[1].length;
-            const text = match[2];
-            const id = `heading-${index}-${generateHeadingId(text)}`;
-            const tagName = `h${level}`;
-            const replacement = `<${tagName} id="${id}">${convertMarkdownLinksToAnchors(text)}</${tagName}>`;
-
-            // 元の行を置換
-            htmlContent = htmlContent.replace(line, replacement);
-          }
-        });
-
-        // その他のマークダウン要素を処理
-        htmlContent = htmlContent
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.*?)\*/g, '<em>$1</em>')
-          .replace(/`(.*?)`/g, '<code>$1</code>')
-          .replace(/```([\s\S]*?)\n```/g, '<pre><code>$1</code></pre>')
-          // ChatGPT風リスト処理 - 改行を考慮
-          .split('\n')
-          .map(line => {
-            const trimmedLine = line.trim();
-
-            // チェックマーク付きリスト
-            if (trimmedLine.match(/^[✅✓☑️]\s/)) {
-              return `<p class="checklist-item">${convertMarkdownLinksToAnchors(trimmedLine)}</p>`;
-            }
-            // 通常のリスト
-            if (trimmedLine.match(/^[-*]\s/)) {
-              const listBody = trimmedLine.replace(/^[-*]\s*/, '');
-              return `<li>${convertMarkdownLinksToAnchors(listBody)}</li>`;
-            }
-            // 番号付きリスト
-            if (trimmedLine.match(/^\d+\.\s/)) {
-              const listBody = trimmedLine.replace(/^\d+\.\s*/, '');
-              return `<li>${convertMarkdownLinksToAnchors(listBody)}</li>`;
-            }
-            // 空行は無視（pタグのmarginで十分な間隔が確保される）
-            if (trimmedLine === '') {
-              return '';
-            }
-            // 通常の段落
-            if (!trimmedLine.match(/^[#<]/)) {
-              return `<p>${convertMarkdownLinksToAnchors(line)}</p>`;
-            }
-            return convertMarkdownLinksToAnchors(line);
-          })
-          .filter(line => line !== '') // 空文字列を除去
-          .join('\n')
-          // 連続するliをulで囲む
-          .replace(/(<li>.*?<\/li>\n?)+/g, '<ul>$&</ul>');
-
-        // 見出しIDは既に正しく設定されているため、この処理は不要
-
+        let htmlContent = buildHtmlFromMarkdown(markdown);
         if (shouldOpenLinksInNewTab) {
           htmlContent = ensureAnchorsOpenInNewTab(htmlContent);
         }
@@ -516,7 +625,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     content,
     streamingContent,
     extractHeadings,
-    generateHeadingId,
+    buildHtmlFromMarkdown,
     activeStepId,
     stepOptions,
   ]);
@@ -536,7 +645,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       setLastAiError(null);
     }
   }, [instruction, lastAiError]);
-
 
   // ✅ 吹き出し表示関数
   const showBubble = useCallback(
@@ -606,7 +714,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       try {
         const selectionText = selection.text.trim();
         const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
-        const combinedInstruction = [selectionPrompt, trimmedInstruction].filter(Boolean).join('\n\n');
+        const combinedInstruction = [selectionPrompt, trimmedInstruction]
+          .filter(Boolean)
+          .join('\n\n');
         // 自由記載の入力は後段でWeb検索有無の判定に利用する
         const freeFormUserPrompt =
           instructionOverride === undefined ? trimmedInstruction : undefined;
@@ -643,7 +753,14 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         setIsApplyingSelectionEdit(false);
       }
     },
-    [activeSelection, editor, instruction, markdownContent, onSelectionEdit, updateSelectionMenuPosition]
+    [
+      activeSelection,
+      editor,
+      instruction,
+      markdownContent,
+      onSelectionEdit,
+      updateSelectionMenuPosition,
+    ]
   );
 
   // ✅ 見出しクリック時のスクロール機能
@@ -1098,6 +1215,52 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         :global(.prose p) {
           margin-top: 1rem !important;
           margin-bottom: 1rem !important;
+        }
+
+        /* TipTap出力に確実に見出しスタイルを適用 */
+        :global(.tiptap h1) {
+          font-size: 2rem;
+          font-weight: 700;
+          text-align: center;
+          margin-top: 2rem;
+          margin-bottom: 1.5rem;
+          color: #1f2937;
+        }
+
+        :global(.tiptap h2) {
+          font-size: 1.5rem;
+          font-weight: 600;
+          margin-top: 1.5rem;
+          margin-bottom: 1rem;
+          color: #1f2937;
+        }
+
+        :global(.tiptap h3) {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin-top: 1.25rem;
+          margin-bottom: 0.75rem;
+          color: #374151;
+        }
+
+        :global(.tiptap h4) {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+          color: #4b5563;
+        }
+
+        :global(.tiptap p) {
+          font-size: 1rem;
+          line-height: 1.75;
+          color: #374151;
+          margin-bottom: 1rem;
+        }
+
+        :global(.tiptap strong) {
+          font-weight: 600;
+          color: #111827;
         }
       `}</style>
     </div>

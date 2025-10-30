@@ -32,8 +32,14 @@ const extractCanvasStructuredContent = (raw: string): CanvasStructuredContent | 
   const trimmed = raw.trim();
   const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)```/i);
   const jsonCandidate = (fencedMatch?.[1] ?? trimmed).trim();
-  const start = jsonCandidate.indexOf('{');
-  const end = jsonCandidate.lastIndexOf('}');
+  const startsWithObject = jsonCandidate.trim().startsWith('{');
+  const startsWithArray = jsonCandidate.trim().startsWith('[');
+  const start = jsonCandidate.indexOf(startsWithArray ? '[' : '{');
+  const end = jsonCandidate.lastIndexOf(startsWithArray ? ']' : '}');
+
+  if (!startsWithObject && !startsWithArray) {
+    return null;
+  }
 
   if (start === -1 || end === -1 || end <= start) {
     return null;
@@ -76,77 +82,87 @@ const sanitizeHtmlForCanvas = (html: string): string => {
 
 const htmlToMarkdownForCanvas = (html: string): string => {
   const sanitized = sanitizeHtmlForCanvas(html);
-  return sanitized
-    .replace(/<\/?(article|section|main|header|footer)[^>]*>/gi, '\n')
-    .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, (_, content) => `# ${content.trim()}\n\n`)
-    .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, (_, content) => `## ${content.trim()}\n\n`)
-    .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, (_, content) => `### ${content.trim()}\n\n`)
-    .replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, (_, content) => `#### ${content.trim()}\n\n`)
-    .replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, (_, content) => `##### ${content.trim()}\n\n`)
-    .replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, (_, content) => `###### ${content.trim()}\n\n`)
-    .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, (_, content) => `**${content.trim()}**`)
-    .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, (_, content) => `**${content.trim()}**`)
-    .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, (_, content) => `*${content.trim()}*`)
-    .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, (_, content) => `*${content.trim()}*`)
-    .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, content) => `\`${content.trim()}\``)
-    .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, content) => `\`\`\`\n${content.trim()}\n\`\`\`\n\n`)
-    .replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_: string, content: string) =>
-      content
-        .split('\n')
-        .map((line: string) => line.trim())
-        .filter(Boolean)
-        .map((line: string) => `> ${line}`)
-        .join('\n')
-    )
-    .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_, content) =>
-      content
-        .replace(/<\/li>\s*<li/gi, '</li>\n<li')
-        .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_: string, item: string) => {
-          const trimmed = item.trim();
-          return trimmed ? `- ${trimmed}\n` : '';
-        })
-    )
-    .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_, content) => {
-      let counter = 1;
-      return content
-        .replace(/<\/li>\s*<li/gi, '</li>\n<li')
-        .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_: string, item: string) => {
-          const trimmed = item.trim();
-          return trimmed ? `${counter++}. ${trimmed}\n` : '';
-        });
-    })
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => {
-      const label = (text || '').trim();
-      const url = (href || '').trim();
-      if (!label || !url) return label || url || '';
-      return `[${label}](${url})`;
-    })
-    .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, (_, src, alt) => {
-      const altText = (alt || '').trim();
-      const url = (src || '').trim();
-      return url ? `![${altText}](${url})` : '';
-    })
-    .replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, (_, src) => {
-      const url = (src || '').trim();
-      return url ? `![](${url})` : '';
-    })
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<p[^>]*>/gi, '')
-    .replace(/<\/?(div|span|figure|figcaption)[^>]*>/gi, '\n')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]+\n/g, '\n')
-    .trim();
+  return (
+    sanitized
+      .replace(/<\/?(article|section|main|header|footer)[^>]*>/gi, '\n')
+      .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, (_, content) => `# ${content.trim()}\n\n`)
+      .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, (_, content) => `## ${content.trim()}\n\n`)
+      .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, (_, content) => `### ${content.trim()}\n\n`)
+      .replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, (_, content) => `#### ${content.trim()}\n\n`)
+      .replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, (_, content) => `##### ${content.trim()}\n\n`)
+      .replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, (_, content) => `###### ${content.trim()}\n\n`)
+      .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, (_, content) => `**${content.trim()}**`)
+      .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, (_, content) => `**${content.trim()}**`)
+      .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, (_, content) => `*${content.trim()}*`)
+      .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, (_, content) => `*${content.trim()}*`)
+      .replace(
+        /<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
+        (_, content) => `\`\`\`\n${content.trim()}\n\`\`\`\n\n`
+      )
+      .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, content) => `\`${content.trim()}\``)
+      .replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_: string, content: string) =>
+        content
+          .split('\n')
+          .map((line: string) => line.trim())
+          .filter(Boolean)
+          .map((line: string) => `> ${line}`)
+          .join('\n')
+      )
+      .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_, content) =>
+        content
+          .replace(/<\/li>\s*<li/gi, '</li>\n<li')
+          .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_: string, item: string) => {
+            const trimmed = item.trim();
+            return trimmed ? `- ${trimmed}\n` : '';
+          })
+      )
+      .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_, content) => {
+        let counter = 1;
+        return content
+          .replace(/<\/li>\s*<li/gi, '</li>\n<li')
+          .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_: string, item: string) => {
+            const trimmed = item.trim();
+            return trimmed ? `${counter++}. ${trimmed}\n` : '';
+          });
+      })
+      .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => {
+        const label = (text || '').trim();
+        const url = (href || '').trim();
+        if (!label || !url) return label || url || '';
+        return `[${label}](${url})`;
+      })
+      .replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, (_, src, alt) => {
+        const altText = (alt || '').trim();
+        const url = (src || '').trim();
+        return url ? `![${altText}](${url})` : '';
+      })
+      .replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, (_, src) => {
+        const url = (src || '').trim();
+        return url ? `![](${url})` : '';
+      })
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<p[^>]*>/gi, '')
+      // spanは見出しやインライン要素のラッパーとして使われるため改行に置換せず除去のみ行う
+      .replace(/<\/?span[^>]*>/gi, '')
+      .replace(/<\/?(div|figure|figcaption)[^>]*>/gi, '\n')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .trim()
+  );
 };
 
 const normalizeCanvasContent = (raw: string): string => {
   if (!raw) return '';
   const structured = extractCanvasStructuredContent(raw);
   if (!structured) {
+    if (/^\s*</.test(raw.trim())) {
+      return htmlToMarkdownForCanvas(raw);
+    }
     return raw;
   }
   if (structured.markdown) {
