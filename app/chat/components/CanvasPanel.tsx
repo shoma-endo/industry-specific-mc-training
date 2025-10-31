@@ -1047,7 +1047,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   className="flex items-center justify-center gap-2 rounded bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-700"
                   onClick={async () => {
                     await handleApplySelectionEdit(
-                      'エビデンスをweb検索して外部リンクで紹介してください。エビデンスが無ければ文章そのものを修正してください。'
+                      '記載内容にエビデンスがない場合は文章を修正し、エビデンスが存在する場合はWeb検索により正確な外部リンク（URL）を添付してください。'
                     );
                   }}
                   disabled={isApplyingSelectionEdit}
