@@ -263,7 +263,7 @@ erDiagram
     prompt_templates ||--o{ prompt_versions : captures
 ```
 
-## 📋 環境変数（19 項目）
+## 📋 環境変数（17 項目）
 
 `src/env.ts` で厳格にバリデーションされるサーバー／クライアント環境変数です。`.env.local` を手動で用意してください。
 
@@ -276,8 +276,6 @@ erDiagram
 | Server | `STRIPE_PRICE_ID` | ✅（Stripe 無効でもダミー値必須） | サブスクリプションで使用する Price ID |
 | Server | `OPENAI_API_KEY` | ✅ | Fine-tuned モデル利用時の OpenAI キー |
 | Server | `ANTHROPIC_API_KEY` | ✅ | Claude ストリーミング用 API キー |
-| Server | `GOOGLE_CUSTOM_SEARCH_KEY` | ✅ | Google Custom Search キー（現在は回数カウントのみ） |
-| Server | `GOOGLE_CSE_ID` | ✅ | Google Custom Search Engine ID |
 | Server | `LINE_CHANNEL_ID` | ✅ | LINE Login 用チャネル ID |
 | Server | `LINE_CHANNEL_SECRET` | ✅ | LINE Login 用チャネルシークレット |
 | Server | `BASE_WEBHOOK_URL` | ✅ | ログ／通知転送先の Webhook URL |
@@ -357,7 +355,6 @@ npm run ngrok
 | `/api/chat/canvas/stream` | POST | Canvas 編集リクエスト（選択範囲差し替え） | `Authorization: Bearer <LIFF>` |
 | `/api/refresh` | POST | LINE リフレッシュトークンからアクセストークン再発行 | Cookie (`line_refresh_token`) |
 | `/api/user/current` | GET | ログインユーザーのプロファイル・ロール情報 | Cookie (`line_access_token`) |
-| `/api/user/search-count` | GET | Google 検索機能廃止の 410 応答 | 任意 |
 | `/api/auth/check-role` | GET | ロールのサーバー検証 | Cookie |
 | `/api/auth/clear-cache` | POST | Edge キャッシュクリア通知 | 任意 |
 | `/api/line/callback` | GET | LINE OAuth コールバック | 公開（state チェックあり） |
