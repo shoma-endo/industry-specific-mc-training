@@ -16,7 +16,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight } from 'lowlight';
-import { X, ClipboardCheck, List, Loader2, Info, SearchCheck, PenLine } from 'lucide-react';
+import { X, ClipboardCheck, List, Loader2, Info, SearchCheck, PenLine, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -250,6 +250,48 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       .replace(/^-|-$/g, '');
   }, []);
 
+  // ✅ Markdown 形式と URL テキスト形式の両方のリンクを検出して配列に格納
+  // 例: [テキスト](https://example.com) → { text, url, index }
+  // 例: https://example.com → { text: "https://example.com", url: "https://example.com", index }
+  const extractLinksFromText = useCallback(
+    (text: string): Array<{ text: string; url: string; index: number }> => {
+      const links: Array<{ text: string; url: string; index: number }> = [];
+      // パターン 1: Markdown リンク形式 [text](url)
+      // パターン 2: URL テキスト形式 https://... または /...
+      const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/)([^\s)]*)\)|((https?:\/\/|\/)[^\s]+)/g;
+      let match;
+      let index = 0;
+
+      while ((match = markdownLinkRegex.exec(text)) !== null) {
+        let linkText = '';
+        let linkUrl = '';
+
+        // Markdown 形式: [text](url)
+        if (match[1]) {
+          linkText = match[1] || '';
+          linkUrl = (match[2] || '') + (match[3] || '');
+        }
+        // URL テキスト形式: https://... または /...
+        else if (match[4]) {
+          linkUrl = match[4];
+          linkText = linkUrl; // URL がテキストになる
+        }
+
+        if (linkText && linkUrl) {
+          links.push({
+            text: linkText,
+            url: linkUrl,
+            index,
+          });
+          index++;
+        }
+      }
+
+      return links;
+    },
+    []
+  );
+
   const buildHtmlFromMarkdown = useCallback(
     (markdown: string): string => {
       const lines = markdown.split('\n');
@@ -449,7 +491,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const scrollTop = container.scrollTop;
       const scrollLeft = container.scrollLeft;
       const mode = modeOverride ?? selectionMode ?? 'menu';
-      const size = mode === 'choice' ? { width: 200, height: 90 } : MENU_SIZE[mode];
+      const size = mode === 'choice' ? { width: 200, height: 90 } : MENU_SIZE[mode as keyof typeof MENU_SIZE];
 
       const minTop = scrollTop + 8;
       const minLeft = scrollLeft + 8;
@@ -688,6 +730,67 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     setLastAiError(null);
     selectionAnchorRef.current = null;
   }, []);
+
+  // ✅ リンク先変更をクリック → 直接 Claude API でリンク修正を実行
+  const handleApplyLinkModification = useCallback(async () => {
+    if (!editor || !onSelectionEdit) return;
+    const selection = activeSelection;
+    if (!selection) {
+      setLastAiError('編集対象の選択範囲が見つかりませんでした');
+      return;
+    }
+
+    // 選択範囲からリンクを検出
+    const links = extractLinksFromText(selection.text);
+    if (links.length === 0) {
+      setLastAiError('選択範囲にMarkdownリンク形式（[テキスト](URL)）またはURLが含まれていません');
+      return;
+    }
+
+    setIsApplyingSelectionEdit(true);
+    setLastAiError(null);
+    setSelectionMode(null);
+    setSelectionMenuPosition(null);
+
+    try {
+      const selectionText = selection.text.trim();
+
+      // Claude への指示を作成
+      const instruction = [
+        '選択範囲内のすべてのリンク先 URL を確認し、',
+        'アクセスできない、またはエラーが返される URL は避けて、',
+        '実際にアクセス可能で内容が関連する正しいリンク先に修正してください。',
+      ].join('');
+
+      const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
+      const combinedInstruction = [selectionPrompt, instruction]
+        .filter(Boolean)
+        .join('\n\n');
+
+      const payload: CanvasSelectionEditPayload & { freeFormUserPrompt?: string } = {
+        instruction: combinedInstruction,
+        selectedText: selection.text,
+        canvasContent: markdownContent,
+      };
+
+      await onSelectionEdit(payload);
+
+      setLastAiError(null);
+      setSelectionState(null);
+      selectionSnapshotRef.current = null;
+      setInstruction('');
+      selectionAnchorRef.current = null;
+      const domSelection = typeof window !== 'undefined' ? window.getSelection() : null;
+      domSelection?.removeAllRanges();
+    } catch (error) {
+      console.error('Canvas link modification failed:', error);
+      const message = error instanceof Error ? error.message : 'リンク先の修正に失敗しました';
+      setLastAiError(message);
+    } finally {
+      setIsApplyingSelectionEdit(false);
+    }
+  }, [activeSelection, editor, extractLinksFromText, markdownContent, onSelectionEdit]);
+
 
   const handleApplySelectionEdit = useCallback(
     async (instructionOverride?: string) => {
@@ -1063,6 +1166,19 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 </button>
                 <button
                   type="button"
+                  className="flex items-center justify-center gap-2 rounded bg-yellow-500 px-3 py-2 text-xs font-medium text-gray-900 transition hover:bg-yellow-600"
+                  onClick={handleApplyLinkModification}
+                  disabled={isApplyingSelectionEdit}
+                >
+                  {isApplyingSelectionEdit ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCw className="h-3.5 w-3.5" />
+                  )}
+                  リンク先変更
+                </button>
+                <button
+                  type="button"
                   className="flex items-center justify-center gap-2 rounded bg-gray-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-700"
                   onClick={() => {
                     setSelectionMode('input');
@@ -1075,6 +1191,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   <PenLine className="h-3.5 w-3.5" />
                   自由記載
                 </button>
+
+                {/* エラーメッセージ表示 */}
+                {lastAiError && <p className="mt-2 text-xs text-red-600">{lastAiError}</p>}
               </div>
             ) : selectionMode === 'input' ? (
               <div className="w-64 rounded-md border border-gray-300 bg-white/95 p-3 shadow-sm">
