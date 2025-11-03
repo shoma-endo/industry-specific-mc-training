@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import {
   Select,
@@ -139,6 +139,47 @@ export default function UsersPage() {
   };
 
   const isFeedbackSuccess = feedback.variant === 'success';
+  const roleSummary = useMemo(() => {
+    type RoleCount = {
+      key: UserRole | 'unknown';
+      label: string;
+      count: number;
+    };
+
+    const baseRoles: UserRole[] = ['admin', 'paid', 'trial', 'unavailable'];
+    const counts: Record<UserRole, number> = {
+      admin: 0,
+      paid: 0,
+      trial: 0,
+      unavailable: 0,
+    };
+    let unknown = 0;
+
+    users.forEach(user => {
+      const role = user.role;
+      if (role && role in counts) {
+        counts[role] += 1;
+      } else {
+        unknown += 1;
+      }
+    });
+
+    const summary: RoleCount[] = baseRoles.map(role => ({
+      key: role,
+      label: getRoleDisplayName(role),
+      count: counts[role],
+    }));
+
+    if (unknown > 0) {
+      summary.push({
+        key: 'unknown',
+        label: getRoleDisplayName(null),
+        count: unknown,
+      });
+    }
+
+    return summary;
+  }, [users]);
 
   if (isLoading) {
     return (
@@ -178,6 +219,18 @@ export default function UsersPage() {
           <p className="mt-2 text-gray-600">
             登録済みユーザーの一覧を表示します（合計: {users.length}人）
           </p>
+          <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-500">
+            {roleSummary.map(({ key, label, count }) => (
+              <span
+                key={key}
+                className={`px-2 py-1 text-xs rounded-full ${getRoleColor(
+                  key === 'unknown' ? null : key
+                )}`}
+              >
+                {label}: {count}人
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
