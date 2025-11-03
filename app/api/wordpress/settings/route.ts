@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 
 const supabaseService = new SupabaseService();
 
@@ -11,8 +12,16 @@ export async function POST(request: NextRequest) {
       wpSiteId,
       wpSiteUrl,
       wpUsername,
-      wpApplicationPassword
+      wpApplicationPassword,
+      wpContentTypes,
     } = await request.json();
+
+    const parsedContentTypes = Array.isArray(wpContentTypes)
+      ? wpContentTypes
+      : typeof wpContentTypes === 'string'
+        ? wpContentTypes.split(',').map((value: string) => value.trim())
+        : undefined;
+    const contentTypes = normalizeContentTypes(parsedContentTypes);
 
     // 認証情報はCookieから取得（セキュリティベストプラクティス）
     const liffToken = request.cookies.get('line_access_token')?.value;
@@ -47,7 +56,8 @@ export async function POST(request: NextRequest) {
         authResult.userId,
         wpSiteUrl,
         wpUsername,
-        wpApplicationPassword
+        wpApplicationPassword,
+        { wpContentTypes: contentTypes }
       );
     } else if (wpType === 'wordpress_com') {
       if (!wpSiteId) {
@@ -62,7 +72,8 @@ export async function POST(request: NextRequest) {
         authResult.userId,
         '', // clientId - OAuth後に設定
         '', // clientSecret - OAuth後に設定
-        wpSiteId
+        wpSiteId,
+        { wpContentTypes: contentTypes }
       );
     }
 

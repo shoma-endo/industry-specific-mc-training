@@ -3,6 +3,9 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { WordPressService, WordPressAuth } from '@/server/services/wordpressService';
 import type { WordPressSettings, WordPressType } from '@/types/wordpress';
 
+export const WORDPRESS_COM_AUTH_REQUIRED_MESSAGE =
+  'WordPress認証に失敗しました。WordPress.comとの連携が必要です。';
+
 interface CookieGetter {
   (name: string): string | undefined;
 }
@@ -36,7 +39,7 @@ export function buildWordPressServiceFromSettings(
       return {
         success: false,
         reason: 'wordpress_auth_missing',
-        message: 'WordPress.comとの連携が必要です',
+        message: WORDPRESS_COM_AUTH_REQUIRED_MESSAGE,
         needsWordPressAuth: true,
       };
     }

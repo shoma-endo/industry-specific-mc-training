@@ -4,6 +4,7 @@ import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
 import type { DbUser } from '@/types/user';
 import type { UserRole } from '@/types/user';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
+import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 
 export interface SupabaseErrorInfo {
   userMessage: string;
@@ -562,6 +563,7 @@ export class SupabaseService {
       wpSiteUrl: data.wp_site_url,
       wpUsername: data.wp_username,
       wpApplicationPassword: data.wp_application_password,
+      wpContentTypes: normalizeContentTypes(data.wp_content_types as string[] | null),
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
@@ -574,23 +576,27 @@ export class SupabaseService {
     userId: string,
     wpClientId: string,
     wpClientSecret: string,
-    wpSiteId: string
+    wpSiteId: string,
+    options?: { wpContentTypes?: string[] }
   ): Promise<void> {
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      wp_type: 'wordpress_com',
+      wp_client_id: wpClientId,
+      wp_client_secret: wpClientSecret, // 注意: 現状は平文で保存されます
+      wp_site_id: wpSiteId,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (options?.wpContentTypes) {
+      payload.wp_content_types = normalizeContentTypes(options.wpContentTypes);
+    }
+
     const { error } = await this.supabase
       .from('wordpress_settings')
-      .upsert(
-        {
-          user_id: userId,
-          wp_type: 'wordpress_com',
-          wp_client_id: wpClientId,
-          wp_client_secret: wpClientSecret, // 注意: 現状は平文で保存されます
-          wp_site_id: wpSiteId,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'user_id', // user_id が重複した場合は更新
-        }
-      )
+      .upsert(payload, {
+        onConflict: 'user_id', // user_id が重複した場合は更新
+      })
       .select(); // .select() はコメントの意図を尊重し残す
 
     if (error) {
@@ -606,23 +612,27 @@ export class SupabaseService {
     userId: string,
     wpSiteUrl: string,
     wpUsername: string,
-    wpApplicationPassword: string
+    wpApplicationPassword: string,
+    options?: { wpContentTypes?: string[] }
   ): Promise<void> {
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      wp_type: 'self_hosted',
+      wp_site_url: wpSiteUrl,
+      wp_username: wpUsername,
+      wp_application_password: wpApplicationPassword, // 注意: 現状は平文で保存されます
+      updated_at: new Date().toISOString(),
+    };
+
+    if (options?.wpContentTypes) {
+      payload.wp_content_types = normalizeContentTypes(options.wpContentTypes);
+    }
+
     const { error } = await this.supabase
       .from('wordpress_settings')
-      .upsert(
-        {
-          user_id: userId,
-          wp_type: 'self_hosted',
-          wp_site_url: wpSiteUrl,
-          wp_username: wpUsername,
-          wp_application_password: wpApplicationPassword, // 注意: 現状は平文で保存されます
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'user_id', // user_id が重複した場合は更新
-        }
-      )
+      .upsert(payload, {
+        onConflict: 'user_id', // user_id が重複した場合は更新
+      })
       .select();
 
     if (error) {

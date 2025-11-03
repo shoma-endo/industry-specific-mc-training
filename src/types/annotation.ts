@@ -21,6 +21,7 @@ export interface AnnotationRecord extends AnnotationFields {
   canonical_url?: string | null;
   wp_post_id?: number | null;
   wp_post_title?: string | null;
+  wp_post_type?: string | null;
   session_id?: string | null;
   memo?: string | null;
 }

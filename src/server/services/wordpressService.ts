@@ -8,6 +8,7 @@ import {
   WordPressRenderedField,
   WordPressRestTerm,
 } from '@/types/wordpress';
+import { normalizeContentType } from '@/server/services/wordpressContentTypes';
 
 // WordPress.com認証情報
 export interface WordPressComAuth {
@@ -332,6 +333,139 @@ export class WordPressService {
   public getWordPressComSiteId(): string | undefined {
     return this.siteId;
   }
+
+  public buildRestQueryParams(
+    options: { perPage: number; page: number; status?: string; embed?: boolean }
+  ): string {
+    const params = new URLSearchParams();
+    params.set('per_page', String(options.perPage));
+    params.set('page', String(options.page));
+    params.set('status', options.status ?? 'publish');
+    if (options.embed !== false) {
+      params.set('_embed', 'true');
+    }
+    return params.toString();
+  }
+
+  public buildRestFetchCandidates(
+    postType: string,
+    params: string
+  ): { headers: Record<string, string>; urls: string[] } {
+    const sanitized = normalizeContentType(postType);
+    const headers = this.getRestHeaders();
+    const urls = new Set<string>();
+
+    urls.add(`${this.baseUrl}/${sanitized}?${params}`);
+
+    if (this.type === 'self_hosted' && this.siteUrl) {
+      const siteClean = this.siteUrl.replace(/\/$/, '');
+      urls.add(`${siteClean}/wp-json/wp/v2/${sanitized}?${params}`);
+      urls.add(`${siteClean}/index.php?rest_route=/wp/v2/${sanitized}&${params}`);
+    }
+
+    return { headers, urls: Array.from(urls) };
+  }
+
+  public async fetchRestCollection(
+    postType: string,
+    page: number,
+    perPage: number,
+    options: { status?: string; embed?: boolean } = {}
+  ): Promise<{ posts: WordPressRestPost[]; total: number }> {
+    const queryOptions: { perPage: number; page: number; status?: string; embed?: boolean } = {
+      perPage,
+      page,
+    };
+    if (options.status !== undefined) {
+      queryOptions.status = options.status;
+    }
+    if (options.embed !== undefined) {
+      queryOptions.embed = options.embed;
+    }
+
+    const params = this.buildRestQueryParams(queryOptions);
+    const { headers, urls } = this.buildRestFetchCandidates(postType, params);
+
+    let lastStatus = 0;
+    let lastErrorText = '';
+
+    for (const url of urls) {
+      try {
+        const resp = await fetch(url, { headers, cache: 'no-store' });
+        if (!resp.ok) {
+          lastStatus = resp.status;
+          lastErrorText = await resp.text().catch(() => resp.statusText);
+          continue;
+        }
+
+        const postsJson: unknown = await resp.json();
+        const posts: WordPressRestPost[] = Array.isArray(postsJson)
+          ? (postsJson as WordPressRestPost[])
+          : [];
+        const totalHeader = parseInt(resp.headers.get('X-WP-Total') || '0', 10);
+        const total = Number.isFinite(totalHeader) && totalHeader > 0 ? totalHeader : posts.length;
+
+        const sanitizedType = normalizeContentType(postType);
+        const normalizedPosts = posts.map(post => ({ ...post, type: post.type ?? sanitizedType }));
+
+        return { posts: normalizedPosts, total };
+      } catch (error) {
+        lastStatus = lastStatus || 0;
+        lastErrorText = error instanceof Error ? error.message : 'Unknown fetch error';
+      }
+    }
+
+    throw new Error(
+      `[WordPressService] Failed to fetch ${postType}: HTTP ${lastStatus} ${lastErrorText}`.trim()
+    );
+  }
+
+  public async fetchAllContentByTypes(
+    postTypes: string[],
+    options: { perPage?: number; maxItems?: number; status?: string } = {}
+  ): Promise<{
+    posts: WordPressRestPost[];
+    totalsByType: Record<string, number>;
+    wasTruncated: boolean;
+    maxItems: number;
+  }> {
+    const perPage = Math.min(options.perPage ?? 100, 100);
+    const maxItems = options.maxItems ?? 1000;
+    const status = options.status ?? 'publish';
+
+    const aggregated: WordPressRestPost[] = [];
+    const totalsByType: Record<string, number> = {};
+    let wasTruncated = false;
+
+    for (const postTypeRaw of postTypes) {
+      const postType = postTypeRaw && postTypeRaw.trim() ? postTypeRaw.trim() : 'posts';
+      const normalizedType = normalizeContentType(postType);
+      let page = 1;
+      let fetchedForType = 0;
+      let totalForType = 0;
+      let hasMore = true;
+
+      while (hasMore && aggregated.length < maxItems) {
+        const { posts, total } = await this.fetchRestCollection(normalizedType, page, perPage, {
+          status,
+        });
+        totalForType = total;
+        aggregated.push(...posts);
+        fetchedForType += posts.length;
+        hasMore = fetchedForType < total && posts.length === perPage;
+        page += 1;
+      }
+
+      totalsByType[normalizedType] = totalForType;
+
+      if (aggregated.length >= maxItems) {
+        wasTruncated = true;
+        break;
+      }
+    }
+
+    return { posts: aggregated, totalsByType, wasTruncated, maxItems };
+  }
 }
 
 const resolveRenderedField = (field: WordPressRenderedField): string | undefined => {
@@ -351,7 +485,15 @@ const extractCategoryNames = (terms: Array<WordPressRestTerm> | undefined): stri
     .map(term => term.name as string);
 };
 
-export function normalizeWordPressRestPosts(posts: WordPressRestPost[]): WordPressNormalizedPost[] {
+interface NormalizeWordPressRestPostsOptions {
+  defaultType?: string;
+}
+
+export function normalizeWordPressRestPosts(
+  posts: WordPressRestPost[],
+  options: NormalizeWordPressRestPostsOptions = {}
+): WordPressNormalizedPost[] {
+  const { defaultType } = options;
   return posts.map(post => {
     const termsNested = post._embedded?.['wp:term'] ?? [];
     const firstTaxonomy =
@@ -389,6 +531,11 @@ export function normalizeWordPressRestPosts(posts: WordPressRestPost[]): WordPre
     const excerpt = resolveRenderedField(post.excerpt);
     if (excerpt !== undefined) {
       normalized.excerpt = excerpt;
+    }
+
+    const postType = post.type ?? defaultType;
+    if (postType !== undefined) {
+      normalized.post_type = normalizeContentType(postType);
     }
 
     return normalized;

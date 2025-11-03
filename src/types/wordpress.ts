@@ -18,6 +18,7 @@ export interface WordPressSettings {
   wpSiteUrl?: string;
   wpUsername?: string;
   wpApplicationPassword?: string;
+  wpContentTypes?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -79,6 +80,7 @@ export interface WordPressRestPost {
   yoast_head_json?: {
     canonical?: string;
   };
+  type?: string;
   _embedded?: {
     'wp:term'?: Array<Array<WordPressRestTerm>>;
   };
@@ -93,6 +95,7 @@ export interface WordPressNormalizedPost {
   categories?: number[];
   categoryNames: string[];
   excerpt?: string;
+  post_type?: string;
 }
 
 /**
@@ -171,4 +174,5 @@ export interface SaveWordPressSettingsParams {
   wpSiteUrl?: string;
   wpUsername?: string;
   wpApplicationPassword?: string;
+  wpContentTypes?: string[];
 }

@@ -21,6 +21,7 @@ import {
   resolveWordPressContext,
 } from '@/server/services/wordpressContext';
 import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
+import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 import type {
   AnnotationRecord,
   ContentAnnotationPayload,
@@ -691,7 +692,8 @@ export async function getContentAnnotationsForUser(): Promise<
 export async function saveWordPressSettingsAction(params: SaveWordPressSettingsParams) {
   const cookieStore = await cookies();
   try {
-    const { wpType, wpSiteId, wpSiteUrl, wpUsername, wpApplicationPassword } = params;
+    const { wpType, wpSiteId, wpSiteUrl, wpUsername, wpApplicationPassword, wpContentTypes } = params;
+    const contentTypes = normalizeContentTypes(wpContentTypes);
 
     // 認証情報はCookieから取得（セキュリティベストプラクティス）
     const liffToken = cookieStore.get('line_access_token')?.value;
@@ -718,14 +720,17 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
         authResult.userId,
         wpSiteUrl,
         wpUsername,
-        wpApplicationPassword
+        wpApplicationPassword,
+        { wpContentTypes: contentTypes }
       );
     } else if (wpType === 'wordpress_com') {
       if (!wpSiteId) {
         return { success: false as const, error: 'WordPress.com requires site ID' };
       }
 
-      await supabaseService.createOrUpdateWordPressSettings(authResult.userId, '', '', wpSiteId);
+      await supabaseService.createOrUpdateWordPressSettings(authResult.userId, '', '', wpSiteId, {
+        wpContentTypes: contentTypes,
+      });
     }
 
     return { success: true as const, message: 'WordPress settings saved successfully' };

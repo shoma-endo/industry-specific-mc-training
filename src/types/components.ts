@@ -43,6 +43,7 @@ export interface ExistingWordPressSettings {
   wpSiteUrl?: string;
   wpUsername?: string;
   wpApplicationPassword?: string;
+  wpContentTypes?: string[];
   createdAt?: string;
   updatedAt?: string;
 }

@@ -70,7 +70,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <CardContent>
           {isError ? (
             <div className="text-center py-8 text-red-600">
-              取得に失敗しました{errorMessage ? `: ${errorMessage}` : ''}
+              {errorMessage || 'エラーが発生しました'}
             </div>
           ) : shouldRenderTable ? (
             <AnalyticsTable posts={posts} annotations={annotations} />

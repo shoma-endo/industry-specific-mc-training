@@ -152,6 +152,9 @@ export default function WordPressSettingsForm({
 
   // フォームの状態
   const [wpType, setWpType] = useState<WordPressType>(existingSettings?.wpType || 'wordpress_com');
+  const [contentTypesInput, setContentTypesInput] = useState(
+    (existingSettings?.wpContentTypes ?? ['posts', 'pages']).join(', ')
+  );
 
   // WordPress.com用
   const [wpSiteId, setWpSiteId] = useState(existingSettings?.wpSiteId || '');
@@ -191,8 +194,14 @@ export default function WordPressSettingsForm({
     setExpandedPanel(prev => (prev === 'save' ? null : prev));
 
     try {
+      const parsedContentTypes = contentTypesInput
+        .split(',')
+        .map(type => type.trim())
+        .filter(Boolean);
+
       const data = await saveWordPressSettingsAction({
         wpType,
+        wpContentTypes: parsedContentTypes,
         ...(wpType === 'wordpress_com'
           ? { wpSiteId }
           : { wpSiteUrl, wpUsername, wpApplicationPassword }),
@@ -340,6 +349,20 @@ export default function WordPressSettingsForm({
                   <SelectItem value="self_hosted">セルフホスト版WordPress</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">取得対象の投稿タイプ</label>
+              <Input
+                placeholder="例: posts, pages, news"
+                value={contentTypesInput}
+                onChange={e => setContentTypesInput(e.target.value)}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500">
+                REST API のエンドポイント名（例: posts, pages, product）。カンマ区切りで複数指定できます。
+                未入力の場合は posts, pages を自動で利用します。
+              </p>
             </div>
 
             {/* WordPress.com用設定 */}
