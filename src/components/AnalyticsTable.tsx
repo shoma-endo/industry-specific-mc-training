@@ -2,10 +2,13 @@
 
 import * as React from 'react';
 import FieldConfigurator from '@/components/FieldConfigurator';
-import AnnotationEditButton from '@/components/AnnotationEditButton';
 import TruncatedText from '@/components/TruncatedText';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
+import { ensureAnnotationChatSession } from '@/server/handler/actions/wordpress.action';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface PostRow {
   id: number | string;
@@ -20,6 +23,42 @@ interface PostRow {
 interface Props {
   posts: PostRow[];
   annotations: AnnotationRecord[];
+}
+
+interface LaunchPayload {
+  rowKey: string;
+  sessionId?: string | null;
+  wpPostId?: number | null;
+  wpPostTitle?: string | null;
+  canonicalUrl?: string | null;
+  fallbackTitle?: string | null;
+}
+
+interface LaunchChatButtonProps {
+  label: string;
+  isPending: boolean;
+  onClick: () => void;
+}
+
+function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) {
+  return (
+    <Button
+      variant="default"
+      size="sm"
+      className="bg-green-600 hover:bg-green-700 text-white focus-visible:ring-green-400"
+      onClick={onClick}
+      disabled={isPending}
+    >
+      {isPending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          移動中...
+        </>
+      ) : (
+        label
+      )}
+    </Button>
+  );
 }
 
 export default function AnalyticsTable({ posts, annotations }: Props) {
@@ -58,7 +97,37 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
     }
     return list;
   }, [posts, annotations, unlinkedAnnotations]);
-  const [activeRowKey, setActiveRowKey] = React.useState<string | null>(null);
+  const router = useRouter();
+  const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
+
+  const handleLaunch = React.useCallback(
+    async (payload: LaunchPayload) => {
+      if (pendingRowKey) return;
+      const { rowKey, sessionId, wpPostId, wpPostTitle, canonicalUrl, fallbackTitle } = payload;
+      setPendingRowKey(rowKey);
+      try {
+        const result = await ensureAnnotationChatSession({
+          sessionId: sessionId ?? null,
+          wpPostId: typeof wpPostId === 'number' ? wpPostId : null,
+          wpPostTitle: wpPostTitle ?? null,
+          canonicalUrl: canonicalUrl ?? null,
+          fallbackTitle: fallbackTitle ?? null,
+        });
+        if (result.success) {
+          router.push(`/chat?session=${encodeURIComponent(result.sessionId)}`);
+        } else {
+          console.error(result.error);
+          alert(result.error);
+        }
+      } catch (error) {
+        console.error('Failed to launch chat session:', error);
+        alert('チャット画面への遷移に失敗しました。再度お試しください。');
+      } finally {
+        setPendingRowKey(null);
+      }
+    },
+    [pendingRowKey, router]
+  );
 
   return (
     <FieldConfigurator
@@ -70,9 +139,9 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
       {visibleSet => (
         <div className="w-full overflow-x-auto">
           <table className="min-w-[2200px] divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 analytics-head">
               <tr>
-                <th className="sticky-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[100px]">
+                <th className="analytics-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[100px]">
                   操作
                 </th>
                 {visibleSet.has('main_kw') && (
@@ -158,30 +227,30 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                   const p = row.post;
                   const a = row.a;
                   const rowKey = `post:${p.id}`;
-                  const disableOthers = activeRowKey !== null && activeRowKey !== rowKey;
+                  const parsedPostId =
+                    typeof p.id === 'string'
+                      ? Number.parseInt(p.id, 10)
+                      : typeof p.id === 'number'
+                        ? p.id
+                        : NaN;
+                  const wpPostId = Number.isFinite(parsedPostId) ? parsedPostId : null;
+                  const fallbackTitle = p.title || a?.wp_post_title || a?.main_kw || 'コンテンツチャット';
                   return (
                     <tr key={`post:${p.id}`} className="analytics-row group">
-                      <td className="sticky-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <AnnotationEditButton
-                          wpPostId={typeof p.id === 'string' ? parseInt(p.id, 10) : p.id}
-                          canonicalUrl={a?.canonical_url ?? null}
-                          initial={{
-                            main_kw: a?.main_kw ?? null,
-                            kw: a?.kw ?? null,
-                            impressions: a?.impressions ?? null,
-                            needs: a?.needs ?? null,
-                            persona: a?.persona ?? null,
-                            goal: a?.goal ?? null,
-                            prep: a?.prep ?? null,
-                            basic_structure: a?.basic_structure ?? null,
-                            opening_proposal: a?.opening_proposal ?? null,
-                          }}
-                          initialWpPostTitle={a?.wp_post_title ?? null}
-                          onOpen={() => setActiveRowKey(rowKey)}
-                          onClose={() => {
-                            setActiveRowKey(prev => (prev === rowKey ? null : prev));
-                          }}
-                          disabled={disableOthers}
+                      <td className="analytics-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <LaunchChatButton
+                          label="チャット"
+                          isPending={pendingRowKey === rowKey}
+                          onClick={() =>
+                            handleLaunch({
+                              rowKey,
+                              sessionId: a?.session_id ?? null,
+                              wpPostId,
+                              wpPostTitle: p.title || a?.wp_post_title || null,
+                              canonicalUrl: a?.canonical_url ?? null,
+                              fallbackTitle,
+                            })
+                          }
                         />
                       </td>
                       {visibleSet.has('main_kw') && (
@@ -295,30 +364,23 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                 }
                 const a = row.a;
                 const rowKey = `session:${a.session_id ?? idx}`;
-                const disableOthers = activeRowKey !== null && activeRowKey !== rowKey;
                 return (
                   <tr key={`session:${a.session_id ?? idx}`} className="analytics-row group">
-                    <td className="sticky-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
-                      <AnnotationEditButton
-                        sessionId={a.session_id ?? ''}
-                        canonicalUrl={a.canonical_url ?? null}
-                        initial={{
-                          main_kw: a?.main_kw ?? null,
-                          kw: a?.kw ?? null,
-                          impressions: a?.impressions ?? null,
-                          needs: a?.needs ?? null,
-                          persona: a?.persona ?? null,
-                          goal: a?.goal ?? null,
-                          prep: a?.prep ?? null,
-                          basic_structure: a?.basic_structure ?? null,
-                          opening_proposal: a?.opening_proposal ?? null,
-                        }}
-                        initialWpPostTitle={a?.wp_post_title ?? null}
-                        onOpen={() => setActiveRowKey(rowKey)}
-                        onClose={() => {
-                          setActiveRowKey(prev => (prev === rowKey ? null : prev));
-                        }}
-                        disabled={disableOthers}
+                    <td className="analytics-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
+                      <LaunchChatButton
+                        label="チャット"
+                        isPending={pendingRowKey === rowKey}
+                        onClick={() =>
+                          handleLaunch({
+                            rowKey,
+                            sessionId: a.session_id ?? null,
+                            wpPostId: a.wp_post_id ?? null,
+                            wpPostTitle: a.wp_post_title ?? null,
+                            canonicalUrl: a.canonical_url ?? null,
+                            fallbackTitle:
+                              a.wp_post_title || a.main_kw || '未紐付けコンテンツチャット',
+                          })
+                        }
                       />
                     </td>
                     {visibleSet.has('main_kw') && (

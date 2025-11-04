@@ -133,19 +133,46 @@
     background-color: #f9fafb; /* gray-50 */
   }
 
-  .analytics-row .sticky-ops-cell {
+  .analytics-ops-cell {
     position: sticky;
     left: 0;
-    z-index: 10;
+    z-index: 30;
+    background-color: inherit;
+    box-shadow: 4px 0 8px -6px rgba(15, 23, 42, 0.25);
   }
 
-  .analytics-row .sticky-ops-cell::before {
+  .analytics-ops-cell::before {
     content: '';
     position: absolute;
     inset: 0;
     background-color: inherit;
     pointer-events: none;
     z-index: -1;
+  }
+
+  .analytics-ops-cell::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -1px;
+    width: 1px;
+    height: 100%;
+    background-color: rgba(148, 163, 184, 0.6);
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .analytics-head th {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background-color: #f8fafc; /* slate-50 */
+    box-shadow: 0 4px 8px -6px rgba(15, 23, 42, 0.25);
+  }
+
+  .analytics-head .analytics-ops-cell {
+    top: 0;
+    z-index: 60;
   }
 }
 

@@ -19,7 +19,11 @@ import ErrorBoundary from './components/common/ErrorBoundary';
  * 3. ChatLayoutに状態を提供
  *
  */
-const ChatClient: React.FC = () => {
+interface ChatClientProps {
+  initialSessionId?: string | undefined;
+}
+
+const ChatClient: React.FC<ChatClientProps> = ({ initialSessionId }) => {
   const { isLoggedIn, getAccessToken, isLoading: liffLoading } = useLiffContext();
   const { isMobile } = useMobile();
 
@@ -51,20 +55,38 @@ const ChatClient: React.FC = () => {
   const subscription = useSubscriptionStatus(subscriptionService, getAccessToken, isLoggedIn);
 
   // ✅ 初期マウント時（画面遷移時）のみ初期化（1回のみ実行保証）
+  const initialSessionLoadedRef = React.useRef<string | null>(null);
+
   React.useEffect(() => {
     if (isLoggedIn && !liffLoading) {
       // サブスクリプション確認とセッション読み込みを並行実行
       Promise.all([
         subscription.actions.checkSubscription(),
         chatSession.actions.loadSessions ? chatSession.actions.loadSessions() : Promise.resolve(),
-      ]).catch(error => {
-        console.error('❌ 初期化エラー:', error);
-        // エラー時はサブスクリプション初期化状態をリセット
-        subscription.actions.resetInitialization();
-      });
+      ])
+        .then(async () => {
+          const trimmedSessionId = initialSessionId?.trim();
+          if (
+            trimmedSessionId &&
+            initialSessionLoadedRef.current !== trimmedSessionId &&
+            chatSession.actions.loadSession
+          ) {
+            try {
+              await chatSession.actions.loadSession(trimmedSessionId);
+              initialSessionLoadedRef.current = trimmedSessionId;
+            } catch (error) {
+              console.error('初期チャットセッションの読み込みに失敗しました:', error);
+            }
+          }
+        })
+        .catch(error => {
+          console.error('❌ 初期化エラー:', error);
+          // エラー時はサブスクリプション初期化状態をリセット
+          subscription.actions.resetInitialization();
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, liffLoading]); // ✅ 安全な依存配列のみ（actionsを含めると無限ループ）
+  }, [isLoggedIn, liffLoading, initialSessionId]); // ✅ 安全な依存配列のみ（actionsを含めると無限ループ）
 
   // LIFF初期化中はLiffProviderが表示を担当するため、ここでは何も表示しない
   if (liffLoading) {

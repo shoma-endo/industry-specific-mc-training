@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { randomUUID } from 'crypto';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import {
@@ -27,6 +28,7 @@ import type {
   ContentAnnotationPayload,
   SessionAnnotationUpsertPayload,
 } from '@/types/annotation';
+import type { DbChatSession } from '@/types/chat';
 
 const supabaseService = new SupabaseService();
 
@@ -977,4 +979,152 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
       : {}),
     ...(canonicalProvided ? { wp_post_title: resolvedWpTitle ?? null } : {}),
   };
+}
+
+export interface EnsureAnnotationChatSessionPayload {
+  sessionId?: string | null;
+  wpPostId?: number | null;
+  wpPostTitle?: string | null;
+  canonicalUrl?: string | null;
+  fallbackTitle?: string | null;
+}
+
+export async function ensureAnnotationChatSession(
+  payload: EnsureAnnotationChatSessionPayload
+): Promise<{ success: true; sessionId: string } | { success: false; error: string }> {
+  const cookieStore = await cookies();
+  const liffAccessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  const authResult = await authMiddleware(liffAccessToken, refreshToken);
+  if (authResult.error || !authResult.userId) {
+    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+  }
+
+  const service = new SupabaseService();
+  const client = service.getClient();
+
+  let sessionId: string | null = payload.sessionId?.trim() ? payload.sessionId.trim()! : null;
+
+  if (sessionId) {
+    const existingSession = await service.getChatSessionById(sessionId, authResult.userId);
+    if (!existingSession.success) {
+      return { success: false as const, error: existingSession.error.userMessage };
+    }
+    if (!existingSession.data) {
+      sessionId = null;
+    }
+  }
+
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+
+  if (!sessionId) {
+    sessionId = randomUUID();
+    const baseTitle =
+      (payload.wpPostTitle && payload.wpPostTitle.trim()) ||
+      (payload.fallbackTitle && payload.fallbackTitle.trim()) ||
+      'チャットセッション';
+
+    const session: DbChatSession = {
+      id: sessionId,
+      user_id: authResult.userId,
+      title: baseTitle.length > 60 ? `${baseTitle.slice(0, 57)}...` : baseTitle,
+      created_at: now,
+      last_message_at: now,
+    };
+
+    const createResult = await service.createChatSession(session);
+    if (!createResult.success) {
+      return { success: false as const, error: createResult.error.userMessage };
+    }
+  }
+
+  const hasValidWpId =
+    typeof payload.wpPostId === 'number' && Number.isFinite(payload.wpPostId);
+  const annotationUpdate: Record<string, unknown> = {
+    session_id: sessionId,
+    updated_at: nowIso,
+  };
+
+  if (hasValidWpId) {
+    annotationUpdate.wp_post_id = payload.wpPostId;
+  }
+  if (payload.wpPostTitle !== undefined) {
+    annotationUpdate.wp_post_title = payload.wpPostTitle ?? null;
+  }
+  if (payload.canonicalUrl !== undefined) {
+    annotationUpdate.canonical_url =
+      payload.canonicalUrl && payload.canonicalUrl.trim().length > 0
+        ? payload.canonicalUrl
+        : null;
+  }
+
+  let annotationLinked = false;
+
+  if (hasValidWpId) {
+    const { error: fetchByWpError, data: existingByWp } = await client
+      .from('content_annotations')
+      .select('session_id')
+      .eq('user_id', authResult.userId)
+      .eq('wp_post_id', payload.wpPostId)
+      .maybeSingle();
+
+    if (fetchByWpError) {
+      return { success: false as const, error: fetchByWpError.message };
+    }
+
+    if (existingByWp) {
+      annotationLinked = true;
+      const { error: updateError } = await client
+        .from('content_annotations')
+        .update(annotationUpdate)
+        .eq('user_id', authResult.userId)
+        .eq('wp_post_id', payload.wpPostId);
+      if (updateError) {
+        return { success: false as const, error: updateError.message };
+      }
+    }
+  }
+
+  if (!annotationLinked) {
+    const { error: fetchBySessionError, data: existingBySession } = await client
+      .from('content_annotations')
+      .select('id')
+      .eq('user_id', authResult.userId)
+      .eq('session_id', sessionId)
+      .maybeSingle();
+
+    if (fetchBySessionError) {
+      return { success: false as const, error: fetchBySessionError.message };
+    }
+
+    if (existingBySession) {
+      const { error: updateError } = await client
+        .from('content_annotations')
+        .update(annotationUpdate)
+        .eq('user_id', authResult.userId)
+        .eq('session_id', sessionId);
+      if (updateError) {
+        return { success: false as const, error: updateError.message };
+      }
+    } else {
+      const insertPayload: Record<string, unknown> = {
+        user_id: authResult.userId,
+        session_id: sessionId,
+        created_at: nowIso,
+        ...annotationUpdate,
+      };
+      const { error: insertError } = await client
+        .from('content_annotations')
+        .insert(insertPayload);
+      if (insertError) {
+        if (isDuplicateCanonicalConstraint(insertError)) {
+          return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
+        }
+        return { success: false as const, error: insertError.message };
+      }
+    }
+  }
+
+  return { success: true as const, sessionId };
 }
