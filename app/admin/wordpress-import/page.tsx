@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useLiffContext } from '@/components/LiffProvider';
+import Link from 'next/link';
 
 interface ImportResult {
   totalPosts: number;
@@ -123,6 +124,21 @@ export default function WordPressImportPage() {
           管理者自身のWordPressブログ記事URLをコンテンツとして一括登録します。
           既に登録されているURLはスキップされます。
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href="/setup"
+            className="inline-flex items-center text-blue-600 hover:text-blue-800"
+          >
+            設定ダッシュボードに戻る
+          </Link>
+          <span className="text-gray-300">|</span>
+          <Link
+            href="/analytics"
+            className="inline-flex items-center text-blue-600 hover:text-blue-800"
+          >
+            コンテンツ一覧を見る
+          </Link>
+        </div>
       </div>
 
       <Card>

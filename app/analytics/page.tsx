@@ -94,10 +94,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </CardContent>
       </Card>
-
-      <div className="mt-4 text-xs text-gray-500">
-        インプレッション・順位・メモ・主軸kw/kw は後でGSC/カスタムフィールドを合流します。
-      </div>
     </div>
   );
 }
