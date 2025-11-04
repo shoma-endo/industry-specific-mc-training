@@ -71,7 +71,49 @@ export async function POST(request: NextRequest) {
     const wpService = buildResult.service;
 
     const perPage = 100; // WordPress APIの最大値
-    const contentTypes = normalizeContentTypes(wpSettings.wpContentTypes);
+    let contentTypes = normalizeContentTypes(wpSettings.wpContentTypes);
+
+    if (contentTypes.length === 0) {
+      const fetchedTypesResult = await wpService.fetchAvailableContentTypes();
+      if (!fetchedTypesResult.success || !Array.isArray(fetchedTypesResult.data)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              fetchedTypesResult.error ||
+              'WordPressの投稿タイプを取得できませんでした。WordPress設定を確認のうえ再試行してください。',
+          },
+          { status: 502 }
+        );
+      }
+
+      const autoContentTypes = normalizeContentTypes(fetchedTypesResult.data);
+      if (autoContentTypes.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'WordPressから投稿タイプを検出できませんでした。対象サイトのREST API設定を確認してください。',
+          },
+          { status: 502 }
+        );
+      }
+
+      try {
+        await supabaseService.updateWordPressContentTypes(userId, autoContentTypes);
+        contentTypes = autoContentTypes;
+      } catch (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'WordPress投稿タイプの保存に失敗しました。再度お試しください。',
+          },
+          { status: 500 }
+        );
+      }
+    }
 
     const allPosts: WordPressNormalizedPost[] = [];
     const statsByType = new Map<
@@ -146,7 +188,7 @@ export async function POST(request: NextRequest) {
     // 既存のcanonical_urlとwp_post_idを取得（重複チェック用）
     const { data: existingAnnotations, error: existingError } = await supabaseClient
       .from('content_annotations')
-      .select('canonical_url, wp_post_id')
+      .select('canonical_url, wp_post_id, wp_post_title')
       .eq('user_id', userId)
       .not('canonical_url', 'is', null);
 
@@ -157,17 +199,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingUrls = new Set(
-      (existingAnnotations ?? [])
-        .map(a => a.canonical_url?.trim())
-        .filter(Boolean) as string[]
-    );
+    const existingUrls = new Set<string>();
+    const existingPostIds = new Set<number>();
+    const existingTitleMap = new Map<string, boolean>();
 
-    const existingPostIds = new Set(
-      (existingAnnotations ?? [])
-        .map(a => a.wp_post_id)
-        .filter(id => typeof id === 'number') as number[]
-    );
+    (existingAnnotations ?? []).forEach(annotation => {
+      const canonicalTrimmed = annotation.canonical_url?.trim();
+      if (canonicalTrimmed) {
+        existingUrls.add(canonicalTrimmed);
+        const hasTitle =
+          typeof annotation.wp_post_title === 'string' &&
+          annotation.wp_post_title.trim().length > 0;
+        existingTitleMap.set(canonicalTrimmed, hasTitle);
+      }
+
+      if (typeof annotation.wp_post_id === 'number' && !Number.isNaN(annotation.wp_post_id)) {
+        existingPostIds.add(annotation.wp_post_id);
+      }
+    });
 
     const existingContentTotal = existingUrls.size;
 
@@ -177,6 +226,7 @@ export async function POST(request: NextRequest) {
 
     let skippedExistingPosts = 0;
     let skippedWithoutCanonical = 0;
+    const missingTitleUpdates: Array<{ canonical: string; title: string }> = [];
 
     const newPosts: WordPressNormalizedPost[] = [];
 
@@ -209,8 +259,14 @@ export async function POST(request: NextRequest) {
           ? knownPostIds.has(numericPostId)
           : false;
       const hasDuplicateUrl = knownCanonicalUrls.has(canonicalTrimmed);
-
       if (hasDuplicateId || hasDuplicateUrl) {
+        const existingHasTitle = existingTitleMap.get(canonicalTrimmed) ?? false;
+        const candidateTitle = typeof post.title === 'string' ? post.title.trim() : '';
+        if (!existingHasTitle && candidateTitle.length > 0) {
+          missingTitleUpdates.push({ canonical: canonicalTrimmed, title: candidateTitle });
+          existingTitleMap.set(canonicalTrimmed, true);
+        }
+
         skippedExistingPosts++;
         typeStats.skippedExisting++;
         continue;
@@ -235,6 +291,7 @@ export async function POST(request: NextRequest) {
     let insertedCount = 0;
     let duplicateCount = 0;
     let errorCount = 0;
+    let updatedTitleCount = 0;
 
     if (newPosts.length > 0) {
       // 安全のため、バッチサイズを50件に制限
@@ -286,9 +343,36 @@ export async function POST(request: NextRequest) {
           for (const post of batch) {
           errorCount += 1;
           ensureStats(post.post_type ?? 'posts').error += 1;
-          }
         }
       }
+    }
+
+    if (missingTitleUpdates.length > 0) {
+      for (const update of missingTitleUpdates) {
+        const { error: updateError } = await supabaseClient
+          .from('content_annotations')
+          .update({
+            wp_post_title: update.title,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId)
+          .eq('canonical_url', update.canonical)
+          .or('wp_post_title.is.null,wp_post_title.eq.');
+
+        if (updateError) {
+          console.error('Failed to backfill wp_post_title:', updateError, update);
+          return NextResponse.json(
+            {
+              success: false,
+              error: `既存レコードのタイトル補完に失敗しました: ${updateError.message}`,
+            },
+            { status: 500 }
+          );
+        }
+
+        updatedTitleCount += 1;
+      }
+    }
     }
 
     const statsByTypeObject = Object.fromEntries(statsByType.entries());
@@ -308,6 +392,7 @@ export async function POST(request: NextRequest) {
         statsByType: statsByTypeObject,
         maxLimitReached,
         maxLimitValue,
+        backfilledTitles: updatedTitleCount,
       }
     });
 

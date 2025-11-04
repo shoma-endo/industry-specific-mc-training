@@ -8,7 +8,10 @@ import {
   WordPressRenderedField,
   WordPressRestTerm,
 } from '@/types/wordpress';
-import { normalizeContentType } from '@/server/services/wordpressContentTypes';
+import {
+  normalizeContentType,
+  BLOCKED_WORDPRESS_CONTENT_TYPES,
+} from '@/server/services/wordpressContentTypes';
 
 // WordPress.com認証情報
 export interface WordPressComAuth {
@@ -332,6 +335,111 @@ export class WordPressService {
 
   public getWordPressComSiteId(): string | undefined {
     return this.siteId;
+  }
+
+  public async fetchAvailableContentTypes(): Promise<WordPressApiResult<string[]>> {
+    const headers = this.getRestHeaders();
+    const urls = new Set<string>();
+
+    urls.add(`${this.baseUrl}/types`);
+
+    if (this.type === 'self_hosted' && this.siteUrl) {
+      const siteClean = this.siteUrl.replace(/\/$/, '');
+      urls.add(`${siteClean}/wp-json/wp/v2/types`);
+      urls.add(`${siteClean}/index.php?rest_route=/wp/v2/types`);
+    }
+
+    let lastStatus = 0;
+    let lastErrorText = '';
+
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, { headers, cache: 'no-store' });
+        if (!response.ok) {
+          lastStatus = response.status;
+          lastErrorText = await response.text().catch(() => response.statusText);
+          continue;
+        }
+
+        const data = await response.json();
+        if (data && typeof data === 'object') {
+          const entries = data as Record<
+            string,
+            {
+              rest_base?: string;
+              slug?: string;
+              viewable?: boolean;
+              show_in_rest?: boolean;
+            }
+          >;
+
+          const restBases = new Set<string>();
+
+          Object.entries(entries).forEach(([slug, entry]) => {
+            if (!entry || typeof entry !== 'object') {
+              return;
+            }
+
+            const showInRest =
+              typeof entry.show_in_rest === 'boolean' ? entry.show_in_rest : true;
+            if (!showInRest) {
+              return;
+            }
+
+            const isViewable = typeof entry.viewable === 'boolean' ? entry.viewable : true;
+            if (!isViewable) {
+              return;
+            }
+
+            const restBase =
+              typeof entry.rest_base === 'string' && entry.rest_base.trim().length > 0
+                ? entry.rest_base.trim()
+                : slug;
+
+            const normalized = normalizeContentType(restBase);
+            const normalizedLower = normalized.toLowerCase();
+            const slugLower = slug.toLowerCase();
+            if (
+              BLOCKED_WORDPRESS_CONTENT_TYPES.has(normalizedLower) ||
+              BLOCKED_WORDPRESS_CONTENT_TYPES.has(slugLower)
+            ) {
+              return;
+            }
+            if (
+              normalizedLower.startsWith('wp_') ||
+              normalizedLower.startsWith('wp-') ||
+              slugLower.startsWith('wp_') ||
+              slugLower.startsWith('wp-')
+            ) {
+              return;
+            }
+            if (
+              normalizedLower.startsWith('jp_') ||
+              normalizedLower.startsWith('jp-') ||
+              slugLower.startsWith('jp_') ||
+              slugLower.startsWith('jp-')
+            ) {
+              return;
+            }
+
+            restBases.add(normalized);
+          });
+
+          if (restBases.size > 0) {
+            return { success: true, data: Array.from(restBases) };
+          }
+        }
+      } catch (error) {
+        lastStatus = lastStatus || 0;
+        lastErrorText = error instanceof Error ? error.message : 'Unknown fetch error';
+      }
+    }
+
+    const message = `[WordPressService] 投稿タイプの取得に失敗しました: HTTP ${lastStatus} ${lastErrorText}`.trim();
+    return {
+      success: false,
+      error: message,
+    };
   }
 
   public buildRestQueryParams(

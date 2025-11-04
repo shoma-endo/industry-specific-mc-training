@@ -32,6 +32,7 @@ interface ImportResult {
   >;
   maxLimitReached?: boolean;
   maxLimitValue?: number;
+  backfilledTitles?: number;
 }
 
 export default function WordPressImportPage() {
@@ -80,7 +81,7 @@ export default function WordPressImportPage() {
           existingContentTotal: data.data?.existingContentTotal ?? 0,
           contentTypes: Array.isArray(data.data?.contentTypes)
             ? (data.data.contentTypes as string[])
-            : ['posts', 'pages'],
+            : [],
           statsByType:
             typeof data.data?.statsByType === 'object' && data.data?.statsByType !== null
               ? (data.data.statsByType as ImportResult['statsByType'])
@@ -90,6 +91,10 @@ export default function WordPressImportPage() {
             typeof data.data?.maxLimitValue === 'number' && !Number.isNaN(data.data?.maxLimitValue)
               ? data.data.maxLimitValue
               : 1000,
+          backfilledTitles:
+            typeof data.data?.backfilledTitles === 'number' && !Number.isNaN(data.data?.backfilledTitles)
+              ? data.data.backfilledTitles
+              : 0,
         };
         setResult(normalized);
       } else {
@@ -203,7 +208,10 @@ export default function WordPressImportPage() {
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-700">
                 WordPressから{result.totalPosts}件の記事を取得しました。<br/>
-                • 対象タイプ: {result.contentTypes.map(formatTypeLabel).join(', ')}<br/>
+                • 対象タイプ:{' '}
+                {result.contentTypes.length > 0
+                  ? result.contentTypes.map(formatTypeLabel).join(', ')
+                  : '検出されませんでした'}<br/>
                 • {result.newPosts}件を新規登録対象として処理<br/>
                 • {result.insertedPosts}件を登録成功<br/>
                 • {result.skippedExistingPosts}件を既存データとしてスキップ<br/>
@@ -211,6 +219,11 @@ export default function WordPressImportPage() {
                 • {result.duplicatePosts}件がDB重複で失敗<br/>
                 • {result.errorPosts}件でエラーが発生<br/>
                 • 実行前の登録済みコンテンツ総数: {result.existingContentTotal}件
+                {typeof result.backfilledTitles === 'number' && result.backfilledTitles > 0 && (
+                  <>
+                    <br />• タイトル補完 {result.backfilledTitles}件
+                  </>
+                )}
               </p>
             </div>
 

@@ -588,7 +588,7 @@ export class SupabaseService {
       updated_at: new Date().toISOString(),
     };
 
-    if (options?.wpContentTypes) {
+    if (options && 'wpContentTypes' in options) {
       payload.wp_content_types = normalizeContentTypes(options.wpContentTypes);
     }
 
@@ -624,7 +624,7 @@ export class SupabaseService {
       updated_at: new Date().toISOString(),
     };
 
-    if (options?.wpContentTypes) {
+    if (options && 'wpContentTypes' in options) {
       payload.wp_content_types = normalizeContentTypes(options.wpContentTypes);
     }
 
@@ -638,6 +638,24 @@ export class SupabaseService {
     if (error) {
       console.error('Error upserting self-hosted WordPress settings:', error);
       throw new Error(`セルフホストWordPress設定の保存または更新に失敗しました: ${error.message}`);
+    }
+  }
+
+  async updateWordPressContentTypes(
+    userId: string,
+    wpContentTypes: string[]
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('wordpress_settings')
+      .update({
+        wp_content_types: normalizeContentTypes(wpContentTypes),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating WordPress content types:', error);
+      throw new Error(`WordPress投稿タイプの更新に失敗しました: ${error.message}`);
     }
   }
 

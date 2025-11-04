@@ -153,7 +153,7 @@ export default function WordPressSettingsForm({
   // フォームの状態
   const [wpType, setWpType] = useState<WordPressType>(existingSettings?.wpType || 'wordpress_com');
   const [contentTypesInput, setContentTypesInput] = useState(
-    (existingSettings?.wpContentTypes ?? ['posts', 'pages']).join(', ')
+    (existingSettings?.wpContentTypes ?? []).join(', ')
   );
 
   // WordPress.com用
