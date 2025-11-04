@@ -18,6 +18,9 @@ interface Props {
   canonicalUrl?: string | null;
   initial?: AnnotationFields;
   initialWpPostTitle?: string | null;
+  onOpen?: () => void;
+  onClose?: () => void;
+  disabled?: boolean;
 }
 
 export default function AnnotationEditButton({
@@ -26,6 +29,9 @@ export default function AnnotationEditButton({
   canonicalUrl,
   initial,
   initialWpPostTitle,
+  onOpen,
+  onClose,
+  disabled = false,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -62,6 +68,25 @@ export default function AnnotationEditButton({
     },
   });
 
+  const onOpenRef = React.useRef(onOpen);
+  const onCloseRef = React.useRef(onClose);
+
+  React.useEffect(() => {
+    onOpenRef.current = onOpen;
+  }, [onOpen]);
+
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    onOpenRef.current?.();
+    return () => {
+      onCloseRef.current?.();
+    };
+  }, [open]);
+
   const handleSave = async () => {
     const result = await submit();
     if (result.success) {
@@ -78,7 +103,12 @@ export default function AnnotationEditButton({
         variant="default"
         size="sm"
         className="bg-green-600 hover:bg-green-700 text-white focus-visible:ring-green-400"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (disabled) return;
+          setOpen(true);
+        }}
+        disabled={disabled}
+        aria-disabled={disabled}
       >
         編集
       </Button>

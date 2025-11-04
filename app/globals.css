@@ -123,6 +123,32 @@
   }
 }
 
+@layer components {
+  .analytics-row {
+    position: relative;
+    background-color: #f3f4f6; /* gray-100 */
+  }
+
+  .analytics-row:nth-child(odd) {
+    background-color: #f9fafb; /* gray-50 */
+  }
+
+  .analytics-row .sticky-ops-cell {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+  }
+
+  .analytics-row .sticky-ops-cell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: inherit;
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
 /* フッターメニュー用のスタイル */
 .footer-tab-active {
   position: relative;

@@ -58,6 +58,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
     }
     return list;
   }, [posts, annotations, unlinkedAnnotations]);
+  const [activeRowKey, setActiveRowKey] = React.useState<string | null>(null);
 
   return (
     <FieldConfigurator
@@ -71,6 +72,9 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
           <table className="min-w-[2200px] divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="sticky-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[100px]">
+                  操作
+                </th>
                 {visibleSet.has('main_kw') && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[180px]">
                     主軸kw
@@ -146,18 +150,40 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     順位
                   </th>
                 )}
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[100px]">
-                  操作
-                </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200">
               {rows.map((row, idx) => {
                 if (row.type === 'post') {
                   const p = row.post;
                   const a = row.a;
+                  const rowKey = `post:${p.id}`;
+                  const disableOthers = activeRowKey !== null && activeRowKey !== rowKey;
                   return (
-                    <tr key={`post:${p.id}`} className="hover:bg-gray-50">
+                    <tr key={`post:${p.id}`} className="analytics-row group">
+                      <td className="sticky-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <AnnotationEditButton
+                          wpPostId={typeof p.id === 'string' ? parseInt(p.id, 10) : p.id}
+                          canonicalUrl={a?.canonical_url ?? null}
+                          initial={{
+                            main_kw: a?.main_kw ?? null,
+                            kw: a?.kw ?? null,
+                            impressions: a?.impressions ?? null,
+                            needs: a?.needs ?? null,
+                            persona: a?.persona ?? null,
+                            goal: a?.goal ?? null,
+                            prep: a?.prep ?? null,
+                            basic_structure: a?.basic_structure ?? null,
+                            opening_proposal: a?.opening_proposal ?? null,
+                          }}
+                          initialWpPostTitle={a?.wp_post_title ?? null}
+                          onOpen={() => setActiveRowKey(rowKey)}
+                          onClose={() => {
+                            setActiveRowKey(prev => (prev === rowKey ? null : prev));
+                          }}
+                          disabled={disableOthers}
+                        />
+                      </td>
                       {visibleSet.has('main_kw') && (
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {a?.main_kw ? <TruncatedText text={a.main_kw} lines={2} /> : '—'}
@@ -212,24 +238,32 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                         </td>
                       )}
                       {visibleSet.has('categories') && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                        >
                           {p.categoryNames && p.categoryNames.length > 0
                             ? p.categoryNames.join(', ')
                             : '—'}
                         </td>
                       )}
                       {visibleSet.has('date') && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                        >
                           {p.date ? new Date(p.date).toLocaleDateString('ja-JP') : '—'}
                         </td>
                       )}
                       {visibleSet.has('wp_post_title') && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                        >
                           {p.title || a?.wp_post_title || '（無題）'}
                         </td>
                       )}
                       {visibleSet.has('url') && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-blue-600"
+                        >
                           {a?.canonical_url ? (
                             <a
                               href={a.canonical_url}
@@ -250,34 +284,43 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                         </td>
                       )}
                       {visibleSet.has('rank') && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                        >
                           —
                         </td>
                       )}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <AnnotationEditButton
-                          wpPostId={typeof p.id === 'string' ? parseInt(p.id, 10) : p.id}
-                          canonicalUrl={a?.canonical_url ?? null}
-                          initial={{
-                            main_kw: a?.main_kw ?? null,
-                            kw: a?.kw ?? null,
-                            impressions: a?.impressions ?? null,
-                            needs: a?.needs ?? null,
-                            persona: a?.persona ?? null,
-                            goal: a?.goal ?? null,
-                            prep: a?.prep ?? null,
-                            basic_structure: a?.basic_structure ?? null,
-                            opening_proposal: a?.opening_proposal ?? null,
-                          }}
-                          initialWpPostTitle={a?.wp_post_title ?? null}
-                        />
-                      </td>
                     </tr>
                   );
                 }
                 const a = row.a;
+                const rowKey = `session:${a.session_id ?? idx}`;
+                const disableOthers = activeRowKey !== null && activeRowKey !== rowKey;
                 return (
-                  <tr key={`session:${a.session_id ?? idx}`} className="hover:bg-gray-50">
+                  <tr key={`session:${a.session_id ?? idx}`} className="analytics-row group">
+                    <td className="sticky-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
+                      <AnnotationEditButton
+                        sessionId={a.session_id ?? ''}
+                        canonicalUrl={a.canonical_url ?? null}
+                        initial={{
+                          main_kw: a?.main_kw ?? null,
+                          kw: a?.kw ?? null,
+                          impressions: a?.impressions ?? null,
+                          needs: a?.needs ?? null,
+                          persona: a?.persona ?? null,
+                          goal: a?.goal ?? null,
+                          prep: a?.prep ?? null,
+                          basic_structure: a?.basic_structure ?? null,
+                          opening_proposal: a?.opening_proposal ?? null,
+                        }}
+                        initialWpPostTitle={a?.wp_post_title ?? null}
+                        onOpen={() => setActiveRowKey(rowKey)}
+                        onClose={() => {
+                          setActiveRowKey(prev => (prev === rowKey ? null : prev));
+                        }}
+                        disabled={disableOthers}
+                      />
+                    </td>
                     {visibleSet.has('main_kw') && (
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {a.main_kw ? <TruncatedText text={a.main_kw} lines={2} /> : '—'}
@@ -289,7 +332,9 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                       </td>
                     )}
                     {visibleSet.has('impressions') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                      >
                         {a.impressions ?? '—'}
                       </td>
                     )}
@@ -332,18 +377,30 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                       </td>
                     )}
                     {visibleSet.has('categories') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">—</td>
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        —
+                      </td>
                     )}
                     {visibleSet.has('date') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">—</td>
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                      >
+                        —
+                      </td>
                     )}
                     {visibleSet.has('wp_post_title') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                      >
                         {a.wp_post_title || '（未紐付け）'}
                       </td>
                     )}
                     {visibleSet.has('url') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-blue-600"
+                      >
                         {a.canonical_url ? (
                           <a
                             href={a.canonical_url}
@@ -362,28 +419,12 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                       <td className="px-6 py-4 text-sm text-gray-500">—</td>
                     )}
                     {visibleSet.has('rank') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                      >
                         —
                       </td>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                      <AnnotationEditButton
-                        sessionId={a.session_id ?? ''}
-                        canonicalUrl={a.canonical_url ?? null}
-                        initial={{
-                          main_kw: a?.main_kw ?? null,
-                          kw: a?.kw ?? null,
-                          impressions: a?.impressions ?? null,
-                          needs: a?.needs ?? null,
-                          persona: a?.persona ?? null,
-                          goal: a?.goal ?? null,
-                          prep: a?.prep ?? null,
-                          basic_structure: a?.basic_structure ?? null,
-                          opening_proposal: a?.opening_proposal ?? null,
-                        }}
-                        initialWpPostTitle={a?.wp_post_title ?? null}
-                      />
-                    </td>
                   </tr>
                 );
               })}
