@@ -73,21 +73,23 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
 
   // ✅ 読み込み中のアニメーション表示
   const LoadingIndicator = () => (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="flex gap-2 items-center text-sm text-gray-500">
-        <div
-          className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-          style={{ animationDelay: '0ms' }}
-        />
-        <div
-          className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-          style={{ animationDelay: '150ms' }}
-        />
-        <div
-          className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-          style={{ animationDelay: '300ms' }}
-        />
-        <span className="ml-2">履歴を読み込み中...</span>
+    <div className="flex h-full min-h-full items-center justify-center py-12">
+      <div className="flex flex-col items-center gap-3 text-sm text-gray-500 text-center">
+        <div className="flex gap-2 items-center">
+          <div
+            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+            style={{ animationDelay: '0ms' }}
+          />
+          <div
+            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+            style={{ animationDelay: '150ms' }}
+          />
+          <div
+            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+            style={{ animationDelay: '300ms' }}
+          />
+        </div>
+        <span>履歴を読み込み中...</span>
       </div>
     </div>
   );
