@@ -43,8 +43,8 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
     actions.loadSession(sessionId);
   };
 
-  const handleSearchResultClick = async (sessionId: string) => {
-    await actions.loadSession(sessionId);
+  const handleSearchResultClick = (sessionId: string) => {
+    actions.loadSession(sessionId);
     actions.clearSearch();
   };
 
@@ -97,22 +97,6 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   // ✅ 読み込み状態の判定
   const shouldShowLoading = isLoading && sessions.length === 0;
   const showSearchResults = searchQuery.trim().length > 0;
-
-  const formatRelativeDate = (date: Date) => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return '今日';
-    }
-
-    if (date.toDateString() === yesterday.toDateString()) {
-      return '昨日';
-    }
-
-    return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
-  };
 
   // SessionListContentコンポーネント用に型変換
   const adaptedSessions = sessions.map(session => ({
@@ -171,29 +155,18 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
       );
     }
 
+    const adaptedSearchSessions = searchResults.map(result => ({
+      id: result.sessionId,
+      title: result.title,
+      updatedAt: result.lastMessageAt,
+    }));
+
     return (
-      <div className="px-4 py-4 space-y-2">
-        {searchResults.map(result => (
-          <button
-            key={result.sessionId}
-            onClick={() => handleSearchResultClick(result.sessionId)}
-            className="w-full text-left bg-white hover:bg-gray-100 rounded-lg px-3 py-3"
-          >
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-medium truncate">{result.title}</span>
-              {result.wordpressTitle && (
-                <span className="text-xs text-gray-500 truncate">{result.wordpressTitle}</span>
-              )}
-              {result.canonicalUrl && (
-                <span className="text-xs text-gray-400 truncate">{result.canonicalUrl}</span>
-              )}
-              <span className="text-xs text-gray-400">
-                更新: {formatRelativeDate(result.lastMessageAt)}
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
+      <SessionListContent
+        {...sessionListProps}
+        sessions={adaptedSearchSessions}
+        onLoadSession={handleSearchResultClick}
+      />
     );
   };
 
