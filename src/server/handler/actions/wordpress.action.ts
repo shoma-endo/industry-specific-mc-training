@@ -1111,7 +1111,6 @@ export async function ensureAnnotationChatSession(
       const insertPayload: Record<string, unknown> = {
         user_id: authResult.userId,
         session_id: sessionId,
-        created_at: nowIso,
         ...annotationUpdate,
       };
       const { error: insertError } = await client
