@@ -71,27 +71,33 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
     }
   };
 
-  // ✅ 読み込み中のアニメーション表示
-  const LoadingIndicator = () => (
-    <div className="flex h-full min-h-full items-center justify-center py-12">
+  const CenteredStatus: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <div className="flex h-full min-h-full items-center justify-center px-4 py-12">
       <div className="flex flex-col items-center gap-3 text-sm text-gray-500 text-center">
-        <div className="flex gap-2 items-center">
-          <div
-            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-            style={{ animationDelay: '0ms' }}
-          />
-          <div
-            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-            style={{ animationDelay: '150ms' }}
-          />
-          <div
-            className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
-            style={{ animationDelay: '300ms' }}
-          />
-        </div>
-        <span>履歴を読み込み中...</span>
+        {children}
       </div>
     </div>
+  );
+
+  // ✅ 読み込み中のアニメーション表示
+  const LoadingIndicator = () => (
+    <CenteredStatus>
+      <div className="flex gap-2 items-center">
+        <div
+          className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+          style={{ animationDelay: '0ms' }}
+        />
+        <div
+          className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+          style={{ animationDelay: '150ms' }}
+        />
+        <div
+          className="w-2 h-2 bg-[#06c755] rounded-full animate-bounce"
+          style={{ animationDelay: '300ms' }}
+        />
+      </div>
+      <span>履歴を読み込み中...</span>
+    </CenteredStatus>
   );
 
   // ✅ 読み込み状態の判定
@@ -130,28 +136,26 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   const renderSearchResultList = () => {
     if (isSearching) {
       return (
-        <div className="flex min-h-[200px] items-center justify-center px-4 py-12">
-          <div className="flex flex-col items-center gap-3 text-sm text-gray-500 text-center">
-            <Loader2 className="h-4 w-4 animate-spin text-[#06c755]" />
-            <span>検索中です...</span>
-          </div>
-        </div>
+        <CenteredStatus>
+          <Loader2 className="h-4 w-4 animate-spin text-[#06c755]" />
+          <span>検索中です...</span>
+        </CenteredStatus>
       );
     }
 
     if (searchError) {
       return (
-        <div className="flex min-h-[200px] items-center justify-center px-4 py-12">
-          <div className="text-sm text-red-500 text-center">{searchError}</div>
-        </div>
+        <CenteredStatus>
+          <span className="text-red-500">{searchError}</span>
+        </CenteredStatus>
       );
     }
 
     if (searchResults.length === 0) {
       return (
-        <div className="flex min-h-[200px] items-center justify-center px-4 py-12">
-          <div className="text-sm text-gray-400 text-center">チャットが見つかりません</div>
-        </div>
+        <CenteredStatus>
+          <span className="text-gray-400">チャットが見つかりません</span>
+        </CenteredStatus>
       );
     }
 
