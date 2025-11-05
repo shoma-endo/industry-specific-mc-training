@@ -288,8 +288,18 @@ const InputArea: React.FC<InputAreaProps> = ({
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm h-16">
-        <div className="container mx-auto px-4 h-full flex items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
+        <div className="px-4 h-full flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="hidden lg:block w-72">
+              <ChatSearch
+                query={searchQuery}
+                isSearching={isSearching}
+                error={searchError}
+                onSearch={onSearch}
+                onClear={onClearSearch}
+                className="space-y-1"
+              />
+            </div>
             {isMobile && onMenuToggle && (
               <Button variant="ghost" size="icon" onClick={onMenuToggle} aria-label="メニュー">
                 <Menu className="h-5 w-5" />
@@ -426,17 +436,6 @@ const InputArea: React.FC<InputAreaProps> = ({
                 作成ステップは自動で進行します
               </div>
             )}
-
-            <div className="hidden lg:block w-72">
-              <ChatSearch
-                query={searchQuery}
-                isSearching={isSearching}
-                error={searchError}
-                onSearch={onSearch}
-                onClear={onClearSearch}
-                className="space-y-1"
-              />
-            </div>
           </div>
         </div>
       </header>
