@@ -28,6 +28,7 @@ interface Props {
 interface LaunchPayload {
   rowKey: string;
   sessionId?: string | null;
+  annotationId?: string | null;
   wpPostId?: number | null;
   wpPostTitle?: string | null;
   canonicalUrl?: string | null;
@@ -103,11 +104,20 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
       if (pendingRowKey) return;
-      const { rowKey, sessionId, wpPostId, wpPostTitle, canonicalUrl, fallbackTitle } = payload;
+      const {
+        rowKey,
+        sessionId,
+        annotationId,
+        wpPostId,
+        wpPostTitle,
+        canonicalUrl,
+        fallbackTitle,
+      } = payload;
       setPendingRowKey(rowKey);
       try {
         const result = await ensureAnnotationChatSession({
           sessionId: sessionId ?? null,
+          annotationId: annotationId ?? null,
           wpPostId: typeof wpPostId === 'number' ? wpPostId : null,
           wpPostTitle: wpPostTitle ?? null,
           canonicalUrl: canonicalUrl ?? null,
@@ -242,14 +252,15 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           label="チャット"
                           isPending={pendingRowKey === rowKey}
                           onClick={() =>
-                            handleLaunch({
-                              rowKey,
-                              sessionId: a?.session_id ?? null,
-                              wpPostId,
-                              wpPostTitle: p.title || a?.wp_post_title || null,
-                              canonicalUrl: a?.canonical_url ?? null,
-                              fallbackTitle,
-                            })
+                              handleLaunch({
+                                rowKey,
+                                sessionId: a?.session_id ?? null,
+                                annotationId: a?.id ?? null,
+                                wpPostId,
+                                wpPostTitle: p.title || a?.wp_post_title || null,
+                                canonicalUrl: a?.canonical_url ?? null,
+                                fallbackTitle,
+                              })
                           }
                         />
                       </td>
@@ -374,6 +385,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                           handleLaunch({
                             rowKey,
                             sessionId: a.session_id ?? null,
+                            annotationId: a.id ?? null,
                             wpPostId: a.wp_post_id ?? null,
                             wpPostTitle: a.wp_post_title ?? null,
                             canonicalUrl: a.canonical_url ?? null,

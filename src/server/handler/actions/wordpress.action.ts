@@ -983,6 +983,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
 
 export interface EnsureAnnotationChatSessionPayload {
   sessionId?: string | null;
+  annotationId?: string | null;
   wpPostId?: number | null;
   wpPostTitle?: string | null;
   canonicalUrl?: string | null;
@@ -1003,7 +1004,34 @@ export async function ensureAnnotationChatSession(
   const service = new SupabaseService();
   const client = service.getClient();
 
+  const annotationId =
+    payload.annotationId && payload.annotationId.trim().length > 0
+      ? payload.annotationId.trim()
+      : null;
+
+  type AnnotationByIdRow = { id: string; session_id: string | null; wp_post_id: number | null };
+  let annotationById: AnnotationByIdRow | null = null;
+
+  if (annotationId) {
+    const { data, error } = await client
+      .from('content_annotations')
+      .select('id, session_id, wp_post_id')
+      .eq('user_id', authResult.userId)
+      .eq('id', annotationId)
+      .maybeSingle();
+
+    if (error) {
+      return { success: false as const, error: error.message };
+    }
+
+    annotationById = (data as AnnotationByIdRow | null) ?? null;
+  }
+
   let sessionId: string | null = payload.sessionId?.trim() ? payload.sessionId.trim()! : null;
+
+  if (!sessionId && annotationById?.session_id) {
+    sessionId = annotationById.session_id;
+  }
 
   if (sessionId) {
     const existingSession = await service.getChatSessionById(sessionId, authResult.userId);
@@ -1061,7 +1089,19 @@ export async function ensureAnnotationChatSession(
 
   let annotationLinked = false;
 
-  if (hasValidWpId) {
+  if (annotationId && annotationById) {
+    const { error: updateByIdError } = await client
+      .from('content_annotations')
+      .update(annotationUpdate)
+      .eq('user_id', authResult.userId)
+      .eq('id', annotationId);
+    if (updateByIdError) {
+      return { success: false as const, error: updateByIdError.message };
+    }
+    annotationLinked = true;
+  }
+
+  if (!annotationLinked && hasValidWpId) {
     const { error: fetchByWpError, data: existingByWp } = await client
       .from('content_annotations')
       .select('session_id')

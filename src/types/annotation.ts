@@ -18,6 +18,7 @@ export type AnnotationFieldValue = string | null;
 export type AnnotationFields = Partial<Record<AnnotationFieldKey, AnnotationFieldValue>>;
 
 export interface AnnotationRecord extends AnnotationFields {
+  id?: string;
   canonical_url?: string | null;
   wp_post_id?: number | null;
   wp_post_title?: string | null;
