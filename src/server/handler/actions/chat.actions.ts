@@ -45,6 +45,12 @@ const updateChatSessionTitleSchema = z.object({
   liffAccessToken: z.string(),
 });
 
+const searchChatSessionsSchema = z.object({
+  query: z.string().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+  liffAccessToken: z.string(),
+});
+
 export type StartChatInput = z.infer<typeof startChatSchema>;
 export type ContinueChatInput = z.infer<typeof continueChatSchema>;
 
@@ -155,6 +161,48 @@ export async function getSessionMessages(sessionId: string, liffAccessToken: str
   }
   const messages = await chatService.getSessionMessages(sessionId, auth.userId);
   return { messages, error: null };
+}
+
+export async function searchChatSessions(data: z.infer<typeof searchChatSessionsSchema>) {
+  const parsed = searchChatSessionsSchema.parse(data);
+
+  const auth = await checkAuth(parsed.liffAccessToken);
+  if (auth.isError) {
+    return {
+      results: [],
+      error: auth.error,
+      requiresSubscription: auth.requiresSubscription,
+    };
+  }
+
+  try {
+    const options = parsed.limit !== undefined ? { limit: parsed.limit } : undefined;
+    const matches = await chatService.searchChatSessions(
+      auth.userId,
+      parsed.query ?? '',
+      options
+    );
+
+    return {
+      results: matches.map(match => ({
+        sessionId: match.sessionId,
+        title: match.title,
+        canonicalUrl: match.canonicalUrl,
+        wordpressTitle: match.wordpressTitle,
+        lastMessageAt: match.lastMessageAt,
+        similarityScore: match.similarityScore,
+      })),
+      error: null,
+      requiresSubscription: false,
+    };
+  } catch (error) {
+    console.error('Failed to search chat sessions:', error);
+    return {
+      results: [],
+      error: error instanceof Error ? error.message : 'チャットセッションの検索に失敗しました',
+      requiresSubscription: false,
+    };
+  }
 }
 
 export async function deleteChatSession(sessionId: string, liffAccessToken: string) {
@@ -285,6 +333,7 @@ export const getChatSessionsSA = getChatSessions;
 export const getSessionMessagesSA = getSessionMessages;
 export const deleteChatSessionSA = deleteChatSession;
 export const updateChatSessionTitleSA = updateChatSessionTitle;
+export const searchChatSessionsSA = searchChatSessions;
 export const saveMessageSA = saveMessage;
 export const unsaveMessageSA = unsaveMessage;
 export const getSavedMessageIdsSA = getSavedMessageIds;

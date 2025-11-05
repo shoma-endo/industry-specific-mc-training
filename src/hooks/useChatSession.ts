@@ -329,6 +329,68 @@ export const useChatSession = (
     [chatService]
   );
 
+  const searchSessions = useCallback(
+    async (query: string, options?: { limit?: number }) => {
+      const trimmed = query.trim();
+
+      if (trimmed === '') {
+        setState(prev => ({
+          ...prev,
+          searchQuery: '',
+          searchResults: [],
+          searchError: null,
+          isSearching: false,
+        }));
+        return;
+      }
+
+      setState(prev => ({
+        ...prev,
+        searchQuery: trimmed,
+        isSearching: true,
+        searchError: null,
+      }));
+
+      try {
+        const results = await chatService.searchSessions(trimmed, options);
+        setState(prev => ({
+          ...prev,
+          searchQuery: trimmed,
+          searchResults: results,
+          isSearching: false,
+          searchError: null,
+        }));
+      } catch (error) {
+        console.error('Search sessions error:', error);
+        const errorMessage =
+          error instanceof ChatError
+            ? error.userMessage
+            : error instanceof Error
+              ? error.message
+              : 'チャットの検索に失敗しました';
+
+        setState(prev => ({
+          ...prev,
+          searchQuery: trimmed,
+          searchResults: [],
+          isSearching: false,
+          searchError: errorMessage,
+        }));
+      }
+    },
+    [chatService]
+  );
+
+  const clearSearch = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      searchQuery: '',
+      searchResults: [],
+      searchError: null,
+      isSearching: false,
+    }));
+  }, []);
+
   const updateSessionTitle = useCallback(
     async (sessionId: string, title: string) => {
       try {
@@ -368,6 +430,8 @@ export const useChatSession = (
     loadSession,
     deleteSession,
     updateSessionTitle,
+    searchSessions,
+    clearSearch,
     startNewSession,
   };
 

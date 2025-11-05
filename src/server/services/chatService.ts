@@ -2,6 +2,7 @@ import { llmChat } from './llmService';
 import {
   ChatMessage,
   ChatSession,
+  ChatSessionSearchMatch,
   DbChatMessage,
   DbChatSession,
   ChatRole,
@@ -335,6 +336,36 @@ class ChatService {
         ChatErrorCode.SESSION_LOAD_FAILED,
         { userId, error }
       );
+    }
+  }
+
+  async searchChatSessions(
+    userId: string,
+    query: string,
+    options?: { limit?: number }
+  ): Promise<ChatSessionSearchMatch[]> {
+    try {
+      const dbMatches = this.unwrapSupabaseResult(
+        await this.supabaseService.searchChatSessions(userId, query, options),
+        ChatErrorCode.SESSION_LOAD_FAILED,
+        { userId, query, options }
+      );
+
+      return dbMatches.map(match => ({
+        sessionId: match.session_id,
+        title: match.title,
+        canonicalUrl: match.canonical_url ?? null,
+        wordpressTitle: match.wp_post_title ?? null,
+        lastMessageAt: match.last_message_at,
+        similarityScore: match.similarity_score,
+      }));
+    } catch (error) {
+      console.error('Failed to search user sessions:', error);
+      throw new ChatError('チャットセッションの検索に失敗しました', ChatErrorCode.SESSION_LOAD_FAILED, {
+        userId,
+        query,
+        error,
+      });
     }
   }
 

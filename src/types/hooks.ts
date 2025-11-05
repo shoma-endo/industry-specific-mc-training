@@ -70,6 +70,8 @@ export interface ChatSessionActions {
   loadSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
+  searchSessions: (query: string, options?: { limit?: number }) => Promise<void>;
+  clearSearch: () => void;
   startNewSession: () => void;
 }
 

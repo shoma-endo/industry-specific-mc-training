@@ -65,6 +65,30 @@ export interface DbChatSession {
 }
 
 /**
+ * チャットセッション検索結果のデータベース行
+ */
+export interface DbChatSessionSearchRow {
+  session_id: string;
+  title: string;
+  canonical_url?: string | null;
+  wp_post_title?: string | null;
+  last_message_at: number;
+  similarity_score: number;
+}
+
+/**
+ * 検索APIが返す集約済みのチャットセッション情報
+ */
+export interface ChatSessionSearchMatch {
+  sessionId: string;
+  title: string;
+  canonicalUrl: string | null;
+  wordpressTitle: string | null;
+  lastMessageAt: number;
+  similarityScore: number;
+}
+
+/**
  * アプリケーションモデルとデータベースモデル間の変換関数
  */
 export function toDbChatMessage(message: ChatMessage): DbChatMessage {
@@ -162,4 +186,3 @@ export interface DbSearchResult {
   link: string;
   created_at: number;
 }
-

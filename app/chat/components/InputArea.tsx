@@ -15,6 +15,7 @@ import { Bot, Send, Menu, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
+import ChatSearch from './search/ChatSearch';
 
 // 使用可能なモデル一覧
 const AVAILABLE_MODELS = {
@@ -68,6 +69,11 @@ interface InputAreaProps {
   stepActionBarDisabled?: boolean;
   onNextStepChange?: (nextStep: BlogStepId | null) => void;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
+  searchQuery: string;
+  searchError: string | null;
+  isSearching: boolean;
+  onSearch: (query: string) => void;
+  onClearSearch: () => void;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -101,6 +107,11 @@ const InputArea: React.FC<InputAreaProps> = ({
   stepActionBarDisabled,
   onNextStepChange,
   onLoadBlogArticle,
+  searchQuery,
+  searchError,
+  isSearching,
+  onSearch,
+  onClearSearch,
 }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>('');
@@ -277,7 +288,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm h-16">
-        <div className="container mx-auto px-4 h-full flex items-center justify-between">
+        <div className="container mx-auto px-4 h-full flex items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
             {isMobile && onMenuToggle && (
               <Button variant="ghost" size="icon" onClick={onMenuToggle} aria-label="メニュー">
@@ -385,7 +396,7 @@ const InputArea: React.FC<InputAreaProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-3">
             <Select
               {...(isModelSelected ? { value: selectedModel } : {})}
               onValueChange={value => {
@@ -415,9 +426,31 @@ const InputArea: React.FC<InputAreaProps> = ({
                 作成ステップは自動で進行します
               </div>
             )}
+
+            <div className="hidden lg:block w-72">
+              <ChatSearch
+                query={searchQuery}
+                isSearching={isSearching}
+                error={searchError}
+                onSearch={onSearch}
+                onClear={onClearSearch}
+                className="space-y-1"
+              />
+            </div>
           </div>
         </div>
       </header>
+
+      <div className="lg:hidden px-4 mt-16 py-2 bg-background border-b border-border">
+        <ChatSearch
+          query={searchQuery}
+          isSearching={isSearching}
+          error={searchError}
+          onSearch={onSearch}
+          onClear={onClearSearch}
+          className="space-y-1"
+        />
+      </div>
 
       {/* 入力エリア - レイアウトで既にpadding-topが設定されているため調整 */}
       <div className="border-t bg-white">

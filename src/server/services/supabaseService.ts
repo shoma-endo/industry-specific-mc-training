@@ -1,6 +1,11 @@
 import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
-import { DbChatMessage, DbChatSession, DbSearchResult } from '@/types/chat';
+import {
+  DbChatMessage,
+  DbChatSession,
+  DbChatSessionSearchRow,
+  DbSearchResult,
+} from '@/types/chat';
 import type { DbUser } from '@/types/user';
 import type { UserRole } from '@/types/user';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
@@ -369,6 +374,56 @@ export class SupabaseService {
     }
 
     return this.success(data ?? []);
+  }
+
+  async searchChatSessions(
+    userId: string,
+    query: string,
+    options?: { limit?: number }
+  ): Promise<SupabaseResult<DbChatSessionSearchRow[]>> {
+    const limit = options?.limit ?? 20;
+    const { data, error } = await this.supabase.rpc('search_chat_sessions', {
+      p_user_id: userId,
+      p_query: query,
+      p_limit: limit,
+    });
+
+    if (error) {
+      return this.failure('チャットセッションの検索に失敗しました', {
+        error,
+        developerMessage: 'Failed to search chat sessions',
+        context: { userId, query, limit },
+      });
+    }
+
+    type SearchSessionRow = {
+      session_id: string;
+      title: string | null;
+      canonical_url: string | null;
+      wp_post_title: string | null;
+      last_message_at: number | string | null;
+      similarity_score: number | string | null;
+    };
+
+    const rows = (Array.isArray(data) ? data : []).map((row: SearchSessionRow) => ({
+      session_id: String(row.session_id),
+      title: typeof row.title === 'string' ? row.title : '',
+      canonical_url:
+        row.canonical_url === null || typeof row.canonical_url === 'string'
+          ? row.canonical_url
+          : null,
+      wp_post_title:
+        row.wp_post_title === null || typeof row.wp_post_title === 'string'
+          ? row.wp_post_title
+          : null,
+      last_message_at: Number(row.last_message_at ?? 0),
+      similarity_score:
+        row.similarity_score === null || row.similarity_score === undefined
+          ? 0
+          : Number(row.similarity_score),
+    })) as DbChatSessionSearchRow[];
+
+    return this.success(rows);
   }
 
   async updateChatSession(

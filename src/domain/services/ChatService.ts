@@ -4,6 +4,7 @@ import {
   SendMessageResponse,
   ChatSession,
   ChatMessage,
+  ChatSessionSearchResult,
 } from '../interfaces/IChatService';
 import {
   startChatSA,
@@ -12,6 +13,7 @@ import {
   getSessionMessagesSA,
   deleteChatSessionSA,
   updateChatSessionTitleSA,
+  searchChatSessionsSA,
 } from '@/server/handler/actions/chat.actions';
 import { ChatError, ChatErrorCode } from '../errors/ChatError';
 import type { ChatMessage as ServerChatMessage } from '@/types/chat';
@@ -151,6 +153,51 @@ export class ChatService implements IChatService {
         'メッセージの読み込み中にエラーが発生しました',
         ChatErrorCode.MESSAGE_LOAD_FAILED,
         { sessionId, error }
+      );
+    }
+  }
+
+  async searchSessions(query: string, options?: { limit?: number }): Promise<ChatSessionSearchResult[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const result = await searchChatSessionsSA({
+        query,
+        limit: options?.limit,
+        liffAccessToken: accessToken,
+      });
+
+      if (result.requiresSubscription) {
+        throw new ChatError(
+          '検索機能を利用するにはサブスクリプションが必要です',
+          ChatErrorCode.SUBSCRIPTION_REQUIRED,
+          { query }
+        );
+      }
+
+      if (result.error) {
+        throw new ChatError(result.error, ChatErrorCode.SESSION_LOAD_FAILED, { query });
+      }
+
+      if (!result.results) {
+        return [];
+      }
+
+      return result.results.map(item => ({
+        sessionId: item.sessionId,
+        title: item.title,
+        lastMessageAt: new Date(item.lastMessageAt),
+        canonicalUrl: item.canonicalUrl ?? null,
+        wordpressTitle: item.wordpressTitle ?? null,
+        similarityScore: item.similarityScore ?? 0,
+      }));
+    } catch (error) {
+      if (error instanceof ChatError) {
+        throw error;
+      }
+      throw new ChatError(
+        'チャットセッションの検索中にエラーが発生しました',
+        ChatErrorCode.SESSION_LOAD_FAILED,
+        { query, error }
       );
     }
   }

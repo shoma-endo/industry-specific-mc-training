@@ -35,7 +35,7 @@ const SessionListContent = memo(function SessionListContent({
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto" ref={sessionListRef}>
-        <div className="p-3 pt-20">
+        <div className="p-3 pt-4">
           <div className="flex gap-2 mb-4">
             <Button
               variant="outline"

@@ -354,6 +354,10 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           actions={chatSession.actions}
           isLoading={chatSession.state.isLoading}
           isMobile={false}
+          searchQuery={chatSession.state.searchQuery}
+          searchResults={chatSession.state.searchResults}
+          searchError={chatSession.state.searchError}
+          isSearching={chatSession.state.isSearching}
         />
       )}
 
@@ -387,24 +391,16 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               }}
               isLoading={chatSession.state.isLoading}
               isMobile
+              searchQuery={chatSession.state.searchQuery}
+              searchResults={chatSession.state.searchResults}
+              searchError={chatSession.state.searchError}
+              isSearching={chatSession.state.isSearching}
             />
           </SheetContent>
         </Sheet>
       )}
 
       <div className={cn('flex-1 flex flex-col pt-16', isMobile && 'pt-16')}>
-        {/* メモ編集ボタン */}
-        <div className="absolute top-2 right-2 z-10 flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => ui.annotation.openWith()}
-            disabled={!chatSession.state.currentSessionId || ui.annotation.loading}
-          >
-            {ui.annotation.loading ? '読み込み中...' : 'メモ編集'}
-          </Button>
-        </div>
-
         {subscription.requiresSubscription && (
           <SubscriptionAlert error={subscription.error} onGoToSubscription={goToSubscription} />
         )}
@@ -465,6 +461,13 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onSessionTitleEditCancel={onSessionTitleEditCancel}
           onSessionTitleEditConfirm={onSessionTitleEditConfirm}
           isSavingSessionTitle={isSavingSessionTitle}
+          searchQuery={chatSession.state.searchQuery}
+          searchError={chatSession.state.searchError}
+          isSearching={chatSession.state.isSearching}
+          onSearch={query => {
+            void chatSession.actions.searchSessions(query);
+          }}
+          onClearSearch={chatSession.actions.clearSearch}
           {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}
           onLoadBlogArticle={
             shouldShowStepActionBar && shouldShowLoadButton && onLoadBlogArticle

@@ -31,11 +31,21 @@ export interface ChatSession {
   readonly lastMessage?: string | undefined;
 }
 
+export interface ChatSessionSearchResult {
+  readonly sessionId: string;
+  readonly title: string;
+  readonly lastMessageAt: Date;
+  readonly canonicalUrl: string | null;
+  readonly wordpressTitle: string | null;
+  readonly similarityScore: number;
+}
+
 export interface IChatService {
   sendMessage(params: SendMessageParams): Promise<SendMessageResponse>;
   loadSessions(): Promise<ChatSession[]>;
   loadSessionMessages(sessionId: string): Promise<ChatMessage[]>;
   deleteSession(sessionId: string): Promise<void>;
   updateSessionTitle(sessionId: string, title: string): Promise<void>;
+  searchSessions(query: string, options?: { limit?: number }): Promise<ChatSessionSearchResult[]>;
   startNewSession(): string;
 }

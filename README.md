@@ -20,6 +20,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - `app/chat` 配下の ChatLayout で、セッション管理・モデル選択・AI 応答ストリーミングを統合
 - `MODEL_CONFIGS` に定義した 7 ステップのブログ作成フロー（ニーズ整理〜本文作成）と広告／LP テンプレートを提供
 - `POST /api/chat/anthropic/stream` による SSE で Claude 応答をリアルタイム描画
+- セッションサイドバーに検索バーを追加し、`search_chat_sessions` RPC（全文検索 + `pg_trgm` 類似検索）でタイトルや正規化済み WordPress URL を横断検索
 - ステップ毎のプロンプト変数へ `content_annotations` と 事業者ブリーフ (`briefs`) をマージし、文脈の再利用を最小化
 
 ### キャンバス編集と選択範囲リライト

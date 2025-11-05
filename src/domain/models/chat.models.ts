@@ -1,4 +1,5 @@
 import { ChatMessage, ChatSession } from '../interfaces/IChatService';
+import type { ChatSessionSearchResult } from '../interfaces/IChatService';
 
 export interface ChatState {
   readonly messages: ChatMessage[];
@@ -7,6 +8,10 @@ export interface ChatState {
   readonly isLoading: boolean;
   readonly error: string | null;
   readonly warning: string | null;
+  readonly searchQuery: string;
+  readonly searchResults: ChatSessionSearchResult[];
+  readonly isSearching: boolean;
+  readonly searchError: string | null;
 }
 
 export const initialChatState: ChatState = {
@@ -16,6 +21,10 @@ export const initialChatState: ChatState = {
   isLoading: false,
   error: null,
   warning: null,
+  searchQuery: '',
+  searchResults: [],
+  isSearching: false,
+  searchError: null,
 };
 
 export const createUserMessage = (content: string, model?: string): ChatMessage => ({

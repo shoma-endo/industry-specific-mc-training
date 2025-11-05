@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { ChatSession } from '@/domain/interfaces/IChatService';
+import { ChatSession, ChatSessionSearchResult } from '@/domain/interfaces/IChatService';
 import { ChatSessionActions } from '@/hooks/useChatSession';
 import { Button } from '@/components/ui/button';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Loader2 } from 'lucide-react';
 import SessionListContent from '@/components/SessionListContent';
 import { DeleteChatDialog } from '@/components/DeleteChatDialog';
 
@@ -14,6 +14,10 @@ interface SessionSidebarProps {
   actions: ChatSessionActions;
   isLoading?: boolean; // ✅ 読み込み状態を受け取る
   isMobile: boolean;
+  searchQuery: string;
+  searchResults: ChatSessionSearchResult[];
+  searchError: string | null;
+  isSearching: boolean;
 }
 
 const SessionSidebar: React.FC<SessionSidebarProps> = ({
@@ -22,6 +26,10 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   actions,
   isLoading = false,
   isMobile,
+  searchQuery,
+  searchResults,
+  searchError,
+  isSearching,
 }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -33,6 +41,15 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   const handleSessionClick = async (sessionId: string) => {
     // ✅ 親コンポーネント（ChatLayout）が初期化を担当
     actions.loadSession(sessionId);
+  };
+
+  const handleSearchResultClick = async (sessionId: string) => {
+    await actions.loadSession(sessionId);
+    actions.clearSearch();
+  };
+
+  const handleStartNewChat = () => {
+    actions.startNewSession();
   };
 
   const handleDeleteClick = (session: ChatSession, e: React.MouseEvent) => {
@@ -52,11 +69,6 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
       setSessionToDelete(null);
       setDeleteDialogOpen(false);
     }
-  };
-
-  const handleStartNewChat = async () => {
-    // ✅ 親コンポーネント（ChatLayout）が初期化を担当
-    actions.startNewSession();
   };
 
   // ✅ 読み込み中のアニメーション表示
@@ -82,6 +94,23 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
 
   // ✅ 読み込み状態の判定
   const shouldShowLoading = isLoading && sessions.length === 0;
+  const showSearchResults = searchQuery.trim().length > 0;
+
+  const formatRelativeDate = (date: Date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return '今日';
+    }
+
+    if (date.toDateString() === yesterday.toDateString()) {
+      return '昨日';
+    }
+
+    return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
+  };
 
   // SessionListContentコンポーネント用に型変換
   const adaptedSessions = sessions.map(session => ({
@@ -112,35 +141,101 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
     showToggleButton: !isMobile,
   };
 
-  const sidebarContent = !isMobile ? (
-    <div
-      className={`bg-slate-50 border-r flex-shrink-0 flex flex-col relative h-full transition-all duration-300 ${
-        sidebarCollapsed ? 'w-12' : 'w-80'
-      }`}
-    >
-      {sidebarCollapsed ? (
-        // 折りたたみ時の表示
-        <div className="flex flex-col items-center pt-20">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="h-8 w-8 hover:bg-gray-200"
-            title="サイドバーを開く"
-          >
-            <ChevronRight size={16} />
-          </Button>
+  const renderSearchResultList = () => {
+    if (isSearching) {
+      return (
+        <div className="px-4 py-6 flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin text-[#06c755]" />
+          <span>検索中です...</span>
         </div>
-      ) : (
-        // 展開時の表示
-        <>{shouldShowLoading ? <LoadingIndicator /> : <SessionListContent {...sessionListProps} />}</>
-      )}
-    </div>
-  ) : shouldShowLoading ? (
-    <LoadingIndicator />
-  ) : (
-    <SessionListContent {...sessionListProps} />
-  );
+      );
+    }
+
+    if (searchError) {
+      return <div className="px-4 py-6 text-sm text-red-500">{searchError}</div>;
+    }
+
+    if (searchResults.length === 0) {
+      return (
+        <div className="px-4 py-12 text-center text-sm text-gray-400">チャットが見つかりません</div>
+      );
+    }
+
+    return (
+      <div className="px-4 py-4 space-y-2">
+        {searchResults.map(result => (
+          <button
+            key={result.sessionId}
+            onClick={() => handleSearchResultClick(result.sessionId)}
+            className="w-full text-left bg-white hover:bg-gray-100 rounded-lg px-3 py-3"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium truncate">{result.title}</span>
+              {result.wordpressTitle && (
+                <span className="text-xs text-gray-500 truncate">{result.wordpressTitle}</span>
+              )}
+              {result.canonicalUrl && (
+                <span className="text-xs text-gray-400 truncate">{result.canonicalUrl}</span>
+              )}
+              <span className="text-xs text-gray-400">
+                更新: {formatRelativeDate(result.lastMessageAt)}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderListArea = () => {
+    if (showSearchResults) {
+      return renderSearchResultList();
+    }
+    if (shouldShowLoading) {
+      return <LoadingIndicator />;
+    }
+    return <SessionListContent {...sessionListProps} />;
+  };
+
+  let sidebarContent: React.ReactNode;
+
+  if (!isMobile) {
+    sidebarContent = (
+      <div
+        className={`bg-slate-50 border-r flex-shrink-0 flex flex-col relative h-full transition-all duration-300 ${
+          sidebarCollapsed ? 'w-12' : 'w-80'
+        }`}
+      >
+        {sidebarCollapsed ? (
+          <div className="flex flex-col items-center pt-20">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="h-8 w-8 hover:bg-gray-200"
+              title="サイドバーを開く"
+            >
+              <ChevronRight size={16} />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto">{renderListArea()}</div>
+          </div>
+        )}
+      </div>
+    );
+  } else {
+    sidebarContent = (
+      <div className="flex flex-col h-full bg-slate-50">
+        <div className="flex-1 overflow-y-auto">{renderListArea()}</div>
+      </div>
+    );
+  }
+
+  if (!isMobile) {
+    sidebarContent = <div className="h-full pt-16">{sidebarContent}</div>;
+  }
 
   return (
     <>
