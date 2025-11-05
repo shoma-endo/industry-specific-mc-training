@@ -146,20 +146,28 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   const renderSearchResultList = () => {
     if (isSearching) {
       return (
-        <div className="px-4 py-6 flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="h-4 w-4 animate-spin text-[#06c755]" />
-          <span>検索中です...</span>
+        <div className="flex min-h-[200px] items-center justify-center px-4 py-12">
+          <div className="flex flex-col items-center gap-3 text-sm text-gray-500 text-center">
+            <Loader2 className="h-4 w-4 animate-spin text-[#06c755]" />
+            <span>検索中です...</span>
+          </div>
         </div>
       );
     }
 
     if (searchError) {
-      return <div className="px-4 py-6 text-sm text-red-500">{searchError}</div>;
+      return (
+        <div className="flex min-h-[200px] items-center justify-center px-4 py-12">
+          <div className="text-sm text-red-500 text-center">{searchError}</div>
+        </div>
+      );
     }
 
     if (searchResults.length === 0) {
       return (
-        <div className="px-4 py-12 text-center text-sm text-gray-400">チャットが見つかりません</div>
+        <div className="flex min-h-[200px] items-center justify-center px-4 py-12">
+          <div className="text-sm text-gray-400 text-center">チャットが見つかりません</div>
+        </div>
       );
     }
 
