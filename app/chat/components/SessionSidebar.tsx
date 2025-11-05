@@ -45,7 +45,6 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
 
   const handleSearchResultClick = (sessionId: string) => {
     actions.loadSession(sessionId);
-    actions.clearSearch();
   };
 
   const handleStartNewChat = () => {
