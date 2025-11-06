@@ -4,25 +4,14 @@ import * as React from 'react';
 import FieldConfigurator from '@/components/FieldConfigurator';
 import TruncatedText from '@/components/TruncatedText';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
-import type { AnnotationRecord } from '@/types/annotation';
+import type { AnalyticsContentItem } from '@/types/analytics';
 import { ensureAnnotationChatSession } from '@/server/handler/actions/wordpress.action';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-interface PostRow {
-  id: number | string;
-  date?: string | undefined;
-  title?: string | undefined;
-  link?: string | undefined;
-  categories?: number[] | undefined;
-  categoryNames?: string[] | undefined;
-  excerpt?: string | undefined;
-}
-
 interface Props {
-  posts: PostRow[];
-  annotations: AnnotationRecord[];
+  items: AnalyticsContentItem[];
 }
 
 interface LaunchPayload {
@@ -62,42 +51,7 @@ function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) 
   );
 }
 
-export default function AnalyticsTable({ posts, annotations }: Props) {
-  // 紐付け判定用に投稿IDセットを作成
-  const postIdSet = React.useMemo(() => {
-    const set = new Set<number>();
-    for (const p of posts) {
-      const idNum = typeof p.id === 'string' ? parseInt(p.id, 10) : (p.id as number);
-      if (Number.isFinite(idNum)) set.add(idNum);
-    }
-    return set;
-  }, [posts]);
-
-  // 未紐付け（wp_post_idが無い、または取得済み投稿に存在しない）注釈
-  const unlinkedAnnotations = React.useMemo(() => {
-    return annotations.filter(a => {
-      if (a == null) return false;
-      if (a.wp_post_id == null) return true;
-      return !postIdSet.has(a.wp_post_id);
-    });
-  }, [annotations, postIdSet]);
-
-  const rows = React.useMemo(() => {
-    const list: Array<
-      | { type: 'post'; post: PostRow; a: AnnotationRecord | undefined }
-      | { type: 'unlinked'; a: AnnotationRecord }
-    > = [];
-    for (const p of posts) {
-      const a = annotations.find(
-        x => x.wp_post_id === (typeof p.id === 'string' ? parseInt(p.id, 10) : (p.id as number))
-      );
-      list.push({ type: 'post', post: p, a });
-    }
-    for (const a of unlinkedAnnotations) {
-      list.push({ type: 'unlinked', a });
-    }
-    return list;
-  }, [posts, annotations, unlinkedAnnotations]);
+export default function AnalyticsTable({ items }: Props) {
   const router = useRouter();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
 
@@ -206,7 +160,7 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                 )}
                 {visibleSet.has('date') && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[120px]">
-                    公開日
+                    更新日
                   </th>
                 )}
                 {visibleSet.has('wp_post_title') && (
@@ -232,210 +186,101 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {rows.map((row, idx) => {
-                if (row.type === 'post') {
-                  const p = row.post;
-                  const a = row.a;
-                  const rowKey = `post:${p.id}`;
-                  const parsedPostId =
-                    typeof p.id === 'string'
-                      ? Number.parseInt(p.id, 10)
-                      : typeof p.id === 'number'
-                        ? p.id
-                        : NaN;
-                  const wpPostId = Number.isFinite(parsedPostId) ? parsedPostId : null;
-                  const fallbackTitle = p.title || a?.wp_post_title || a?.main_kw || 'コンテンツチャット';
-                  return (
-                    <tr key={`post:${p.id}`} className="analytics-row group">
-                      <td className="analytics-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <LaunchChatButton
-                          label="チャット"
-                          isPending={pendingRowKey === rowKey}
-                          onClick={() =>
-                              handleLaunch({
-                                rowKey,
-                                sessionId: a?.session_id ?? null,
-                                annotationId: a?.id ?? null,
-                                wpPostId,
-                                wpPostTitle: p.title || a?.wp_post_title || null,
-                                canonicalUrl: a?.canonical_url ?? null,
-                                fallbackTitle,
-                              })
-                          }
-                        />
-                      </td>
-                      {visibleSet.has('main_kw') && (
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          {a?.main_kw ? <TruncatedText text={a.main_kw} lines={2} /> : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('kw') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.kw ? <TruncatedText text={a.kw} lines={2} /> : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('impressions') && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                          {a?.impressions ?? '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('needs') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.needs ? <TruncatedText text={a.needs} lines={3} /> : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('persona') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.persona ? <TruncatedText text={a.persona} lines={3} /> : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('goal') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.goal ? <TruncatedText text={a.goal} lines={3} /> : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('prep') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.prep ? <TruncatedText text={a.prep} lines={3} /> : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('basic_structure') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.basic_structure ? (
-                            <TruncatedText text={a.basic_structure} lines={3} />
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      )}
-                      {visibleSet.has('opening_proposal') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.opening_proposal ? (
-                            <TruncatedText text={a.opening_proposal} lines={3} />
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      )}
-                      {visibleSet.has('categories') && (
-                        <td
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                        >
-                          {p.categoryNames && p.categoryNames.length > 0
-                            ? p.categoryNames.join(', ')
-                            : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('date') && (
-                        <td
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                        >
-                          {p.date ? new Date(p.date).toLocaleDateString('ja-JP') : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('wp_post_title') && (
-                        <td
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                        >
-                          {p.title || a?.wp_post_title || '（無題）'}
-                        </td>
-                      )}
-                      {visibleSet.has('url') && (
-                        <td
-                          className="px-6 py-4 whitespace-nowrap text-sm text-blue-600"
-                        >
-                          {a?.canonical_url ? (
-                            <a
-                              href={a.canonical_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline"
-                            >
-                              {a.canonical_url}
-                            </a>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      )}
-                      {visibleSet.has('memo') && (
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {a?.memo ? <TruncatedText text={a.memo} lines={3} /> : '—'}
-                        </td>
-                      )}
-                      {visibleSet.has('rank') && (
-                        <td
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
-                        >
-                          —
-                        </td>
-                      )}
-                    </tr>
-                  );
-                }
-                const a = row.a;
-                const rowKey = `session:${a.session_id ?? idx}`;
+              {items.map(item => {
+                const annotation = item.annotation;
+                const wpPostId =
+                  annotation?.wp_post_id != null && Number.isFinite(annotation.wp_post_id)
+                    ? annotation.wp_post_id
+                    : null;
+                const fallbackTitle =
+                  annotation?.wp_post_title || annotation?.main_kw || 'コンテンツチャット';
+                const canonicalUrl = annotation?.canonical_url ?? null;
+                const updatedAt = annotation?.updated_at
+                  ? new Date(annotation.updated_at).toLocaleDateString('ja-JP')
+                  : null;
+
                 return (
-                  <tr key={`session:${a.session_id ?? idx}`} className="analytics-row group">
+                  <tr key={item.rowKey} className="analytics-row group">
                     <td className="analytics-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
                       <LaunchChatButton
                         label="チャット"
-                        isPending={pendingRowKey === rowKey}
+                        isPending={pendingRowKey === item.rowKey}
                         onClick={() =>
                           handleLaunch({
-                            rowKey,
-                            sessionId: a.session_id ?? null,
-                            annotationId: a.id ?? null,
-                            wpPostId: a.wp_post_id ?? null,
-                            wpPostTitle: a.wp_post_title ?? null,
-                            canonicalUrl: a.canonical_url ?? null,
-                            fallbackTitle:
-                              a.wp_post_title || a.main_kw || '未紐付けコンテンツチャット',
+                            rowKey: item.rowKey,
+                            sessionId: annotation?.session_id ?? null,
+                            annotationId: annotation?.id ?? null,
+                            wpPostId,
+                            wpPostTitle: annotation?.wp_post_title ?? null,
+                            canonicalUrl,
+                            fallbackTitle,
                           })
                         }
                       />
                     </td>
                     {visibleSet.has('main_kw') && (
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {a.main_kw ? <TruncatedText text={a.main_kw} lines={2} /> : '—'}
+                        {annotation?.main_kw ? (
+                          <TruncatedText text={annotation.main_kw} lines={2} />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     )}
                     {visibleSet.has('kw') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.kw ? <TruncatedText text={a.kw} lines={2} /> : '—'}
+                        {annotation?.kw ? (
+                          <TruncatedText text={annotation.kw} lines={2} />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     )}
                     {visibleSet.has('impressions') && (
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
-                      >
-                        {a.impressions ?? '—'}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                        {annotation?.impressions ?? '—'}
                       </td>
                     )}
                     {visibleSet.has('needs') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.needs ? <TruncatedText text={a.needs} lines={3} /> : '—'}
+                        {annotation?.needs ? (
+                          <TruncatedText text={annotation.needs} lines={3} />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     )}
                     {visibleSet.has('persona') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.persona ? <TruncatedText text={a.persona} lines={3} /> : '—'}
+                        {annotation?.persona ? (
+                          <TruncatedText text={annotation.persona} lines={3} />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     )}
                     {visibleSet.has('goal') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.goal ? <TruncatedText text={a.goal} lines={3} /> : '—'}
+                        {annotation?.goal ? (
+                          <TruncatedText text={annotation.goal} lines={3} />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     )}
                     {visibleSet.has('prep') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.prep ? <TruncatedText text={a.prep} lines={3} /> : '—'}
+                        {annotation?.prep ? (
+                          <TruncatedText text={annotation.prep} lines={3} />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     )}
                     {visibleSet.has('basic_structure') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.basic_structure ? (
-                          <TruncatedText text={a.basic_structure} lines={3} />
+                        {annotation?.basic_structure ? (
+                          <TruncatedText text={annotation.basic_structure} lines={3} />
                         ) : (
                           '—'
                         )}
@@ -443,46 +288,38 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                     )}
                     {visibleSet.has('opening_proposal') && (
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.opening_proposal ? (
-                          <TruncatedText text={a.opening_proposal} lines={3} />
+                        {annotation?.opening_proposal ? (
+                          <TruncatedText text={annotation.opening_proposal} lines={3} />
                         ) : (
                           '—'
                         )}
                       </td>
                     )}
                     {visibleSet.has('categories') && (
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                      >
-                        —
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {annotation?.wp_post_type ?? '—'}
                       </td>
                     )}
                     {visibleSet.has('date') && (
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                      >
-                        —
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {updatedAt ?? '—'}
                       </td>
                     )}
                     {visibleSet.has('wp_post_title') && (
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                      >
-                        {a.wp_post_title || '（未紐付け）'}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {annotation?.wp_post_title || '（未紐付け）'}
                       </td>
                     )}
                     {visibleSet.has('url') && (
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-blue-600"
-                      >
-                        {a.canonical_url ? (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                        {canonicalUrl ? (
                           <a
-                            href={a.canonical_url}
+                            href={canonicalUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline"
                           >
-                            {a.canonical_url}
+                            {canonicalUrl}
                           </a>
                         ) : (
                           '—'
@@ -490,12 +327,16 @@ export default function AnalyticsTable({ posts, annotations }: Props) {
                       </td>
                     )}
                     {visibleSet.has('memo') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">—</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {annotation?.memo ? (
+                          <TruncatedText text={annotation.memo} lines={3} />
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                     )}
                     {visibleSet.has('rank') && (
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
-                      >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
                         —
                       </td>
                     )}

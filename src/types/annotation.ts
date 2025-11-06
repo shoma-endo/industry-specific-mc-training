@@ -25,6 +25,9 @@ export interface AnnotationRecord extends AnnotationFields {
   wp_post_type?: string | null;
   session_id?: string | null;
   memo?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+  user_id?: string;
 }
 
 export interface ContentAnnotationPayload extends AnnotationFields {

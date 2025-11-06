@@ -1,24 +1,12 @@
+import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import {
-  getWordPressPostsForCurrentUser,
-  getContentAnnotationsForUser,
-} from '@/server/handler/actions/wordpress.action';
+import { buttonVariants } from '@/components/ui/button';
 import AnalyticsTable from '@/components/AnalyticsTable';
 import { Settings } from 'lucide-react';
-import type { AnnotationRecord } from '@/types/annotation';
+import { analyticsContentService } from '@/server/services/analyticsContentService';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
-
-interface PostRow {
-  id: number | string;
-  date?: string | undefined;
-  title?: string | undefined;
-  link?: string | undefined;
-  categories?: number[] | undefined;
-  categoryNames?: string[] | undefined;
-  excerpt?: string | undefined;
-}
 
 interface AnalyticsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -30,25 +18,14 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const page = Math.max(1, parseInt(pageParam || '1', 10));
   const perPage = 100; // 1ページ最大100件（WP RESTの上限）
 
-  let posts: PostRow[] = [];
-  let annotations: AnnotationRecord[] = [];
-  let total = 0;
-  let totalPages = 1;
-  let isError = false;
-  let errorMessage: string | undefined = undefined;
-
-  const result = await getWordPressPostsForCurrentUser(page, perPage);
-  const annotationRes = await getContentAnnotationsForUser();
-
-  isError = (result as { success?: boolean }).success === false;
-  errorMessage = (result as { error?: string }).error;
-  posts = (!isError ? result.data?.posts || [] : []) as PostRow[];
-  annotations = (annotationRes.success ? annotationRes.data : []) as AnnotationRecord[];
-  total = !isError ? result.data?.total || 0 : 0;
-  totalPages = Math.max(1, Math.ceil(total / perPage));
-
-  const hasUnlinkedAnnotations = annotations.some((a) => a && a.wp_post_id == null);
-  const shouldRenderTable = posts.length > 0 || hasUnlinkedAnnotations;
+  const analyticsPage = await analyticsContentService.getPage({ page, perPage });
+  const { items, total, totalPages, page: resolvedPage, error } = analyticsPage;
+  const currentPage = resolvedPage ?? page;
+  const shouldRenderTable = items.length > 0;
+  const prevDisabled = currentPage <= 1;
+  const nextDisabled = currentPage >= totalPages;
+  const prevHref = `/analytics?page=${Math.max(1, currentPage - 1)}`;
+  const nextHref = `/analytics?page=${Math.min(totalPages, currentPage + 1)}`;
 
   return (
     <div className="w-full px-4 py-8">
@@ -68,28 +45,49 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </CardHeader>
         <CardContent>
-          {isError ? (
-            <div className="text-center py-8 text-red-600">
-              {errorMessage || 'エラーが発生しました'}
+          {error ? (
+            <div className="mb-4 rounded border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+              {error}
             </div>
-          ) : shouldRenderTable ? (
-            <AnalyticsTable posts={posts} annotations={annotations} />
-          ) : (
+          ) : null}
+          {shouldRenderTable ? (
+            <AnalyticsTable items={items} />
+          ) : error ? null : (
             <div className="text-center py-8 text-gray-500">投稿が見つかりません</div>
           )}
 
           {/* ページネーション */}
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-gray-600">
-              {total > 0 ? `全${total}件 / ${page}ページ目（${totalPages}ページ）` : ''}
+              {total > 0 ? `全${total}件 / ${currentPage}ページ目（${totalPages}ページ）` : ''}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="px-3" asChild disabled={page <= 1}>
-                <a href={`/analytics?page=${Math.max(1, page - 1)}`}>前へ</a>
-              </Button>
-              <Button variant="outline" className="px-3" asChild disabled={page >= totalPages}>
-                <a href={`/analytics?page=${Math.min(totalPages, page + 1)}`}>次へ</a>
-              </Button>
+              <Link
+                href={prevHref}
+                prefetch={false}
+                aria-disabled={prevDisabled}
+                tabIndex={prevDisabled ? -1 : undefined}
+                className={cn(
+                  buttonVariants({ variant: 'outline' }),
+                  'px-3',
+                  prevDisabled && 'pointer-events-none opacity-50'
+                )}
+              >
+                前へ
+              </Link>
+              <Link
+                href={nextHref}
+                prefetch={false}
+                aria-disabled={nextDisabled}
+                tabIndex={nextDisabled ? -1 : undefined}
+                className={cn(
+                  buttonVariants({ variant: 'outline' }),
+                  'px-3',
+                  nextDisabled && 'pointer-events-none opacity-50'
+                )}
+              >
+                次へ
+              </Link>
             </div>
           </div>
         </CardContent>
