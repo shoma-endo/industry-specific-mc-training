@@ -30,13 +30,6 @@ const ChatSearch: React.FC<ChatSearchProps> = ({
   const pendingQueryRef = useRef<string>('');
 
   useEffect(() => {
-    setValue(query);
-    if (query === '') {
-      lastIssuedRef.current = '';
-    }
-  }, [query]);
-
-  useEffect(() => {
     if (isComposing) {
       pendingQueryRef.current = value;
       return;
@@ -74,6 +67,19 @@ const ChatSearch: React.FC<ChatSearchProps> = ({
       setValue(latest);
     }
   }, [isComposing]);
+
+  useEffect(() => {
+    if (query === '' && lastIssuedRef.current !== '') {
+      lastIssuedRef.current = '';
+      setValue('');
+      return;
+    }
+
+    if (query !== '' && query !== lastIssuedRef.current) {
+      lastIssuedRef.current = query;
+      setValue(query);
+    }
+  }, [query]);
 
   const handleClear = () => {
     setValue('');
