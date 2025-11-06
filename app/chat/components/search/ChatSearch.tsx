@@ -98,7 +98,7 @@ const ChatSearch: React.FC<ChatSearchProps> = ({
         <Input
           value={value}
           onChange={event => setValue(event.target.value)}
-          placeholder="キーワードやURLで検索"
+          placeholder="タイトルやURLで検索"
           className={cn('pl-9 pr-16', inputClassName)}
           aria-label="チャット履歴を検索"
           onCompositionStart={handleCompositionStart}
