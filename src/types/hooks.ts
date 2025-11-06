@@ -35,6 +35,7 @@ export interface UseLiffResult {
 export interface SubscriptionHook {
   subscriptionStatus: DomainSubscriptionStatus | null;
   isLoading: boolean;
+  hasInitialized: boolean;
   requiresSubscription: boolean;
   hasActiveSubscription: boolean;
   error: string | null;

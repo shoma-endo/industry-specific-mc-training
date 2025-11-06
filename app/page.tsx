@@ -9,7 +9,6 @@ import {
   cancelUserSubscription,
   resumeUserSubscription,
   createCustomerPortalSession,
-  checkUserRole,
 } from '@/server/handler/actions/subscription.actions';
 import { updateUserFullName } from '@/server/handler/actions/user.actions';
 import { Button } from '@/components/ui/button';
@@ -21,7 +20,7 @@ import { env } from '@/env';
 import { SubscriptionService } from '@/domain/services/SubscriptionService';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import type { SubscriptionDetails as DomainSubscriptionDetails } from '@/domain/interfaces/ISubscriptionService';
-import { hasPaidFeatureAccess, type UserRole } from '@/types/user';
+import { hasPaidFeatureAccess } from '@/types/user';
 
 const STRIPE_ENABLED = env.NEXT_PUBLIC_STRIPE_ENABLED === 'true'; // サブスクリプション機能が有効かどうか
 
@@ -102,13 +101,14 @@ export default function Home() {
   const { getAccessToken, isLoading, isLoggedIn, user } = useLiffContext();
   const subscriptionService = useMemo(() => new SubscriptionService(), []);
   const subscription = useSubscriptionStatus(subscriptionService, getAccessToken, isLoggedIn);
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [isRoleLoading, setIsRoleLoading] = useState(true);
+  const userRole = user?.role ?? null;
+  const isRoleLoading = isLoggedIn && !user;
   const [pendingAction, setPendingAction] = useState<
     null | 'subscribe' | 'updatePayment' | 'cancel' | 'resume'
   >(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const subscriptionLoading = subscription.isLoading;
+  const subscriptionInitialized = subscription.hasInitialized;
   const activeSubscription: DomainSubscriptionDetails | null =
     (subscription.subscriptionStatus?.subscription as DomainSubscriptionDetails | undefined) ?? null;
   const hasActiveSubscription = subscription.hasActiveSubscription;
@@ -141,64 +141,18 @@ export default function Home() {
     }
   }, [isLoggedIn, user, isLoading]);
 
-  // ユーザーロールの取得（管理系カードの表示制御用）
-  useEffect(() => {
-    let cancelled = false;
-
-    const evaluateUserRole = async () => {
-      if (isLoading) {
-        setIsRoleLoading(true);
-        return;
-      }
-
-      if (!isLoggedIn) {
-        if (!cancelled) {
-          setUserRole(null);
-          setIsRoleLoading(false);
-        }
-        return;
-      }
-
-      setIsRoleLoading(true);
-      try {
-        const token = await getAccessToken();
-        const result = await checkUserRole(token);
-        if (!cancelled) {
-          setUserRole(result.success ? result.role : null);
-        }
-      } catch {
-        if (!cancelled) {
-          setUserRole(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsRoleLoading(false);
-        }
-      }
-    };
-
-    evaluateUserRole();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [getAccessToken, isLoggedIn, isLoading]);
-
-  const { checkSubscription: initializeSubscription, refreshSubscription, clearError, resetInitialization } =
-    subscription.actions;
+  const {
+    checkSubscription: initializeSubscription,
+    refreshSubscription,
+    clearError,
+    resetInitialization,
+  } = subscription.actions;
 
   useEffect(() => {
     if (!isLoggedIn) {
       resetInitialization();
-      return;
     }
-
-    if (isLoading || showFullNameDialog) {
-      return;
-    }
-
-    initializeSubscription();
-  }, [isLoggedIn, isLoading, showFullNameDialog, initializeSubscription, resetInitialization]);
+  }, [isLoggedIn, resetInitialization]);
 
   // イベントハンドラー（handleプレフィックス）
   const handleSubscribe = async () => {
@@ -229,6 +183,12 @@ export default function Home() {
     } finally {
       setPendingAction(null);
     }
+  };
+
+  const handleInitializeSubscription = () => {
+    setOperationError(null);
+    clearError();
+    void initializeSubscription();
   };
 
   const handleCancelSubscription = async () => {
@@ -384,6 +344,21 @@ export default function Home() {
             <CardContent>
               {subscriptionLoading ? (
                 <div className="text-center py-4">読み込み中...</div>
+              ) : !subscriptionInitialized ? (
+                <div className="p-4 bg-gray-100 rounded">
+                  <p className="text-gray-600">
+                    サブスクリプション情報の取得には少し時間がかかる場合があります。必要なときに読み込んでください。
+                  </p>
+                  <Button
+                    className="mt-4 w-full"
+                    onClick={handleInitializeSubscription}
+                    disabled={subscriptionLoading}
+                    aria-label="サブスクリプション情報を読み込む"
+                    tabIndex={0}
+                  >
+                    情報を読み込む
+                  </Button>
+                </div>
               ) : subscriptionError ? (
                 <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">
                   {subscriptionError}

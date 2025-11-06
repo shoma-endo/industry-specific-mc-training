@@ -18,21 +18,9 @@ export async function middleware(request: NextRequest) {
   try {
     // 🔍 1. 公開パスかチェック（ただし、ログイン済みユーザーの場合はホーム画面でも権限チェックを実行）
     if (isPublicPath(pathname)) {
-      // ホーム画面の場合は、ログイン済みユーザーに対して権限チェックを実行
-      if (pathname === '/') {
-        const accessToken = request.cookies.get('line_access_token')?.value;
-        if (accessToken) {
-          // ログイン済みの場合は権限チェックを続行
-          // 認証チェックに進む
-        } else {
-          // 未ログインの場合は通常のホーム画面を表示
-          logMiddleware(pathname, 'PUBLIC_PATH', Date.now() - startTime);
-          return NextResponse.next();
-        }
-      } else {
-        logMiddleware(pathname, 'PUBLIC_PATH', Date.now() - startTime);
-        return NextResponse.next();
-      }
+      // ホーム画面は完全に公開扱いとし、ミドルウェア側で外部サービスを呼び出さない
+      logMiddleware(pathname, 'PUBLIC_PATH', Date.now() - startTime);
+      return NextResponse.next();
     }
 
     // 🔍 3. アクセストークンとリフレッシュトークンの取得

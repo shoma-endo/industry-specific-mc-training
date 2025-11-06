@@ -4,7 +4,6 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { verifyLineTokenServer } from '@/server/handler/actions/login.actions';
 import type { LiffContextType } from '@/types/components';
 import type { User } from '@/types/user';
 
@@ -77,10 +76,14 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     if (initialize && isLoggedIn && profile && !syncedWithServer) {
       try {
         const token = await getAccessToken();
-        await verifyLineTokenServer(token);
-
-        // サーバーAPIから現在のユーザー情報を取得
-        const res = await fetch('/api/user/current', { credentials: 'include' });
+        // サーバーAPIから現在のユーザー情報を取得（Authorizationヘッダーでアクセストークンを送信）
+        const res = await fetch('/api/user/current', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           if (data && data.user) {

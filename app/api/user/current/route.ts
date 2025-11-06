@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 import {
   ensureAuthenticated,
@@ -9,8 +9,16 @@ import {
 
 export async function GET() {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get('line_access_token')?.value;
+  const requestHeaders = await headers();
+  const authorizationHeader = requestHeaders.get('authorization');
+  const bearerToken =
+    authorizationHeader && authorizationHeader.startsWith('Bearer ')
+      ? authorizationHeader.slice('Bearer '.length).trim()
+      : undefined;
+  const cookieAccessToken = cookieStore.get('line_access_token')?.value;
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
+
+  const accessToken = bearerToken ?? cookieAccessToken;
 
   if (!accessToken) {
     return NextResponse.json({ userId: null, user: null });
@@ -50,11 +58,20 @@ export async function GET() {
     });
 
     // 新しいトークンが取得された場合、クッキーを更新
-    if (authResult.newAccessToken || authResult.newRefreshToken) {
-      await setAuthCookies(authResult.newAccessToken ?? accessToken, authResult.newRefreshToken, {
-        sameSite: 'strict',
-        refreshTokenMaxAge: 60 * 60 * 24 * 30,
-      });
+    if (
+      authResult.newAccessToken ||
+      authResult.newRefreshToken ||
+      !cookieAccessToken ||
+      (bearerToken && bearerToken !== cookieAccessToken)
+    ) {
+      await setAuthCookies(
+        authResult.newAccessToken ?? accessToken,
+        authResult.newRefreshToken ?? refreshToken,
+        {
+          sameSite: 'strict',
+          refreshTokenMaxAge: 60 * 60 * 24 * 30,
+        }
+      );
     }
     return response;
   } catch (error) {

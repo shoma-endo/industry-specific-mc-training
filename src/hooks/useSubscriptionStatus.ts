@@ -115,6 +115,7 @@ export const useSubscriptionStatus = (
   return {
     subscriptionStatus,
     isLoading,
+    hasInitialized,
     requiresSubscription: subscriptionStatus?.requiresSubscription ?? false,
     hasActiveSubscription: subscriptionStatus?.hasActiveSubscription ?? false,
     error: subscriptionStatus?.error ?? null,
