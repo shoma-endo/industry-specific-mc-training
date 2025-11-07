@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { ContentAnnotationRepository } from '@/server/repositories/ContentAnnotationRepository';
 import {
   WordPressSettings,
   WordPressRestPost,
@@ -533,7 +534,7 @@ export async function upsertContentAnnotation(
   }
 
   const supabaseServiceLocal = new SupabaseService();
-  const client = supabaseServiceLocal.getClient();
+  const repository = new ContentAnnotationRepository();
 
   const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
   const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
@@ -541,32 +542,31 @@ export async function upsertContentAnnotation(
   let canonicalMatchesExisting = false;
 
   if (canonicalProvided && payload.wp_post_id !== undefined && payload.wp_post_id !== null) {
-    const { data: existingData, error: existingError } = await client
-      .from('content_annotations')
-      .select('canonical_url, wp_post_id, wp_post_title')
-      .eq('user_id', authResult.userId)
-      .eq('wp_post_id', payload.wp_post_id)
-      .maybeSingle();
-    if (!existingError && existingData) {
-      const typed = existingData as ExistingAnnotationData;
-      existingAnnotation = {
-        canonical_url: typed.canonical_url ?? null,
-        wp_post_id: typed.wp_post_id ?? null,
-        wp_post_title: typed.wp_post_title ?? null,
-      };
+    try {
+      const existingData = await repository.findByWpPostId(authResult.userId, payload.wp_post_id);
+      if (existingData) {
+        existingAnnotation = {
+          canonical_url: existingData.canonical_url ?? null,
+          wp_post_id: existingData.wp_post_id ?? null,
+          wp_post_title: existingData.wp_post_title ?? null,
+        };
 
-      const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
-      if (existingCanonicalRaw || nextCanonicalRaw) {
-        try {
-          const existingNormalized = existingCanonicalRaw ? new URL(existingCanonicalRaw).toString() : '';
-          const nextNormalized = nextCanonicalRaw ? new URL(nextCanonicalRaw).toString() : '';
-          canonicalMatchesExisting = existingNormalized === nextNormalized;
-        } catch {
-          canonicalMatchesExisting = existingCanonicalRaw === nextCanonicalRaw;
+        const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
+        if (existingCanonicalRaw || nextCanonicalRaw) {
+          try {
+            const existingNormalized = existingCanonicalRaw ? new URL(existingCanonicalRaw).toString() : '';
+            const nextNormalized = nextCanonicalRaw ? new URL(nextCanonicalRaw).toString() : '';
+            canonicalMatchesExisting = existingNormalized === nextNormalized;
+          } catch {
+            canonicalMatchesExisting = existingCanonicalRaw === nextCanonicalRaw;
+          }
+        } else {
+          canonicalMatchesExisting = true;
         }
-      } else {
-        canonicalMatchesExisting = true;
       }
+    } catch (error) {
+      // エラーは無視して続行（既存の挙動を維持）
+      console.error('既存注釈の取得エラー:', error);
     }
   }
 
@@ -597,30 +597,28 @@ export async function upsertContentAnnotation(
   }
 
   if (canonicalProvided && resolvedCanonicalUrl && !canonicalMatchesExisting) {
-    const { data: duplicateRows, error: duplicateError } = await client
-      .from('content_annotations')
-      .select('session_id, wp_post_id')
-      .eq('user_id', authResult.userId)
-      .eq('canonical_url', resolvedCanonicalUrl);
+    try {
+      const duplicateRows = await repository.findDuplicatesByCanonicalUrl(
+        authResult.userId,
+        resolvedCanonicalUrl
+      );
 
-    if (duplicateError) {
-      return { success: false as const, error: duplicateError.message };
-    }
+      const hasConflict = duplicateRows.some(row => {
+        const sameWp =
+          typeof row.wp_post_id === 'number' && typeof resolvedWpId === 'number'
+            ? row.wp_post_id === resolvedWpId
+            : false;
+        return !sameWp;
+      });
 
-    const hasConflict = (duplicateRows ?? []).some(row => {
-      const typed = row as Pick<AnnotationRecord, 'session_id' | 'wp_post_id'>;
-      const sameWp =
-        typeof typed.wp_post_id === 'number' && typeof resolvedWpId === 'number'
-          ? typed.wp_post_id === resolvedWpId
-          : false;
-      return !sameWp;
-    });
-
-    if (hasConflict) {
-      return {
-        success: false as const,
-        error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
-      };
+      if (hasConflict) {
+        return {
+          success: false as const,
+          error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
+        };
+      }
+    } catch (error) {
+      return { success: false as const, error: error instanceof Error ? error.message : '重複チェックに失敗しました' };
     }
   }
 
@@ -644,15 +642,13 @@ export async function upsertContentAnnotation(
     upsertData.wp_post_title = resolvedWpTitle ?? null;
   }
 
-  const { error } = await client
-    .from('content_annotations')
-    .upsert(upsertData, { onConflict: 'user_id,wp_post_id' });
-
-  if (error) {
+  try {
+    await repository.upsert(upsertData as Partial<AnnotationRecord> & { user_id: string; wp_post_id: number });
+  } catch (error) {
     if (isDuplicateCanonicalConstraint(error)) {
       return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
     }
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: error instanceof Error ? error.message : '注釈の保存に失敗しました' };
   }
 
   return {
@@ -676,15 +672,13 @@ export async function getContentAnnotationsForUser(): Promise<
     return { success: false as const, error: 'ユーザー認証に失敗しました' };
   }
 
-  const client = new SupabaseService().getClient();
-  const { data, error } = await client
-    .from('content_annotations')
-    .select('*')
-    .eq('user_id', authResult.userId);
-
-  if (error) return { success: false as const, error: error.message };
-  const typedData = (data ?? []) as AnnotationRecord[];
-  return { success: true as const, data: typedData };
+  const repository = new ContentAnnotationRepository();
+  try {
+    const data = await repository.findByUserId(authResult.userId);
+    return { success: true as const, data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : '注釈の取得に失敗しました' };
+  }
 }
 
 // ==========================================
@@ -818,17 +812,13 @@ export async function getContentAnnotationBySession(session_id: string): Promise
   if (authResult.error || !authResult.userId)
     return { success: false as const, error: 'ユーザー認証に失敗しました' };
 
-  const client = new SupabaseService().getClient();
-  const { data, error } = await client
-    .from('content_annotations')
-    .select('*')
-    .eq('user_id', authResult.userId)
-    .eq('session_id', session_id)
-    .maybeSingle();
-
-  if (error) return { success: false as const, error: error.message };
-  const typedData = (data ?? null) as AnnotationRecord | null;
-  return { success: true as const, data: typedData };
+  const repository = new ContentAnnotationRepository();
+  try {
+    const data = await repository.findBySessionId(authResult.userId, session_id);
+    return { success: true as const, data };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : '注釈の取得に失敗しました' };
+  }
 }
 
 export async function upsertContentAnnotationBySession(payload: SessionAnnotationUpsertPayload & {
@@ -844,8 +834,7 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
   if (authResult.error || !authResult.userId)
     return { success: false as const, error: 'ユーザー認証に失敗しました' };
 
-  const supabaseServiceLocal = new SupabaseService();
-  const client = supabaseServiceLocal.getClient();
+  const repository = new ContentAnnotationRepository();
 
   const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
   const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
@@ -853,19 +842,20 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
   let canonicalMatchesExisting = false;
 
   if (canonicalProvided) {
-    const { data: existingData, error: existingError } = await client
-      .from('content_annotations')
-      .select('canonical_url, wp_post_id, wp_post_title')
-      .eq('user_id', authResult.userId)
-      .eq('session_id', payload.session_id)
-      .maybeSingle();
-    if (!existingError && existingData) {
-      const typed = existingData as ExistingAnnotationData;
-      existingAnnotation = {
-        canonical_url: typed.canonical_url ?? null,
-        wp_post_id: typed.wp_post_id ?? null,
-        wp_post_title: typed.wp_post_title ?? null,
-      };
+    try {
+      const existingData = await repository.findBySessionId(authResult.userId, payload.session_id);
+      if (existingData) {
+        existingAnnotation = {
+          canonical_url: existingData.canonical_url ?? null,
+          wp_post_id: existingData.wp_post_id ?? null,
+          wp_post_title: existingData.wp_post_title ?? null,
+        };
+      }
+    } catch {
+      // 既存データの取得に失敗しても続行
+    }
+
+    if (existingAnnotation) {
 
       const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
       if (existingCanonicalRaw || nextCanonicalRaw) {
@@ -909,32 +899,30 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
   }
 
   if (canonicalProvided && resolvedCanonicalUrl && !canonicalMatchesExisting) {
-    const { data: duplicateRows, error: duplicateError } = await client
-      .from('content_annotations')
-      .select('session_id, wp_post_id')
-      .eq('user_id', authResult.userId)
-      .eq('canonical_url', resolvedCanonicalUrl);
+    try {
+      const duplicateRows = await repository.findDuplicatesByCanonicalUrl(
+        authResult.userId,
+        resolvedCanonicalUrl
+      );
 
-    if (duplicateError) {
-      return { success: false as const, error: duplicateError.message };
-    }
+      const hasConflict = duplicateRows.some(row => {
+        const sameSession =
+          typeof row.session_id === 'string' && row.session_id === payload.session_id;
+        const sameWp =
+          typeof row.wp_post_id === 'number' && typeof resolvedWpId === 'number'
+            ? row.wp_post_id === resolvedWpId
+            : false;
+        return !(sameSession || sameWp);
+      });
 
-    const hasConflict = (duplicateRows ?? []).some(row => {
-      const typed = row as Pick<AnnotationRecord, 'session_id' | 'wp_post_id'>;
-      const sameSession =
-        typeof typed.session_id === 'string' && typed.session_id === payload.session_id;
-      const sameWp =
-        typeof typed.wp_post_id === 'number' && typeof resolvedWpId === 'number'
-          ? typed.wp_post_id === resolvedWpId
-          : false;
-      return !(sameSession || sameWp);
-    });
-
-    if (hasConflict) {
-      return {
-        success: false as const,
-        error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
-      };
+      if (hasConflict) {
+        return {
+          success: false as const,
+          error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
+        };
+      }
+    } catch (error) {
+      return { success: false as const, error: error instanceof Error ? error.message : '重複チェックに失敗しました' };
     }
   }
 
@@ -959,15 +947,13 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
     upsertPayload.wp_post_title = resolvedWpTitle ?? null;
   }
 
-  const { error } = await client
-    .from('content_annotations')
-    .upsert(upsertPayload, { onConflict: 'user_id,session_id' });
-
-  if (error) {
+  try {
+    await repository.upsertBySessionId(upsertPayload as Partial<AnnotationRecord> & { user_id: string; session_id: string });
+  } catch (error) {
     if (isDuplicateCanonicalConstraint(error)) {
       return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
     }
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: error instanceof Error ? error.message : '注釈の保存に失敗しました' };
   }
   return {
     success: true as const,
@@ -1002,7 +988,7 @@ export async function ensureAnnotationChatSession(
   }
 
   const service = new SupabaseService();
-  const client = service.getClient();
+  const repository = new ContentAnnotationRepository();
 
   const annotationId =
     payload.annotationId && payload.annotationId.trim().length > 0
@@ -1013,18 +999,11 @@ export async function ensureAnnotationChatSession(
   let annotationById: AnnotationByIdRow | null = null;
 
   if (annotationId) {
-    const { data, error } = await client
-      .from('content_annotations')
-      .select('id, session_id, wp_post_id')
-      .eq('user_id', authResult.userId)
-      .eq('id', annotationId)
-      .maybeSingle();
-
-    if (error) {
-      return { success: false as const, error: error.message };
+    try {
+      annotationById = await repository.findById(authResult.userId, annotationId);
+    } catch (error) {
+      return { success: false as const, error: error instanceof Error ? error.message : '注釈の取得に失敗しました' };
     }
-
-    annotationById = (data as AnnotationByIdRow | null) ?? null;
   }
 
   let sessionId: string | null = payload.sessionId?.trim() ? payload.sessionId.trim()! : null;
@@ -1090,78 +1069,46 @@ export async function ensureAnnotationChatSession(
   let annotationLinked = false;
 
   if (annotationId && annotationById) {
-    const { error: updateByIdError } = await client
-      .from('content_annotations')
-      .update(annotationUpdate)
-      .eq('user_id', authResult.userId)
-      .eq('id', annotationId);
-    if (updateByIdError) {
-      return { success: false as const, error: updateByIdError.message };
+    try {
+      await repository.updateById(authResult.userId, annotationId, annotationUpdate);
+      annotationLinked = true;
+    } catch (error) {
+      return { success: false as const, error: error instanceof Error ? error.message : '注釈の更新に失敗しました' };
     }
-    annotationLinked = true;
   }
 
   if (!annotationLinked && hasValidWpId) {
-    const { error: fetchByWpError, data: existingByWp } = await client
-      .from('content_annotations')
-      .select('session_id')
-      .eq('user_id', authResult.userId)
-      .eq('wp_post_id', payload.wpPostId)
-      .maybeSingle();
+    try {
+      const existingByWp = await repository.findByWpPostId(authResult.userId, payload.wpPostId);
 
-    if (fetchByWpError) {
-      return { success: false as const, error: fetchByWpError.message };
-    }
-
-    if (existingByWp) {
-      annotationLinked = true;
-      const { error: updateError } = await client
-        .from('content_annotations')
-        .update(annotationUpdate)
-        .eq('user_id', authResult.userId)
-        .eq('wp_post_id', payload.wpPostId);
-      if (updateError) {
-        return { success: false as const, error: updateError.message };
+      if (existingByWp) {
+        annotationLinked = true;
+        await repository.updateByWpPostId(authResult.userId, payload.wpPostId, annotationUpdate);
       }
+    } catch (error) {
+      return { success: false as const, error: error instanceof Error ? error.message : '注釈の処理に失敗しました' };
     }
   }
 
   if (!annotationLinked) {
-    const { error: fetchBySessionError, data: existingBySession } = await client
-      .from('content_annotations')
-      .select('id')
-      .eq('user_id', authResult.userId)
-      .eq('session_id', sessionId)
-      .maybeSingle();
+    try {
+      const existingBySession = await repository.findBySessionId(authResult.userId, sessionId);
 
-    if (fetchBySessionError) {
-      return { success: false as const, error: fetchBySessionError.message };
-    }
-
-    if (existingBySession) {
-      const { error: updateError } = await client
-        .from('content_annotations')
-        .update(annotationUpdate)
-        .eq('user_id', authResult.userId)
-        .eq('session_id', sessionId);
-      if (updateError) {
-        return { success: false as const, error: updateError.message };
+      if (existingBySession) {
+        await repository.updateBySessionId(authResult.userId, sessionId, annotationUpdate);
+      } else {
+        const insertPayload = {
+          user_id: authResult.userId,
+          session_id: sessionId,
+          ...annotationUpdate,
+        };
+        await repository.insert(insertPayload as Partial<AnnotationRecord> & { user_id: string });
       }
-    } else {
-      const insertPayload: Record<string, unknown> = {
-        user_id: authResult.userId,
-        session_id: sessionId,
-        ...annotationUpdate,
-      };
-      const { error: insertError } = await client
-        .from('content_annotations')
-        .insert(insertPayload);
-      if (insertError) {
-        if (isDuplicateCanonicalConstraint(insertError)) {
-          return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
-        }
-        return { success: false as const, error: insertError.message };
+    } catch (error) {
+      if (isDuplicateCanonicalConstraint(error)) {
+        return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
       }
+      return { success: false as const, error: error instanceof Error ? error.message : '注釈の処理に失敗しました' };
     }
   }
 

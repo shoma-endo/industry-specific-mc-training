@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { SupabaseService } from '@/server/services/supabaseService';
+import { ContentAnnotationRepository } from '@/server/repositories/ContentAnnotationRepository';
 import type { AnnotationRecord } from '@/types/annotation';
 import type {
   AnalyticsContentItem,
@@ -10,8 +10,6 @@ import type {
 } from '@/types/analytics';
 
 const MAX_PER_PAGE = 100;
-
-const supabaseService = new SupabaseService();
 
 export class AnalyticsContentService {
   async getPage(params: AnalyticsContentQuery): Promise<AnalyticsContentPage> {
@@ -32,20 +30,10 @@ export class AnalyticsContentService {
       const from = (page - 1) * perPage;
       const to = from + perPage - 1;
 
-      const client = supabaseService.getClient();
-      const { data, error, count } = await client
-        .from('content_annotations')
-        .select('*', { count: 'exact', head: false })
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false, nullsFirst: false })
-        .range(from, to);
+      const repository = new ContentAnnotationRepository();
+      const { data: annotations, count } = await repository.findByUserIdWithPaging(userId, from, to);
 
-      if (error) {
-        throw new Error(error.message || 'コンテンツ注釈の取得に失敗しました');
-      }
-
-      const annotations = (data ?? []) as AnnotationRecord[];
-      const total = count ?? annotations.length;
+      const total = count;
       const totalPages = Math.max(1, Math.ceil(total / perPage));
 
       const items: AnalyticsContentItem[] = annotations.map((annotation, index) => ({

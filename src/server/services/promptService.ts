@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { ContentAnnotationRepository } from '@/server/repositories/ContentAnnotationRepository';
 import {
   PromptTemplate,
   CreatePromptTemplateInput,
@@ -25,71 +26,40 @@ export class PromptService extends SupabaseService {
   static async getCanonicalLinkEntriesByUserId(
     userId: string
   ): Promise<Array<{ canonical_url: string; wp_post_title: string }>> {
-    return this.withServiceRoleClient(
-      async client => {
-        const { data, error } = await client
-          .from('content_annotations')
-          .select('canonical_url, wp_post_title')
-          .eq('user_id', userId)
-          .not('canonical_url', 'is', null)
-          .order('updated_at', { ascending: false });
+    const repository = new ContentAnnotationRepository();
+    const data = await repository.findCanonicalUrls(userId);
 
-        if (error) {
-          throw error;
+    const entries = data.reduce<Array<{ canonical_url: string; wp_post_title: string }>>(
+      (acc, row) => {
+        const canonical = row.canonical_url ? row.canonical_url.trim() : '';
+        if (!canonical) return acc;
+        if (acc.some(entry => entry.canonical_url === canonical)) {
+          return acc;
         }
-
-        const entries = (data || []).reduce<Array<{ canonical_url: string; wp_post_title: string }>>(
-          (acc, row: Pick<AnnotationRecord, 'canonical_url' | 'wp_post_title'>) => {
-            const canonical = row.canonical_url ? row.canonical_url.trim() : '';
-            if (!canonical) return acc;
-            if (acc.some(entry => entry.canonical_url === canonical)) {
-              return acc;
-            }
-            acc.push({
-              canonical_url: canonical,
-              wp_post_title: (row.wp_post_title || '').trim(),
-            });
-            return acc;
-          },
-          []
-        );
-
-        return entries;
+        acc.push({
+          canonical_url: canonical,
+          wp_post_title: (row.wp_post_title || '').trim(),
+        });
+        return acc;
       },
-      {
-        logMessage: 'canonical_url 取得処理エラー:',
-        onError: () => [],
-      }
+      []
     );
+
+    return entries;
   }
 
   /**
    * ユーザー最新の content_annotations を1件取得
    */
   static async getLatestContentAnnotationByUserId(userId: string): Promise<AnnotationRecord | null> {
-    return this.withServiceRoleClient(
-      async client => {
-        const { data, error } = await client
-          .from('content_annotations')
-          .select(
-            'canonical_url, wp_post_title, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
-          )
-          .eq('user_id', userId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) {
-          throw error;
-        }
-
-        return data || null;
-      },
-      {
-        logMessage: 'content_annotations 取得処理エラー:',
-        onError: () => null,
-      }
-    );
+    try {
+      const repository = new ContentAnnotationRepository();
+      const data = await repository.findByUserId(userId);
+      return data.length > 0 ? data[0] : null;
+    } catch (error) {
+      console.error('content_annotations 取得処理エラー:', error);
+      return null;
+    }
   }
 
   /**
@@ -100,28 +70,13 @@ export class PromptService extends SupabaseService {
     userId: string,
     sessionId: string
   ): Promise<AnnotationRecord | null> {
-    return this.withServiceRoleClient(
-      async client => {
-        const { data, error } = await client
-          .from('content_annotations')
-          .select(
-            'canonical_url, wp_post_title, main_kw, kw, impressions, persona, needs, goal, prep, basic_structure, opening_proposal'
-          )
-          .eq('user_id', userId)
-          .eq('session_id', sessionId)
-          .maybeSingle();
-
-        if (error) {
-          throw error;
-        }
-
-        return data || null;
-      },
-      {
-        logMessage: 'content_annotations (by session) 取得処理エラー:',
-        onError: () => null,
-      }
-    );
+    try {
+      const repository = new ContentAnnotationRepository();
+      return await repository.findBySessionId(userId, sessionId);
+    } catch (error) {
+      console.error('content_annotations (by session) 取得処理エラー:', error);
+      return null;
+    }
   }
 
   /**
