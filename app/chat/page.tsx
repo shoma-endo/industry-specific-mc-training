@@ -1,9 +1,9 @@
 'use client';
-import React from 'react';
-import ChatClient from './ChatClient';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import ChatClient from './ChatClient';
 
-export default function ChatPage() {
+const ChatPageContent = () => {
   const searchParams = useSearchParams();
   const initialSessionId = searchParams.get('session');
 
@@ -20,4 +20,12 @@ export default function ChatPage() {
   }, []);
 
   return <ChatClient initialSessionId={initialSessionId ?? undefined} />;
+};
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageContent />
+    </Suspense>
+  );
 }
