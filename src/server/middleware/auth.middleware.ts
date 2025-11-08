@@ -8,6 +8,7 @@ import { StripeService } from '@/server/services/stripeService';
 import { userService } from '@/server/services/userService';
 import { isUnavailable } from '@/auth-utils';
 import { env } from '@/env';
+import { LiffError } from '@/domain/errors/LiffError';
 import type { User } from '@/types/user';
 
 export interface EnsureAuthenticatedOptions {
@@ -252,20 +253,20 @@ const withTokens = (
     };
   } catch (error) {
     console.error('[Auth Middleware] Error during ensureAuthenticated:', error);
-    let errorMessage = '[Auth Middleware] Unknown error occurred';
+
+    let liffError: LiffError;
     let needsReauth = false;
+
     if (error instanceof LineTokenExpiredError) {
-      errorMessage = 'LINE token has expired. Please re-authenticate.';
+      liffError = LiffError.tokenExpired();
       needsReauth = true;
-    } else if (error instanceof Error) {
-      errorMessage = error.message.startsWith('[Auth Middleware]')
-        ? error.message
-        : `[Auth Middleware] ${error.message}`;
+    } else {
+      liffError = LiffError.loginFailed(error);
     }
 
     return withTokens(
       {
-        error: errorMessage,
+        error: liffError.userMessage,
         lineUserId: '',
         userId: '',
         requiresSubscription: false,
