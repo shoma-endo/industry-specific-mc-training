@@ -55,7 +55,9 @@ export class LLMService {
 
       const latency = Date.now() - startTime;
       try {
-        console.log(`LLM Chat - Provider: ${providerKey}, Model: ${model}, Latency: ${latency}ms`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`LLM Chat - Provider: ${providerKey}, Model: ${model}, Latency: ${latency}ms`);
+        }
       } catch {
         /* noop */
       }

@@ -382,7 +382,9 @@ export class PromptService extends SupabaseService {
         const users = await service.getAllActiveUsers();
         const promises = users.map(user => service.regenerateUserPrompts(user.id));
         await Promise.allSettled(promises);
-        console.log('プロンプトキャッシュ無効化完了');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('プロンプトキャッシュ無効化完了');
+        }
       } catch (error) {
         console.error('キャッシュ無効化エラー:', error);
       }
@@ -416,7 +418,9 @@ export class PromptService extends SupabaseService {
   private async regenerateUserPrompts(userId: string): Promise<void> {
     try {
       // 将来的にユーザー固有のプロンプトキャッシュを再生成する処理を実装
-      console.log(`ユーザー ${userId} のプロンプト再生成を開始`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`ユーザー ${userId} のプロンプト再生成を開始`);
+      }
       // ユーザー固有プロンプトキャッシュ機能は未実装
     } catch (error) {
       console.error(`ユーザー ${userId} のプロンプト再生成エラー:`, error);

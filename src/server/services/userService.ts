@@ -102,7 +102,9 @@ export class UserService {
             typeof createResult.error.details === 'string' &&
             createResult.error.details.includes('line_user_id')
           ) {
-            console.log('User creation failed due to duplicate key, attempting to find existing user');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('User creation failed due to duplicate key, attempting to find existing user');
+            }
             const retryData = this.unwrapResult(
               await this.supabaseService.getUserByLineId(lineProfile.userId)
             );

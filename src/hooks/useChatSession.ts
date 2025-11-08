@@ -197,7 +197,9 @@ export const useChatSession = (
                   throw new Error(data.message || 'ストリーミングエラー');
                 } else if (eventType === 'usage' || eventType === 'meta') {
                   try {
-                    console.log(`[Stream ${eventType}]`, JSON.parse(dataCombined));
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log(`[Stream ${eventType}]`, JSON.parse(dataCombined));
+                    }
                   } catch {}
                 } else if (eventType === 'done') {
                   // 明示終了
