@@ -9,6 +9,7 @@ import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { useMobile } from '@/hooks/useMobile';
 import { ChatLayout } from './components/ChatLayout';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import type { BlogStepId } from '@/lib/constants';
 
 /**
  * ChatClient - Dependency Injection Container & Root State Provider
@@ -21,9 +22,10 @@ import ErrorBoundary from './components/common/ErrorBoundary';
  */
 interface ChatClientProps {
   initialSessionId?: string | undefined;
+  initialStep?: BlogStepId | undefined;
 }
 
-const ChatClient: React.FC<ChatClientProps> = ({ initialSessionId }) => {
+const ChatClient: React.FC<ChatClientProps> = ({ initialSessionId, initialStep }) => {
   const { isLoggedIn, getAccessToken, isLoading: liffLoading } = useLiffContext();
   const { isMobile } = useMobile();
 
@@ -95,7 +97,12 @@ const ChatClient: React.FC<ChatClientProps> = ({ initialSessionId }) => {
 
   return (
     <ErrorBoundary>
-      <ChatLayout chatSession={chatSession} subscription={subscription} isMobile={isMobile} />
+      <ChatLayout
+        chatSession={chatSession}
+        subscription={subscription}
+        isMobile={isMobile}
+        initialStep={initialStep ?? null}
+      />
     </ErrorBoundary>
   );
 };

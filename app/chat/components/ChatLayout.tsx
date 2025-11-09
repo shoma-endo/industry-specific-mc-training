@@ -151,6 +151,7 @@ interface ChatLayoutProps {
   chatSession: ChatSessionHook;
   subscription: SubscriptionHook;
   isMobile?: boolean;
+  initialStep?: BlogStepId | null;
 }
 
 const SubscriptionAlert: React.FC<{
@@ -269,6 +270,7 @@ interface ChatLayoutCtx {
   onSessionTitleEditConfirm: () => void;
   onNextStepChange: (nextStep: BlogStepId | null) => void;
   onLoadBlogArticle?: (() => Promise<void>) | null | undefined;
+  initialStep?: BlogStepId | null;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -297,14 +299,19 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onSessionTitleEditConfirm,
     onNextStepChange,
     onLoadBlogArticle,
+    initialStep,
   } = ctx;
   const router = useRouter();
 
   const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
   const flowStatus: 'idle' | 'running' | 'waitingAction' | 'error' = 'idle';
+  const normalizedInitialStep =
+    initialStep && BLOG_STEP_IDS.includes(initialStep) ? initialStep : null;
   // 最新メッセージのステップを優先し、なければ初期ステップにフォールバック
-  const displayStep = latestBlogStep ?? currentStep;
-  const hasDetectedBlogStep = latestBlogStep !== null;
+  const displayStep = latestBlogStep ?? normalizedInitialStep ?? currentStep;
+  const hasDetectedBlogStep =
+    latestBlogStep !== null ||
+    (normalizedInitialStep !== null && normalizedInitialStep !== BLOG_STEP_IDS[0]);
   const displayIndex = useMemo(() => {
     const index = BLOG_STEP_IDS.indexOf(displayStep);
     return index >= 0 ? index : 0;
@@ -337,12 +344,14 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     [chatSession.state.messages]
   );
   const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
+  const hasInitialStepButNoMessages =
+    normalizedInitialStep === 'step7' && (chatSession.state.messages?.length ?? 0) === 0;
 
   const shouldShowStepActionBar =
     blogFlowActive &&
     !chatSession.state.isLoading &&
-    !!lastAssistantMessage &&
-    hasDetectedBlogStep;
+    hasDetectedBlogStep &&
+    (!!lastAssistantMessage || hasInitialStepButNoMessages);
 
   return (
     <>
@@ -468,7 +477,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
             void chatSession.actions.searchSessions(query);
           }}
           onClearSearch={chatSession.actions.clearSearch}
-          {...(latestBlogStep ? { initialBlogStep: latestBlogStep } : {})}
+          initialBlogStep={displayStep}
           onLoadBlogArticle={
             shouldShowStepActionBar && shouldShowLoadButton && onLoadBlogArticle
               ? onLoadBlogArticle
@@ -496,6 +505,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   chatSession,
   subscription,
   isMobile = false,
+  initialStep = null,
 }) => {
   const { getAccessToken } = useLiffContext();
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
@@ -1359,6 +1369,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           chatSession,
           subscription,
           isMobile,
+          initialStep,
           blogFlowActive,
           optimisticMessages,
           isCanvasStreaming,

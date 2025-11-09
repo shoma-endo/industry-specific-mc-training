@@ -2,10 +2,15 @@
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ChatClient from './ChatClient';
+import { BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 
 const ChatPageContent = () => {
   const searchParams = useSearchParams();
   const initialSessionId = searchParams.get('session');
+  const rawInitialStep = searchParams.get('initialStep');
+  const initialStep = rawInitialStep && BLOG_STEP_IDS.includes(rawInitialStep as BlogStepId)
+    ? (rawInitialStep as BlogStepId)
+    : undefined;
 
   React.useEffect(() => {
     console.info('[ChatPage] Navigated to chat room');
@@ -19,7 +24,12 @@ const ChatPageContent = () => {
     return () => window.removeEventListener('blogFlow:restored', onRestore);
   }, []);
 
-  return <ChatClient initialSessionId={initialSessionId ?? undefined} />;
+  return (
+    <ChatClient
+      initialSessionId={initialSessionId ?? undefined}
+      initialStep={initialStep}
+    />
+  );
 };
 
 export default function ChatPage() {

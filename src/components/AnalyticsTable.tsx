@@ -3,7 +3,7 @@
 import * as React from 'react';
 import FieldConfigurator from '@/components/FieldConfigurator';
 import TruncatedText from '@/components/TruncatedText';
-import { ANALYTICS_COLUMNS } from '@/lib/constants';
+import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
 import { ensureAnnotationChatSession } from '@/server/handler/actions/wordpress.action';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ interface LaunchPayload {
   wpPostTitle?: string | null;
   canonicalUrl?: string | null;
   fallbackTitle?: string | null;
+  initialStep?: BlogStepId | null;
 }
 
 interface LaunchChatButtonProps {
@@ -66,6 +67,7 @@ export default function AnalyticsTable({ items }: Props) {
         wpPostTitle,
         canonicalUrl,
         fallbackTitle,
+        initialStep,
       } = payload;
       setPendingRowKey(rowKey);
       try {
@@ -78,7 +80,11 @@ export default function AnalyticsTable({ items }: Props) {
           fallbackTitle: fallbackTitle ?? null,
         });
         if (result.success) {
-          router.push(`/chat?session=${encodeURIComponent(result.sessionId)}`);
+          const searchParams = new URLSearchParams({ session: result.sessionId });
+          if (initialStep && BLOG_STEP_IDS.includes(initialStep)) {
+            searchParams.set('initialStep', initialStep);
+          }
+          router.push(`/chat?${searchParams.toString()}`);
         } else {
           console.error(result.error);
           alert(result.error);
@@ -205,7 +211,10 @@ export default function AnalyticsTable({ items }: Props) {
                       <LaunchChatButton
                         label="チャット"
                         isPending={pendingRowKey === item.rowKey}
-                        onClick={() =>
+                        onClick={() => {
+                          const hasExistingBlog =
+                            (canonicalUrl && canonicalUrl.trim().length > 0) ||
+                            (typeof wpPostId === 'number' && Number.isFinite(wpPostId));
                           handleLaunch({
                             rowKey: item.rowKey,
                             sessionId: annotation?.session_id ?? null,
@@ -214,8 +223,9 @@ export default function AnalyticsTable({ items }: Props) {
                             wpPostTitle: annotation?.wp_post_title ?? null,
                             canonicalUrl,
                             fallbackTitle,
-                          })
-                        }
+                            initialStep: hasExistingBlog ? 'step7' : null,
+                          });
+                        }}
                       />
                     </td>
                     {visibleSet.has('main_kw') && (
