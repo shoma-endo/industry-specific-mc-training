@@ -367,7 +367,7 @@ npm run ngrok
 | `/api/wordpress/oauth/callback` | GET | WordPress.com OAuth コールバック | Cookie |
 | `/api/admin/prompts` | GET | プロンプトテンプレート一覧（管理者専用） | Cookie + admin ロール |
 | `/api/admin/prompts/[id]` | POST | テンプレート更新・バージョン生成 | Cookie + admin ロール |
-| `/api/admin/wordpress/stats` | GET | WordPress 連携状況集計 | Cookie + admin ロール |
+| `/api/wordpress/bulk-import-posts` | POST | WordPress 記事の一括インポート | Bearer + admin ロール |
 | `/api/log-relay` | POST/GET | Vercel Log Drain のリレー | Bearer (`RELAY_BEARER_TOKEN`) |
 
 サーバーアクション (`src/server/handler/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。

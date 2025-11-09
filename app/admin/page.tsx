@@ -44,22 +44,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <span className="text-purple-600">📝</span>
-              <span>WordPress記事一括インポート</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col">
-            <p className="text-gray-600 mb-4 flex-1">
-              管理者自身のWordPressブログ記事URLをコンテンツとして一括登録します
-            </p>
-            <Link href="/admin/wordpress-import">
-              <Button className="w-full">WordPress記事一括インポート</Button>
-            </Link>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

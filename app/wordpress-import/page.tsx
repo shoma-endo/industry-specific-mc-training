@@ -56,7 +56,7 @@ export default function WordPressImportPage() {
 
     try {
       const token = await getAccessToken();
-      const response = await fetch('/api/admin/wordpress/bulk-import-posts', {
+      const response = await fetch('/api/wordpress/bulk-import-posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,89 +117,89 @@ export default function WordPressImportPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">WordPress記事一括インポート</h1>
-        <p className="text-gray-600 mt-2">
-          管理者自身のWordPressブログ記事URLをコンテンツとして一括登録します。
-          既に登録されているURLはスキップされます。
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href="/setup"
-            className="inline-flex items-center text-blue-600 hover:text-blue-800"
-          >
-            設定ダッシュボードに戻る
-          </Link>
-          <span className="text-gray-300">|</span>
-          <Link
-            href="/analytics"
-            className="inline-flex items-center text-blue-600 hover:text-blue-800"
-          >
-            コンテンツ一覧を見る
-          </Link>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>インポート実行</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
-              管理者権限でログインしているあなた自身のWordPressブログ記事URLを一括で取得し、
-              コンテンツとして登録します。
-            </p>
+    <div className="w-full px-4 py-8">
+      <div className="mx-auto max-w-5xl space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">WordPress記事一括インポート</h1>
+          <p className="text-gray-600 mt-2">
+            WordPressブログ記事URLをコンテンツとして一括登録します。
+            既に登録されているURLはスキップされます。
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/setup"
+              className="inline-flex items-center text-blue-600 hover:text-blue-800"
+            >
+              設定ダッシュボードを見る
+            </Link>
+            <span className="text-gray-300">|</span>
+            <Link
+              href="/analytics"
+              className="inline-flex items-center text-blue-600 hover:text-blue-800"
+            >
+              コンテンツ一覧に戻る
+            </Link>
           </div>
+        </div>
 
-          <Button
-            onClick={handleImport}
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                インポート実行中...
-              </>
-            ) : (
-              '自分のWordPress記事を一括インポート'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {result && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span>インポート完了</span>
-            </CardTitle>
+            <CardTitle>インポート実行</CardTitle>
           </CardHeader>
-          <CardContent>
-            {result.maxLimitReached && (
-              <Alert variant="default" className="mb-4 border-yellow-300 bg-yellow-50 text-yellow-800">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  最大取得件数（{result.maxLimitValue ?? 1000}件）に達したため、これ以上のコンテンツは取得できませんでした。
-                  投稿タイプや期間を絞り込んで再実行することをご検討ください。
-                </AlertDescription>
-              </Alert>
-            )}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{result.totalPosts}</div>
-                <div className="text-sm text-gray-600">取得記事数</div>
-              </div>
+          <CardContent className="space-y-4">
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                WordPressブログ記事URLを一括取得し、コンテンツとして登録します。
+              </p>
+            </div>
+
+            <Button
+              onClick={handleImport}
+              disabled={isLoading}
+              className="w-full"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  インポート実行中...
+                </>
+              ) : (
+                'WordPress記事を一括インポート'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {result && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span>インポート完了</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {result.maxLimitReached && (
+                <Alert variant="default" className="mb-4 border-yellow-300 bg-yellow-50 text-yellow-800">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    最大取得件数（{result.maxLimitValue ?? 1000}件）に達したため、これ以上のコンテンツは取得できませんでした。
+                    投稿タイプや期間を絞り込んで再実行することをご検討ください。
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{result.totalPosts}</div>
+                  <div className="text-sm text-gray-600">取得記事数</div>
+                </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">{result.newPosts}</div>
                 <div className="text-sm text-gray-600">新規登録対象</div>
@@ -268,6 +268,7 @@ export default function WordPressImportPage() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }
