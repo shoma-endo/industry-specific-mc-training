@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { WPCOM_TOKEN_COOKIE_NAME } from '@/server/services/wordpressContext';
+import { verifyWpOAuthState } from '@/server/lib/wpOAuthState';
 
 const supabaseService = new SupabaseService();
 
@@ -23,22 +24,26 @@ export async function GET(request: NextRequest) {
   }
 
   // LIFFアクセストークンを取得
-  const liffAccessToken = request.cookies.get('line_access_token')?.value;
-  if (!liffAccessToken) {
-    console.error('LIFF access token not found in callback');
-    return NextResponse.json({ error: 'LINE認証が必要です' }, { status: 401 });
+  if (!state) {
+    console.error('Missing OAuth state parameter.');
+    return NextResponse.json({ error: 'Invalid state. CSRF attack?' }, { status: 400 });
   }
 
   const storedState = request.cookies.get(stateCookieName)?.value;
-
-  if (!state || !storedState || state !== storedState) {
-    console.error('Invalid OAuth state.', { receivedState: state, storedState });
+  if (storedState && state !== storedState) {
+    console.error('State mismatch between cookie and query.', { receivedState: state, storedState });
     return NextResponse.json({ error: 'Invalid state. CSRF attack?' }, { status: 400 });
   }
 
   // State is valid, clear the state cookie
   const clearStateCookie = NextResponse.next(); // Use a temporary response to clear cookie first
   clearStateCookie.cookies.delete(stateCookieName);
+
+  const stateVerification = verifyWpOAuthState(state, cookieSecret);
+  if (!stateVerification.valid) {
+    console.error('Failed to verify OAuth state payload.', { reason: stateVerification.reason });
+    return NextResponse.json({ error: 'Invalid state payload.' }, { status: 400 });
+  }
 
   if (!code) {
     console.error('Authorization code not found in callback.');
@@ -77,21 +82,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access token not received.' }, { status: 500 });
     }
 
-    // ユーザー認証を確認
+    let targetUserId: string | null = null;
+    let cookieUserId: string | null = null;
+    const liffAccessToken = request.cookies.get('line_access_token')?.value;
     const refreshToken = request.cookies.get('line_refresh_token')?.value;
-    const authResult = await authMiddleware(liffAccessToken, refreshToken);
 
-    if (authResult.error || !authResult.userId) {
-      console.error('User authentication failed in OAuth callback:', authResult.error);
-      return NextResponse.json({ error: 'ユーザー認証に失敗しました' }, { status: 401 });
+    if (liffAccessToken) {
+      const authResult = await authMiddleware(liffAccessToken, refreshToken);
+      if (!authResult.error && authResult.userId) {
+        cookieUserId = authResult.userId;
+        targetUserId = authResult.userId;
+      }
+    }
+
+    const stateUserId = stateVerification.payload.userId;
+
+    if (cookieUserId && stateUserId && cookieUserId !== stateUserId) {
+      console.error('LINE user mismatch between cookie auth and OAuth state.', {
+        cookieUserId,
+        stateUserId,
+      });
+      return NextResponse.json({ error: 'ユーザー認証情報が一致しません' }, { status: 401 });
+    }
+
+    if (!targetUserId) {
+      targetUserId = stateUserId;
+    }
+
+    if (!targetUserId) {
+      console.error('Unable to determine user from LINE auth or OAuth state.');
+      return NextResponse.json({ error: 'LINE認証が必要です' }, { status: 401 });
     }
 
     // WordPress.com のサイト情報を取得
     try {
       // 1) まず既存のユーザー設定からサイトIDを参照
-      const existingSettings = await supabaseService.getWordPressSettingsByUserId(
-        authResult.userId
-      );
+      const existingSettings = await supabaseService.getWordPressSettingsByUserId(targetUserId);
       let siteId = existingSettings?.wpSiteId || '';
 
       // 2) 未設定の場合は、WordPress.com APIからサイト一覧を取得して先頭を利用
@@ -112,12 +138,7 @@ export async function GET(request: NextRequest) {
 
       // 3) WordPress設定をデータベースに保存（クライアントID/シークレットと合わせて）
       if (siteId && clientId && clientSecret) {
-        await supabaseService.createOrUpdateWordPressSettings(
-          authResult.userId,
-          clientId,
-          clientSecret,
-          siteId
-        );
+        await supabaseService.createOrUpdateWordPressSettings(targetUserId, clientId, clientSecret, siteId);
       }
     } catch (error) {
       console.error('Error saving WordPress settings:', error);

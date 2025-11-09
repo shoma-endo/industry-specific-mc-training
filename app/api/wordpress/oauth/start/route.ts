@@ -1,22 +1,43 @@
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { generateWpOAuthState } from '@/server/lib/wpOAuthState';
 
 export async function GET() {
+  const cookieStore = await cookies();
   const clientId = process.env.WORDPRESS_COM_CLIENT_ID;
+  const clientSecret = process.env.WORDPRESS_COM_CLIENT_SECRET;
   const redirectUri = process.env.WORDPRESS_COM_REDIRECT_URI;
   const stateCookieName = process.env.OAUTH_STATE_COOKIE_NAME || 'wpcom_oauth_state';
+  const cookieSecret = process.env.COOKIE_SECRET;
 
-  if (!clientId || !redirectUri) {
+  if (!clientId || !redirectUri || !cookieSecret) {
     console.error('WordPress.com OAuth environment variables are not set.');
     console.error('Missing variables:', {
       WORDPRESS_COM_CLIENT_ID: !clientId,
+      WORDPRESS_COM_CLIENT_SECRET: !clientSecret,
       WORDPRESS_COM_REDIRECT_URI: !redirectUri,
+      COOKIE_SECRET: !cookieSecret,
     });
     return NextResponse.json({ error: 'OAuth 構成エラーです。' }, { status: 500 });
   }
 
-  const stateArray = new Uint8Array(16);
-  crypto.getRandomValues(stateArray);
-  const state = Array.from(stateArray, byte => byte.toString(16).padStart(2, '0')).join('');
+  const accessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+
+  if (!accessToken) {
+    return NextResponse.json({ error: 'LINE認証が必要です' }, { status: 401 });
+  }
+
+  const authResult = await authMiddleware(accessToken, refreshToken);
+  if (authResult.error || !authResult.userId) {
+    return NextResponse.json(
+      { error: authResult.error || 'ユーザー認証に失敗しました' },
+      { status: 401 }
+    );
+  }
+
+  const { state } = generateWpOAuthState(authResult.userId, cookieSecret);
 
   const params = new URLSearchParams({
     client_id: clientId,
