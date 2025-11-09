@@ -2,7 +2,7 @@
 import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
 import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
-import { BookMarked, BookOpen, Loader2 } from 'lucide-react';
+import { BookMarked, BookOpen, Loader2, SkipBack, SkipForward } from 'lucide-react';
 
 interface StepActionBarProps {
   step?: BlogStepId | undefined;
@@ -15,6 +15,7 @@ interface StepActionBarProps {
   flowStatus?: string | undefined;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   isLoadBlogArticleLoading?: boolean;
+  onManualStepChange?: ((step: BlogStepId) => void) | undefined;
 }
 
 export interface StepActionBarRef {
@@ -34,6 +35,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       flowStatus = 'idle',
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
+      onManualStepChange,
     },
     ref
   ) => {
@@ -54,7 +56,10 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const isStepReady = flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
     const isDisabled = disabled || !isStepReady;
     const isStep7 = displayStep === 'step7';
+    const isStep1 = displayStep === 'step1';
     const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
+    const showSkipButton = !isStep7;
+    const showBackButton = !isStep1;
 
     // ラベル
     const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
@@ -65,6 +70,18 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onNextStepChange?.(nextStep);
     }, [nextStep, onNextStepChange]);
 
+    const handleManualStepShift = (direction: 'forward' | 'backward') => {
+      if (!onManualStepChange) {
+        return;
+      }
+      const targetIndex = direction === 'forward' ? displayIndex + 1 : displayIndex - 1;
+      const targetStep = BLOG_STEP_IDS[targetIndex];
+      if (!targetStep) {
+        return;
+      }
+      onManualStepChange(targetStep);
+    };
+
     return (
       <div className={`flex items-center gap-2 ${className ?? ''}`}>
         <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
@@ -72,6 +89,32 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             現在のステップ: {currentLabel}
             {nextStepLabel ? ` ／ 次の${nextStepLabel}に進むにはメッセージを送信してください` : ''}
           </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {showBackButton && (
+            <Button
+              type="button"
+              onClick={() => handleManualStepShift('backward')}
+              disabled={isDisabled || !onManualStepChange}
+              size="sm"
+              className="flex items-center gap-1 bg-slate-600 text-white hover:bg-slate-700 disabled:bg-slate-400"
+            >
+              <SkipBack size={14} />
+              バック
+            </Button>
+          )}
+          {showSkipButton && (
+            <Button
+              type="button"
+              onClick={() => handleManualStepShift('forward')}
+              disabled={isDisabled || !onManualStepChange}
+              size="sm"
+              className="flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-emerald-300"
+            >
+              <SkipForward size={14} />
+              スキップ
+            </Button>
+          )}
         </div>
         {showLoadButton && (
           <Button

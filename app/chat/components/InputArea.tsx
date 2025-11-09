@@ -69,6 +69,7 @@ interface InputAreaProps {
   stepActionBarDisabled?: boolean;
   onNextStepChange?: (nextStep: BlogStepId | null) => void;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
+  onManualStepChange?: (step: BlogStepId) => void;
   searchQuery: string;
   searchError: string | null;
   isSearching: boolean;
@@ -107,6 +108,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   stepActionBarDisabled,
   onNextStepChange,
   onLoadBlogArticle,
+  onManualStepChange,
   searchQuery,
   searchError,
   isSearching,
@@ -467,6 +469,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               flowStatus={blogFlowStatus}
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
+              onManualStepChange={onManualStepChange}
             />
             {blogArticleError && (
               <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>

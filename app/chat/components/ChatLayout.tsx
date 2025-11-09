@@ -302,13 +302,15 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     initialStep,
   } = ctx;
   const router = useRouter();
+  const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
 
   const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
   const flowStatus: 'idle' | 'running' | 'waitingAction' | 'error' = 'idle';
   const normalizedInitialStep =
     initialStep && BLOG_STEP_IDS.includes(initialStep) ? initialStep : null;
   // 最新メッセージのステップを優先し、なければ初期ステップにフォールバック
-  const displayStep = latestBlogStep ?? normalizedInitialStep ?? currentStep;
+  const detectedStep = latestBlogStep ?? normalizedInitialStep ?? currentStep;
+  const displayStep = manualBlogStep ?? detectedStep;
   const hasDetectedBlogStep =
     latestBlogStep !== null ||
     (normalizedInitialStep !== null && normalizedInitialStep !== BLOG_STEP_IDS[0]);
@@ -317,6 +319,21 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     return index >= 0 ? index : 0;
   }, [displayStep]);
   const shouldShowLoadButton = displayStep === 'step7';
+  useEffect(() => {
+    setManualBlogStep(null);
+  }, [chatSession.state.currentSessionId]);
+
+  useEffect(() => {
+    if (!manualBlogStep) {
+      return;
+    }
+    if (manualBlogStep === detectedStep) {
+      setManualBlogStep(null);
+    }
+  }, [manualBlogStep, detectedStep]);
+  const handleManualStepChange = useCallback((targetStep: BlogStepId) => {
+    setManualBlogStep(targetStep);
+  }, []);
 
   const goToSubscription = () => {
     router.push('/subscription');
@@ -462,6 +479,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           selectedModelExternal={selectedModel}
           nextStepForPlaceholder={nextStepForPlaceholder}
           onNextStepChange={onNextStepChange}
+          onManualStepChange={handleManualStepChange}
           isEditingTitle={isEditingSessionTitle}
           draftSessionTitle={draftSessionTitle}
           sessionTitleError={sessionTitleError}
