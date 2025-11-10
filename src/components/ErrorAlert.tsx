@@ -3,7 +3,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 interface ErrorAlertProps {
-  error: string;
+  error: string | null;
   variant?: 'destructive' | 'default';
 }
 
@@ -13,6 +13,11 @@ interface ErrorAlertProps {
  * - 他のキーワードも将来的に追加可能
  */
 export function ErrorAlert({ error, variant = 'destructive' }: ErrorAlertProps) {
+  // null または空文字の場合は何も表示しない
+  if (!error) {
+    return null;
+  }
+
   const renderErrorWithLinks = (errorText: string) => {
     // 「設定ダッシュボード」をリンクに変換
     if (errorText.includes('設定ダッシュボード')) {
