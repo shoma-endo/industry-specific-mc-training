@@ -32,6 +32,9 @@ export const ERROR_MESSAGES = {
     /** 接続テスト中のエラー */
     CONNECTION_TEST_ERROR: '接続テスト中に予期せぬエラーが発生しました',
 
+    /** WordPress設定の保存に失敗した場合 */
+    SETTINGS_SAVE_FAILED: 'WordPress設定の保存に失敗しました',
+
     /** サーバーエラー（WordPress関連） */
     SERVER_ERROR: 'サーバーエラーが発生しました',
   },
@@ -56,5 +59,36 @@ export const ERROR_MESSAGES = {
 
     /** ネットワークエラー */
     NETWORK_ERROR: 'ネットワークエラーが発生しました。接続を確認してください。',
+
+    /** 保存失敗 */
+    SAVE_FAILED: '保存に失敗しました',
+
+    /** 削除失敗 */
+    DELETE_FAILED: '削除に失敗しました',
+
+    /** 更新失敗 */
+    UPDATE_FAILED: '更新に失敗しました',
+  },
+
+  /**
+   * チャット関連のエラーメッセージ
+   */
+  CHAT: {
+    /** セッションの削除に失敗した場合 */
+    SESSION_DELETE_FAILED: 'セッションの削除に失敗しました',
+
+    /** チャットタイトルの更新に失敗した場合 */
+    SESSION_TITLE_UPDATE_FAILED: 'チャットタイトルの更新に失敗しました',
+  },
+
+  /**
+   * サブスクリプション関連のエラーメッセージ
+   */
+  SUBSCRIPTION: {
+    /** 価格情報の取得に失敗した場合 */
+    PRICE_FETCH_FAILED: '価格情報の取得に失敗しました',
+
+    /** 価格情報の取得に失敗した場合（再試行を促す） */
+    PRICE_FETCH_FAILED_RETRY: '価格情報の取得に失敗しました。時間を置いて再度お試しください。',
   },
 } as const;
