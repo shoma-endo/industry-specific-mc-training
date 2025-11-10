@@ -5,7 +5,7 @@ import { buildWordPressServiceFromSettings } from '@/server/services/wordpressCo
 import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
 import { normalizeContentTypes, normalizeContentType } from '@/server/services/wordpressContentTypes';
 import type { WordPressNormalizedPost } from '@/types/wordpress';
-import { WORDPRESS_ERROR_MESSAGES, AUTH_ERROR_MESSAGES } from '@/domain/errors/wordpress-errors';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: authResult.error || AUTH_ERROR_MESSAGES.LIFF_AUTH_FAILED
+          error: authResult.error || ERROR_MESSAGES.AUTH.LIFF_AUTH_FAILED
         },
         { status: 401 }
       );
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
     if (!wpSettings) {
       return NextResponse.json(
-        { success: false, error: WORDPRESS_ERROR_MESSAGES.SETTINGS_INCOMPLETE },
+        { success: false, error: ERROR_MESSAGES.WORDPRESS.SETTINGS_INCOMPLETE },
         { status: 400 }
       );
     }
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
             success: false,
             error:
               fetchedTypesResult.error ||
-              WORDPRESS_ERROR_MESSAGES.CONTENT_TYPE_FETCH_FAILED,
+              ERROR_MESSAGES.WORDPRESS.CONTENT_TYPE_FETCH_FAILED,
           },
           { status: 502 }
         );
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: WORDPRESS_ERROR_MESSAGES.CONTENT_TYPE_FETCH_FAILED,
+            error: ERROR_MESSAGES.WORDPRESS.CONTENT_TYPE_FETCH_FAILED,
           },
           { status: 502 }
         );
@@ -385,7 +385,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Bulk import error:', error);
     return NextResponse.json(
-      { success: false, error: WORDPRESS_ERROR_MESSAGES.SERVER_ERROR },
+      { success: false, error: ERROR_MESSAGES.WORDPRESS.SERVER_ERROR },
       { status: 500 }
     );
   }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWordPressContext } from '@/server/services/wordpressContext';
-import { WORDPRESS_ERROR_MESSAGES } from '@/domain/errors/wordpress-errors';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 // WordPress接続状態をGETメソッドで確認（WordPress.comとセルフホスト両対応）
 export async function GET(request: NextRequest) {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       if (context.reason === 'settings_missing') {
         return NextResponse.json({
           ...responseBody,
-          message: WORDPRESS_ERROR_MESSAGES.SETTINGS_INCOMPLETE,
+          message: ERROR_MESSAGES.WORDPRESS.SETTINGS_INCOMPLETE,
         });
       }
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         connected: false,
-        message: WORDPRESS_ERROR_MESSAGES.CONNECTION_FAILED,
+        message: ERROR_MESSAGES.WORDPRESS.CONNECTION_FAILED,
         error: connectionTest.error,
         wpType: context.wpSettings.wpType,
       });
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       connected: false,
-      message: WORDPRESS_ERROR_MESSAGES.CONNECTION_FAILED,
+      message: ERROR_MESSAGES.WORDPRESS.CONNECTION_FAILED,
       error: error instanceof Error ? error.message : 'Unknown error',
       wpType: 'wordpress_com', // エラー時のデフォルト値
     });
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error:
             connectionTest.error ||
-            WORDPRESS_ERROR_MESSAGES.CONNECTION_FAILED,
+            ERROR_MESSAGES.WORDPRESS.CONNECTION_FAILED,
         },
         {
           status:
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('WordPress connection test error:', error);
     return NextResponse.json(
-      { success: false, error: WORDPRESS_ERROR_MESSAGES.CONNECTION_TEST_ERROR },
+      { success: false, error: ERROR_MESSAGES.WORDPRESS.CONNECTION_TEST_ERROR },
       { status: 500 }
     );
   }
