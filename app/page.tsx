@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { FullNameDialog } from '@/components/FullNameDialog';
 import { env } from '@/env';
 import { SubscriptionService } from '@/domain/services/SubscriptionService';
+import { ErrorAlert } from '@/components/ErrorAlert';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import type { SubscriptionDetails as DomainSubscriptionDetails } from '@/domain/interfaces/ISubscriptionService';
 import { hasPaidFeatureAccess } from '@/types/user';
@@ -360,8 +361,8 @@ export default function Home() {
                   </Button>
                 </div>
               ) : subscriptionError ? (
-                <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">
-                  {subscriptionError}
+                <div className="mb-4">
+                  <ErrorAlert error={subscriptionError} />
                 </div>
               ) : !hasActiveSubscription ? (
                 <div className="p-4 bg-gray-100 rounded">

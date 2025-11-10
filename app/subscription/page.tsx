@@ -5,6 +5,7 @@ import { getSubscriptionPriceDetails } from '@/server/handler/actions/subscripti
 import { Button } from '@/components/ui/button';
 import { useLiff } from '@/hooks/useLiff';
 import { useSubscription } from '@/hooks/useSubscription';
+import { ErrorAlert } from '@/components/ErrorAlert';
 
 // 価格情報の型定義
 interface PriceDetails {
@@ -128,8 +129,8 @@ export default function SubscriptionPage() {
         )}
 
         {(priceError || subscriptionError) && (
-          <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">
-            {priceError || subscriptionError}
+          <div className="mb-4">
+            <ErrorAlert error={priceError || subscriptionError} />
           </div>
         )}
 

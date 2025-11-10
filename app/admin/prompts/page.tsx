@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { ErrorAlert } from '@/components/ErrorAlert';
 import {
   Select,
   SelectContent,
@@ -220,12 +221,8 @@ export default function PromptsPage() {
 
       {/* エラーメッセージ */}
       {error && (
-        <div
-          className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
-          role="alert"
-          aria-live="polite"
-        >
-          <p className="text-red-700">{error}</p>
+        <div className="mb-6">
+          <ErrorAlert error={error} />
         </div>
       )}
 
