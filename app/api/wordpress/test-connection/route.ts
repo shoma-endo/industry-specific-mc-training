@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       if (context.reason === 'settings_missing') {
         return NextResponse.json({
           ...responseBody,
-          message: 'WordPress設定が登録されていません',
+          message: 'WordPress設定が未完了です。設定ダッシュボードで接続設定を確認してください。',
         });
       }
 
@@ -35,9 +35,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         connected: false,
-        message: `${
-          context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
-        }との連携が無効です`,
+        message: 'WordPressへの接続に失敗しました。設定ダッシュボードで接続設定を確認してください。',
         error: connectionTest.error,
         wpType: context.wpSettings.wpType,
       });
@@ -56,7 +54,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       connected: false,
-      message: 'WordPressとの連携状態を確認できませんでした',
+      message: 'WordPressへの接続に失敗しました。設定ダッシュボードで接続設定を確認してください。',
       error: error instanceof Error ? error.message : 'Unknown error',
       wpType: 'wordpress_com', // エラー時のデフォルト値
     });
@@ -87,9 +85,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error:
             connectionTest.error ||
-            `${
-              context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
-            }への接続テストに失敗しました。`,
+            'WordPressへの接続に失敗しました。設定ダッシュボードで接続設定を確認してください。',
         },
         {
           status:

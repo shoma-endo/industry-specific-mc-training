@@ -46,7 +46,7 @@ async function buildConnectionStatus(
         data: {
           connected: false,
           status: 'not_configured',
-          message: 'WordPress設定が未完了です',
+          message: 'WordPress設定が未完了です。設定ダッシュボードで接続設定を確認してください。',
         },
       };
     }
@@ -75,7 +75,7 @@ async function buildConnectionStatus(
       data: {
         connected: false,
         status: 'error',
-        message: testResult.error || '接続エラー',
+        message: testResult.error || 'WordPressへの接続に失敗しました。設定ダッシュボードで接続設定を確認してください。',
         wpType: context.wpSettings.wpType,
         lastUpdated: context.wpSettings.updatedAt ?? null,
       },

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
     if (!wpSettings) {
       return NextResponse.json(
-        { success: false, error: 'WordPress設定が見つかりません。WordPress設定を先に登録してください。' },
+        { success: false, error: 'WordPress設定が未完了です。設定ダッシュボードで接続設定を確認してください。' },
         { status: 400 }
       );
     }

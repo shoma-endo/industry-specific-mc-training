@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     if (!resp.ok) {
       const txt = await resp.text().catch(() => resp.statusText);
       return NextResponse.json(
-        { success: false, error: `WordPress投稿取得エラー: HTTP ${resp.status} ${txt}` },
+        { success: false, error: 'WordPress投稿の取得に失敗しました。設定ダッシュボードで接続設定を確認してください。' },
         { status: 502 }
       );
     }
