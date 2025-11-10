@@ -30,3 +30,23 @@ jobs:
 
       - name: Build application
         run: npm run build
+        env:
+          # クライアント環境変数（ビルド時に必須）
+          NEXT_PUBLIC_LIFF_ID: dummy-liff-id
+          NEXT_PUBLIC_LIFF_CHANNEL_ID: dummy-channel-id
+          NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_STRIPE_ENABLED: false
+          # サーバー環境変数（ビルド時に必須）
+          DBPASS: dummy-dbpass
+          SUPABASE_SERVICE_ROLE: dummy-service-role
+          STRIPE_ENABLED: false
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_PRICE_ID: price_dummy
+          OPENAI_API_KEY: sk-dummy
+          ANTHROPIC_API_KEY: sk-ant-dummy
+          LINE_CHANNEL_ID: dummy-line-channel-id
+          LINE_CHANNEL_SECRET: dummy-line-channel-secret
+          BASE_WEBHOOK_URL: https://dummy.webhook.url
+          RELAY_BEARER_TOKEN: dummy-bearer-token
