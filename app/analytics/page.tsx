@@ -5,6 +5,7 @@ import AnalyticsTable from '@/components/AnalyticsTable';
 import { Download, Settings } from 'lucide-react';
 import { analyticsContentService } from '@/server/services/analyticsContentService';
 import { cn } from '@/lib/utils';
+import { ErrorAlert } from '@/components/ErrorAlert';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,8 +54,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </CardHeader>
         <CardContent>
           {error ? (
-            <div className="mb-4 rounded border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
-              {error}
+            <div className="mb-4">
+              <ErrorAlert error={error} variant="default" />
             </div>
           ) : null}
           {shouldRenderTable ? (
