@@ -19,11 +19,16 @@ export function ErrorAlert({ error, variant = 'destructive' }: ErrorAlertProps) 
       const parts = errorText.split('設定ダッシュボード');
       return (
         <>
-          {parts[0]}
-          <Link href="/setup" className="underline font-semibold hover:text-red-700">
-            設定ダッシュボード
-          </Link>
-          {parts[1]}
+          {parts.map((part, index) => (
+            <span key={index}>
+              {part}
+              {index < parts.length - 1 && (
+                <Link href="/setup" className="underline font-semibold hover:text-red-700">
+                  設定ダッシュボード
+                </Link>
+              )}
+            </span>
+          ))}
         </>
       );
     }
