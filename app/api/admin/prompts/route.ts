@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { getUserRole, isAdmin } from '@/auth-utils';
 import { PromptService } from '@/server/services/promptService';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Admin prompts list API error:', error);
     return NextResponse.json(
-      { success: false, error: 'サーバーエラーが発生しました' },
+      { success: false, error: ERROR_MESSAGES.COMMON.SERVER_ERROR },
       { status: 500 }
     );
   }

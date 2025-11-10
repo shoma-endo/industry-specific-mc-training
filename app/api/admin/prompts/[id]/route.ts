@@ -3,6 +3,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { getUserRole, isAdmin } from '@/auth-utils';
 import { PromptService } from '@/server/services/promptService';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { z } from 'zod';
 
 const promptVariableSchema = z.object({
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Admin prompt detail API error:', error);
     return NextResponse.json(
-      { success: false, error: 'サーバーエラーが発生しました' },
+      { success: false, error: ERROR_MESSAGES.COMMON.SERVER_ERROR },
       { status: 500 }
     );
   }
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Admin prompt update API error:', error);
     return NextResponse.json(
-      { success: false, error: 'サーバーエラーが発生しました' },
+      { success: false, error: ERROR_MESSAGES.COMMON.SERVER_ERROR },
       { status: 500 }
     );
   }
