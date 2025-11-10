@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
             success: false,
             error:
               fetchedTypesResult.error ||
-              'WordPressの投稿タイプを取得できませんでした。WordPress設定を確認のうえ再試行してください。',
+              'WordPressの投稿タイプを取得できませんでした。設定ダッシュボードでWordPress接続設定を確認してください。',
           },
           { status: 502 }
         );
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: 'WordPressから投稿タイプを検出できませんでした。対象サイトのREST API設定を確認してください。',
+            error: 'WordPressの投稿タイプを取得できませんでした。設定ダッシュボードでWordPress接続設定を確認してください。',
           },
           { status: 502 }
         );

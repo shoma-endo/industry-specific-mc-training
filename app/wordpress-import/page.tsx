@@ -173,7 +173,19 @@ export default function WordPressImportPage() {
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error.includes('設定ダッシュボード') ? (
+                <>
+                  {error.split('設定ダッシュボード')[0]}
+                  <Link href="/setup" className="underline font-semibold hover:text-red-700">
+                    設定ダッシュボード
+                  </Link>
+                  {error.split('設定ダッシュボード')[1]}
+                </>
+              ) : (
+                error
+              )}
+            </AlertDescription>
           </Alert>
         )}
 
