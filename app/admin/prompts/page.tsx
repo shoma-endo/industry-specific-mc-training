@@ -5,7 +5,6 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert } from '@/components/ui/alert';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import {
   Select,
@@ -18,7 +17,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
 import { useLiffContext } from '@/components/LiffProvider';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
-import { AlertTriangle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -160,26 +158,22 @@ export default function PromptsPage() {
         <h1 className="text-3xl font-bold text-gray-900">プロンプト管理</h1>
         <Card>
           <CardContent className="py-12">
-            <Alert variant="destructive" className="mx-auto max-w-md">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 text-red-600">
-                  <AlertTriangle className="h-5 w-5" aria-hidden />
-                </div>
-                <div className="space-y-1 text-left">
-                  <h2 className="text-lg font-semibold">エラーが発生しました</h2>
-                  <p className="text-sm text-red-700">{error}</p>
-                  <Button
-                    onClick={loadTemplates}
-                    size="sm"
-                    variant="outline"
-                    className="mt-2"
-                    aria-label="再試行"
-                  >
-                    再試行
-                  </Button>
-                </div>
+            <div className="mx-auto max-w-md space-y-4">
+              <div className="text-center">
+                <h2 className="text-lg font-semibold mb-2">エラーが発生しました</h2>
               </div>
-            </Alert>
+              <ErrorAlert error={error} />
+              <div className="text-center">
+                <Button
+                  onClick={loadTemplates}
+                  size="sm"
+                  variant="outline"
+                  aria-label="再試行"
+                >
+                  再試行
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
