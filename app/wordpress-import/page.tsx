@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useLiffContext } from '@/components/LiffProvider';
 import Link from 'next/link';
+import { ErrorAlert } from '@/components/ErrorAlert';
 
 interface ImportResult {
   totalPosts: number;
@@ -170,12 +171,7 @@ export default function WordPressImportPage() {
           </CardContent>
         </Card>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error && <ErrorAlert error={error} />}
 
         {result && (
           <Card>

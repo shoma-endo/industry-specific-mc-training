@@ -10,7 +10,8 @@ import {
 } from '@/domain/models/chat.models';
 import { ChatError } from '@/domain/errors/ChatError';
 import type { ChatSessionActions, ChatSessionHook } from '@/types/hooks';
-import { ERROR_MESSAGES } from '@/lib/constants';
+import { ERROR_MESSAGES as CHAT_ERROR_MESSAGES } from '@/lib/constants';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export type { ChatSessionActions, ChatSessionHook };
 
@@ -324,7 +325,7 @@ export const useChatSession = (
       } catch (error) {
         console.error('Delete session error:', error);
         const errorMessage =
-          error instanceof Error ? error.message : 'セッションの削除に失敗しました';
+          error instanceof Error ? error.message : ERROR_MESSAGES.CHAT.SESSION_DELETE_FAILED;
         setState(prev => ({ ...prev, error: errorMessage, warning: null }));
       }
     },
@@ -409,7 +410,7 @@ export const useChatSession = (
           throw error;
         }
         throw new Error(
-          error instanceof Error ? error.message : 'チャットタイトルの更新に失敗しました'
+          error instanceof Error ? error.message : ERROR_MESSAGES.CHAT.SESSION_TITLE_UPDATE_FAILED
         );
       }
     },
@@ -445,14 +446,14 @@ export const useChatSession = (
 
 function extractWarningMessage(rawBody: string): string {
   if (!rawBody) {
-    return ERROR_MESSAGES.daily_chat_limit;
+    return CHAT_ERROR_MESSAGES.daily_chat_limit;
   }
 
   const dataMatch = rawBody.match(/data:\s*(\{.*\})/);
   if (dataMatch) {
     const payload = dataMatch[1];
     if (!payload) {
-      return ERROR_MESSAGES.daily_chat_limit;
+      return CHAT_ERROR_MESSAGES.daily_chat_limit;
     }
     try {
       const parsed = JSON.parse(payload) as { message?: unknown };
@@ -464,5 +465,5 @@ function extractWarningMessage(rawBody: string): string {
     }
   }
 
-  return ERROR_MESSAGES.daily_chat_limit;
+  return CHAT_ERROR_MESSAGES.daily_chat_limit;
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWordPressContext } from '@/server/services/wordpressContext';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 // WordPress接続状態をGETメソッドで確認（WordPress.comとセルフホスト両対応）
 export async function GET(request: NextRequest) {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       if (context.reason === 'settings_missing') {
         return NextResponse.json({
           ...responseBody,
-          message: 'WordPress設定が登録されていません',
+          message: ERROR_MESSAGES.WORDPRESS.SETTINGS_INCOMPLETE,
         });
       }
 
@@ -35,9 +36,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         connected: false,
-        message: `${
-          context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
-        }との連携が無効です`,
+        message: ERROR_MESSAGES.WORDPRESS.CONNECTION_FAILED,
         error: connectionTest.error,
         wpType: context.wpSettings.wpType,
       });
@@ -56,7 +55,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       connected: false,
-      message: 'WordPressとの連携状態を確認できませんでした',
+      message: ERROR_MESSAGES.WORDPRESS.CONNECTION_FAILED,
       error: error instanceof Error ? error.message : 'Unknown error',
       wpType: 'wordpress_com', // エラー時のデフォルト値
     });
@@ -87,9 +86,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error:
             connectionTest.error ||
-            `${
-              context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホストWordPress'
-            }への接続テストに失敗しました。`,
+            ERROR_MESSAGES.WORDPRESS.CONNECTION_FAILED,
         },
         {
           status:
@@ -112,7 +109,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('WordPress connection test error:', error);
     return NextResponse.json(
-      { success: false, error: '接続テスト中に予期せぬエラーが発生しました' },
+      { success: false, error: ERROR_MESSAGES.WORDPRESS.CONNECTION_TEST_ERROR },
       { status: 500 }
     );
   }

@@ -10,6 +10,7 @@ import {
   type UseAnnotationFormOptions,
   type UseAnnotationFormResult,
 } from '@/types/annotation';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const EMPTY_FORM_ENTRIES = ANNOTATION_FIELD_KEYS.map(key => [key, ''] as const);
 const EMPTY_FORM = Object.fromEntries(EMPTY_FORM_ENTRIES) as AnnotationFormState;
@@ -127,7 +128,7 @@ export function useAnnotationForm({
         return outcome;
       }
 
-      const message = response?.error || '保存に失敗しました';
+      const message = response?.error || ERROR_MESSAGES.COMMON.SAVE_FAILED;
       setCanonicalUrlError(message);
 
       const outcome: SubmitOutcome = {
@@ -140,7 +141,7 @@ export function useAnnotationForm({
 
       return outcome;
     } catch {
-      setCanonicalUrlError('保存に失敗しました');
+      setCanonicalUrlError(ERROR_MESSAGES.COMMON.SAVE_FAILED);
       return { success: false, normalizedCanonicalUrl: normalizedUrl };
     } finally {
       setIsSaving(false);

@@ -20,6 +20,7 @@ import {
   saveWordPressSettingsAction,
   testWordPressConnectionAction,
 } from '@/server/handler/actions/wordpress.action';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 interface StatusOutcome {
   success: boolean;
@@ -225,7 +226,7 @@ export default function WordPressSettingsForm({
         const { cause, hints } = diagnoseErrorDetails(details);
         setSaveStatus({
           success: false,
-          primary: data.error || 'WordPress設定の保存に失敗しました',
+          primary: data.error || ERROR_MESSAGES.WORDPRESS.SETTINGS_SAVE_FAILED,
           details,
           cause,
           hints,

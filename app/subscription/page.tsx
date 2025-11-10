@@ -5,6 +5,8 @@ import { getSubscriptionPriceDetails } from '@/server/handler/actions/subscripti
 import { Button } from '@/components/ui/button';
 import { useLiff } from '@/hooks/useLiff';
 import { useSubscription } from '@/hooks/useSubscription';
+import { ErrorAlert } from '@/components/ErrorAlert';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 // 価格情報の型定義
 interface PriceDetails {
@@ -35,13 +37,13 @@ export default function SubscriptionPage() {
           setPriceDetails(result.priceDetails);
           setPriceError(null);
         } else {
-          const message = result.error || '価格情報の取得に失敗しました';
+          const message = result.error || ERROR_MESSAGES.SUBSCRIPTION.PRICE_FETCH_FAILED;
           console.error('価格情報の取得に失敗しました:', message);
           setPriceError(message);
         }
       } catch (error) {
         console.error('価格情報取得中にエラーが発生しました:', error);
-        setPriceError('価格情報の取得に失敗しました。時間を置いて再度お試しください。');
+        setPriceError(ERROR_MESSAGES.SUBSCRIPTION.PRICE_FETCH_FAILED_RETRY);
       } finally {
         setPriceLoading(false);
       }
@@ -128,8 +130,8 @@ export default function SubscriptionPage() {
         )}
 
         {(priceError || subscriptionError) && (
-          <div className="p-3 mb-4 text-sm text-red-700 bg-red-100 rounded">
-            {priceError || subscriptionError}
+          <div className="mb-4">
+            <ErrorAlert error={priceError || subscriptionError} />
           </div>
         )}
 
