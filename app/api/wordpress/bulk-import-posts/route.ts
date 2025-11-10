@@ -24,24 +24,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 管理者権限チェック（adminロールのみ許可）
+    // ユーザーのWordPress設定を取得
     const supabaseService = new SupabaseService();
     const supabaseClient = supabaseService.getClient();
-
-    const { data: userData, error: userError } = await supabaseClient
-      .from('users')
-      .select('role')
-      .eq('id', authResult.userId)
-      .single();
-
-    if (userError || userData?.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: '管理者権限が必要です' },
-        { status: 403 }
-      );
-    }
-
-    // 管理者自身のWordPress設定を取得
     const userId = authResult.userId;
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
     if (!wpSettings) {
