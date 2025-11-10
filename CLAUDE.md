@@ -90,7 +90,7 @@ AI運用5原則
 
 ## 外部サービスと環境変数
 
-- `.env.local` に 19 個の必須変数を設定（詳細は README 参照）。Stripe を無効化したい場合もダミー値を入れる。
+- `.env.local` に 17 個の必須変数を設定（詳細は README 参照）。Stripe を無効化したい場合もダミー値を入れる。
 - WordPress.com OAuth を使う場合は `WORDPRESS_COM_*`, `COOKIE_SECRET`, `OAUTH_*` を忘れずに。
 - `FEATURE_RPC_V2=true` で新しい Supabase RPC を有効化。デフォルトは `false`。
 - LIFF と Stripe は sandbox／本番でキーを切り替える。
