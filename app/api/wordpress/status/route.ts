@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWordPressContext } from '@/server/services/wordpressContext';
+import { WORDPRESS_ERROR_MESSAGES } from '@/domain/errors/wordpress-errors';
 type ConnectionStatus = {
   connected: boolean;
   status: 'connected' | 'error' | 'not_configured';
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('WordPress status API error:', error);
     return NextResponse.json(
-      { success: false, error: 'サーバーエラーが発生しました' },
+      { success: false, error: WORDPRESS_ERROR_MESSAGES.SERVER_ERROR },
       { status: 500 }
     );
   }
@@ -46,7 +47,7 @@ async function buildConnectionStatus(
         data: {
           connected: false,
           status: 'not_configured',
-          message: 'WordPress設定が未完了です。設定ダッシュボードで接続設定を確認してください。',
+          message: WORDPRESS_ERROR_MESSAGES.SETTINGS_INCOMPLETE,
         },
       };
     }
@@ -75,7 +76,7 @@ async function buildConnectionStatus(
       data: {
         connected: false,
         status: 'error',
-        message: testResult.error || 'WordPressへの接続に失敗しました。設定ダッシュボードで接続設定を確認してください。',
+        message: testResult.error || WORDPRESS_ERROR_MESSAGES.CONNECTION_FAILED,
         wpType: context.wpSettings.wpType,
         lastUpdated: context.wpSettings.updatedAt ?? null,
       },

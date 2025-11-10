@@ -5,6 +5,7 @@ import { buildWordPressServiceFromSettings } from '@/server/services/wordpressCo
 import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
 import { normalizeContentTypes, normalizeContentType } from '@/server/services/wordpressContentTypes';
 import type { WordPressNormalizedPost } from '@/types/wordpress';
+import { WORDPRESS_ERROR_MESSAGES, AUTH_ERROR_MESSAGES } from '@/domain/errors/wordpress-errors';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: authResult.error || 'LINE認証に失敗しました。LIFFから再ログインしてください。'
+          error: authResult.error || AUTH_ERROR_MESSAGES.LIFF_AUTH_FAILED
         },
         { status: 401 }
       );
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
     if (!wpSettings) {
       return NextResponse.json(
-        { success: false, error: 'WordPress設定が未完了です。設定ダッシュボードで接続設定を確認してください。' },
+        { success: false, error: WORDPRESS_ERROR_MESSAGES.SETTINGS_INCOMPLETE },
         { status: 400 }
       );
     }
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
             success: false,
             error:
               fetchedTypesResult.error ||
-              'WordPressの投稿タイプを取得できませんでした。設定ダッシュボードでWordPress接続設定を確認してください。',
+              WORDPRESS_ERROR_MESSAGES.CONTENT_TYPE_FETCH_FAILED,
           },
           { status: 502 }
         );
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: 'WordPressの投稿タイプを取得できませんでした。設定ダッシュボードでWordPress接続設定を確認してください。',
+            error: WORDPRESS_ERROR_MESSAGES.CONTENT_TYPE_FETCH_FAILED,
           },
           { status: 502 }
         );
@@ -384,7 +385,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Bulk import error:', error);
     return NextResponse.json(
-      { success: false, error: 'サーバーエラーが発生しました' },
+      { success: false, error: WORDPRESS_ERROR_MESSAGES.SERVER_ERROR },
       { status: 500 }
     );
   }

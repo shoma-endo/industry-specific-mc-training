@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveWordPressContext } from '@/server/services/wordpressContext';
 import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
 import type { WordPressRestPost, WordPressNormalizedPost } from '@/types/wordpress';
+import { WORDPRESS_ERROR_MESSAGES } from '@/domain/errors/wordpress-errors';
 
 type ApiWordPressPost = Omit<WordPressNormalizedPost, 'canonical_url'>;
 
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     if (!resp.ok) {
       return NextResponse.json(
-        { success: false, error: 'WordPress投稿の取得に失敗しました。設定ダッシュボードで接続設定を確認してください。' },
+        { success: false, error: WORDPRESS_ERROR_MESSAGES.POSTS_FETCH_FAILED },
         { status: 502 }
       );
     }
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('WP posts API error:', error);
     return NextResponse.json(
-      { success: false, error: 'サーバーエラーが発生しました' },
+      { success: false, error: WORDPRESS_ERROR_MESSAGES.SERVER_ERROR },
       { status: 500 }
     );
   }

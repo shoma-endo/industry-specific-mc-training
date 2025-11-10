@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWordPressContext } from '@/server/services/wordpressContext';
+import { WORDPRESS_ERROR_MESSAGES } from '@/domain/errors/wordpress-errors';
 
 // WordPress接続状態をGETメソッドで確認（WordPress.comとセルフホスト両対応）
 export async function GET(request: NextRequest) {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       if (context.reason === 'settings_missing') {
         return NextResponse.json({
           ...responseBody,
-          message: 'WordPress設定が未完了です。設定ダッシュボードで接続設定を確認してください。',
+          message: WORDPRESS_ERROR_MESSAGES.SETTINGS_INCOMPLETE,
         });
       }
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         connected: false,
-        message: 'WordPressへの接続に失敗しました。設定ダッシュボードで接続設定を確認してください。',
+        message: WORDPRESS_ERROR_MESSAGES.CONNECTION_FAILED,
         error: connectionTest.error,
         wpType: context.wpSettings.wpType,
       });
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       connected: false,
-      message: 'WordPressへの接続に失敗しました。設定ダッシュボードで接続設定を確認してください。',
+      message: WORDPRESS_ERROR_MESSAGES.CONNECTION_FAILED,
       error: error instanceof Error ? error.message : 'Unknown error',
       wpType: 'wordpress_com', // エラー時のデフォルト値
     });
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error:
             connectionTest.error ||
-            'WordPressへの接続に失敗しました。設定ダッシュボードで接続設定を確認してください。',
+            WORDPRESS_ERROR_MESSAGES.CONNECTION_FAILED,
         },
         {
           status:
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('WordPress connection test error:', error);
     return NextResponse.json(
-      { success: false, error: '接続テスト中に予期せぬエラーが発生しました' },
+      { success: false, error: WORDPRESS_ERROR_MESSAGES.CONNECTION_TEST_ERROR },
       { status: 500 }
     );
   }
