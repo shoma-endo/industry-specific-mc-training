@@ -53,6 +53,12 @@ jobs:
       - name: Send webhook notification
         if: always()
         run: |
+          # デバッグ: ファイルの存在確認
+          if [ ! -f db-stats-output.txt ]; then
+            echo "Warning: db-stats-output.txt not found, using empty output"
+            echo "" > db-stats-output.txt
+          fi
+
           # Node.jsでJSONペイロードを作成して送信
           node << 'EOF'
           const fs = require('fs');
@@ -60,7 +66,20 @@ jobs:
           const http = require('http');
           const { URL } = require('url');
 
-          const output = fs.readFileSync('db-stats-output.txt', 'utf-8');
+          console.log('Starting webhook notification...');
+          console.log('STATUS:', process.env.STATUS);
+          console.log('Repository:', process.env.GITHUB_REPOSITORY);
+          console.log('Run ID:', process.env.GITHUB_RUN_ID);
+
+          let output = '';
+          try {
+            output = fs.readFileSync('db-stats-output.txt', 'utf-8');
+            console.log('Output file read successfully, length:', output.length);
+          } catch (error) {
+            console.warn('Failed to read output file:', error.message);
+            output = 'Output file not available';
+          }
+
           const timestamp = new Date().toISOString();
 
           const payload = {
@@ -75,13 +94,24 @@ jobs:
 
           const webhookUrl = process.env.DB_STATS_WEBHOOK_URL;
           if (!webhookUrl) {
-            console.error('DB_STATS_WEBHOOK_URL is not set');
+            console.error('ERROR: DB_STATS_WEBHOOK_URL is not set');
             process.exit(1);
           }
 
-          const url = new URL(webhookUrl);
+          console.log('Webhook URL:', webhookUrl.replace(/\/\/.*@/, '//***@')); // URLをマスク
+
+          let url;
+          try {
+            url = new URL(webhookUrl);
+          } catch (error) {
+            console.error('ERROR: Invalid webhook URL:', error.message);
+            process.exit(1);
+          }
+
           const client = url.protocol === 'https:' ? https : http;
           const postData = JSON.stringify(payload);
+
+          console.log('Payload size:', postData.length, 'bytes');
 
           const options = {
             hostname: url.hostname,
@@ -91,28 +121,41 @@ jobs:
             headers: {
               'Content-Type': 'application/json',
               'Content-Length': Buffer.byteLength(postData)
-            }
+            },
+            timeout: 30000 // 30秒のタイムアウト
           };
 
           const req = client.request(options, (res) => {
             let data = '';
             res.on('data', (chunk) => { data += chunk; });
             res.on('end', () => {
+              console.log('Response status:', res.statusCode);
+              console.log('Response headers:', JSON.stringify(res.headers));
               if (res.statusCode >= 200 && res.statusCode < 300) {
-                console.log('Webhook notification sent successfully');
+                console.log('✅ Webhook notification sent successfully');
+                console.log('Response body:', data.substring(0, 500)); // 最初の500文字のみ
                 process.exit(0);
               } else {
-                console.error(`Webhook notification failed with status ${res.statusCode}: ${data}`);
+                console.error(`❌ Webhook notification failed with status ${res.statusCode}`);
+                console.error('Response body:', data);
                 process.exit(1);
               }
             });
           });
 
           req.on('error', (error) => {
-            console.error('Webhook notification error:', error.message);
+            console.error('❌ Webhook notification error:', error.message);
+            console.error('Error code:', error.code);
             process.exit(1);
           });
 
+          req.on('timeout', () => {
+            console.error('❌ Webhook request timeout');
+            req.destroy();
+            process.exit(1);
+          });
+
+          console.log('Sending webhook request...');
           req.write(postData);
           req.end();
           EOF
