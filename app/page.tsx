@@ -82,16 +82,17 @@ const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProp
         <div className="space-y-3">
           <p className="text-sm text-gray-600 text-center mb-4">管理者権限でログインしています</p>
 
-          <Link href="/admin" className="block">
-            <Button
-              className="w-full bg-blue-600 hover:bg-blue-700"
-              aria-label="管理者ダッシュボードへ移動"
-              tabIndex={0}
-            >
+          <Button
+            asChild
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            aria-label="管理者ダッシュボードへ移動"
+            tabIndex={0}
+          >
+            <Link href="/admin">
               <Settings className="h-4 w-4 mr-2" />
               管理者ダッシュボード
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -303,11 +304,9 @@ export default function Home() {
               <p className="text-sm text-gray-600 text-center mb-4">
                 WordPress連携などの設定はこちらから行えます
               </p>
-              <Link href="/setup" className="block">
-                <Button className="w-full" aria-label="設定ページへ移動" tabIndex={0}>
-                  設定を開く
-                </Button>
-              </Link>
+              <Button asChild className="w-full" aria-label="設定ページへ移動" tabIndex={0}>
+                <Link href="/setup">設定を開く</Link>
+              </Button>
             </CardContent>
           </Card>
           )}
@@ -325,11 +324,9 @@ export default function Home() {
               <p className="text-sm text-gray-600 text-center mb-4">
                 WordPressの投稿とメタ情報を一覧表示します（今後GSC指標を合流）
               </p>
-              <Link href="/analytics" className="block">
-                <Button className="w-full" aria-label="コンテンツ一覧へ移動" tabIndex={0}>
-                  一覧を開く
-                </Button>
-              </Link>
+              <Button asChild className="w-full" aria-label="コンテンツ一覧へ移動" tabIndex={0}>
+                <Link href="/analytics">一覧を開く</Link>
+              </Button>
             </CardContent>
           </Card>
           )}

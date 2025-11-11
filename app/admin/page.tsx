@@ -21,9 +21,9 @@ export default function AdminDashboard() {
             <p className="text-gray-600 mb-4 flex-1">
               AIチャット時のシステムプロンプトテンプレートを編集・管理します
             </p>
-            <Link href="/admin/prompts">
-              <Button className="w-full">プロンプト管理画面へ</Button>
-            </Link>
+            <Button asChild className="w-full">
+              <Link href="/admin/prompts">プロンプト管理画面へ</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -38,9 +38,9 @@ export default function AdminDashboard() {
             <p className="text-gray-600 mb-4 flex-1">
               登録ユーザーの管理とサブスクリプション状況を確認します
             </p>
-            <Link href="/admin/users">
-              <Button className="w-full">ユーザー管理画面へ</Button>
-            </Link>
+            <Button asChild className="w-full">
+              <Link href="/admin/users">ユーザー管理画面へ</Link>
+            </Button>
           </CardContent>
         </Card>
 

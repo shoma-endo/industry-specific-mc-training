@@ -502,11 +502,11 @@ export default function WordPressSettingsForm({
               )}
 
               <div className="flex gap-4">
-                <Link href="/setup" className="flex-1">
-                  <Button type="button" variant="outline" className="w-full">
-                    キャンセル
+                <div className="flex-1">
+                  <Button asChild type="button" variant="outline" className="w-full">
+                    <Link href="/setup">キャンセル</Link>
                   </Button>
-                </Link>
+                </div>
                 <Button type="submit" disabled={isLoading} className="flex-1">
                   {isLoading ? '保存中...' : existingSettings ? '設定を更新' : '設定を保存'}
                 </Button>

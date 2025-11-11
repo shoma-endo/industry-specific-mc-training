@@ -187,15 +187,18 @@ export default function SetupDashboard({ wordpressSettings }: SetupDashboardProp
               </p>
 
               <div className="flex gap-2">
-                <Link href="/setup/wordpress" className="flex-1">
+                <div className="flex-1">
                   <Button
+                    asChild
                     variant={wordpressSettings.hasSettings ? 'outline' : 'default'}
                     className="w-full"
                   >
-                    <Settings size={16} className="mr-2" />
-                    {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
+                    <Link href="/setup/wordpress">
+                      <Settings size={16} className="mr-2" />
+                      {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
+                    </Link>
                   </Button>
-                </Link>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -231,11 +234,11 @@ export default function SetupDashboard({ wordpressSettings }: SetupDashboardProp
               </div>
 
               <div className="flex gap-2">
-                <Link href="/setup/gsc" className="flex-1">
-                  <Button className="w-full" disabled>
-                    連携を開始
+                <div className="flex-1">
+                  <Button asChild className="w-full" disabled>
+                    <Link href="/setup/gsc">連携を開始</Link>
                   </Button>
-                </Link>
+                </div>
               </div>
             </div>
           </CardContent>
