@@ -29,6 +29,7 @@ jobs:
         run: npm ci
 
       - name: Build application
+        id: build
         run: npm run build
         env:
           # クライアント環境変数（ビルド時に必須）
@@ -50,3 +51,98 @@ jobs:
           LINE_CHANNEL_SECRET: dummy-line-channel-secret
           BASE_WEBHOOK_URL: https://dummy.webhook.url
           RELAY_BEARER_TOKEN: dummy-bearer-token
+
+      - name: Send webhook notification
+        if: always()
+        run: |
+          # Node.jsでJSONペイロードを作成して送信
+          node << 'EOF'
+          const https = require('https');
+          const http = require('http');
+          const { URL } = require('url');
+
+          // Lark（飛書）webhook形式に合わせる
+          const statusEmoji = process.env.STATUS === 'success' ? '✅' : '❌';
+          const statusText = process.env.STATUS === 'success' ? '成功' : '失敗';
+
+          // メッセージ本文を作成
+          const messageText = `【CI ビルド結果】\n${statusEmoji} ${statusText}`;
+
+          const payload = {
+            msg_type: 'text',
+            content: {
+              text: messageText
+            }
+          };
+
+          const webhookUrl = process.env.CI_WEBHOOK_URL;
+          if (!webhookUrl) {
+            console.error('ERROR: CI_WEBHOOK_URL is not set');
+            process.exit(1);
+          }
+
+          console.log('Webhook URL:', webhookUrl.replace(/\/\/.*@/, '//***@')); // URLをマスク
+
+          let url;
+          try {
+            url = new URL(webhookUrl);
+          } catch (error) {
+            console.error('ERROR: Invalid webhook URL:', error.message);
+            process.exit(1);
+          }
+
+          const client = url.protocol === 'https:' ? https : http;
+          const postData = JSON.stringify(payload);
+
+          console.log('Payload size:', postData.length, 'bytes');
+
+          const options = {
+            hostname: url.hostname,
+            port: url.port || (url.protocol === 'https:' ? 443 : 80),
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(postData)
+            },
+            timeout: 30000 // 30秒のタイムアウト
+          };
+
+          const req = client.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+              console.log('Response status:', res.statusCode);
+              console.log('Response headers:', JSON.stringify(res.headers));
+              if (res.statusCode >= 200 && res.statusCode < 300) {
+                console.log('✅ Webhook notification sent successfully');
+                console.log('Response body:', data.substring(0, 500)); // 最初の500文字のみ
+                process.exit(0);
+              } else {
+                console.error(`❌ Webhook notification failed with status ${res.statusCode}`);
+                console.error('Response body:', data);
+                process.exit(1);
+              }
+            });
+          });
+
+          req.on('error', (error) => {
+            console.error('❌ Webhook notification error:', error.message);
+            console.error('Error code:', error.code);
+            process.exit(1);
+          });
+
+          req.on('timeout', () => {
+            console.error('❌ Webhook request timeout');
+            req.destroy();
+            process.exit(1);
+          });
+
+          console.log('Sending webhook request...');
+          req.write(postData);
+          req.end();
+          EOF
+
+        env:
+          STATUS: ${{ steps.build.outcome == 'success' && 'success' || 'failure' }}
+          CI_WEBHOOK_URL: ${{ secrets.CI_WEBHOOK_URL }}
