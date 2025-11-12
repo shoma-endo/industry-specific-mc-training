@@ -387,6 +387,28 @@ npm run ngrok
 - 環境変数は Vercel Project Settings へ反映し、本番は Stripe 本番キー・WordPress 本番サイトに切り替え
 - Supabase マイグレーションは `npx supabase db push` で同期、ロールバック手順（コメント）を常に更新
 
+### GitHub Actions シークレット設定
+週次レポート用のワークフローで使用するシークレットを GitHub Repository Settings → Secrets and variables → Actions で設定してください。
+
+| シークレット名 | 用途 | 必須 |
+| ------------- | ---- | ---- |
+| `CI_WEBHOOK_URL` | CI ビルド結果通知用 Lark Webhook URL | 任意 |
+| `DB_STATS_WEBHOOK_URL` | データベース統計レポート用 Lark Webhook URL | 任意 |
+| `VERCEL_STATS_WEBHOOK_URL` | Vercel 統計レポート用 Lark Webhook URL | 任意 |
+| `VERCEL_TOKEN` | Vercel API アクセストークン（Settings → Tokens で作成） | Vercel レポート用 |
+| `VERCEL_PROJECT_ID` | Vercel プロジェクト ID（`prj_` で始まる） | Vercel レポート用 |
+| `VERCEL_TEAM_ID` | Vercel チーム ID（`team_` で始まる、オプション） | Vercel レポート用（オプション） |
+
+**Vercel API トークンの取得方法:**
+1. Vercel Dashboard → Settings → Tokens
+2. 「Create Token」をクリック
+3. トークン名を入力し、スコープを設定（`Full Account` または `Project` スコープ）
+4. 生成されたトークンを `VERCEL_TOKEN` シークレットに設定
+
+**Vercel プロジェクト ID の取得方法:**
+- Vercel Dashboard → プロジェクト → Settings → General の「Project ID」を確認
+- または、`.vercel/project.json` ファイルの `projectId` フィールドを確認
+
 ## 🤝 コントリビューション
 1. フィーチャーブランチを作成
 2. 変更を実装し、`npm run lint` の結果を確認
