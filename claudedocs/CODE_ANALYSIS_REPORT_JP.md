@@ -163,14 +163,6 @@ const event = stripe.webhooks.constructEvent(JSON.stringify(body), sig, secret);
 
 ---
 
-#### 8. **log-relay エンドポイントの認可** 🟡 中
-**場所**: `app/api/log-relay/route.ts`
-
-**問題**: ベアラートークン検証が明示的に確認が必要
-**推奨対応**: `RELAY_BEARER_TOKEN` がすべてのリクエストで検証されていることを確認
-
----
-
 ## ✅ セキュリティの強み
 
 | 項目 | ステータス | 証拠 |

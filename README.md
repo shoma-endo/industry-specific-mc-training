@@ -279,8 +279,6 @@ erDiagram
 | Server | `ANTHROPIC_API_KEY` | ✅ | Claude ストリーミング用 API キー |
 | Server | `LINE_CHANNEL_ID` | ✅ | LINE Login 用チャネル ID |
 | Server | `LINE_CHANNEL_SECRET` | ✅ | LINE Login 用チャネルシークレット |
-| Server | `BASE_WEBHOOK_URL` | ✅ | ログ／通知転送先の Webhook URL |
-| Server | `RELAY_BEARER_TOKEN` | ✅ | `/api/log-relay` 用の Bearer トークン |
 | Client | `NEXT_PUBLIC_LIFF_ID` | ✅ | LIFF アプリ ID |
 | Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID` | ✅ | LIFF Channel ID |
 | Client | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase プロジェクト URL |
@@ -332,7 +330,7 @@ npm run ngrok
 │   ├── subscription/        # サブスクリプション購入ページ
 │   ├── login/・unauthorized # 認証ステータス別ページ
 │   ├── admin/               # 管理者向け機能（プロンプト・ユーザー管理）
-│   ├── api/                 # Route Handlers（chat, wordpress, admin, auth, user, line, log-relay）
+│   ├── api/                 # Route Handlers（chat, wordpress, admin, auth, user, line）
 │   └── layout.tsx など      # App Router ルートレイアウト
 ├── src/
 │   ├── components/          # 再利用可能な UI（shadcn/ui, AnnotationFormFields 等）
@@ -370,7 +368,6 @@ npm run ngrok
 | `/api/admin/prompts` | GET | プロンプトテンプレート一覧（管理者専用） | Cookie + admin ロール |
 | `/api/admin/prompts/[id]` | POST | テンプレート更新・バージョン生成 | Cookie + admin ロール |
 | `/api/wordpress/bulk-import-posts` | POST | WordPress 記事の一括インポート | Bearer + admin ロール |
-| `/api/log-relay` | POST/GET | Vercel Log Drain のリレー | Bearer (`RELAY_BEARER_TOKEN`) |
 
 サーバーアクション (`src/server/handler/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
 

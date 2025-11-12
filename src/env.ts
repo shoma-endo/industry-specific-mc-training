@@ -19,8 +19,6 @@ const serverEnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1),
   LINE_CHANNEL_ID: z.string().min(1),
   LINE_CHANNEL_SECRET: z.string().min(1),
-  BASE_WEBHOOK_URL: z.string().url(),
-  RELAY_BEARER_TOKEN: z.string().min(1),
 });
 
 type ClientEnv = z.infer<typeof clientEnvSchema>;
@@ -52,8 +50,6 @@ if (isServer) {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     LINE_CHANNEL_ID: process.env.LINE_CHANNEL_ID,
     LINE_CHANNEL_SECRET: process.env.LINE_CHANNEL_SECRET,
-    BASE_WEBHOOK_URL: process.env.BASE_WEBHOOK_URL,
-    RELAY_BEARER_TOKEN: process.env.RELAY_BEARER_TOKEN,
   } satisfies { [K in keyof ServerEnv]?: ServerEnv[K] | undefined };
 
   parsedServerEnv = serverEnvSchema.parse(serverRuntimeEnv);
@@ -69,8 +65,6 @@ const serverOnlyKeys = new Set<keyof ServerEnv>([
   'ANTHROPIC_API_KEY',
   'LINE_CHANNEL_ID',
   'LINE_CHANNEL_SECRET',
-  'BASE_WEBHOOK_URL',
-  'RELAY_BEARER_TOKEN',
 ]);
 
 const clientKeys = new Set<keyof ClientEnv>([
