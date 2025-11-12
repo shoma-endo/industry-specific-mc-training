@@ -82,8 +82,6 @@ jobs:
             output = 'Output file not available';
           }
 
-          const timestamp = new Date().toISOString();
-
           // Lark（飛書）webhook形式に合わせる
           const statusEmoji = process.env.STATUS === 'success' ? '✅' : '❌';
           const statusText = process.env.STATUS === 'success' ? '成功' : '失敗';
@@ -92,9 +90,6 @@ jobs:
           // メッセージ本文を作成
           const messageText = `【Vercel ダッシュボード統計レポート】\n` +
             `ステータス: ${statusEmoji} ${statusText}\n` +
-            `リポジトリ: ${process.env.GITHUB_REPOSITORY}\n` +
-            `実行ID: ${process.env.GITHUB_RUN_ID}\n` +
-            `実行時刻: ${timestamp}\n` +
             `詳細: ${workflowUrl}\n\n` +
             `【統計情報】\n\`\`\`\n${output}\n\`\`\``;
 
@@ -179,4 +174,3 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
-

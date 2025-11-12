@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "ngrok": "ngrok http --region=jp --subdomain=industry-specific-mc-training 3000",
-    "db:stats": "npx tsx scripts/check-db-stats.ts",
-    "vercel:stats": "npx tsx scripts/check-vercel-stats.ts",
+    "db:stats": "tsx scripts/check-db-stats.ts",
+    "vercel:stats": "tsx scripts/check-vercel-stats.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -63,6 +63,7 @@
     "prettier": "^3.5.3",
     "tailwindcss": "^4",
     "tsc-watch": "^6.2.1",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
   "overrides": {
