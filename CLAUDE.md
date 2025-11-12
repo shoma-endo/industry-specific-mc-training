@@ -41,7 +41,7 @@ AI運用5原則
 ## ディレクトリ速見表
 
 - `app/` … Next.js App Router ルート。`chat`, `analytics`, `business-info`, `setup`, `admin` などが機能単位で配置。
-- `app/api/` … Route Handlers。`chat/anthropic`, `chat/canvas`, `wordpress`, `admin`, `line`, `refresh`, `user`, `log-relay` を実装。
+- `app/api/` … Route Handlers。`chat/anthropic`, `chat/canvas`, `wordpress`, `admin`, `line`, `refresh`, `user` を実装。
 - `src/server/` … サーバーサイドの中核。`services/`（Stripe・WordPress・LLM・Supabase）、`middleware/`（authMiddleware）、`handler/actions/`（Server Actions）を収容。
 - `src/domain/` … フロントエンド用サービス層（ChatService, SubscriptionService）。
 - `src/components/` … shadcn ベースの UI と共通コンポーネント（CanvasPanel, AnnotationFormFields 等）。
