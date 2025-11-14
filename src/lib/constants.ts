@@ -51,7 +51,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
   lp_improvement: {
     provider: 'anthropic',
-    maxTokens: 6000,
+    maxTokens: 12000,
     temperature: 0.3,
     actualModel: 'claude-sonnet-4-5-20250929',
     seed: 42,
