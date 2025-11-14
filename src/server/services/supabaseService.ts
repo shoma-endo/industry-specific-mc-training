@@ -8,6 +8,7 @@ import {
 } from '@/types/chat';
 import type { DbUser } from '@/types/user';
 import type { UserRole } from '@/types/user';
+import type { GscCredential, GscPropertyType } from '@/types/gsc';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 
@@ -711,6 +712,166 @@ export class SupabaseService {
     if (error) {
       console.error('Error updating WordPress content types:', error);
       throw new Error(`WordPress投稿タイプの更新に失敗しました: ${error.message}`);
+    }
+  }
+
+  /**
+   * Google Search Console 資格情報を取得
+   */
+  async getGscCredentialByUserId(userId: string): Promise<GscCredential | null> {
+    const { data, error } = await this.supabase
+      .from('gsc_credentials')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to fetch GSC credential:', error);
+      return null;
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      id: data.id,
+      userId: data.user_id,
+      googleAccountEmail: data.google_account_email,
+      refreshToken: data.refresh_token,
+      accessToken: data.access_token,
+      accessTokenExpiresAt: data.access_token_expires_at,
+      scope: Array.isArray(data.scope) ? (data.scope as string[]) : null,
+      propertyUri: data.property_uri,
+      propertyType: data.property_type as GscPropertyType | null,
+      propertyDisplayName: data.property_display_name,
+      permissionLevel: data.permission_level,
+      verified: data.verified,
+      lastSyncedAt: data.last_synced_at,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  }
+
+  /**
+   * Google Search Console 資格情報を保存
+   */
+  async upsertGscCredential(
+    userId: string,
+    payload: {
+      refreshToken: string;
+      googleAccountEmail?: string | null;
+      accessToken?: string | null;
+      accessTokenExpiresAt?: string | null;
+      scope?: string[] | null;
+      propertyUri?: string | null;
+      propertyType?: GscPropertyType | null;
+      propertyDisplayName?: string | null;
+      permissionLevel?: string | null;
+      verified?: boolean | null;
+      lastSyncedAt?: string | null;
+    }
+  ): Promise<void> {
+    const record: Record<string, unknown> = {
+      user_id: userId,
+      refresh_token: payload.refreshToken,
+      google_account_email: payload.googleAccountEmail ?? null,
+      access_token: payload.accessToken ?? null,
+      access_token_expires_at: payload.accessTokenExpiresAt ?? null,
+      scope: payload.scope ?? null,
+      property_uri: payload.propertyUri ?? null,
+      property_type: payload.propertyType ?? null,
+      property_display_name: payload.propertyDisplayName ?? null,
+      permission_level: payload.permissionLevel ?? null,
+      verified: payload.verified ?? null,
+      last_synced_at: payload.lastSyncedAt ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await this.supabase
+      .from('gsc_credentials')
+      .upsert(record, { onConflict: 'user_id' })
+      .select();
+
+    if (error) {
+      console.error('Error upserting GSC credential:', error);
+      throw new Error(`Google Search Console資格情報の保存に失敗しました: ${error.message}`);
+    }
+  }
+
+  /**
+   * Google Search Console 資格情報を部分更新
+   */
+  async updateGscCredential(
+    userId: string,
+    updates: Partial<{
+      googleAccountEmail: string | null;
+      accessToken: string | null;
+      accessTokenExpiresAt: string | null;
+      scope: string[] | null;
+      propertyUri: string | null;
+      propertyType: GscPropertyType | null;
+      propertyDisplayName: string | null;
+      permissionLevel: string | null;
+      verified: boolean | null;
+      lastSyncedAt: string | null;
+    }>
+  ): Promise<void> {
+    const record: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if ('googleAccountEmail' in updates) {
+      record.google_account_email = updates.googleAccountEmail ?? null;
+    }
+    if ('accessToken' in updates) {
+      record.access_token = updates.accessToken ?? null;
+    }
+    if ('accessTokenExpiresAt' in updates) {
+      record.access_token_expires_at = updates.accessTokenExpiresAt ?? null;
+    }
+    if ('scope' in updates) {
+      record.scope = updates.scope ?? null;
+    }
+    if ('propertyUri' in updates) {
+      record.property_uri = updates.propertyUri ?? null;
+    }
+    if ('propertyType' in updates) {
+      record.property_type = updates.propertyType ?? null;
+    }
+    if ('propertyDisplayName' in updates) {
+      record.property_display_name = updates.propertyDisplayName ?? null;
+    }
+    if ('permissionLevel' in updates) {
+      record.permission_level = updates.permissionLevel ?? null;
+    }
+    if ('verified' in updates) {
+      record.verified = updates.verified ?? null;
+    }
+    if ('lastSyncedAt' in updates) {
+      record.last_synced_at = updates.lastSyncedAt ?? null;
+    }
+
+    const { error } = await this.supabase
+      .from('gsc_credentials')
+      .update(record)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating GSC credential:', error);
+      throw new Error(`Google Search Console資格情報の更新に失敗しました: ${error.message}`);
+    }
+  }
+
+  /**
+   * Google Search Console 資格情報を削除
+   */
+  async deleteGscCredential(userId: string): Promise<void> {
+    const { error } = await this.supabase.from('gsc_credentials').delete().eq('user_id', userId);
+
+    if (error) {
+      console.error('Error deleting GSC credential:', error);
+      throw new Error(`Google Search Console資格情報の削除に失敗しました: ${error.message}`);
     }
   }
 

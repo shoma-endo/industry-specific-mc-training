@@ -34,6 +34,12 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - `app/analytics` の一覧で投稿と Supabase `content_annotations` を突き合わせ、未紐付けの注釈も表示
 - `AnnotationPanel` でセッション単位のメモ・キーワード・ペルソナ・PREP 等を保存し、ブログ生成時に再利用
 
+### Google Search Console 連携
+- `/setup/gsc` で OAuth 認証状態・接続アカウント・プロパティを可視化し、プロパティ選択や連携解除を実行
+- `app/api/gsc/oauth/*` が Google OAuth 2.0 の開始／コールバックに対応し、Supabase `gsc_credentials` テーブルへリフレッシュトークンを保存
+- `/api/gsc/status`, `/api/gsc/properties`, `/api/gsc/property`, `/api/gsc/disconnect` で連携状態の確認・プロパティ取得・選択更新・接続解除を提供
+- 取得した Search Console 指標は今後 WordPress 投稿の分析ビューと統合される予定（`SetupDashboard` から進入）
+
 ### サブスクリプションと権限
 - Stripe v17.7 で Checkout / Billing Portal / Subscription 状態確認を実装（`SubscriptionService`）
 - `SubscriptionService` とカスタムフック `useSubscriptionStatus` で UI 側から有効プランを判定
@@ -51,7 +57,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 
 ### セットアップ導線
 - `/setup/wordpress` で WordPress 連携の初期設定を案内
-- `/setup/gsc` は将来的な Google Search Console 連携のプレースホルダー
+- `/setup/gsc` で Google Search Console OAuth 連携とプロパティ選択を管理
 - `/subscription` でプラン購入、`/analytics` で WordPress 投稿と注釈を照合
 
 ## 🏗️ システムアーキテクチャ
@@ -264,7 +270,7 @@ erDiagram
     prompt_templates ||--o{ prompt_versions : captures
 ```
 
-## 📋 環境変数（17 項目）
+## 📋 環境変数（19 項目）
 
 `src/env.ts` で厳格にバリデーションされるサーバー／クライアント環境変数です。`.env.local` を手動で用意してください。
 
@@ -279,6 +285,10 @@ erDiagram
 | Server | `ANTHROPIC_API_KEY` | ✅ | Claude ストリーミング用 API キー |
 | Server | `LINE_CHANNEL_ID` | ✅ | LINE Login 用チャネル ID |
 | Server | `LINE_CHANNEL_SECRET` | ✅ | LINE Login 用チャネルシークレット |
+| Server | `GOOGLE_OAUTH_CLIENT_ID` | 任意（GSC 連携利用時は必須） | Google Search Console OAuth 用クライアント ID |
+| Server | `GOOGLE_OAUTH_CLIENT_SECRET` | 任意（GSC 連携利用時は必須） | Google Search Console OAuth 用クライアントシークレット |
+| Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC 連携利用時は必須） | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など） |
+| Server | `GSC_OAUTH_STATE_COOKIE_NAME` | 任意 | GSC OAuth state 用 Cookie 名（未設定時は `gsc_oauth_state`） |
 | Client | `NEXT_PUBLIC_LIFF_ID` | ✅ | LIFF アプリ ID |
 | Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID` | ✅ | LIFF Channel ID |
 | Client | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase プロジェクト URL |
@@ -288,7 +298,8 @@ erDiagram
 
 ### 追加で利用できる任意設定
 - `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`: WordPress.com OAuth 連携で必須
-- `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress OAuth のセキュアな Cookie 管理
+- `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress / Google Search Console OAuth のセキュアな Cookie 管理
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`: Google Search Console 連携を利用する場合のみ設定
 - `FEATURE_RPC_V2`: `true` で新しい Supabase RPC 経路を有効化（`FEATURE_FLAGS.USE_RPC_V2`）
 
 ## 🚀 セットアップ手順

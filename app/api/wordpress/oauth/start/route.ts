@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { generateWpOAuthState } from '@/server/lib/wpOAuthState';
+import { generateOAuthState } from '@/server/lib/oauthState';
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -37,7 +37,7 @@ export async function GET() {
     );
   }
 
-  const { state } = generateWpOAuthState(authResult.userId, cookieSecret);
+  const { state } = generateOAuthState(authResult.userId, cookieSecret);
 
   const params = new URLSearchParams({
     client_id: clientId,

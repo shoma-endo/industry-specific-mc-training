@@ -1,0 +1,150 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { verifyOAuthState } from '@/server/lib/oauthState';
+import { SupabaseService } from '@/server/services/supabaseService';
+import {
+  GoogleSearchConsoleService,
+  formatGscPropertyDisplayName,
+} from '@/server/services/googleSearchConsoleService';
+
+const supabaseService = new SupabaseService();
+const gscService = new GoogleSearchConsoleService();
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get('code');
+  const state = searchParams.get('state');
+
+  const redirectUri = process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI;
+  const cookieSecret = process.env.COOKIE_SECRET;
+  const stateCookieName = process.env.GSC_OAUTH_STATE_COOKIE_NAME || 'gsc_oauth_state';
+
+  const buildJsonResponse = (body: Record<string, unknown>, init: ResponseInit) => {
+    const res = NextResponse.json(body, init);
+    res.cookies.delete(stateCookieName);
+    return res;
+  };
+
+  if (!redirectUri || !cookieSecret) {
+    console.error('Google Search Console OAuth callbackの必須環境変数が不足しています');
+    return buildJsonResponse({ error: 'OAuth構成が未設定です' }, { status: 500 });
+  }
+
+  if (!state) {
+    return buildJsonResponse({ error: 'stateが指定されていません' }, { status: 400 });
+  }
+
+  const storedState = request.cookies.get(stateCookieName)?.value;
+  if (storedState && storedState !== state) {
+    console.error('GSC OAuth state mismatch', { storedState, received: state });
+    return buildJsonResponse({ error: 'stateが一致しません' }, { status: 400 });
+  }
+
+  const stateVerification = verifyOAuthState(state, cookieSecret);
+  if (!stateVerification.valid) {
+    console.error('GSC OAuth state verification failed', stateVerification);
+    return buildJsonResponse({ error: 'stateが不正です' }, { status: 400 });
+  }
+
+  if (!code) {
+    return buildJsonResponse({ error: 'codeが指定されていません' }, { status: 400 });
+  }
+
+  const response = NextResponse.redirect(new URL('/setup/gsc?connected=1', request.url));
+  response.cookies.delete(stateCookieName);
+
+  const liffAccessToken = request.cookies.get('line_access_token')?.value;
+  const refreshToken = request.cookies.get('line_refresh_token')?.value;
+
+  let targetUserId: string | null = stateVerification.payload.userId;
+
+  if (liffAccessToken) {
+    const authResult = await authMiddleware(liffAccessToken, refreshToken);
+    if (!authResult.error && authResult.userId) {
+      if (targetUserId && targetUserId !== authResult.userId) {
+        console.error('LINE user mismatch between cookie and OAuth state', {
+          cookieUser: authResult.userId,
+          stateUser: targetUserId,
+        });
+        return buildJsonResponse({ error: 'ユーザー認証情報が一致しません' }, { status: 401 });
+      }
+      targetUserId = authResult.userId;
+    }
+  }
+
+  if (!targetUserId) {
+    return buildJsonResponse({ error: 'LINE認証が必要です' }, { status: 401 });
+  }
+
+  try {
+    const tokens = await gscService.exchangeCodeForTokens(code, redirectUri);
+    const existingCredential = await supabaseService.getGscCredentialByUserId(targetUserId);
+    const refreshTokenToStore = tokens.refreshToken ?? existingCredential?.refreshToken;
+
+    if (!refreshTokenToStore) {
+      console.error('Missing refresh token from Google OAuth response');
+      return buildJsonResponse({ error: 'リフレッシュトークンを取得できませんでした' }, { status: 400 });
+    }
+
+    const expiresAt = tokens.expiresIn
+      ? new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
+      : null;
+
+    let propertyUri = existingCredential?.propertyUri ?? null;
+    let propertyDisplayName = existingCredential?.propertyDisplayName ?? null;
+    let propertyType = existingCredential?.propertyType ?? null;
+    let permissionLevel = existingCredential?.permissionLevel ?? null;
+    let verified = existingCredential?.verified ?? null;
+
+    try {
+      const sites = await gscService.listSites(tokens.accessToken);
+      if (sites.length > 0) {
+        const preferred =
+          sites.find(site => site.permissionLevel === 'siteOwner') ||
+          sites.find(site => site.permissionLevel !== 'siteUnverifiedUser') ||
+          sites[0];
+        if (preferred) {
+          propertyUri = preferred.siteUrl;
+          propertyDisplayName = preferred.displayName;
+          propertyType = preferred.propertyType;
+          permissionLevel = preferred.permissionLevel;
+          verified = preferred.verified;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch GSC sites during callback, continuing without selection', error);
+    }
+
+    let googleAccountEmail: string | null = existingCredential?.googleAccountEmail ?? null;
+    try {
+      const userInfo = await gscService.fetchUserInfo(tokens.accessToken);
+      googleAccountEmail = userInfo.email ?? googleAccountEmail;
+    } catch (error) {
+      console.warn('Failed to fetch Google user info during callback', error);
+    }
+
+    await supabaseService.upsertGscCredential(targetUserId, {
+      refreshToken: refreshTokenToStore,
+      googleAccountEmail,
+      accessToken: tokens.accessToken,
+      accessTokenExpiresAt: expiresAt,
+      scope: tokens.scope ?? null,
+      propertyUri,
+      propertyType,
+      propertyDisplayName:
+        propertyDisplayName && propertyUri
+          ? propertyDisplayName
+          : propertyUri
+            ? formatGscPropertyDisplayName(propertyUri)
+            : null,
+      permissionLevel,
+      verified,
+      lastSyncedAt: new Date().toISOString(),
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Error in Google Search Console OAuth callback', error);
+    return buildJsonResponse({ error: 'Google Search Console連携に失敗しました' }, { status: 500 });
+  }
+}

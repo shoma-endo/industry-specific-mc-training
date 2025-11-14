@@ -4,6 +4,12 @@ export const ERROR_MESSAGES = {
     '本日のチャット利用上限（3回）に達しました。上限は日本時間の00:00にリセットされます。',
 };
 
+export const GOOGLE_SEARCH_CONSOLE_SCOPES = [
+  'https://www.googleapis.com/auth/webmasters.readonly',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'openid',
+];
+
 // Feature Flags
 export const FEATURE_FLAGS = {
   USE_RPC_V2: process.env.FEATURE_RPC_V2 === 'true',
