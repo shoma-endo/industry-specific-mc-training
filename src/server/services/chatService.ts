@@ -26,7 +26,7 @@ class ChatService {
   private supabaseService: SupabaseService;
   // 必要最低限のトークン管理: 直近の履歴のみ保持（約6往復）
   // 注: CHAT_HISTORY_LIMIT は src/lib/constants.ts で一元管理
-  private static readonly MAX_HISTORY_MESSAGES: number = CHAT_HISTORY_LIMIT;
+  private static readonly MAX_HISTORY_MESSAGES = CHAT_HISTORY_LIMIT;
 
   constructor() {
     this.supabaseService = new SupabaseService();
