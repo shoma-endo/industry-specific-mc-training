@@ -13,7 +13,7 @@ import {
   ServerChatMessage,
 } from '@/types/chat';
 import { SupabaseService, type SupabaseResult } from './supabaseService';
-import { MODEL_CONFIGS, FEATURE_FLAGS } from '@/lib/constants';
+import { MODEL_CONFIGS, FEATURE_FLAGS, CHAT_HISTORY_LIMIT } from '@/lib/constants';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 
 interface ChatResponse {
@@ -25,7 +25,8 @@ interface ChatResponse {
 class ChatService {
   private supabaseService: SupabaseService;
   // 必要最低限のトークン管理: 直近の履歴のみ保持（約6往復）
-  private static readonly MAX_HISTORY_MESSAGES: number = 12;
+  // 注: CHAT_HISTORY_LIMIT は src/lib/constants.ts で一元管理
+  private static readonly MAX_HISTORY_MESSAGES = CHAT_HISTORY_LIMIT;
 
   constructor() {
     this.supabaseService = new SupabaseService();
