@@ -4,6 +4,9 @@ export const ERROR_MESSAGES = {
     '本日のチャット利用上限（3回）に達しました。上限は日本時間の00:00にリセットされます。',
 };
 
+// Chat Configuration
+export const CHAT_HISTORY_LIMIT = 12;
+
 // Feature Flags
 export const FEATURE_FLAGS = {
   USE_RPC_V2: process.env.FEATURE_RPC_V2 === 'true',
