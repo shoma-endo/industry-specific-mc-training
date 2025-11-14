@@ -15,7 +15,7 @@ import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export type { ChatSessionActions, ChatSessionHook };
 
-const MAX_MESSAGES = 10;
+const MAX_MESSAGES = 12;
 
 interface SerializableMessage {
   role: string;
