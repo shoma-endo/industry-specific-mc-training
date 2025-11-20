@@ -144,7 +144,8 @@ export class GoogleSearchConsoleService {
   }
 
   async listSites(accessToken: string): Promise<GscSiteEntry[]> {
-    const response = await fetch(`${SITES_ENDPOINT}/list`, {
+    const response = await fetch(SITES_ENDPOINT, {
+      method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
