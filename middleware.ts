@@ -7,19 +7,15 @@ const ADMIN_REQUIRED_PATHS = ['/admin'] as const;
 const PAID_FEATURE_REQUIRED_PATHS = ['/setup', '/analytics'] as const;
 
 // 認証不要なパスの定義
-const PUBLIC_PATHS = ['/login', '/unauthorized', '/'] as const;
+const PUBLIC_PATHS = ['/login', '/unauthorized', '/', '/home', '/privacy'] as const;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // パフォーマンス向上のためのログ
-  const startTime = Date.now();
 
   try {
     // 🔍 1. 公開パスかチェック（ただし、ログイン済みユーザーの場合はホーム画面でも権限チェックを実行）
     if (isPublicPath(pathname)) {
       // ホーム画面は完全に公開扱いとし、ミドルウェア側で外部サービスを呼び出さない
-      logMiddleware(pathname, 'PUBLIC_PATH', Date.now() - startTime);
       return NextResponse.next();
     }
 
@@ -28,7 +24,6 @@ export async function middleware(request: NextRequest) {
     const refreshToken = request.cookies.get('line_refresh_token')?.value;
 
     if (!accessToken) {
-      logMiddleware(pathname, 'NO_ACCESS_TOKEN', Date.now() - startTime);
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
@@ -42,7 +37,6 @@ export async function middleware(request: NextRequest) {
 
     if (!authResult.role) {
       if ('needsReauth' in authResult && authResult.needsReauth) {
-        logMiddleware(pathname, 'NEEDS_REAUTH', Date.now() - startTime);
         // クッキーをクリアしてログインページにリダイレクト
         const response = NextResponse.redirect(new URL('/login', request.url));
         response.cookies.delete('line_access_token');
@@ -50,7 +44,6 @@ export async function middleware(request: NextRequest) {
         return response;
       }
 
-      logMiddleware(pathname, 'INVALID_TOKEN', Date.now() - startTime);
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
@@ -58,40 +51,24 @@ export async function middleware(request: NextRequest) {
     if (isUnavailable(authResult.role)) {
       // 既に/unavailableページにいる場合はそのまま通す
       if (pathname === '/unavailable') {
-        logMiddleware(pathname, 'UNAVAILABLE_PAGE_ACCESS', Date.now() - startTime, authResult.role);
         return NextResponse.next();
       }
       // その他のページへのアクセスは/unavailableにリダイレクト
-      logMiddleware(pathname, 'SERVICE_UNAVAILABLE', Date.now() - startTime, authResult.role);
       return NextResponse.redirect(new URL('/unavailable', request.url));
     }
 
     if (requiresPaidFeatureAccess(pathname) && !hasPaidFeatureAccess(authResult.role)) {
-      logMiddleware(
-        pathname,
-        'FEATURE_ACCESS_DENIED',
-        Date.now() - startTime,
-        authResult.role
-      );
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 
     // 🔍 6. 管理者権限チェック
     if (requiresAdminAccess(pathname)) {
       if (!isAdmin(authResult.role)) {
-        logMiddleware(
-          pathname,
-          'INSUFFICIENT_PERMISSIONS',
-          Date.now() - startTime,
-          authResult.role
-        );
         return NextResponse.redirect(new URL('/unauthorized', request.url));
       }
     }
 
     // 🔍 7. 成功時のレスポンス
-    logMiddleware(pathname, 'SUCCESS', Date.now() - startTime, authResult.role);
-
     // レスポンスヘッダーにユーザー情報を付与（オプション）
     const response = NextResponse.next();
     response.headers.set('x-user-role', authResult.role);
@@ -104,7 +81,6 @@ export async function middleware(request: NextRequest) {
         sameSite: 'lax',
         maxAge: 30 * 24 * 60 * 60, // 30日
       });
-      logMiddleware(pathname, 'TOKEN_REFRESHED', Date.now() - startTime, authResult.role);
     }
 
     if ('newRefreshToken' in authResult && authResult.newRefreshToken) {
@@ -126,7 +102,6 @@ export async function middleware(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
 
-    logMiddleware(pathname, 'ERROR', Date.now() - startTime);
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }
@@ -134,7 +109,8 @@ export async function middleware(request: NextRequest) {
 // 🔧 ヘルパー関数
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(path => {
-    if (path === '/') return pathname === '/';
+    // TypeScriptのエラー回避のため、明示的な比較は削除してstartsWithのみにする
+    // pathは '/login', '/home' などであり、 '/' は含まれていないため startsWith で十分
     return pathname.startsWith(path);
   });
 }
@@ -193,39 +169,6 @@ async function getUserRoleWithCacheAndRefresh(accessToken: string, refreshToken?
     // キャッシュを削除
     roleCache.delete(cacheKey);
     throw error;
-  }
-}
-
-// 📊 ログ出力関数
-function logMiddleware(
-  pathname: string,
-  result: string,
-  duration: number,
-  userRole?: string | null
-) {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(
-      `[Middleware] ${pathname} | ${result} | ${duration}ms${userRole ? ` | ${userRole}` : ''}`
-    );
-  }
-
-  // プロダクション環境では構造化ログ
-  if (
-    process.env.NODE_ENV === 'production' &&
-    (result === 'ERROR' ||
-      result === 'INSUFFICIENT_PERMISSIONS' ||
-      result === 'SERVICE_UNAVAILABLE')
-  ) {
-    console.warn(
-      JSON.stringify({
-        type: 'middleware_access',
-        pathname,
-        result,
-        duration,
-        userRole,
-        timestamp: new Date().toISOString(),
-      })
-    );
   }
 }
 

@@ -1,11 +1,20 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from 'react';
 import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Footer } from '@/components/Footer';
 import type { LiffContextType } from '@/types/components';
 import type { User } from '@/types/user';
+import { usePathname, useRouter } from 'next/navigation';
 
 const LiffContext = createContext<LiffContextType | null>(null);
 
@@ -21,6 +30,8 @@ import type { LiffProviderProps } from '@/types/components';
 
 export function LiffProvider({ children, initialize = false }: LiffProviderProps) {
   const { isLoggedIn, isLoading, error, profile, login, logout, liffObject, initLiff } = useLiff();
+  const pathname = usePathname();
+  const router = useRouter();
 
   // 🔁 LIFFの初期化を副作用で一度だけ実行
   useEffect(() => {
@@ -32,6 +43,8 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   const [syncedWithServer, setSyncedWithServer] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [hasServerSession, setHasServerSession] = useState<boolean | null>(null);
+  const hasRequestedLiffLoginRef = useRef(false);
 
   // ✅ 最新の値を参照するためのRef
   const liffObjectRef = useRef(liffObject);
@@ -109,15 +122,93 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     }
   }, [isLoggedIn, profile, isInitialized, syncWithServerIfNeeded]);
 
-  // 自動ログイン：LIFF初期化後にログインしていなければ遷移
-  useEffect(() => {
-    if (!isLoading && liffObject && !isLoggedIn) {
-      login();
-    }
-  }, [isLoading, liffObject, isLoggedIn, login]);
+  // 公開パスの定義 - ルートを除外
+  const publicPaths = ['/home', '/privacy', '/login'];
+  // pathnameが取得できない場合（稀なケース）はfalseとして扱うが、SSR時はpathnameがあるため正しく判定される
+  const isPublicPath = pathname
+    ? publicPaths.some(
+        path => pathname === path || (path !== '/' && pathname.startsWith(path + '/'))
+      )
+    : false;
 
-  // エラー表示
-  if (error) {
+  useEffect(() => {
+    if (!pathname || isPublicPath) {
+      setHasServerSession(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/auth/check-role', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (!cancelled) {
+          setHasServerSession(response.ok);
+        }
+      } catch (sessionError) {
+        console.error('Failed to check server session:', sessionError);
+        if (!cancelled) {
+          setHasServerSession(false);
+        }
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPublicPath, pathname]);
+
+  useEffect(() => {
+    if (!pathname || isPublicPath || hasServerSession !== false) {
+      return;
+    }
+
+    const clientChecker = liffObject as unknown as { isInClient?: () => boolean } | null;
+    const isInClient = clientChecker?.isInClient?.() ?? false;
+
+    if (isInClient) {
+      if (!isLoading && liffObject && !isLoggedIn) {
+        login();
+      }
+      return;
+    }
+
+    router.replace('/login');
+  }, [
+    hasServerSession,
+    isLoading,
+    isLoggedIn,
+    isPublicPath,
+    liffObject,
+    login,
+    pathname,
+    router,
+  ]);
+
+  useEffect(() => {
+    if (
+      !pathname ||
+      isPublicPath ||
+      hasServerSession !== true ||
+      isLoggedIn ||
+      isLoading ||
+      !liffObject ||
+      hasRequestedLiffLoginRef.current
+    ) {
+      return;
+    }
+
+    hasRequestedLiffLoginRef.current = true;
+    login();
+  }, [hasServerSession, isLoading, isLoggedIn, isPublicPath, liffObject, login, pathname]);
+
+  // エラー表示（公開パス以外）
+  if (error && !isPublicPath) {
     return (
       <Card className="max-w-md mx-auto mt-8">
         <CardHeader>
@@ -134,8 +225,9 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     );
   }
 
-  // ローディング表示
-  if (isLoading) {
+  // ローディング表示（公開パスの場合はローディング中もchildrenを表示させる）
+  // 非公開パスでローディング中は、コンテンツを隠してローディング表示
+  if (isLoading && !isPublicPath) {
     return (
       <Card className="max-w-md mx-auto mt-8">
         <CardContent className="flex justify-center items-center p-8">
@@ -145,11 +237,16 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     );
   }
 
-  // 非ログイン状態でブラウザ環境の場合はログインボタンを表示
+  // 🚨 修正: 未ログイン時の強制ログイン画面表示を削除
+  // Middlewareがログイン状態を保証しているため、ここではチェックしない
+  // これにより、サーバーサイドログイン済みだがLIFF SDK未ログインの場合もページを表示できる
+  /*
   if (
+    pathname &&
     !isLoggedIn &&
     liffObject &&
-    !(liffObject as unknown as { isInClient: () => boolean }).isInClient()
+    !(liffObject as unknown as { isInClient: () => boolean }).isInClient() &&
+    !isPublicPath
   ) {
     return (
       <Card className="max-w-md mx-auto mt-8">
@@ -163,6 +260,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
       </Card>
     );
   }
+  */
 
   return (
     <LiffContext.Provider
@@ -177,7 +275,12 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         getAccessToken,
       }}
     >
-      {children}
+      <div className="flex flex-col min-h-screen">
+        {/* 公開ページの場合はpb-20 (フッター分の余白) を適用しない */}
+        <main className={`flex-1 ${isPublicPath ? '' : 'pb-20'}`}>{children}</main>
+        {/* 公開ページ以外でのみFooterを表示 */}
+        {!isPublicPath && <Footer />}
+      </div>
     </LiffContext.Provider>
   );
 }

@@ -10,12 +10,12 @@ import {
 } from '@/domain/models/chat.models';
 import { ChatError } from '@/domain/errors/ChatError';
 import type { ChatSessionActions, ChatSessionHook } from '@/types/hooks';
-import { ERROR_MESSAGES as CHAT_ERROR_MESSAGES } from '@/lib/constants';
+import { ERROR_MESSAGES as CHAT_ERROR_MESSAGES, CHAT_HISTORY_LIMIT } from '@/lib/constants';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export type { ChatSessionActions, ChatSessionHook };
 
-const MAX_MESSAGES = 10;
+const MAX_MESSAGES = CHAT_HISTORY_LIMIT;
 
 interface SerializableMessage {
   role: string;
