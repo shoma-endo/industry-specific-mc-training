@@ -51,16 +51,16 @@ export const useLiff = (): UseLiffResult => {
           throw LiffError.profileFetchFailed(profileError);
         }
       } else {
-        if (!liff.isInClient()) {
-          liff.login({ redirectUri: window.location.href });
-        }
+        // 自動ログインロジックはLiffProvider側に委譲するため、ここでは何もしない
+        // if (!liff.isInClient()) {
+        //   liff.login({ redirectUri: window.location.href });
+        // }
       }
     } catch (initError) {
       console.error('LIFF initialization failed:', initError);
-      
+
       // 認証コード無効エラーの場合は、URLパラメータをクリアして再試行
       if (initError instanceof Error && initError.message.includes('invalid authorization code')) {
-        
         // URLパラメータをクリアして再試行
         const url = new URL(window.location.href);
         url.searchParams.delete('code');
@@ -68,16 +68,16 @@ export const useLiff = (): UseLiffResult => {
         url.searchParams.delete('liffClientId');
         url.searchParams.delete('liffRedirectUri');
         window.history.replaceState({}, '', url.toString());
-        
+
         // 少し待ってから再初期化を試行
         setTimeout(() => {
           window.location.reload();
         }, 1000);
-        
+
         setError('認証情報をリセットしています...');
         return;
       }
-      
+
       const errorMessage =
         initError instanceof LiffError ? initError.userMessage : 'LIFFの初期化に失敗しました。';
       setError(errorMessage);
