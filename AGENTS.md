@@ -31,15 +31,6 @@ AI運用5原則
 - Stripe サブスクリプションとロール（`trial` / `paid` / `admin` / `unavailable`）により機能制御を行い、Anthropic Claude と OpenAI モデルを用途に応じて切替します。
 - チャット履歴検索は Supabase RPC `search_chat_sessions`（`pg_trgm` + `tsvector`）を利用し、サイドバーの検索バーからタイトルや正規化済み URL を横断検索できます。
 
-## 主要ディレクトリ
-
-- `app/` — Next.js App Router の各機能境界（`chat`, `analytics`, `business-info`, `setup`, `subscription`, `admin`, `api`）。
-- `src/components/` — shadcn/ui ベースの共通 UI コンポーネント群。
-- `src/domain/` — フロント向けサービス層（`ChatService`, `SubscriptionService` など）。
-- `src/server/` — Server Actions・ミドルウェア・外部サービス連携（WordPress / Stripe / LLM / Supabase）。
-- `src/types/` — 共通型定義。環境変数・チャット・WordPress などを集約。
-- `supabase/migrations/` — PostgreSQL スキーマと RLS のマイグレーションファイル。
-
 ## コミュニケーションと回答スタイル
 
 - すべての応答は日本語で行ってください。
@@ -57,10 +48,21 @@ AI運用5原則
 
 ## プロジェクト構造の把握
 
-- `app/` ― Next.js App Router。`chat`, `analytics`, `business-info`, `setup`, `subscription`, `admin`, `api` が主要な機能境界です。
-- `src/` ― 共有ロジック。`components/`（shadcn UI + 共通部品）、`domain/`（フロントサービス層）、`hooks/`, `lib/`, `server/`（サービス・ミドルウェア・Server Actions）、`types/` に整理されています。
-- `supabase/migrations/` ― PostgreSQL テーブル／ポリシー管理。追加時は README との整合性を保つこと。
-- ルート直下の設定ファイル（`eslint.config.mjs`, `next.config.ts`, `postcss.config.mjs` など）が唯一のソース・オブ・トゥルースです。フォルダ別の設定を増やさないでください。
+### ディレクトリ構成
+
+- `app/` — Next.js App Router の各機能境界。`chat`, `analytics`, `business-info`, `setup`, `subscription`, `admin`, `api` が主要な機能単位です。
+- `src/components/` — shadcn/ui ベースの共通 UI コンポーネント群（CanvasPanel, AnnotationFormFields など）。
+- `src/domain/` — フロント向けサービス層（`ChatService`, `SubscriptionService` など）。クライアント側のビジネスロジックを集約。
+- `src/hooks/` — カスタム React フック。
+- `src/lib/` — ユーティリティと設定（`constants`, `prompts`, `client-manager` など）。
+- `src/server/` — Server Actions・ミドルウェア・外部サービス連携（WordPress / Stripe / LLM / Supabase）。サーバーサイドの中核。
+- `src/types/` — 共通型定義。環境変数・チャット・WordPress などを集約し、フロント・サーバー双方で再利用。
+- `supabase/migrations/` — PostgreSQL スキーマと RLS のマイグレーションファイル。追加時は README との整合性を保つこと。
+
+### 設定ファイルの方針
+
+- ルート直下の設定ファイル（`eslint.config.mjs`, `next.config.ts`, `postcss.config.mjs` など）が唯一のソース・オブ・トゥルースです。
+- フォルダ別の設定を増やさず、プロジェクト全体で統一された設定を維持してください。
 
 ## ビルド・テスト・開発コマンド
 
