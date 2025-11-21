@@ -26,7 +26,7 @@ export default function Icon() {
         <div
           style={{
             fontSize: 20,
-            fontWeight: 'bold',
+            fontWeight: '900',
             color: 'white',
           }}
         >
