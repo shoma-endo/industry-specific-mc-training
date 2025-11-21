@@ -1,6 +1,13 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BarChart2, CheckCircle2, Lock, Zap } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: '業界特化MC養成講座 - AIでマーケティングを自動化',
+  description:
+    'Google Search Consoleと連携し、検索データを分析。業界特化の知識を持つAIが、SEOに強いブログ記事や広告コピーを自動生成します。',
+};
 
 export default function LandingPage() {
   return (
@@ -126,8 +133,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">検索パフォーマンス分析</h3>
                 <p className="text-gray-600 leading-relaxed">
-                  Google Search
-                  Consoleと連携し、検索クエリやクリック数を自動取得。データに基づいたコンテンツ改善案をAIが提示します。
+                  Google Search Console（読み取り専用アクセス）と連携し、検索クエリ、クリック数、表示回数、掲載順位を自動取得。取得したデータに基づき、AIがコンテンツ改善案を提示します。
                 </p>
               </div>
 
