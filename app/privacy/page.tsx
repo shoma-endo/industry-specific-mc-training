@@ -57,8 +57,17 @@ export default function PrivacyPolicyPage() {
               <h2 className="text-xl font-bold text-gray-900 mb-3">
                 3. Googleユーザーデータの利用目的
               </h2>
+              <p className="mb-2">当サービスは、以下のGoogle APIスコープを使用します：</p>
+              <ul className="list-disc pl-5 space-y-1 mb-4">
+                <li>
+                  <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                    https://www.googleapis.com/auth/webmasters.readonly
+                  </code>{' '}
+                  （Google Search Console - 読み取り専用）
+                </li>
+              </ul>
               <p className="mb-2">
-                当サービスは、Google Search Console
+                このスコープを使用して、Google Search Console
                 APIから取得したデータを以下の目的でのみ使用します：
               </p>
               <ul className="list-disc pl-5 space-y-1">
@@ -92,8 +101,17 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">6. データの保持期間</h2>
+              <p>
+                Google Search Console
+                APIから取得したデータは、サービス提供に必要な期間のみ保持します。
+                ユーザーがアカウントを削除した場合、または連携を解除した場合は、30日以内に関連するすべてのデータを削除します。
+              </p>
+            </section>
+
+            <section>
               <h2 className="text-xl font-bold text-gray-900 mb-3">
-                6. プライバシーポリシーの変更
+                7. プライバシーポリシーの変更
               </h2>
               <p>
                 当サービスは、必要に応じて本プライバシーポリシーを更新することがあります。
@@ -102,7 +120,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">7. お問い合わせ</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">8. お問い合わせ</h2>
               <p>
                 本プライバシーポリシーに関するご質問や懸念がある場合は、以下の連絡先までお問い合わせください。
               </p>
