@@ -339,7 +339,10 @@ npm run ngrok
 │   ├── business-info/       # 事業者情報フォーム（Server Components + Actions）
 │   ├── setup/               # WordPress / GSC 等の初期セットアップ導線
 │   ├── subscription/        # サブスクリプション購入ページ
-│   ├── login/・unauthorized # 認証ステータス別ページ
+│   ├── login/               # ログインページ
+│   ├── unauthorized/        # 未認可ユーザー向けページ
+│   ├── unavailable/         # 利用不可ユーザー向けページ（role が unavailable の場合）
+│   ├── wordpress-import/    # WordPress 記事の一括インポートページ
 │   ├── admin/               # 管理者向け機能（プロンプト・ユーザー管理）
 │   ├── api/                 # Route Handlers（chat, wordpress, admin, auth, user, line）
 │   └── layout.tsx など      # App Router ルートレイアウト
@@ -353,6 +356,8 @@ npm run ngrok
 │   │   ├── middleware/      # 認証・ロール判定ミドルウェア
 │   │   └── services/        # Stripe / WordPress / Supabase / LLM などの統合層
 │   └── types/               # 共通型定義（chat, prompt, annotation, wordpress 等）
+├── scripts/                 # ユーティリティスクリプト（DB 統計・Vercel 統計）
+├── claudedocs/              # プロジェクト分析レポート
 ├── supabase/migrations/     # データベースマイグレーション
 └── config files             # eslint.config.mjs, next.config.ts, tailwind/postcss 設定
 ```
