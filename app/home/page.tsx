@@ -44,9 +44,6 @@ export default function LandingPage() {
             </Link>
           </nav>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" asChild className="hidden sm:inline-flex">
-              <Link href="/login">ログイン</Link>
-            </Button>
             <Button
               asChild
               className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200"
@@ -213,11 +210,6 @@ export default function LandingPage() {
             <div>
               <h4 className="text-white font-bold mb-4">リンク</h4>
               <ul className="space-y-2 text-sm">
-                <li>
-                  <Link href="/login" className="hover:text-white transition-colors">
-                    ログイン
-                  </Link>
-                </li>
                 <li>
                   <Link href="#features" className="hover:text-white transition-colors">
                     機能一覧
