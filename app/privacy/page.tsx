@@ -1,6 +1,13 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'プライバシーポリシー - 業界特化MC養成講座',
+  description:
+    '業界特化MC養成講座のプライバシーポリシー。Google Search Console APIの利用目的とデータ保護方針について説明します。',
+};
 
 export default function PrivacyPolicyPage() {
   return (
@@ -125,9 +132,7 @@ export default function PrivacyPolicyPage() {
                 本プライバシーポリシーに関するご質問や懸念がある場合は、以下の連絡先までお問い合わせください。
               </p>
               <p className="mt-2 font-medium">
-                お問い合わせ窓口: support@industry-mc-training.com
-                <br />
-                （※実際のお問い合わせ先をご記入ください）
+                お問い合わせ窓口: support@dreamplanner.co.jp
               </p>
             </section>
           </div>
