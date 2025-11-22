@@ -28,92 +28,39 @@ interface ModelConfig {
   top_p?: number;
 }
 
+// 共通設定（DRY原則に基づく定数化）
+const ANTHROPIC_BASE = {
+  provider: 'anthropic' as const,
+  temperature: 0.3,
+  actualModel: 'claude-sonnet-4-5-20250929',
+  seed: 42,
+};
+
+const OPENAI_BASE = {
+  provider: 'openai' as const,
+  temperature: 0.3,
+  seed: 42,
+  top_p: 0.95,
+};
+
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': {
-    provider: 'openai',
+    ...OPENAI_BASE,
     maxTokens: 4500,
-    temperature: 0.3,
     actualModel: 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2',
-    seed: 42,
-    top_p: 0.95,
   },
-  ad_copy_creation: {
-    provider: 'anthropic',
-    maxTokens: 4500,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  ad_copy_finishing: {
-    provider: 'anthropic',
-    maxTokens: 4500,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  lp_draft_creation: {
-    provider: 'anthropic',
-    maxTokens: 15000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  lp_improvement: {
-    provider: 'anthropic',
-    maxTokens: 12000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  blog_creation_step1: {
-    provider: 'anthropic',
-    maxTokens: 5000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  blog_creation_step2: {
-    provider: 'anthropic',
-    maxTokens: 5000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  blog_creation_step3: {
-    provider: 'anthropic',
-    maxTokens: 5000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  blog_creation_step4: {
-    provider: 'anthropic',
-    maxTokens: 5000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  blog_creation_step5: {
-    provider: 'anthropic',
-    maxTokens: 5000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  blog_creation_step6: {
-    provider: 'anthropic',
-    maxTokens: 5000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
-  blog_creation_step7: {
-    provider: 'anthropic',
-    maxTokens: 15000,
-    temperature: 0.3,
-    actualModel: 'claude-sonnet-4-5-20250929',
-    seed: 42,
-  },
+  ad_copy_creation: { ...ANTHROPIC_BASE, maxTokens: 4500 },
+  ad_copy_finishing: { ...ANTHROPIC_BASE, maxTokens: 4500 },
+  lp_draft_creation: { ...ANTHROPIC_BASE, maxTokens: 15000 },
+  lp_improvement: { ...ANTHROPIC_BASE, maxTokens: 12000 },
+  // ブログ作成ステップ（共通設定を適用し、maxTokensのみ個別指定）
+  blog_creation_step1: { ...ANTHROPIC_BASE, maxTokens: 5000 },
+  blog_creation_step2: { ...ANTHROPIC_BASE, maxTokens: 5000 },
+  blog_creation_step3: { ...ANTHROPIC_BASE, maxTokens: 5000 },
+  blog_creation_step4: { ...ANTHROPIC_BASE, maxTokens: 5000 },
+  blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 5000 },
+  blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 5000 },
+  blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 15000 },
 };
 
 // =============================================================================
