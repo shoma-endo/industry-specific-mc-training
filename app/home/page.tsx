@@ -37,6 +37,12 @@ export default function LandingPage() {
               料金
             </Link>
             <Link
+              href="#compliance"
+              className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors"
+            >
+              Google連携
+            </Link>
+            <Link
               href="/privacy"
               className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors"
             >
@@ -58,7 +64,7 @@ export default function LandingPage() {
         {/* Hero Section */}
         <section className="relative pt-20 pb-32 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-white -z-10" />
-          <div className="container mx-auto px-4 text-center">
+          <div className="mx-auto w-full max-w-7xl px-4 text-center">
             <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 text-blue-800 text-sm font-medium mb-8 animate-fade-in-up">
               <span className="w-2 h-2 rounded-full bg-blue-600 mr-2" />
               LINE公式アカウントで簡単ログイン
@@ -98,7 +104,7 @@ export default function LandingPage() {
 
         {/* Features Section */}
         <section id="features" className="py-24 bg-white">
-          <div className="container mx-auto px-4">
+          <div className="mx-auto w-full max-w-7xl px-4">
             <div className="text-center mb-16">
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
                 マーケティング業務を効率化する主要機能
@@ -130,7 +136,8 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">検索パフォーマンス分析</h3>
                 <p className="text-gray-600 leading-relaxed">
-                  Google Search Console（読み取り専用アクセス）と連携し、検索クエリ、クリック数、表示回数、掲載順位を自動取得。取得したデータに基づき、AIがコンテンツ改善案を提示します。
+                  Google Search
+                  Console（読み取り専用アクセス）と連携し、検索クエリ、クリック数、表示回数、掲載順位を自動取得。取得したデータに基づき、AIがコンテンツ改善案を提示します。
                 </p>
               </div>
 
@@ -148,9 +155,104 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Compliance Section */}
+        <section id="compliance" className="py-24 bg-blue-50/50">
+          <div className="mx-auto w-full max-w-7xl px-4">
+            <div className="text-center mb-16">
+              <p className="text-sm uppercase tracking-wider text-blue-500 font-semibold mb-2">
+                Google OAuth Verification
+              </p>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Google Search Console 連携とデータ取り扱い
+              </h2>
+              <p className="text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                読み取り専用スコープ
+                <code className="mx-2 bg-white/80 px-2 py-1 rounded text-sm">
+                  https://www.googleapis.com/auth/webmasters.readonly
+                </code>
+                のみを使用し、ユーザー許諾を得た GSC データから検索指標を分析します。取得データは
+                Supabase（ap-northeast-1）で暗号化保管し、Vercel
+                東京リージョンから安全に配信されます。
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-8 mb-12">
+              <div className="p-8 bg-white rounded-2xl shadow-md border border-blue-100">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">OAuth フロー概要</h3>
+                <ul className="space-y-3 text-gray-600 text-sm">
+                  <li>1. LINE LIFF で本人確認後、Google に遷移</li>
+                  <li>2. 読み取り専用スコープの許諾内容を確認</li>
+                  <li>3. 許可後、ダッシュボードで検索データを参照</li>
+                  <li>4. データをもとに AI が改善案を提示</li>
+                </ul>
+                <div className="mt-4 text-xs text-gray-500">
+                  OAuth 画面・スコープ詳細のデモ動画は現在撮影中です（公開予定: 2025年Q4）。
+                </div>
+              </div>
+              <div className="p-8 bg-white rounded-2xl shadow-md border border-blue-100">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">データ使用と保護</h3>
+                <ul className="space-y-3 text-gray-600 text-sm">
+                  <li>GSC データは読み取りのみで、書き込み・削除は行いません。</li>
+                  <li>Supabase（ap-northeast-1）で AES-256 暗号化し、30日以内に削除要求へ対応。</li>
+                  <li>Vercel 東京リージョン + Cloudflare で TLS 経由の通信を強制。</li>
+                  <li>
+                    LLM への入力はユーザーが明示的に送信した文章のみ。学習データへ自動転用しません。
+                  </li>
+                </ul>
+              </div>
+              <div className="p-8 bg-white rounded-2xl shadow-md border border-blue-100">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">サポート窓口</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  連携解除・データ削除・審査用アクセス情報は、以下までご連絡ください。
+                </p>
+                <ul className="mt-4 text-sm text-gray-700 space-y-2">
+                  <li>株式会社ドリームプランナー</li>
+                  <li>〒716-1551 岡山県加賀郡吉備中央町北702</li>
+                  <li>電話: 080-9880-5989</li>
+                  <li>メール: support@dreamplanner.co.jp</li>
+                </ul>
+                <p className="text-xs text-gray-500 mt-4">受付時間: 平日 10:00-17:00（祝日除く）</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-blue-100 p-8 md:p-12 shadow-md">
+              <div className="grid md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    想定UIと提供タイミング
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Search Console 連携後は、`GSC
+                    インサイト`（開発中）画面で検索クエリ、クリック数、表示回数、平均掲載順位を一覧表示し、AI
+                    チャットへ引き渡します。画面設計・スクリーンショットは申請時の付録資料およびデモ動画に含めます。
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">関連ドキュメント</h3>
+                  <ul className="space-y-2 text-sm text-blue-700">
+                    <li>
+                      <Link href="/privacy" className="hover:underline">
+                        プライバシーポリシー（Googleユーザーデータの扱い）
+                      </Link>
+                    </li>
+                    <li>
+                      <span className="text-gray-500">デモ動画（公開準備中 / 2025年Q4予定）</span>
+                    </li>
+                    <li>
+                      <span className="text-gray-500">
+                        テストアカウント情報は審査担当者と個別共有します
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Pricing Section */}
         <section id="pricing" className="py-24 bg-gray-50">
-          <div className="container mx-auto px-4">
+          <div className="mx-auto w-full max-w-7xl px-4">
             <div className="text-center mb-16">
               <h2 className="text-3xl font-bold text-gray-900 mb-4">シンプルな料金プラン</h2>
               <p className="text-gray-600">まずは無料トライアルから始めましょう。</p>
@@ -199,13 +301,18 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-300 py-12">
-        <div className="container mx-auto px-4">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div className="col-span-2">
-              <h4 className="text-white font-bold text-lg mb-4">業界特化MC養成講座</h4>
-              <p className="text-sm text-gray-400 max-w-xs">
-                AIとデータの力で、マーケティング業務を革新します。
+              <h4 className="text-white font-bold text-lg mb-4">Industry Specific MC Training</h4>
+              <p className="text-sm text-gray-400 max-w-sm">
+                株式会社ドリームプランナーが提供する業界特化型マーケティングオートメーション。
+                Google Search Console データと AI を組み合わせ、SEO 改善の意思決定を支援します。
               </p>
+              <div className="mt-4 text-xs text-gray-500 space-y-1">
+                <p>〒716-1551 岡山県加賀郡吉備中央町北702</p>
+                <p>電話: 080-9880-5989 / support@dreamplanner.co.jp</p>
+              </div>
             </div>
             <div>
               <h4 className="text-white font-bold mb-4">リンク</h4>
@@ -220,6 +327,11 @@ export default function LandingPage() {
                     料金プラン
                   </Link>
                 </li>
+                <li>
+                  <Link href="#compliance" className="hover:text-white transition-colors">
+                    Google連携情報
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
@@ -231,20 +343,16 @@ export default function LandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white transition-colors">
-                    特定商取引法に基づく表記
-                  </Link>
+                  <span className="text-gray-500">特定商取引法に基づく表記（準備中）</span>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white transition-colors">
-                    利用規約
-                  </Link>
+                  <span className="text-gray-500">利用規約（準備中）</span>
                 </li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 text-center text-sm text-gray-500">
-            &copy; {new Date().getFullYear()} Industry Specific MC Training. All rights reserved.
+            &copy; {new Date().getFullYear()} Dream Planner Inc. All rights reserved.
           </div>
         </div>
       </footer>
