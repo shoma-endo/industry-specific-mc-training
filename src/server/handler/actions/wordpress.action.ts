@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { withAuth } from '@/server/middleware/withAuth';
 import { SupabaseService } from '@/server/services/supabaseService';
 import {
   WordPressSettings,
@@ -56,23 +57,9 @@ function isDuplicateCanonicalConstraint(error: {
  * WordPress設定を取得
  */
 export async function getWordPressSettings(): Promise<WordPressSettings | null> {
-  const cookieStore = await cookies();
-
-  // 認証情報はCookieから取得（セキュリティベストプラクティス）
-  const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
-
-  if (!liffAccessToken) {
-    throw new Error('認証情報が見つかりません');
-  }
-
-  const authResult = await authMiddleware(liffAccessToken, refreshToken);
-
-  if (authResult.error || !authResult.userId) {
-    throw new Error('認証に失敗しました');
-  }
-
-  return await supabaseService.getWordPressSettingsByUserId(authResult.userId);
+  return withAuth(async ({ userId }) => {
+    return await supabaseService.getWordPressSettingsByUserId(userId);
+  });
 }
 
 async function getRestRequestConfig(
@@ -458,60 +445,52 @@ async function parseRssAndNormalize(
 }
 
 export async function getWordPressPostsForCurrentUser(page: number, perPage: number) {
-  const cookieStore = await cookies();
+  return withAuth(async ({ userId, cookieStore }) => {
+    const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
 
-  const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
-
-  const authResult = await authMiddleware(liffAccessToken, refreshToken);
-  if (authResult.error || !authResult.userId) {
-    return { success: false as const, error: 'ユーザー認証に失敗しました' };
-  }
-
-  const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
-
-  if (!wpSettings) {
-    return { success: true as const, data: { posts: [], total: 0 } };
-  }
-
-  const getCookie = (name: string) => cookieStore.get(name)?.value;
-  const rest = await getRestRequestConfig(wpSettings, getCookie, page, perPage);
-  if (rest.error) {
-    return { success: false as const, error: rest.error };
-  }
-
-  const { resp, lastStatus, lastErrorText } = await tryFetchCandidates(
-    rest.candidates,
-    rest.headers
-  );
-
-  if (!resp) {
-    if (rest.isSelfHosted && rest.siteUrlClean) {
-      const rss = await parseRssAndNormalize(rest.siteUrlClean, page, perPage);
-      if (rss) {
-        return { success: true as const, data: { posts: rss.normalized, total: rss.total } };
-      }
+    if (!wpSettings) {
+      return { success: true as const, data: { posts: [], total: 0 } };
     }
-    return {
-      success: false as const,
-      error: `WordPress投稿取得エラー: HTTP ${lastStatus} ${lastErrorText}`,
-    };
-  }
 
-  const postsJson: unknown = await resp.json();
-  const headerTotal = parseInt(resp.headers.get('X-WP-Total') || '0', 10);
-  const total =
-    Number.isFinite(headerTotal) && headerTotal > 0
-      ? headerTotal
-      : Array.isArray(postsJson)
-        ? (postsJson as unknown[]).length
-        : 0;
-  const posts: WordPressRestPost[] = Array.isArray(postsJson)
-    ? (postsJson as WordPressRestPost[])
-    : [];
-  const normalized = normalizeWordPressRestPosts(posts);
+    const getCookie = (name: string) => cookieStore.get(name)?.value;
+    const rest = await getRestRequestConfig(wpSettings, getCookie, page, perPage);
+    if (rest.error) {
+      return { success: false as const, error: rest.error };
+    }
 
-  return { success: true as const, data: { posts: normalized, total } };
+    const { resp, lastStatus, lastErrorText } = await tryFetchCandidates(
+      rest.candidates,
+      rest.headers
+    );
+
+    if (!resp) {
+      if (rest.isSelfHosted && rest.siteUrlClean) {
+        const rss = await parseRssAndNormalize(rest.siteUrlClean, page, perPage);
+        if (rss) {
+          return { success: true as const, data: { posts: rss.normalized, total: rss.total } };
+        }
+      }
+      return {
+        success: false as const,
+        error: `WordPress投稿取得エラー: HTTP ${lastStatus} ${lastErrorText}`,
+      };
+    }
+
+    const postsJson: unknown = await resp.json();
+    const headerTotal = parseInt(resp.headers.get('X-WP-Total') || '0', 10);
+    const total =
+      Number.isFinite(headerTotal) && headerTotal > 0
+        ? headerTotal
+        : Array.isArray(postsJson)
+          ? (postsJson as unknown[]).length
+          : 0;
+    const posts: WordPressRestPost[] = Array.isArray(postsJson)
+      ? (postsJson as WordPressRestPost[])
+      : [];
+    const normalized = normalizeWordPressRestPosts(posts);
+
+    return { success: true as const, data: { posts: normalized, total } };
+  });
 }
 
 // ==========================================
@@ -524,167 +503,155 @@ export async function upsertContentAnnotation(
   | { success: false; error: string }
   | { success: true; canonical_url?: string | null; wp_post_id?: number | null; wp_post_title?: string | null }
 > {
-  const cookieStore = await cookies();
-  const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
-  const authResult = await authMiddleware(liffAccessToken, refreshToken);
-  if (authResult.error || !authResult.userId) {
-    return { success: false as const, error: 'ユーザー認証に失敗しました' };
-  }
+  return withAuth(async ({ userId, cookieStore }) => {
+    const supabaseServiceLocal = new SupabaseService();
+    const client = supabaseServiceLocal.getClient();
 
-  const supabaseServiceLocal = new SupabaseService();
-  const client = supabaseServiceLocal.getClient();
+    const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
+    const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
+    let existingAnnotation: ExistingAnnotationData | null = null;
+    let canonicalMatchesExisting = false;
 
-  const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
-  const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
-  let existingAnnotation: ExistingAnnotationData | null = null;
-  let canonicalMatchesExisting = false;
+    if (canonicalProvided && payload.wp_post_id !== undefined && payload.wp_post_id !== null) {
+      const { data: existingData, error: existingError } = await client
+        .from('content_annotations')
+        .select('canonical_url, wp_post_id, wp_post_title')
+        .eq('user_id', userId)
+        .eq('wp_post_id', payload.wp_post_id)
+        .maybeSingle();
+      if (!existingError && existingData) {
+        const typed = existingData as ExistingAnnotationData;
+        existingAnnotation = {
+          canonical_url: typed.canonical_url ?? null,
+          wp_post_id: typed.wp_post_id ?? null,
+          wp_post_title: typed.wp_post_title ?? null,
+        };
 
-  if (canonicalProvided && payload.wp_post_id !== undefined && payload.wp_post_id !== null) {
-    const { data: existingData, error: existingError } = await client
-      .from('content_annotations')
-      .select('canonical_url, wp_post_id, wp_post_title')
-      .eq('user_id', authResult.userId)
-      .eq('wp_post_id', payload.wp_post_id)
-      .maybeSingle();
-    if (!existingError && existingData) {
-      const typed = existingData as ExistingAnnotationData;
-      existingAnnotation = {
-        canonical_url: typed.canonical_url ?? null,
-        wp_post_id: typed.wp_post_id ?? null,
-        wp_post_title: typed.wp_post_title ?? null,
-      };
+        const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
+        if (existingCanonicalRaw || nextCanonicalRaw) {
+          try {
+            const existingNormalized = existingCanonicalRaw ? new URL(existingCanonicalRaw).toString() : '';
+            const nextNormalized = nextCanonicalRaw ? new URL(nextCanonicalRaw).toString() : '';
+            canonicalMatchesExisting = existingNormalized === nextNormalized;
+          } catch {
+            canonicalMatchesExisting = existingCanonicalRaw === nextCanonicalRaw;
+          }
+        } else {
+          canonicalMatchesExisting = true;
+        }
+      }
+    }
 
-      const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
-      if (existingCanonicalRaw || nextCanonicalRaw) {
-        try {
-          const existingNormalized = existingCanonicalRaw ? new URL(existingCanonicalRaw).toString() : '';
-          const nextNormalized = nextCanonicalRaw ? new URL(nextCanonicalRaw).toString() : '';
-          canonicalMatchesExisting = existingNormalized === nextNormalized;
-        } catch {
-          canonicalMatchesExisting = existingCanonicalRaw === nextCanonicalRaw;
+    let resolvedCanonicalUrl: string | null = payload.canonical_url ?? null;
+    let resolvedWpId: number | null = payload.wp_post_id ?? null;
+    let resolvedWpTitle: string | null | undefined = undefined;
+
+    if (canonicalProvided) {
+      const resolution = await resolveCanonicalAndWpPostId({
+        canonicalUrl: payload.canonical_url,
+        supabaseService: supabaseServiceLocal,
+        userId,
+        cookieStore,
+      });
+      if (!resolution.success) {
+        if (canonicalMatchesExisting && existingAnnotation) {
+          resolvedCanonicalUrl = existingAnnotation.canonical_url ?? null;
+          resolvedWpId = existingAnnotation.wp_post_id ?? null;
+          resolvedWpTitle = existingAnnotation.wp_post_title ?? null;
+        } else {
+          return { success: false as const, error: resolution.error };
         }
       } else {
-        canonicalMatchesExisting = true;
+        resolvedCanonicalUrl = resolution.canonicalUrl;
+        resolvedWpId = resolution.wpPostId;
+        resolvedWpTitle = resolution.wpPostTitle ?? null;
       }
     }
-  }
 
-  let resolvedCanonicalUrl: string | null = payload.canonical_url ?? null;
-  let resolvedWpId: number | null = payload.wp_post_id ?? null;
-  let resolvedWpTitle: string | null | undefined = undefined;
+    if (canonicalProvided && resolvedCanonicalUrl && !canonicalMatchesExisting) {
+      const { data: duplicateRows, error: duplicateError } = await client
+        .from('content_annotations')
+        .select('session_id, wp_post_id')
+        .eq('user_id', userId)
+        .eq('canonical_url', resolvedCanonicalUrl);
 
-  if (canonicalProvided) {
-    const resolution = await resolveCanonicalAndWpPostId({
-      canonicalUrl: payload.canonical_url,
-      supabaseService: supabaseServiceLocal,
-      userId: authResult.userId,
-      cookieStore,
-    });
-    if (!resolution.success) {
-      if (canonicalMatchesExisting && existingAnnotation) {
-        resolvedCanonicalUrl = existingAnnotation.canonical_url ?? null;
-        resolvedWpId = existingAnnotation.wp_post_id ?? null;
-        resolvedWpTitle = existingAnnotation.wp_post_title ?? null;
-      } else {
-        return { success: false as const, error: resolution.error };
+      if (duplicateError) {
+        return { success: false as const, error: duplicateError.message };
       }
-    } else {
-      resolvedCanonicalUrl = resolution.canonicalUrl;
-      resolvedWpId = resolution.wpPostId;
-      resolvedWpTitle = resolution.wpPostTitle ?? null;
-    }
-  }
 
-  if (canonicalProvided && resolvedCanonicalUrl && !canonicalMatchesExisting) {
-    const { data: duplicateRows, error: duplicateError } = await client
+      const hasConflict = (duplicateRows ?? []).some(row => {
+        const typed = row as Pick<AnnotationRecord, 'session_id' | 'wp_post_id'>;
+        const sameWp =
+          typeof typed.wp_post_id === 'number' && typeof resolvedWpId === 'number'
+            ? typed.wp_post_id === resolvedWpId
+            : false;
+        return !sameWp;
+      });
+
+      if (hasConflict) {
+        return {
+          success: false as const,
+          error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
+        };
+      }
+    }
+
+    const upsertData: Record<string, unknown> = {
+      user_id: userId,
+      wp_post_id: resolvedWpId,
+      canonical_url: canonicalProvided ? resolvedCanonicalUrl : payload.canonical_url ?? null,
+      main_kw: payload.main_kw ?? null,
+      kw: payload.kw ?? null,
+      impressions: payload.impressions ?? null,
+      persona: payload.persona ?? null,
+      needs: payload.needs ?? null,
+      goal: payload.goal ?? null,
+      prep: payload.prep ?? null,
+      basic_structure: payload.basic_structure ?? null,
+      opening_proposal: payload.opening_proposal ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (canonicalProvided) {
+      upsertData.wp_post_title = resolvedWpTitle ?? null;
+    }
+
+    const { error } = await client
       .from('content_annotations')
-      .select('session_id, wp_post_id')
-      .eq('user_id', authResult.userId)
-      .eq('canonical_url', resolvedCanonicalUrl);
+      .upsert(upsertData, { onConflict: 'user_id,wp_post_id' });
 
-    if (duplicateError) {
-      return { success: false as const, error: duplicateError.message };
+    if (error) {
+      if (isDuplicateCanonicalConstraint(error)) {
+        return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
+      }
+      return { success: false as const, error: error.message };
     }
 
-    const hasConflict = (duplicateRows ?? []).some(row => {
-      const typed = row as Pick<AnnotationRecord, 'session_id' | 'wp_post_id'>;
-      const sameWp =
-        typeof typed.wp_post_id === 'number' && typeof resolvedWpId === 'number'
-          ? typed.wp_post_id === resolvedWpId
-          : false;
-      return !sameWp;
-    });
-
-    if (hasConflict) {
-      return {
-        success: false as const,
-        error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
-      };
-    }
-  }
-
-  const upsertData: Record<string, unknown> = {
-    user_id: authResult.userId,
-    wp_post_id: resolvedWpId,
-    canonical_url: canonicalProvided ? resolvedCanonicalUrl : payload.canonical_url ?? null,
-    main_kw: payload.main_kw ?? null,
-    kw: payload.kw ?? null,
-    impressions: payload.impressions ?? null,
-    persona: payload.persona ?? null,
-    needs: payload.needs ?? null,
-    goal: payload.goal ?? null,
-    prep: payload.prep ?? null,
-    basic_structure: payload.basic_structure ?? null,
-    opening_proposal: payload.opening_proposal ?? null,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (canonicalProvided) {
-    upsertData.wp_post_title = resolvedWpTitle ?? null;
-  }
-
-  const { error } = await client
-    .from('content_annotations')
-    .upsert(upsertData, { onConflict: 'user_id,wp_post_id' });
-
-  if (error) {
-    if (isDuplicateCanonicalConstraint(error)) {
-      return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
-    }
-    return { success: false as const, error: error.message };
-  }
-
-  return {
-    success: true as const,
-    ...(canonicalProvided
-      ? { canonical_url: resolvedCanonicalUrl ?? null, wp_post_id: resolvedWpId ?? null }
-      : {}),
-    ...(canonicalProvided ? { wp_post_title: resolvedWpTitle ?? null } : {}),
-  };
+    return {
+      success: true as const,
+      ...(canonicalProvided
+        ? { canonical_url: resolvedCanonicalUrl ?? null, wp_post_id: resolvedWpId ?? null }
+        : {}),
+      ...(canonicalProvided ? { wp_post_title: resolvedWpTitle ?? null } : {}),
+    };
+  });
 }
 
 export async function getContentAnnotationsForUser(): Promise<
   | { success: false; error: string }
   | { success: true; data: AnnotationRecord[] }
 > {
-  const cookieStore = await cookies();
-  const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
-  const authResult = await authMiddleware(liffAccessToken, refreshToken);
-  if (authResult.error || !authResult.userId) {
-    return { success: false as const, error: 'ユーザー認証に失敗しました' };
-  }
+  return withAuth(async ({ userId }) => {
+    const client = new SupabaseService().getClient();
+    const { data, error } = await client
+      .from('content_annotations')
+      .select('*')
+      .eq('user_id', userId);
 
-  const client = new SupabaseService().getClient();
-  const { data, error } = await client
-    .from('content_annotations')
-    .select('*')
-    .eq('user_id', authResult.userId);
-
-  if (error) return { success: false as const, error: error.message };
-  const typedData = (data ?? []) as AnnotationRecord[];
-  return { success: true as const, data: typedData };
+    if (error) return { success: false as const, error: error.message };
+    const typedData = (data ?? []) as AnnotationRecord[];
+    return { success: true as const, data: typedData };
+  });
 }
 
 // ==========================================
@@ -811,24 +778,19 @@ export async function getContentAnnotationBySession(session_id: string): Promise
   | { success: false; error: string }
   | { success: true; data: AnnotationRecord | null }
 > {
-  const cookieStore = await cookies();
-  const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
-  const authResult = await authMiddleware(liffAccessToken, refreshToken);
-  if (authResult.error || !authResult.userId)
-    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+  return withAuth(async ({ userId }) => {
+    const client = new SupabaseService().getClient();
+    const { data, error } = await client
+      .from('content_annotations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('session_id', session_id)
+      .maybeSingle();
 
-  const client = new SupabaseService().getClient();
-  const { data, error } = await client
-    .from('content_annotations')
-    .select('*')
-    .eq('user_id', authResult.userId)
-    .eq('session_id', session_id)
-    .maybeSingle();
-
-  if (error) return { success: false as const, error: error.message };
-  const typedData = (data ?? null) as AnnotationRecord | null;
-  return { success: true as const, data: typedData };
+    if (error) return { success: false as const, error: error.message };
+    const typedData = (data ?? null) as AnnotationRecord | null;
+    return { success: true as const, data: typedData };
+  });
 }
 
 export async function upsertContentAnnotationBySession(payload: SessionAnnotationUpsertPayload & {
@@ -837,154 +799,149 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
   | { success: false; error: string }
   | { success: true; canonical_url?: string | null; wp_post_id?: number | null; wp_post_title?: string | null }
 > {
-  const cookieStore = await cookies();
-  const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
-  const authResult = await authMiddleware(liffAccessToken, refreshToken);
-  if (authResult.error || !authResult.userId)
-    return { success: false as const, error: 'ユーザー認証に失敗しました' };
+  return withAuth(async ({ userId, cookieStore }) => {
+    const supabaseServiceLocal = new SupabaseService();
+    const client = supabaseServiceLocal.getClient();
 
-  const supabaseServiceLocal = new SupabaseService();
-  const client = supabaseServiceLocal.getClient();
+    const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
+    const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
+    let existingAnnotation: ExistingAnnotationData | null = null;
+    let canonicalMatchesExisting = false;
 
-  const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
-  const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
-  let existingAnnotation: ExistingAnnotationData | null = null;
-  let canonicalMatchesExisting = false;
+    if (canonicalProvided) {
+      const { data: existingData, error: existingError } = await client
+        .from('content_annotations')
+        .select('canonical_url, wp_post_id, wp_post_title')
+        .eq('user_id', userId)
+        .eq('session_id', payload.session_id)
+        .maybeSingle();
+      if (!existingError && existingData) {
+        const typed = existingData as ExistingAnnotationData;
+        existingAnnotation = {
+          canonical_url: typed.canonical_url ?? null,
+          wp_post_id: typed.wp_post_id ?? null,
+          wp_post_title: typed.wp_post_title ?? null,
+        };
 
-  if (canonicalProvided) {
-    const { data: existingData, error: existingError } = await client
-      .from('content_annotations')
-      .select('canonical_url, wp_post_id, wp_post_title')
-      .eq('user_id', authResult.userId)
-      .eq('session_id', payload.session_id)
-      .maybeSingle();
-    if (!existingError && existingData) {
-      const typed = existingData as ExistingAnnotationData;
-      existingAnnotation = {
-        canonical_url: typed.canonical_url ?? null,
-        wp_post_id: typed.wp_post_id ?? null,
-        wp_post_title: typed.wp_post_title ?? null,
-      };
-
-      const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
-      if (existingCanonicalRaw || nextCanonicalRaw) {
-        try {
-          const existingNormalized = existingCanonicalRaw ? new URL(existingCanonicalRaw).toString() : '';
-          const nextNormalized = nextCanonicalRaw ? new URL(nextCanonicalRaw).toString() : '';
-          canonicalMatchesExisting = existingNormalized === nextNormalized;
-        } catch {
-          canonicalMatchesExisting = existingCanonicalRaw === nextCanonicalRaw;
+        const existingCanonicalRaw = (existingAnnotation.canonical_url ?? '').trim();
+        if (existingCanonicalRaw || nextCanonicalRaw) {
+          try {
+            const existingNormalized = existingCanonicalRaw ? new URL(existingCanonicalRaw).toString() : '';
+            const nextNormalized = nextCanonicalRaw ? new URL(nextCanonicalRaw).toString() : '';
+            canonicalMatchesExisting = existingNormalized === nextNormalized;
+          } catch {
+            canonicalMatchesExisting = existingCanonicalRaw === nextCanonicalRaw;
+          }
+        } else {
+          canonicalMatchesExisting = true;
         }
-      } else {
-        canonicalMatchesExisting = true;
       }
     }
-  }
 
-  let resolvedCanonicalUrl: string | null | undefined = undefined;
-  let resolvedWpId: number | null | undefined = undefined;
-  let resolvedWpTitle: string | null | undefined = undefined;
+    let resolvedCanonicalUrl: string | null | undefined = undefined;
+    let resolvedWpId: number | null | undefined = undefined;
+    let resolvedWpTitle: string | null | undefined = undefined;
 
-  if (canonicalProvided) {
-    const resolution = await resolveCanonicalAndWpPostId({
-      canonicalUrl: payload.canonical_url,
-      supabaseService: supabaseServiceLocal,
-      userId: authResult.userId,
-      cookieStore,
-    });
-    if (!resolution.success) {
-      if (canonicalMatchesExisting && existingAnnotation) {
-        resolvedCanonicalUrl = existingAnnotation.canonical_url ?? null;
-        resolvedWpId = existingAnnotation.wp_post_id ?? null;
-        resolvedWpTitle = existingAnnotation.wp_post_title ?? null;
-      } else {
-        return { success: false as const, error: resolution.error };
-      }
-    } else {
-      resolvedCanonicalUrl = resolution.canonicalUrl;
-      resolvedWpId = resolution.wpPostId;
-      resolvedWpTitle = resolution.wpPostTitle ?? null;
-    }
-  }
-
-  if (canonicalProvided && resolvedCanonicalUrl && !canonicalMatchesExisting) {
-    const { data: duplicateRows, error: duplicateError } = await client
-      .from('content_annotations')
-      .select('session_id, wp_post_id')
-      .eq('user_id', authResult.userId)
-      .eq('canonical_url', resolvedCanonicalUrl);
-
-    if (duplicateError) {
-      return { success: false as const, error: duplicateError.message };
-    }
-
-    const hasConflict = (duplicateRows ?? []).some(row => {
-      const typed = row as Pick<AnnotationRecord, 'session_id' | 'wp_post_id'>;
-      const sameSession =
-        typeof typed.session_id === 'string' && typed.session_id === payload.session_id;
-      const sameWp =
-        typeof typed.wp_post_id === 'number' && typeof resolvedWpId === 'number'
-          ? typed.wp_post_id === resolvedWpId
-          : false;
-      return !(sameSession || sameWp);
-    });
-
-    if (hasConflict) {
-      return {
-        success: false as const,
-        error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
-      };
-    }
-  }
-
-  const upsertPayload: Record<string, unknown> = {
-    user_id: authResult.userId,
-    session_id: payload.session_id,
-    main_kw: payload.main_kw ?? null,
-    kw: payload.kw ?? null,
-    impressions: payload.impressions ?? null,
-    persona: payload.persona ?? null,
-    needs: payload.needs ?? null,
-    goal: payload.goal ?? null,
-    prep: payload.prep ?? null,
-    basic_structure: payload.basic_structure ?? null,
-    opening_proposal: payload.opening_proposal ?? null,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (canonicalProvided) {
-    upsertPayload.canonical_url = resolvedCanonicalUrl ?? null;
-    upsertPayload.wp_post_id = resolvedWpId ?? null;
-    upsertPayload.wp_post_title = resolvedWpTitle ?? null;
-  }
-
-  const { error } = await client
-    .from('content_annotations')
-    .upsert(upsertPayload, { onConflict: 'user_id,session_id' });
-
-  if (error) {
-    if (isDuplicateCanonicalConstraint(error)) {
-      return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
-    }
-    return { success: false as const, error: error.message };
-  }
-  return {
-    success: true as const,
-    ...(canonicalProvided
-      ? {
-          canonical_url: resolvedCanonicalUrl ?? null,
-          wp_post_id: resolvedWpId ?? null,
+    if (canonicalProvided) {
+      const resolution = await resolveCanonicalAndWpPostId({
+        canonicalUrl: payload.canonical_url,
+        supabaseService: supabaseServiceLocal,
+        userId,
+        cookieStore,
+      });
+      if (!resolution.success) {
+        if (canonicalMatchesExisting && existingAnnotation) {
+          resolvedCanonicalUrl = existingAnnotation.canonical_url ?? null;
+          resolvedWpId = existingAnnotation.wp_post_id ?? null;
+          resolvedWpTitle = existingAnnotation.wp_post_title ?? null;
+        } else {
+          return { success: false as const, error: resolution.error };
         }
-      : {}),
-    ...(canonicalProvided ? { wp_post_title: resolvedWpTitle ?? null } : {}),
-  };
+      } else {
+        resolvedCanonicalUrl = resolution.canonicalUrl;
+        resolvedWpId = resolution.wpPostId;
+        resolvedWpTitle = resolution.wpPostTitle ?? null;
+      }
+    }
+
+    if (canonicalProvided && resolvedCanonicalUrl && !canonicalMatchesExisting) {
+      const { data: duplicateRows, error: duplicateError } = await client
+        .from('content_annotations')
+        .select('session_id, wp_post_id')
+        .eq('user_id', userId)
+        .eq('canonical_url', resolvedCanonicalUrl);
+
+      if (duplicateError) {
+        return { success: false as const, error: duplicateError.message };
+      }
+
+      const hasConflict = (duplicateRows ?? []).some(row => {
+        const typed = row as Pick<AnnotationRecord, 'session_id' | 'wp_post_id'>;
+        const sameSession =
+          typeof typed.session_id === 'string' && typed.session_id === payload.session_id;
+        const sameWp =
+          typeof typed.wp_post_id === 'number' && typeof resolvedWpId === 'number'
+            ? typed.wp_post_id === resolvedWpId
+            : false;
+        return !(sameSession || sameWp);
+      });
+
+      if (hasConflict) {
+        return {
+          success: false as const,
+          error: DUPLICATE_CANONICAL_ERROR_MESSAGE,
+        };
+      }
+    }
+
+    const upsertPayload: Record<string, unknown> = {
+      user_id: userId,
+      session_id: payload.session_id,
+      main_kw: payload.main_kw ?? null,
+      kw: payload.kw ?? null,
+      impressions: payload.impressions ?? null,
+      persona: payload.persona ?? null,
+      needs: payload.needs ?? null,
+      goal: payload.goal ?? null,
+      prep: payload.prep ?? null,
+      basic_structure: payload.basic_structure ?? null,
+      opening_proposal: payload.opening_proposal ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (canonicalProvided) {
+      upsertPayload.canonical_url = resolvedCanonicalUrl ?? null;
+      upsertPayload.wp_post_id = resolvedWpId ?? null;
+      upsertPayload.wp_post_title = resolvedWpTitle ?? null;
+    }
+
+    const { error } = await client
+      .from('content_annotations')
+      .upsert(upsertPayload, { onConflict: 'user_id,session_id' });
+
+    if (error) {
+      if (isDuplicateCanonicalConstraint(error)) {
+        return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
+      }
+      return { success: false as const, error: error.message };
+    }
+    return {
+      success: true as const,
+      ...(canonicalProvided
+        ? {
+            canonical_url: resolvedCanonicalUrl ?? null,
+            wp_post_id: resolvedWpId ?? null,
+          }
+        : {}),
+      ...(canonicalProvided ? { wp_post_title: resolvedWpTitle ?? null } : {}),
+    };
+  });
 }
 
 export interface EnsureAnnotationChatSessionPayload {
-  sessionId?: string | null;
-  annotationId?: string | null;
-  wpPostId?: number | null;
+    sessionId?: string | null;
+    annotationId?: string | null;
+    wpPostId?: number | null;
   wpPostTitle?: string | null;
   canonicalUrl?: string | null;
   fallbackTitle?: string | null;
@@ -993,16 +950,9 @@ export interface EnsureAnnotationChatSessionPayload {
 export async function ensureAnnotationChatSession(
   payload: EnsureAnnotationChatSessionPayload
 ): Promise<{ success: true; sessionId: string } | { success: false; error: string }> {
-  const cookieStore = await cookies();
-  const liffAccessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
-  const authResult = await authMiddleware(liffAccessToken, refreshToken);
-  if (authResult.error || !authResult.userId) {
-    return { success: false as const, error: 'ユーザー認証に失敗しました' };
-  }
-
-  const service = new SupabaseService();
-  const client = service.getClient();
+  return withAuth(async ({ userId }) => {
+    const service = new SupabaseService();
+    const client = service.getClient();
 
   const annotationId =
     payload.annotationId && payload.annotationId.trim().length > 0
@@ -1012,158 +962,159 @@ export async function ensureAnnotationChatSession(
   type AnnotationByIdRow = { id: string; session_id: string | null; wp_post_id: number | null };
   let annotationById: AnnotationByIdRow | null = null;
 
-  if (annotationId) {
-    const { data, error } = await client
-      .from('content_annotations')
-      .select('id, session_id, wp_post_id')
-      .eq('user_id', authResult.userId)
-      .eq('id', annotationId)
-      .maybeSingle();
+    if (annotationId) {
+      const { data, error } = await client
+        .from('content_annotations')
+        .select('id, session_id, wp_post_id')
+        .eq('user_id', userId)
+        .eq('id', annotationId)
+        .maybeSingle();
 
-    if (error) {
-      return { success: false as const, error: error.message };
+      if (error) {
+        return { success: false as const, error: error.message };
+      }
+
+      annotationById = (data as AnnotationByIdRow | null) ?? null;
     }
 
-    annotationById = (data as AnnotationByIdRow | null) ?? null;
-  }
+    let sessionId: string | null = payload.sessionId?.trim() ? payload.sessionId.trim()! : null;
 
-  let sessionId: string | null = payload.sessionId?.trim() ? payload.sessionId.trim()! : null;
-
-  if (!sessionId && annotationById?.session_id) {
-    sessionId = annotationById.session_id;
-  }
-
-  if (sessionId) {
-    const existingSession = await service.getChatSessionById(sessionId, authResult.userId);
-    if (!existingSession.success) {
-      return { success: false as const, error: existingSession.error.userMessage };
+    if (!sessionId && annotationById?.session_id) {
+      sessionId = annotationById.session_id;
     }
-    if (!existingSession.data) {
-      sessionId = null;
+
+    if (sessionId) {
+      const existingSession = await service.getChatSessionById(sessionId, userId);
+      if (!existingSession.success) {
+        return { success: false as const, error: existingSession.error.userMessage };
+      }
+      if (!existingSession.data) {
+        sessionId = null;
+      }
     }
-  }
 
-  const now = Date.now();
-  const nowIso = new Date(now).toISOString();
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
 
-  if (!sessionId) {
-    sessionId = randomUUID();
-    const baseTitle =
-      (payload.wpPostTitle && payload.wpPostTitle.trim()) ||
-      (payload.fallbackTitle && payload.fallbackTitle.trim()) ||
-      'チャットセッション';
+    if (!sessionId) {
+      sessionId = randomUUID();
+      const baseTitle =
+        (payload.wpPostTitle && payload.wpPostTitle.trim()) ||
+        (payload.fallbackTitle && payload.fallbackTitle.trim()) ||
+        'チャットセッション';
 
-    const session: DbChatSession = {
-      id: sessionId,
-      user_id: authResult.userId,
-      title: baseTitle.length > 60 ? `${baseTitle.slice(0, 57)}...` : baseTitle,
-      created_at: now,
-      last_message_at: now,
+      const session: DbChatSession = {
+        id: sessionId,
+        user_id: userId,
+        title: baseTitle.length > 60 ? `${baseTitle.slice(0, 57)}...` : baseTitle,
+        created_at: now,
+        last_message_at: now,
+      };
+
+      const createResult = await service.createChatSession(session);
+      if (!createResult.success) {
+        return { success: false as const, error: createResult.error.userMessage };
+      }
+    }
+
+    const hasValidWpId =
+      typeof payload.wpPostId === 'number' && Number.isFinite(payload.wpPostId);
+    const annotationUpdate: Record<string, unknown> = {
+      session_id: sessionId,
+      updated_at: nowIso,
     };
 
-    const createResult = await service.createChatSession(session);
-    if (!createResult.success) {
-      return { success: false as const, error: createResult.error.userMessage };
+    if (hasValidWpId) {
+      annotationUpdate.wp_post_id = payload.wpPostId;
     }
-  }
-
-  const hasValidWpId =
-    typeof payload.wpPostId === 'number' && Number.isFinite(payload.wpPostId);
-  const annotationUpdate: Record<string, unknown> = {
-    session_id: sessionId,
-    updated_at: nowIso,
-  };
-
-  if (hasValidWpId) {
-    annotationUpdate.wp_post_id = payload.wpPostId;
-  }
-  if (payload.wpPostTitle !== undefined) {
-    annotationUpdate.wp_post_title = payload.wpPostTitle ?? null;
-  }
-  if (payload.canonicalUrl !== undefined) {
-    annotationUpdate.canonical_url =
-      payload.canonicalUrl && payload.canonicalUrl.trim().length > 0
-        ? payload.canonicalUrl
-        : null;
-  }
-
-  let annotationLinked = false;
-
-  if (annotationId && annotationById) {
-    const { error: updateByIdError } = await client
-      .from('content_annotations')
-      .update(annotationUpdate)
-      .eq('user_id', authResult.userId)
-      .eq('id', annotationId);
-    if (updateByIdError) {
-      return { success: false as const, error: updateByIdError.message };
+    if (payload.wpPostTitle !== undefined) {
+      annotationUpdate.wp_post_title = payload.wpPostTitle ?? null;
     }
-    annotationLinked = true;
-  }
-
-  if (!annotationLinked && hasValidWpId) {
-    const { error: fetchByWpError, data: existingByWp } = await client
-      .from('content_annotations')
-      .select('session_id')
-      .eq('user_id', authResult.userId)
-      .eq('wp_post_id', payload.wpPostId)
-      .maybeSingle();
-
-    if (fetchByWpError) {
-      return { success: false as const, error: fetchByWpError.message };
+    if (payload.canonicalUrl !== undefined) {
+      annotationUpdate.canonical_url =
+        payload.canonicalUrl && payload.canonicalUrl.trim().length > 0
+          ? payload.canonicalUrl
+          : null;
     }
 
-    if (existingByWp) {
+    let annotationLinked = false;
+
+    if (annotationId && annotationById) {
+      const { error: updateByIdError } = await client
+        .from('content_annotations')
+        .update(annotationUpdate)
+        .eq('user_id', userId)
+        .eq('id', annotationId);
+      if (updateByIdError) {
+        return { success: false as const, error: updateByIdError.message };
+      }
       annotationLinked = true;
-      const { error: updateError } = await client
-        .from('content_annotations')
-        .update(annotationUpdate)
-        .eq('user_id', authResult.userId)
-        .eq('wp_post_id', payload.wpPostId);
-      if (updateError) {
-        return { success: false as const, error: updateError.message };
-      }
-    }
-  }
-
-  if (!annotationLinked) {
-    const { error: fetchBySessionError, data: existingBySession } = await client
-      .from('content_annotations')
-      .select('id')
-      .eq('user_id', authResult.userId)
-      .eq('session_id', sessionId)
-      .maybeSingle();
-
-    if (fetchBySessionError) {
-      return { success: false as const, error: fetchBySessionError.message };
     }
 
-    if (existingBySession) {
-      const { error: updateError } = await client
+    if (!annotationLinked && hasValidWpId) {
+      const { error: fetchByWpError, data: existingByWp } = await client
         .from('content_annotations')
-        .update(annotationUpdate)
-        .eq('user_id', authResult.userId)
-        .eq('session_id', sessionId);
-      if (updateError) {
-        return { success: false as const, error: updateError.message };
+        .select('session_id')
+        .eq('user_id', userId)
+        .eq('wp_post_id', payload.wpPostId)
+        .maybeSingle();
+
+      if (fetchByWpError) {
+        return { success: false as const, error: fetchByWpError.message };
       }
-    } else {
-      const insertPayload: Record<string, unknown> = {
-        user_id: authResult.userId,
-        session_id: sessionId,
-        ...annotationUpdate,
-      };
-      const { error: insertError } = await client
-        .from('content_annotations')
-        .insert(insertPayload);
-      if (insertError) {
-        if (isDuplicateCanonicalConstraint(insertError)) {
-          return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
+
+      if (existingByWp) {
+        annotationLinked = true;
+        const { error: updateError } = await client
+          .from('content_annotations')
+          .update(annotationUpdate)
+          .eq('user_id', userId)
+          .eq('wp_post_id', payload.wpPostId);
+        if (updateError) {
+          return { success: false as const, error: updateError.message };
         }
-        return { success: false as const, error: insertError.message };
       }
     }
-  }
 
-  return { success: true as const, sessionId };
+    if (!annotationLinked) {
+      const { error: fetchBySessionError, data: existingBySession } = await client
+        .from('content_annotations')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('session_id', sessionId)
+        .maybeSingle();
+
+      if (fetchBySessionError) {
+        return { success: false as const, error: fetchBySessionError.message };
+      }
+
+      if (existingBySession) {
+        const { error: updateError } = await client
+          .from('content_annotations')
+          .update(annotationUpdate)
+          .eq('user_id', userId)
+          .eq('session_id', sessionId);
+        if (updateError) {
+          return { success: false as const, error: updateError.message };
+        }
+      } else {
+        const insertPayload: Record<string, unknown> = {
+          user_id: userId,
+          session_id: sessionId,
+          ...annotationUpdate,
+        };
+        const { error: insertError } = await client
+          .from('content_annotations')
+          .insert(insertPayload);
+        if (insertError) {
+          if (isDuplicateCanonicalConstraint(insertError)) {
+            return { success: false as const, error: DUPLICATE_CANONICAL_ERROR_MESSAGE };
+          }
+          return { success: false as const, error: insertError.message };
+        }
+      }
+    }
+
+    return { success: true as const, sessionId };
+  });
 }
