@@ -1,0 +1,173 @@
+import { SupabaseService } from '@/server/services/supabaseService';
+import { getGscEvaluationConfig } from '@/server/lib/gscConfig';
+import type { GscEvaluationOutcome, GscEvaluationStage, GscPageMetric } from '@/types/gsc';
+
+interface EvaluationResultSummary {
+  processed: number;
+  improved: number;
+  advanced: number;
+  skippedNoMetrics: number;
+}
+
+type EvaluationRow = {
+  id: string;
+  user_id: string;
+  content_annotation_id: string;
+  property_uri: string;
+  current_stage: number;
+  last_evaluated_on?: string | null;
+  next_evaluation_on: string;
+  last_seen_position?: number | null;
+  status: string;
+};
+
+export class GoogleSearchConsoleEvaluationService {
+  private readonly supabaseService = new SupabaseService();
+
+  async runDueEvaluationsForUser(userId: string): Promise<EvaluationResultSummary> {
+    const today = this.todayISO();
+    const { intervalDays } = getGscEvaluationConfig();
+
+    const summary: EvaluationResultSummary = {
+      processed: 0,
+      improved: 0,
+      advanced: 0,
+      skippedNoMetrics: 0,
+    };
+
+    // 期限が来ているアクティブな評価対象を取得
+    const { data: evaluations, error: evalError } = await this.supabaseService
+      .getClient()
+      .from('gsc_article_evaluations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .lte('next_evaluation_on', today);
+
+    if (evalError) {
+      throw new Error(evalError.message || '評価対象の取得に失敗しました');
+    }
+
+    const evaluationRows = (evaluations ?? []) as EvaluationRow[];
+
+    for (const evaluation of evaluationRows) {
+      const metric = await this.fetchLatestMetric(userId, evaluation);
+
+      if (!metric) {
+        summary.skippedNoMetrics += 1;
+        continue;
+      }
+
+      const lastSeen = this.toNumberOrNull(evaluation.last_seen_position);
+      const currentPos = this.toNumberOrNull(metric.position);
+
+      if (currentPos === null) {
+        summary.skippedNoMetrics += 1;
+        continue;
+      }
+
+      const outcome = this.judgeOutcome(lastSeen, currentPos);
+      const nextStage = outcome === 'improved' ? 1 : Math.min((evaluation.current_stage ?? 1) + 1, 4);
+
+      const nextEvaluationOn = this.addDaysISO(today, intervalDays);
+
+      // 更新: evaluations
+      const { error: updateError } = await this.supabaseService
+        .getClient()
+        .from('gsc_article_evaluations')
+        .update({
+          last_seen_position: currentPos,
+          last_evaluated_on: today,
+          next_evaluation_on: nextEvaluationOn,
+          current_stage: nextStage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', evaluation.id)
+        .eq('user_id', userId);
+
+      if (updateError) {
+        throw new Error(updateError.message || '評価レコード更新に失敗しました');
+      }
+
+      // 挿入: history
+      const { error: historyError } = await this.supabaseService
+        .getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: evaluation.content_annotation_id,
+          evaluation_date: today,
+          stage: evaluation.current_stage as GscEvaluationStage,
+          previous_position: lastSeen,
+          current_position: currentPos,
+          outcome,
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (historyError) {
+        throw new Error(historyError.message || '評価履歴の保存に失敗しました');
+      }
+
+      summary.processed += 1;
+      if (outcome === 'improved') {
+        summary.improved += 1;
+      } else {
+        summary.advanced += 1; // 停滞/悪化はステージを進めた扱い
+      }
+    }
+
+    return summary;
+  }
+
+  /** 最新の日次メトリクスを取得（content_annotation_id で直接紐付け） */
+  private async fetchLatestMetric(
+    userId: string,
+    evaluation: EvaluationRow
+  ): Promise<Pick<GscPageMetric, 'position' | 'date'> | null> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('gsc_page_metrics')
+      .select('position, date')
+      .eq('user_id', userId)
+      .eq('property_uri', evaluation.property_uri)
+      .eq('content_annotation_id', evaluation.content_annotation_id)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message || 'メトリクスの取得に失敗しました');
+    }
+
+    if (!data) return null;
+    return data as Pick<GscPageMetric, 'position' | 'date'>;
+  }
+
+  private judgeOutcome(
+    lastSeen: number | null,
+    currentPos: number
+  ): GscEvaluationOutcome {
+    if (lastSeen === null) return 'no_change';
+    if (currentPos < lastSeen) return 'improved';
+    if (currentPos > lastSeen) return 'worse';
+    return 'no_change';
+  }
+
+  private todayISO(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  private addDaysISO(baseISO: string, days: number): string {
+    const base = new Date(`${baseISO}T00:00:00.000Z`);
+    base.setUTCDate(base.getUTCDate() + days);
+    return base.toISOString().slice(0, 10);
+  }
+
+  private toNumberOrNull(value: unknown): number | null {
+    const num = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+}
+
+export const googleSearchConsoleEvaluationService = new GoogleSearchConsoleEvaluationService();
