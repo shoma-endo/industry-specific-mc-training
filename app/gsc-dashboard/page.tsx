@@ -49,6 +49,12 @@ export default function GscDashboardPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedFromUrl = searchParams.get('annotationId');
+  const [visibleMetrics, setVisibleMetrics] = useState({
+    clicks: true,
+    impressions: true,
+    ctr: true,
+    position: true,
+  });
 
   // sync selection from query
   useEffect(() => {
@@ -92,6 +98,34 @@ export default function GscDashboardPage() {
     }));
   }, [detail]);
 
+  const metricsSummary = useMemo(() => {
+    if (!detail?.metrics || detail.metrics.length === 0) return null;
+
+    const totalClicks = detail.metrics.reduce((sum, m) => sum + (m.clicks || 0), 0);
+    const totalImpressions = detail.metrics.reduce((sum, m) => sum + (m.impressions || 0), 0);
+
+    const validCtrs = detail.metrics.filter(m => m.ctr != null);
+    const avgCtr = validCtrs.length
+      ? validCtrs.reduce((sum, m) => sum + (m.ctr || 0), 0) / validCtrs.length
+      : 0;
+
+    const validPositions = detail.metrics.filter(m => m.position != null);
+    const avgPosition = validPositions.length
+      ? validPositions.reduce((sum, m) => sum + (m.position || 0), 0) / validPositions.length
+      : 0;
+
+    return {
+      clicks: totalClicks,
+      impressions: totalImpressions,
+      ctr: avgCtr,
+      position: avgPosition,
+    };
+  }, [detail]);
+
+  const toggleMetric = (key: keyof typeof visibleMetrics) => {
+    setVisibleMetrics(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
     <div className="w-full px-4 py-8 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -126,51 +160,125 @@ export default function GscDashboardPage() {
                     {detail.annotation.canonical_url || '—'}
                   </p>
                 </div>
-                <div className="flex gap-2"></div>
+
+                {metricsSummary && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 select-none">
+                    <div
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        visibleMetrics.clicks
+                          ? 'bg-green-50 border-green-500 ring-1 ring-green-500 shadow-sm'
+                          : 'bg-white border-gray-200 hover:border-green-300'
+                      }`}
+                      onClick={() => toggleMetric('clicks')}
+                    >
+                      <p className="text-xs text-gray-500 mb-1">合計クリック数</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {metricsSummary.clicks.toLocaleString()}
+                      </p>
+                    </div>
+
+                    <div
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        visibleMetrics.impressions
+                          ? 'bg-fuchsia-50 border-fuchsia-500 ring-1 ring-fuchsia-500 shadow-sm'
+                          : 'bg-white border-gray-200 hover:border-fuchsia-300'
+                      }`}
+                      onClick={() => toggleMetric('impressions')}
+                    >
+                      <p className="text-xs text-gray-500 mb-1">合計表示回数</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {metricsSummary.impressions.toLocaleString()}
+                      </p>
+                    </div>
+
+                    <div
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        visibleMetrics.ctr
+                          ? 'bg-orange-50 border-orange-500 ring-1 ring-orange-500 shadow-sm'
+                          : 'bg-white border-gray-200 hover:border-orange-300'
+                      }`}
+                      onClick={() => toggleMetric('ctr')}
+                    >
+                      <p className="text-xs text-gray-500 mb-1">平均 CTR</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {(metricsSummary.ctr * 100).toFixed(1)}%
+                      </p>
+                    </div>
+
+                    <div
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        visibleMetrics.position
+                          ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 shadow-sm'
+                          : 'bg-white border-gray-200 hover:border-blue-300'
+                      }`}
+                      onClick={() => toggleMetric('position')}
+                    >
+                      <p className="text-xs text-gray-500 mb-1">平均掲載順位</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {metricsSummary.position.toFixed(1)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                      {/* Left Axis: Clicks (Visible) */}
-                      <YAxis
-                        yAxisId="clicks"
-                        orientation="left"
-                        stroke="#16a34a"
-                        tickFormatter={v => (v != null ? Number(v).toFixed(0) : '')}
-                        label={{
-                          value: 'クリック数',
-                          angle: -90,
-                          position: 'insideLeft',
-                          fill: '#16a34a',
-                          offset: 10,
-                        }}
-                      />
-                      {/* Left Axis: Impressions (Hidden, independent scale) */}
-                      <YAxis
-                        yAxisId="impressions"
-                        orientation="left"
-                        hide
-                        domain={[0, 'dataMax']}
-                      />
-                      {/* Right Axis: Position (Visible, Reversed) */}
-                      <YAxis
-                        yAxisId="position"
-                        orientation="right"
-                        reversed
-                        stroke="#2563eb"
-                        tickFormatter={v => (v != null ? Number(v).toFixed(0) : '')}
-                        label={{
-                          value: '掲載順位',
-                          angle: 90,
-                          position: 'insideRight',
-                          fill: '#2563eb',
-                          offset: 10,
-                        }}
-                        domain={['dataMin', 'dataMax']}
-                      />
-                      {/* Right Axis: CTR (Hidden, independent scale) */}
-                      <YAxis yAxisId="ctr" orientation="right" hide domain={[0, 'dataMax']} />
+
+                      {visibleMetrics.clicks && (
+                        <YAxis
+                          yAxisId="clicks"
+                          orientation="left"
+                          stroke="#16a34a"
+                          tickFormatter={v => (v != null ? Number(v).toFixed(0) : '')}
+                          label={{
+                            value: 'クリック数',
+                            angle: -90,
+                            position: 'insideLeft',
+                            fill: '#16a34a',
+                            offset: 10,
+                          }}
+                        />
+                      )}
+                      {visibleMetrics.impressions && (
+                        <YAxis
+                          yAxisId="impressions"
+                          orientation="left"
+                          hide={visibleMetrics.clicks} // クリック数表示中は軸を隠す（スケール独立）
+                          stroke="#c026d3"
+                          domain={[0, 'dataMax']}
+                        />
+                      )}
+
+                      {visibleMetrics.position && (
+                        <YAxis
+                          yAxisId="position"
+                          orientation="right"
+                          reversed
+                          stroke="#2563eb"
+                          tickFormatter={v => (v != null ? Number(v).toFixed(0) : '')}
+                          label={{
+                            value: '掲載順位',
+                            angle: 90,
+                            position: 'insideRight',
+                            fill: '#2563eb',
+                            offset: 10,
+                          }}
+                          domain={['dataMin', 'dataMax']}
+                        />
+                      )}
+                      {visibleMetrics.ctr && (
+                        <YAxis
+                          yAxisId="ctr"
+                          orientation="right"
+                          hide={visibleMetrics.position} // 順位表示中は軸を隠す（スケール独立）
+                          stroke="#f97316"
+                          domain={[0, 'dataMax']}
+                        />
+                      )}
+
                       <Tooltip
                         formatter={(value: number, name: string) => {
                           if (name === 'CTR(%)') return [value.toFixed(2) + '%', name];
@@ -178,42 +286,51 @@ export default function GscDashboardPage() {
                         }}
                       />
                       <Legend />
-                      <Line
-                        yAxisId="clicks"
-                        type="monotone"
-                        dataKey="clicks"
-                        name="クリック数"
-                        stroke="#16a34a"
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                      <Line
-                        yAxisId="impressions"
-                        type="monotone"
-                        dataKey="impressions"
-                        name="表示回数"
-                        stroke="#c026d3"
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                      <Line
-                        yAxisId="ctr"
-                        type="monotone"
-                        dataKey="ctr"
-                        name="CTR(%)"
-                        stroke="#f97316"
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                      <Line
-                        yAxisId="position"
-                        type="monotone"
-                        dataKey="position"
-                        name="掲載順位"
-                        stroke="#2563eb"
-                        dot={false}
-                        strokeWidth={2}
-                      />
+
+                      {visibleMetrics.clicks && (
+                        <Line
+                          yAxisId="clicks"
+                          type="monotone"
+                          dataKey="clicks"
+                          name="クリック数"
+                          stroke="#16a34a"
+                          dot={false}
+                          strokeWidth={2}
+                        />
+                      )}
+                      {visibleMetrics.impressions && (
+                        <Line
+                          yAxisId="impressions"
+                          type="monotone"
+                          dataKey="impressions"
+                          name="表示回数"
+                          stroke="#c026d3"
+                          dot={false}
+                          strokeWidth={2}
+                        />
+                      )}
+                      {visibleMetrics.ctr && (
+                        <Line
+                          yAxisId="ctr"
+                          type="monotone"
+                          dataKey="ctr"
+                          name="CTR(%)"
+                          stroke="#f97316"
+                          dot={false}
+                          strokeWidth={2}
+                        />
+                      )}
+                      {visibleMetrics.position && (
+                        <Line
+                          yAxisId="position"
+                          type="monotone"
+                          dataKey="position"
+                          name="掲載順位"
+                          stroke="#2563eb"
+                          dot={false}
+                          strokeWidth={2}
+                        />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
