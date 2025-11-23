@@ -58,7 +58,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               className={cn(buttonVariants(), 'h-9 inline-flex items-center gap-2')}
             >
               <BarChart3 className="w-4 h-4" aria-hidden />
-              <span>GSC日次指標インポート</span>
+              <span>Google Search Console 日次指標インポート</span>
             </Link>
           </div>
         </CardHeader>

@@ -223,10 +223,24 @@ export default function AnalyticsTable({ items }: Props) {
                             wpPostTitle: annotation?.wp_post_title ?? null,
                             canonicalUrl,
                             fallbackTitle,
-                            initialStep: hasExistingBlog ? 'step7' : null,
-                          });
-                        }}
-                      />
+                          initialStep: hasExistingBlog ? 'step7' : null,
+                        });
+                      }}
+                    />
+                      {annotation?.id ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-2"
+                          onClick={() => {
+                            const target = new URLSearchParams();
+                            target.set('annotationId', annotation.id ?? '');
+                            router.push(`/gsc-dashboard?${target.toString()}`);
+                          }}
+                        >
+                          詳細
+                        </Button>
+                      ) : null}
                     </td>
                     {visibleSet.has('main_kw') && (
                       <td className="px-6 py-4 text-sm text-gray-900">
