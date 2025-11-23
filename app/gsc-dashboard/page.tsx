@@ -96,9 +96,6 @@ export default function GscDashboardPage() {
     <div className="w-full px-4 py-8 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-3xl font-bold">Google Search Console ダッシュボード</h1>
-        <Button variant="outline" onClick={() => router.push('/gsc-import')}>
-          Google Search Console インポートへ
-        </Button>
       </div>
 
       {error && (
