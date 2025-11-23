@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -129,8 +129,7 @@ export default function GscDashboardPage() {
                     {detail.annotation.canonical_url || '—'}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                </div>
+                <div className="flex gap-2"></div>
                 <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
@@ -147,7 +146,7 @@ export default function GscDashboardPage() {
                           angle: -90,
                           position: 'insideLeft',
                           fill: '#16a34a',
-                          offset: 10
+                          offset: 10,
                         }}
                       />
                       {/* Left Axis: Impressions (Hidden, independent scale) */}
@@ -169,17 +168,12 @@ export default function GscDashboardPage() {
                           angle: 90,
                           position: 'insideRight',
                           fill: '#2563eb',
-                          offset: 10
+                          offset: 10,
                         }}
                         domain={['dataMin', 'dataMax']}
                       />
                       {/* Right Axis: CTR (Hidden, independent scale) */}
-                      <YAxis
-                        yAxisId="ctr"
-                        orientation="right"
-                        hide
-                        domain={[0, 'dataMax']}
-                      />
+                      <YAxis yAxisId="ctr" orientation="right" hide domain={[0, 'dataMax']} />
                       <Tooltip
                         formatter={(value: number, name: string) => {
                           if (name === 'CTR(%)') return [value.toFixed(2) + '%', name];
@@ -201,7 +195,7 @@ export default function GscDashboardPage() {
                         type="monotone"
                         dataKey="impressions"
                         name="表示回数"
-                        stroke="#6366f1"
+                        stroke="#c026d3"
                         dot={false}
                         strokeWidth={2}
                       />
@@ -248,7 +242,8 @@ export default function GscDashboardPage() {
               <div className="space-y-2 text-gray-600">
                 <p>annotationId をクエリに指定してアクセスしてください。</p>
                 <p className="text-sm">
-                  例: /gsc-dashboard?annotationId=&lt;content_annotation_id&gt; （Analyticsの「詳細」ボタンから遷移可）
+                  例: /gsc-dashboard?annotationId=&lt;content_annotation_id&gt;
+                  （Analyticsの「詳細」ボタンから遷移可）
                 </p>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" onClick={() => router.push('/analytics')}>
