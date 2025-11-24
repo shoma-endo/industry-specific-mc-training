@@ -195,7 +195,7 @@ export default function PrivacyPolicyPage() {
                   >
                     Google アカウントのアクセス権管理
                   </Link>
-                  から「Industry Specific MC Training」のアクセスを取り消せます。
+                  から「GrowMate」のアクセスを取り消せます。
                 </li>
                 <li>
                   <strong>削除請求:</strong> support@dreamplanner.co.jp
@@ -227,7 +227,7 @@ export default function PrivacyPolicyPage() {
         </article>
 
         <div className="mt-8 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Industry Specific MC Training. All rights reserved.
+          &copy; {new Date().getFullYear()} GrowMate. All rights reserved.
         </div>
       </div>
     </div>

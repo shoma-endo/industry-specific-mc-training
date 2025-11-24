@@ -304,7 +304,7 @@ export default function LandingPage() {
         <div className="mx-auto w-full max-w-7xl px-4">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div className="col-span-2">
-              <h4 className="text-white font-bold text-lg mb-4">Industry Specific MC Training</h4>
+              <h4 className="text-white font-bold text-lg mb-4">GrowMate</h4>
               <p className="text-sm text-gray-400 max-w-sm">
                 株式会社ドリームプランナーが提供する業界特化型マーケティングオートメーション。
                 Google Search Console データと AI を組み合わせ、SEO 改善の意思決定を支援します。
