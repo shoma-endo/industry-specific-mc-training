@@ -31,7 +31,7 @@ export default function PrivacyPolicyPage() {
             プライバシーポリシー
           </h1>
           <p className="text-sm text-gray-500 mb-8">
-            最終更新日: 2025年11月22日 / サービス英語名: Industry Specific MC Training
+            最終更新日: 2025年11月22日
           </p>
 
           <div
@@ -195,7 +195,7 @@ export default function PrivacyPolicyPage() {
                   >
                     Google アカウントのアクセス権管理
                   </Link>
-                  から「Industry Specific MC Training」のアクセスを取り消せます。
+                  から「GrowMate」のアクセスを取り消せます。
                 </li>
                 <li>
                   <strong>削除請求:</strong> support@dreamplanner.co.jp
@@ -227,7 +227,7 @@ export default function PrivacyPolicyPage() {
         </article>
 
         <div className="mt-8 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Industry Specific MC Training. All rights reserved.
+          &copy; {new Date().getFullYear()} GrowMate. All rights reserved.
         </div>
       </div>
     </div>
