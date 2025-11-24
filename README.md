@@ -1,4 +1,4 @@
-# Industry-Specific MC Training Platform
+# GrowMate - AIマーケティング支援プラットフォーム
 
 LINE LIFF を入り口に、業界特化のマーケティングコンテンツを一括生成・管理する SaaS アプリケーションです。Next.js 15 App Router を基盤に、マルチベンダー AI、WordPress 連携、Stripe サブスクリプション、Supabase による堅牢なデータ管理を統合しています。
 
