@@ -21,11 +21,15 @@ export async function GET() {
     const cookieStore = await cookies();
 
     // HttpOnly + Secure + SameSite=Lax でstate保存
+    // maxAge: 1800秒（30分）に設定
+    // - OAuth 2.0のstate検証として一般的な値（業界標準: 15〜30分）
+    // - ユーザーがLINE認証画面で操作に時間がかかっても十分な猶予
+    // - CSRF攻撃のリスクも許容範囲内
     cookieStore.set('line_oauth_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 600, // 10分間有効
+      maxAge: 1800, // 30分間有効
       path: '/',
     });
 
@@ -34,7 +38,7 @@ export async function GET() {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 600,
+      maxAge: 1800, // 30分間有効
       path: '/',
     });
 

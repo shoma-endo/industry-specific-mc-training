@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'プライバシーポリシー - 業界特化MC養成講座',
+  title: 'プライバシーポリシー - GrowMate',
   description:
-    '業界特化MC養成講座のプライバシーポリシー。Google Search Console APIの利用目的とデータ保護方針について説明します。',
+    'GrowMateのプライバシーポリシー。Google Search Console APIの利用目的とデータ保護方針について説明します。',
 };
 
 export default function PrivacyPolicyPage() {
@@ -31,7 +31,7 @@ export default function PrivacyPolicyPage() {
             プライバシーポリシー
           </h1>
           <p className="text-sm text-gray-500 mb-8">
-            最終更新日: 2025年11月22日 / サービス英語名: Industry Specific MC Training
+            最終更新日: 2025年11月22日
           </p>
 
           <div
@@ -54,7 +54,7 @@ export default function PrivacyPolicyPage() {
               </div>
               <div>
                 <dt className="font-medium text-gray-600">連絡先</dt>
-                <dd>電話: 080-9880-5989 / メール: support@dreamplanner.co.jp</dd>
+                <dd>電話: 090-9922-6467 / メール: support@dreamplanner.co.jp</dd>
               </div>
             </dl>
             <p className="mt-4 text-xs text-gray-500">
@@ -67,7 +67,7 @@ export default function PrivacyPolicyPage() {
             <section id="overview">
               <h2 className="text-xl font-bold text-gray-900 mb-3">1. はじめに</h2>
               <p>
-                「業界特化MC養成講座」（以下、「当サービス」といいます）は、ユーザーの個人情報および
+                「GrowMate」（以下、「当サービス」といいます）は、ユーザーの個人情報および
                 Google Search
                 Console（以下、GSC）から取得するデータの取り扱いにおいて、透明性と安全性を最優先します。本ポリシーでは、取得する情報、利用目的、保管場所、第三者提供、ユーザーが行使できる権利について説明します。
               </p>
@@ -195,7 +195,7 @@ export default function PrivacyPolicyPage() {
                   >
                     Google アカウントのアクセス権管理
                   </Link>
-                  から「Industry Specific MC Training」のアクセスを取り消せます。
+                  から「GrowMate」のアクセスを取り消せます。
                 </li>
                 <li>
                   <strong>削除請求:</strong> support@dreamplanner.co.jp
@@ -219,7 +219,7 @@ export default function PrivacyPolicyPage() {
               </p>
               <ul className="mt-3 space-y-1 text-gray-800">
                 <li>株式会社ドリームプランナー</li>
-                <li>電話: 080-9880-5989</li>
+                <li>電話: 090-9922-6467</li>
                 <li>メール: support@dreamplanner.co.jp</li>
               </ul>
             </section>
@@ -227,7 +227,7 @@ export default function PrivacyPolicyPage() {
         </article>
 
         <div className="mt-8 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Industry Specific MC Training. All rights reserved.
+          &copy; {new Date().getFullYear()} GrowMate. All rights reserved.
         </div>
       </div>
     </div>

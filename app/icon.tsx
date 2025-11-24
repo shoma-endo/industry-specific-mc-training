@@ -30,7 +30,7 @@ export default function Icon() {
             color: 'white',
           }}
         >
-          M
+          G
         </div>
       </div>
     ),

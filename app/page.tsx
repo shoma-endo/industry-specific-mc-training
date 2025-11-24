@@ -282,7 +282,7 @@ export default function Home() {
 
       {(!isLoading && isLoggedIn) && (
         <div className="flex flex-col items-center justify-center min-h-screen p-8">
-          <h1 className="text-3xl font-bold mb-8">業界特化MC養成講座</h1>
+          <h1 className="text-3xl font-bold mb-8">GrowMate</h1>
 
           <ProfileDisplay />
           <AdminAccessCard

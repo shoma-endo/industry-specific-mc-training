@@ -11,7 +11,7 @@ import type { UserRole } from '@/types/user';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'アクセス権限なし | Industry Specific MC Training',
+  title: 'アクセス権限なし | GrowMate',
   description: 'このページにアクセスするための権限がありません。',
   robots: 'noindex, nofollow',
 };
