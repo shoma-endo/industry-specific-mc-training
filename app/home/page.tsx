@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, BarChart2, CheckCircle2, Lock, Zap } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: '業界特化MC養成講座 - AIでマーケティングを自動化',
+  title: 'GrowMate - AIでマーケティングを自動化',
   description:
     'Google Search Consoleと連携し、検索データを分析。業界特化の知識を持つAIが、SEOに強いブログ記事や広告コピーを自動生成します。',
 };
@@ -20,7 +20,7 @@ export default function LandingPage() {
               <span className="text-white font-bold text-lg">M</span>
             </div>
             <span className="font-bold text-xl tracking-tight text-gray-900">
-              業界特化MC養成講座
+              GrowMate
             </span>
           </div>
           <nav className="hidden md:flex items-center gap-8">
@@ -208,7 +208,7 @@ export default function LandingPage() {
                 <ul className="mt-4 text-sm text-gray-700 space-y-2">
                   <li>株式会社ドリームプランナー</li>
                   <li>〒716-1551 岡山県加賀郡吉備中央町北702</li>
-                  <li>電話: 080-9880-5989</li>
+                  <li>電話: 090-9922-6467</li>
                   <li>メール: support@dreamplanner.co.jp</li>
                 </ul>
                 <p className="text-xs text-gray-500 mt-4">受付時間: 平日 10:00-17:00（祝日除く）</p>
@@ -262,10 +262,10 @@ export default function LandingPage() {
               <div className="p-8 text-center border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">スタンダードプラン</h3>
                 <div className="flex items-baseline justify-center gap-1 mb-4">
-                  <span className="text-5xl font-bold text-gray-900">¥9,800</span>
+                  <span className="text-5xl font-bold text-gray-900">100,000円</span>
                   <span className="text-gray-500">/月</span>
                 </div>
-                <p className="text-gray-500 text-sm">14日間の無料トライアル付き</p>
+                <p className="text-gray-500 text-sm">3日間の無料トライアル付き</p>
               </div>
               <div className="p-8 bg-gray-50/50">
                 <ul className="space-y-4 mb-8">
@@ -311,7 +311,7 @@ export default function LandingPage() {
               </p>
               <div className="mt-4 text-xs text-gray-500 space-y-1">
                 <p>〒716-1551 岡山県加賀郡吉備中央町北702</p>
-                <p>電話: 080-9880-5989 / support@dreamplanner.co.jp</p>
+                <p>電話: 090-9922-6467 / support@dreamplanner.co.jp</p>
               </div>
             </div>
             <div>
