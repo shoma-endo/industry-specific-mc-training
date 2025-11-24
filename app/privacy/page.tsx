@@ -31,7 +31,7 @@ export default function PrivacyPolicyPage() {
             プライバシーポリシー
           </h1>
           <p className="text-sm text-gray-500 mb-8">
-            最終更新日: 2025年11月22日 / サービス英語名: Industry Specific MC Training
+            最終更新日: 2025年11月22日
           </p>
 
           <div
