@@ -66,7 +66,7 @@ export interface GscArticleEvaluation {
   contentAnnotationId: string;
   propertyUri: string;
   lastEvaluatedOn?: string | null; // ISO date
-  nextEvaluationOn: string; // ISO date
+  baseEvaluationDate: string; // ISO date - 評価基準日（この日付 + 30日が初回評価日）
   lastSeenPosition?: number | null;
   status: GscEvaluationStatus;
   createdAt: string;

@@ -15,7 +15,7 @@ type EvaluationRow = {
   content_annotation_id: string;
   property_uri: string;
   last_evaluated_on?: string | null;
-  next_evaluation_on: string;
+  base_evaluation_date: string;
   last_seen_position?: number | null;
   status: string;
 };
@@ -34,20 +34,34 @@ export class GoogleSearchConsoleEvaluationService {
       skippedNoMetrics: 0,
     };
 
-    // 期限が来ているアクティブな評価対象を取得
+    // 全てのアクティブな評価対象を取得
     const { data: evaluations, error: evalError } = await this.supabaseService
       .getClient()
       .from('gsc_article_evaluations')
       .select('*')
       .eq('user_id', userId)
-      .eq('status', 'active')
-      .lte('next_evaluation_on', today);
+      .eq('status', 'active');
 
     if (evalError) {
       throw new Error(evalError.message || '評価対象の取得に失敗しました');
     }
 
-    const evaluationRows = (evaluations ?? []) as EvaluationRow[];
+    const allEvaluations = (evaluations ?? []) as EvaluationRow[];
+
+    // 評価期限が来ているものをフィルタリング
+    // 初回（last_evaluated_on が null）: base_evaluation_date + 30日 <= today
+    // 2回目以降: last_evaluated_on + 30日 <= today
+    const evaluationRows = allEvaluations.filter((evaluation) => {
+      if (!evaluation.last_evaluated_on) {
+        // 初回評価: base_evaluation_date + intervalDays <= today
+        const firstEvaluationDate = this.addDaysISO(evaluation.base_evaluation_date, intervalDays);
+        return firstEvaluationDate <= today;
+      } else {
+        // 2回目以降: last_evaluated_on + intervalDays <= today
+        const nextEvaluationDate = this.addDaysISO(evaluation.last_evaluated_on, intervalDays);
+        return nextEvaluationDate <= today;
+      }
+    });
 
     for (const evaluation of evaluationRows) {
       const metric = await this.fetchLatestMetric(userId, evaluation);
@@ -66,16 +80,15 @@ export class GoogleSearchConsoleEvaluationService {
       }
 
       const outcome = this.judgeOutcome(lastSeen, currentPos);
-      const nextEvaluationOn = this.addDaysISO(today, intervalDays);
 
       // 更新: evaluations
+      // base_evaluation_date は更新しない（固定された評価基準日として保持）
       const { error: updateError } = await this.supabaseService
         .getClient()
         .from('gsc_article_evaluations')
         .update({
           last_seen_position: currentPos,
           last_evaluated_on: today,
-          next_evaluation_on: nextEvaluationOn,
           updated_at: new Date().toISOString(),
         })
         .eq('id', evaluation.id)

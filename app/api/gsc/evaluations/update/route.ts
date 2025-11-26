@@ -6,11 +6,11 @@ const supabaseService = new SupabaseService();
 
 interface UpdateEvaluationRequest {
   contentAnnotationId: string;
-  nextEvaluationOn: string; // YYYY-MM-DD
+  baseEvaluationDate: string; // YYYY-MM-DD - 評価基準日
 }
 
 /**
- * 評価対象の次回評価日を更新
+ * 評価対象の基準日を更新
  */
 export async function POST(request: NextRequest) {
   try {
@@ -30,19 +30,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json().catch(() => ({}))) as Partial<UpdateEvaluationRequest>;
-    const { contentAnnotationId, nextEvaluationOn } = body;
+    const { contentAnnotationId, baseEvaluationDate } = body;
 
     // バリデーション
-    if (!contentAnnotationId || !nextEvaluationOn) {
+    if (!contentAnnotationId || !baseEvaluationDate) {
       return NextResponse.json(
-        { success: false, error: 'contentAnnotationId, nextEvaluationOn は必須です' },
+        { success: false, error: 'contentAnnotationId, baseEvaluationDate は必須です' },
         { status: 400 }
       );
     }
 
     // 日付形式チェック (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(nextEvaluationOn)) {
+    if (!dateRegex.test(baseEvaluationDate)) {
       return NextResponse.json(
         { success: false, error: '日付は YYYY-MM-DD 形式で指定してください' },
         { status: 400 }
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 日付の妥当性チェック
-    const evaluationDate = new Date(`${nextEvaluationOn}T00:00:00.000Z`);
+    const evaluationDate = new Date(`${baseEvaluationDate}T00:00:00.000Z`);
     if (Number.isNaN(evaluationDate.getTime())) {
       return NextResponse.json(
         { success: false, error: '無効な日付が指定されました' },
@@ -80,26 +80,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 次回評価日を更新
+    // 評価基準日を更新
     const { error: updateError } = await supabaseService
       .getClient()
       .from('gsc_article_evaluations')
       .update({
-        next_evaluation_on: nextEvaluationOn,
+        base_evaluation_date: baseEvaluationDate,
         updated_at: new Date().toISOString(),
       })
       .eq('id', evaluation.id)
       .eq('user_id', userId);
 
     if (updateError) {
-      throw new Error(updateError.message || '評価日の更新に失敗しました');
+      throw new Error(updateError.message || '評価基準日の更新に失敗しました');
     }
 
     return NextResponse.json({
       success: true,
       data: {
         contentAnnotationId,
-        nextEvaluationOn,
+        baseEvaluationDate,
       },
     });
   } catch (error) {

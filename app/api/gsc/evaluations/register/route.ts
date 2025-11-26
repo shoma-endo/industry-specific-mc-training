@@ -7,7 +7,7 @@ const supabaseService = new SupabaseService();
 interface RegisterEvaluationRequest {
   contentAnnotationId: string;
   propertyUri: string;
-  nextEvaluationOn: string; // YYYY-MM-DD
+  baseEvaluationDate: string; // YYYY-MM-DD - 評価基準日
 }
 
 /**
@@ -31,19 +31,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json().catch(() => ({}))) as Partial<RegisterEvaluationRequest>;
-    const { contentAnnotationId, propertyUri, nextEvaluationOn } = body;
+    const { contentAnnotationId, propertyUri, baseEvaluationDate } = body;
 
     // バリデーション
-    if (!contentAnnotationId || !propertyUri || !nextEvaluationOn) {
+    if (!contentAnnotationId || !propertyUri || !baseEvaluationDate) {
       return NextResponse.json(
-        { success: false, error: 'contentAnnotationId, propertyUri, nextEvaluationOn は必須です' },
+        { success: false, error: 'contentAnnotationId, propertyUri, baseEvaluationDate は必須です' },
         { status: 400 }
       );
     }
 
     // 日付形式チェック (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(nextEvaluationOn)) {
+    if (!dateRegex.test(baseEvaluationDate)) {
       return NextResponse.json(
         { success: false, error: '日付は YYYY-MM-DD 形式で指定してください' },
         { status: 400 }
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 日付の妥当性チェック
-    const evaluationDate = new Date(`${nextEvaluationOn}T00:00:00.000Z`);
+    const evaluationDate = new Date(`${baseEvaluationDate}T00:00:00.000Z`);
     if (Number.isNaN(evaluationDate.getTime())) {
       return NextResponse.json(
         { success: false, error: '無効な日付が指定されました' },
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         user_id: userId,
         content_annotation_id: contentAnnotationId,
         property_uri: propertyUri,
-        next_evaluation_on: nextEvaluationOn,
+        base_evaluation_date: baseEvaluationDate,
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         contentAnnotationId,
-        nextEvaluationOn,
+        baseEvaluationDate,
       },
     });
   } catch (error) {

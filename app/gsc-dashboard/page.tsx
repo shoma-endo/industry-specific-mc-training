@@ -42,7 +42,7 @@ type DetailResponse = {
       content_annotation_id: string;
       property_uri: string;
       last_evaluated_on: string | null;
-      next_evaluation_on: string;
+      base_evaluation_date: string;
       last_seen_position: number | null;
       status: string;
       created_at: string;
@@ -162,6 +162,21 @@ export default function GscDashboardPage() {
   // 今日の日付を取得
   const getTodayISO = () => new Date().toISOString().slice(0, 10);
 
+  // 次回評価日を計算
+  const calculateNextEvaluationDate = (evaluation: {
+    base_evaluation_date: string;
+    last_evaluated_on: string | null;
+  } | null): string => {
+    if (!evaluation) return '';
+
+    // 初回（last_evaluated_on が null）: base_evaluation_date + 30日
+    // 2回目以降: last_evaluated_on + 30日
+    const referenceDate = evaluation.last_evaluated_on || evaluation.base_evaluation_date;
+    const date = new Date(`${referenceDate}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() + 30);
+    return date.toISOString().slice(0, 10);
+  };
+
   // 評価開始処理
   const handleRegisterEvaluation = async () => {
     if (!selectedId || !detail?.credential?.propertyUri || !nextEvaluationOn) {
@@ -180,7 +195,7 @@ export default function GscDashboardPage() {
         body: JSON.stringify({
           contentAnnotationId: selectedId,
           propertyUri: detail.credential.propertyUri,
-          nextEvaluationOn,
+          baseEvaluationDate: nextEvaluationOn,
         }),
       });
 
@@ -207,8 +222,8 @@ export default function GscDashboardPage() {
 
   // 評価日の編集開始
   const handleStartEditEvaluation = () => {
-    if (detail?.evaluation?.next_evaluation_on) {
-      setEditEvaluationDate(detail.evaluation.next_evaluation_on);
+    if (detail?.evaluation?.base_evaluation_date) {
+      setEditEvaluationDate(detail.evaluation.base_evaluation_date);
       setIsEditingEvaluation(true);
       setUpdateSuccess(false);
     }
@@ -238,7 +253,7 @@ export default function GscDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contentAnnotationId: selectedId,
-          nextEvaluationOn: editEvaluationDate,
+          baseEvaluationDate: editEvaluationDate,
         }),
       });
 
@@ -374,7 +389,7 @@ export default function GscDashboardPage() {
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <label htmlFor="nextEvaluationOn" className="text-sm font-medium text-gray-700">
-                          初回評価日（30日間隔で自動評価されます）
+                          評価基準日（この日付 + 30日が初回評価日になります）
                         </label>
                         <div className="flex items-center gap-3">
                           <Input
@@ -417,7 +432,7 @@ export default function GscDashboardPage() {
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <label htmlFor="editEvaluationDate" className="text-sm font-medium text-gray-700">
-                            次回評価日
+                            評価基準日
                           </label>
                           <div className="flex items-center gap-3">
                             <Input
@@ -458,7 +473,13 @@ export default function GscDashboardPage() {
                         <div className="space-y-1 text-sm text-gray-700">
                           <p>
                             次回評価日:{' '}
-                            <span className="font-medium">{detail.evaluation.next_evaluation_on}</span>
+                            <span className="font-medium">
+                              {calculateNextEvaluationDate(detail.evaluation)}
+                            </span>
+                            {' '}
+                            <span className="text-xs text-gray-500">
+                              （評価基準日: {detail.evaluation.base_evaluation_date}）
+                            </span>
                           </p>
                           <p>
                             ステータス: <span className="font-medium">{detail.evaluation.status}</span>
