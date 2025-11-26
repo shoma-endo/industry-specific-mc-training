@@ -302,7 +302,8 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600 text-center mb-4">
-                WordPressやGoogle Search Consoleの連携設定はこちらから
+                WordPressやGoogle Search Consoleの<br />
+                連携設定はこちらから
               </p>
               <Button asChild className="w-full" aria-label="設定ページへ移動" tabIndex={0}>
                 <Link href="/setup">設定を開く</Link>
@@ -322,7 +323,8 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600 text-center mb-4">
-                WordPressとGoogleSearchConsoleのメタ情報を一覧表示します
+                WordPressとGoogle Search Consoleの<br />
+                メタ情報を一覧表示します
               </p>
               <Button asChild className="w-full" aria-label="コンテンツ一覧へ移動" tabIndex={0}>
                 <Link href="/analytics">一覧を開く</Link>
