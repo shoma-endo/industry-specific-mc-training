@@ -76,12 +76,30 @@ export async function GET(
       throw new Error(historyError.message);
     }
 
+    // 評価情報を取得
+    const { data: evaluation, error: evaluationError } = await supabaseService
+      .getClient()
+      .from('gsc_article_evaluations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('content_annotation_id', annotationId)
+      .maybeSingle();
+
+    if (evaluationError) {
+      throw new Error(evaluationError.message);
+    }
+
+    // GSC認証情報を取得
+    const credential = await supabaseService.getGscCredentialByUserId(userId);
+
     return NextResponse.json({
       success: true,
       data: {
         annotation,
         metrics: metrics ?? [],
         history: history ?? [],
+        evaluation: evaluation ?? null,
+        credential: credential ? { propertyUri: credential.propertyUri } : null,
       },
     });
   } catch (error) {

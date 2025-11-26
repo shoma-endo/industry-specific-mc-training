@@ -14,8 +14,9 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 
 type DetailResponse = {
   success: boolean;
@@ -36,6 +37,22 @@ type DetailResponse = {
       current_position: number;
       outcome: string;
     }>;
+    evaluation: {
+      id: string;
+      user_id: string;
+      content_annotation_id: string;
+      property_uri: string;
+      current_stage: number;
+      last_evaluated_on: string | null;
+      next_evaluation_on: string;
+      last_seen_position: number | null;
+      status: string;
+      created_at: string;
+      updated_at: string;
+    } | null;
+    credential: {
+      propertyUri: string | null;
+    } | null;
   };
   error?: string;
 };
@@ -55,6 +72,11 @@ export default function GscDashboardPage() {
     ctr: true,
     position: true,
   });
+
+  // 評価開始フォームの状態
+  const [nextEvaluationOn, setNextEvaluationOn] = useState('');
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
 
   // sync selection from query
   useEffect(() => {
@@ -125,6 +147,67 @@ export default function GscDashboardPage() {
   const toggleMetric = (key: keyof typeof visibleMetrics) => {
     setVisibleMetrics(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+  // 今日から30日後の日付を計算
+  const getDefaultEvaluationDate = () => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + 30);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // 今日の日付を取得
+  const getTodayISO = () => new Date().toISOString().slice(0, 10);
+
+  // 評価開始処理
+  const handleRegisterEvaluation = async () => {
+    if (!selectedId || !detail?.credential?.propertyUri || !nextEvaluationOn) {
+      setError('必要な情報が不足しています');
+      return;
+    }
+
+    setRegisterLoading(true);
+    setRegisterSuccess(false);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/gsc/evaluations/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentAnnotationId: selectedId,
+          propertyUri: detail.credential.propertyUri,
+          nextEvaluationOn,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!json.success) {
+        throw new Error(json.error || '評価対象の登録に失敗しました');
+      }
+
+      setRegisterSuccess(true);
+
+      // 詳細データを再取得して評価情報を更新
+      const detailRes = await fetch(`/api/gsc/dashboard/${selectedId}`, { cache: 'no-store' });
+      const detailJson = (await detailRes.json()) as DetailResponse;
+      if (detailJson.success) {
+        setDetail(detailJson.data ?? null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '評価対象の登録に失敗しました');
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
+  // 詳細データ取得時にデフォルト評価日を設定
+  useEffect(() => {
+    if (detail && !detail.evaluation && !nextEvaluationOn) {
+      setNextEvaluationOn(getDefaultEvaluationDate());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail]);
 
   return (
     <div className="w-full px-4 py-8 space-y-6">
@@ -221,7 +304,68 @@ export default function GscDashboardPage() {
                   </div>
                 )}
 
-                <div className="h-96">
+                {/* 評価開始フォーム */}
+                {!detail.evaluation && detail.credential?.propertyUri ? (
+                  <div className="border-t pt-4 mt-4">
+                    <p className="text-sm font-semibold mb-3">評価開始</p>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <label htmlFor="nextEvaluationOn" className="text-sm font-medium text-gray-700">
+                          初回評価日（30日間隔で自動評価されます）
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            id="nextEvaluationOn"
+                            type="date"
+                            value={nextEvaluationOn}
+                            min={getTodayISO()}
+                            onChange={e => setNextEvaluationOn(e.target.value)}
+                            disabled={registerLoading}
+                            className="w-[250px]"
+                          />
+                          <Button
+                            onClick={handleRegisterEvaluation}
+                            disabled={registerLoading || !nextEvaluationOn}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            {registerLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                登録中...
+                              </>
+                            ) : (
+                              '評価開始'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      {registerSuccess && (
+                        <Alert>
+                          <CheckCircle2 className="h-4 w-4" />
+                          <AlertDescription>評価対象として登録しました</AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  </div>
+                ) : detail.evaluation ? (
+                  <div className="border-t pt-4 mt-4">
+                    <p className="text-sm font-semibold mb-2">評価ステータス</p>
+                    <div className="space-y-1 text-sm text-gray-700">
+                      <p>
+                        ステージ: <span className="font-medium">{detail.evaluation.current_stage}</span>
+                      </p>
+                      <p>
+                        次回評価日:{' '}
+                        <span className="font-medium">{detail.evaluation.next_evaluation_on}</span>
+                      </p>
+                      <p>
+                        ステータス: <span className="font-medium">{detail.evaluation.status}</span>
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="h-96 mt-6">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -334,7 +478,8 @@ export default function GscDashboardPage() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div>
+
+                <div className="border-t pt-4 mt-4">
                   <p className="text-sm font-semibold mb-2">評価履歴</p>
                   <div className="max-h-48 overflow-auto space-y-2 text-sm">
                     {detail.history.length === 0 && <p className="text-gray-500">履歴なし</p>}
