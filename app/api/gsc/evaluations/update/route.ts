@@ -4,14 +4,13 @@ import { SupabaseService } from '@/server/services/supabaseService';
 
 const supabaseService = new SupabaseService();
 
-interface RegisterEvaluationRequest {
+interface UpdateEvaluationRequest {
   contentAnnotationId: string;
-  propertyUri: string;
   nextEvaluationOn: string; // YYYY-MM-DD
 }
 
 /**
- * 記事を評価対象として登録
+ * 評価対象の次回評価日を更新
  */
 export async function POST(request: NextRequest) {
   try {
@@ -30,13 +29,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = (await request.json().catch(() => ({}))) as Partial<RegisterEvaluationRequest>;
-    const { contentAnnotationId, propertyUri, nextEvaluationOn } = body;
+    const body = (await request.json().catch(() => ({}))) as Partial<UpdateEvaluationRequest>;
+    const { contentAnnotationId, nextEvaluationOn } = body;
 
     // バリデーション
-    if (!contentAnnotationId || !propertyUri || !nextEvaluationOn) {
+    if (!contentAnnotationId || !nextEvaluationOn) {
       return NextResponse.json(
-        { success: false, error: 'contentAnnotationId, propertyUri, nextEvaluationOn は必須です' },
+        { success: false, error: 'contentAnnotationId, nextEvaluationOn は必須です' },
         { status: 400 }
       );
     }
@@ -61,28 +60,8 @@ export async function POST(request: NextRequest) {
 
     const userId = authResult.userId;
 
-    // content_annotation の存在確認
-    const { data: annotation, error: annotationError } = await supabaseService
-      .getClient()
-      .from('content_annotations')
-      .select('id')
-      .eq('id', contentAnnotationId)
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (annotationError) {
-      throw new Error(annotationError.message || 'アノテーションの確認に失敗しました');
-    }
-
-    if (!annotation) {
-      return NextResponse.json(
-        { success: false, error: '指定された記事が見つかりません' },
-        { status: 404 }
-      );
-    }
-
-    // 重複チェック
-    const { data: existing, error: duplicateError } = await supabaseService
+    // 評価対象の存在確認
+    const { data: evaluation, error: evaluationError } = await supabaseService
       .getClient()
       .from('gsc_article_evaluations')
       .select('id')
@@ -90,33 +69,30 @@ export async function POST(request: NextRequest) {
       .eq('content_annotation_id', contentAnnotationId)
       .maybeSingle();
 
-    if (duplicateError) {
-      throw new Error(duplicateError.message || '重複チェックに失敗しました');
+    if (evaluationError) {
+      throw new Error(evaluationError.message || '評価対象の確認に失敗しました');
     }
 
-    if (existing) {
+    if (!evaluation) {
       return NextResponse.json(
-        { success: false, error: 'この記事は既に評価対象として登録されています' },
-        { status: 409 }
+        { success: false, error: '評価対象が見つかりません' },
+        { status: 404 }
       );
     }
 
-    // 評価対象として登録
-    const { error: insertError } = await supabaseService
+    // 次回評価日を更新
+    const { error: updateError } = await supabaseService
       .getClient()
       .from('gsc_article_evaluations')
-      .insert({
-        user_id: userId,
-        content_annotation_id: contentAnnotationId,
-        property_uri: propertyUri,
+      .update({
         next_evaluation_on: nextEvaluationOn,
-        status: 'active',
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      })
+      .eq('id', evaluation.id)
+      .eq('user_id', userId);
 
-    if (insertError) {
-      throw new Error(insertError.message || '評価対象の登録に失敗しました');
+    if (updateError) {
+      throw new Error(updateError.message || '評価日の更新に失敗しました');
     }
 
     return NextResponse.json({
@@ -127,8 +103,8 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[gsc/evaluations/register] Registration failed', error);
-    const message = error instanceof Error ? error.message : '評価対象の登録に失敗しました';
+    console.error('[gsc/evaluations/update] Update failed', error);
+    const message = error instanceof Error ? error.message : '評価日の更新に失敗しました';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

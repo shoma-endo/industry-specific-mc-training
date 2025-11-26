@@ -32,7 +32,6 @@ type DetailResponse = {
     history: Array<{
       id: string;
       evaluation_date: string;
-      stage: number;
       previous_position: number | null;
       current_position: number;
       outcome: string;
@@ -42,7 +41,6 @@ type DetailResponse = {
       user_id: string;
       content_annotation_id: string;
       property_uri: string;
-      current_stage: number;
       last_evaluated_on: string | null;
       next_evaluation_on: string;
       last_seen_position: number | null;
@@ -77,6 +75,12 @@ export default function GscDashboardPage() {
   const [nextEvaluationOn, setNextEvaluationOn] = useState('');
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerSuccess, setRegisterSuccess] = useState(false);
+
+  // 評価日編集の状態
+  const [isEditingEvaluation, setIsEditingEvaluation] = useState(false);
+  const [editEvaluationDate, setEditEvaluationDate] = useState('');
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
   // sync selection from query
   useEffect(() => {
@@ -198,6 +202,65 @@ export default function GscDashboardPage() {
       setError(err instanceof Error ? err.message : '評価対象の登録に失敗しました');
     } finally {
       setRegisterLoading(false);
+    }
+  };
+
+  // 評価日の編集開始
+  const handleStartEditEvaluation = () => {
+    if (detail?.evaluation?.next_evaluation_on) {
+      setEditEvaluationDate(detail.evaluation.next_evaluation_on);
+      setIsEditingEvaluation(true);
+      setUpdateSuccess(false);
+    }
+  };
+
+  // 評価日の編集キャンセル
+  const handleCancelEditEvaluation = () => {
+    setIsEditingEvaluation(false);
+    setEditEvaluationDate('');
+    setUpdateSuccess(false);
+  };
+
+  // 評価日の更新処理
+  const handleUpdateEvaluation = async () => {
+    if (!selectedId || !editEvaluationDate) {
+      setError('必要な情報が不足しています');
+      return;
+    }
+
+    setUpdateLoading(true);
+    setUpdateSuccess(false);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/gsc/evaluations/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentAnnotationId: selectedId,
+          nextEvaluationOn: editEvaluationDate,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!json.success) {
+        throw new Error(json.error || '評価日の更新に失敗しました');
+      }
+
+      setUpdateSuccess(true);
+      setIsEditingEvaluation(false);
+
+      // 詳細データを再取得して評価情報を更新
+      const detailRes = await fetch(`/api/gsc/dashboard/${selectedId}`, { cache: 'no-store' });
+      const detailJson = (await detailRes.json()) as DetailResponse;
+      if (detailJson.success) {
+        setDetail(detailJson.data ?? null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '評価日の更新に失敗しました');
+    } finally {
+      setUpdateLoading(false);
     }
   };
 
@@ -350,18 +413,72 @@ export default function GscDashboardPage() {
                 ) : detail.evaluation ? (
                   <div className="border-t pt-4 mt-4">
                     <p className="text-sm font-semibold mb-2">評価ステータス</p>
-                    <div className="space-y-1 text-sm text-gray-700">
-                      <p>
-                        ステージ: <span className="font-medium">{detail.evaluation.current_stage}</span>
-                      </p>
-                      <p>
-                        次回評価日:{' '}
-                        <span className="font-medium">{detail.evaluation.next_evaluation_on}</span>
-                      </p>
-                      <p>
-                        ステータス: <span className="font-medium">{detail.evaluation.status}</span>
-                      </p>
-                    </div>
+                    {isEditingEvaluation ? (
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <label htmlFor="editEvaluationDate" className="text-sm font-medium text-gray-700">
+                            次回評価日
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <Input
+                              id="editEvaluationDate"
+                              type="date"
+                              value={editEvaluationDate}
+                              min={getTodayISO()}
+                              onChange={e => setEditEvaluationDate(e.target.value)}
+                              disabled={updateLoading}
+                              className="w-[250px]"
+                            />
+                            <Button
+                              onClick={handleUpdateEvaluation}
+                              disabled={updateLoading || !editEvaluationDate}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              {updateLoading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  保存中...
+                                </>
+                              ) : (
+                                '保存'
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={handleCancelEditEvaluation}
+                              disabled={updateLoading}
+                            >
+                              キャンセル
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="space-y-1 text-sm text-gray-700">
+                          <p>
+                            次回評価日:{' '}
+                            <span className="font-medium">{detail.evaluation.next_evaluation_on}</span>
+                          </p>
+                          <p>
+                            ステータス: <span className="font-medium">{detail.evaluation.status}</span>
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleStartEditEvaluation}
+                        >
+                          評価日を編集
+                        </Button>
+                        {updateSuccess && (
+                          <Alert>
+                            <CheckCircle2 className="h-4 w-4" />
+                            <AlertDescription>評価日を更新しました</AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : null}
 
@@ -485,9 +602,8 @@ export default function GscDashboardPage() {
                     {detail.history.length === 0 && <p className="text-gray-500">履歴なし</p>}
                     {detail.history.map(h => (
                       <div key={h.id} className="p-2 rounded border border-gray-200">
-                        <div className="flex justify-between text-xs text-gray-600">
-                          <span>{h.evaluation_date}</span>
-                          <span>ステージ{h.stage}</span>
+                        <div className="text-xs text-gray-600 mb-1">
+                          {h.evaluation_date}
                         </div>
                         <div className="text-gray-800">
                           Outcome: {h.outcome} / {h.previous_position ?? '—'} → {h.current_position}

@@ -1,6 +1,6 @@
 import { SupabaseService } from '@/server/services/supabaseService';
 import { getGscEvaluationConfig } from '@/server/lib/gscConfig';
-import type { GscEvaluationOutcome, GscEvaluationStage, GscPageMetric } from '@/types/gsc';
+import type { GscEvaluationOutcome, GscPageMetric } from '@/types/gsc';
 
 interface EvaluationResultSummary {
   processed: number;
@@ -14,7 +14,6 @@ type EvaluationRow = {
   user_id: string;
   content_annotation_id: string;
   property_uri: string;
-  current_stage: number;
   last_evaluated_on?: string | null;
   next_evaluation_on: string;
   last_seen_position?: number | null;
@@ -67,8 +66,6 @@ export class GoogleSearchConsoleEvaluationService {
       }
 
       const outcome = this.judgeOutcome(lastSeen, currentPos);
-      const nextStage = outcome === 'improved' ? 1 : Math.min((evaluation.current_stage ?? 1) + 1, 4);
-
       const nextEvaluationOn = this.addDaysISO(today, intervalDays);
 
       // 更新: evaluations
@@ -79,7 +76,6 @@ export class GoogleSearchConsoleEvaluationService {
           last_seen_position: currentPos,
           last_evaluated_on: today,
           next_evaluation_on: nextEvaluationOn,
-          current_stage: nextStage,
           updated_at: new Date().toISOString(),
         })
         .eq('id', evaluation.id)
@@ -97,7 +93,6 @@ export class GoogleSearchConsoleEvaluationService {
           user_id: userId,
           content_annotation_id: evaluation.content_annotation_id,
           evaluation_date: today,
-          stage: evaluation.current_stage as GscEvaluationStage,
           previous_position: lastSeen,
           current_position: currentPos,
           outcome,

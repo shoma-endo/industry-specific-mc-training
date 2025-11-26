@@ -57,7 +57,6 @@ export interface GscPageMetric {
   importedAt: string;
 }
 
-export type GscEvaluationStage = 1 | 2 | 3 | 4;
 export type GscEvaluationStatus = 'active' | 'paused' | 'completed';
 export type GscEvaluationOutcome = 'improved' | 'no_change' | 'worse';
 
@@ -66,7 +65,6 @@ export interface GscArticleEvaluation {
   userId: string;
   contentAnnotationId: string;
   propertyUri: string;
-  currentStage: GscEvaluationStage;
   lastEvaluatedOn?: string | null; // ISO date
   nextEvaluationOn: string; // ISO date
   lastSeenPosition?: number | null;
@@ -80,7 +78,6 @@ export interface GscArticleEvaluationHistory {
   userId: string;
   contentAnnotationId: string;
   evaluationDate: string; // ISO date
-  stage: GscEvaluationStage;
   previousPosition?: number | null;
   currentPosition: number;
   outcome: GscEvaluationOutcome;
