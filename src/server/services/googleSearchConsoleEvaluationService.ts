@@ -1,6 +1,6 @@
 import { SupabaseService } from '@/server/services/supabaseService';
-import { getGscEvaluationConfig } from '@/server/lib/gscConfig';
-import type { GscEvaluationOutcome, GscPageMetric } from '@/types/gsc';
+import { getGscEvaluationConfig } from '@/server/lib/googleSearchConsoleConfig';
+import type { GscEvaluationOutcome, GscPageMetric } from '@/types/googleSearchConsole';
 
 interface EvaluationResultSummary {
   processed: number;

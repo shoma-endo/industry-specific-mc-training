@@ -1,7 +1,7 @@
 import { GoogleSearchConsoleService } from '@/server/services/googleSearchConsoleService';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { googleSearchConsoleEvaluationService } from '@/server/services/googleSearchConsoleEvaluationService';
-import type { GscPageMetric, GscSearchType } from '@/types/gsc';
+import type { GscPageMetric, GscSearchType } from '@/types/googleSearchConsole';
 
 type ImportResult = {
   totalFetched: number;

@@ -1,4 +1,4 @@
-import type { GscPropertyType, GscSiteEntry } from '@/types/gsc';
+import type { GscPropertyType, GscSiteEntry } from '@/types/googleSearchConsole';
 
 export interface GoogleOAuthTokens {
   accessToken: string;

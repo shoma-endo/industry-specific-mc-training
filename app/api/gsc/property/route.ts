@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { propertyTypeFromUri, toGscConnectionStatus } from '@/server/lib/gscStatus';
+import { propertyTypeFromUri, toGscConnectionStatus } from '@/server/lib/googleSearchConsoleStatus';
 import { formatGscPropertyDisplayName } from '@/server/services/googleSearchConsoleService';
 
 const supabaseService = new SupabaseService();

@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { GscConnectionStatus, GscSiteEntry } from '@/types/gsc';
+import type { GscConnectionStatus, GscSiteEntry } from '@/types/googleSearchConsole';
 import {
   AlertCircle,
   CheckCircle2,

@@ -1,4 +1,4 @@
-import type { GscConnectionStatus, GscCredential, GscPropertyType } from '@/types/gsc';
+import type { GscConnectionStatus, GscCredential, GscPropertyType } from '@/types/googleSearchConsole';
 import { formatGscPropertyDisplayName } from '@/server/services/googleSearchConsoleService';
 
 export function toGscConnectionStatus(credential: GscCredential | null): GscConnectionStatus {

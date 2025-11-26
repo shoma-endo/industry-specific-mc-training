@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { GoogleSearchConsoleService } from '@/server/services/googleSearchConsoleService';
-import type { GscCredential } from '@/types/gsc';
+import type { GscCredential } from '@/types/googleSearchConsole';
 
 const supabaseService = new SupabaseService();
 const gscService = new GoogleSearchConsoleService();

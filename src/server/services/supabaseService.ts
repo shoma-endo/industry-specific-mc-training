@@ -8,7 +8,7 @@ import {
 } from '@/types/chat';
 import type { DbUser } from '@/types/user';
 import type { UserRole } from '@/types/user';
-import type { GscCredential, GscPropertyType } from '@/types/gsc';
+import type { GscCredential, GscPropertyType } from '@/types/googleSearchConsole';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 
