@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 
 type ImportResponse = {
   success: boolean;
@@ -108,15 +108,15 @@ export default function GscImportPage() {
                   <SelectValue placeholder="選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="web">web</SelectItem>
-                  <SelectItem value="image">image</SelectItem>
-                  <SelectItem value="news">news</SelectItem>
+                  <SelectItem value="web">ウェブ</SelectItem>
+                  <SelectItem value="image">画像</SelectItem>
+                  <SelectItem value="news">ニュース</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2 sm:col-span-2">
               <label htmlFor="maxRows" className="text-sm font-medium text-gray-700">
-                最大取得行数（1リクエスト）
+                最大取得件数
               </label>
               <Input
                 id="maxRows"
@@ -155,7 +155,10 @@ export default function GscImportPage() {
                   インポート中...
                 </span>
               ) : (
-                'インポートを実行'
+                <span className="inline-flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  インポートを実行
+                </span>
               )}
             </Button>
             <p className="text-sm text-gray-600">評価は行わず、指標のみをシステムに保存します。</p>
