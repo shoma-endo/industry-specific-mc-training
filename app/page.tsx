@@ -9,8 +9,8 @@ import {
   cancelUserSubscription,
   resumeUserSubscription,
   createCustomerPortalSession,
-} from '@/server/handler/actions/subscription.actions';
-import { updateUserFullName } from '@/server/handler/actions/user.actions';
+} from '@/server/actions/subscription.actions';
+import { updateUserFullName } from '@/server/actions/user.actions';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Settings, Shield, List } from 'lucide-react';

@@ -5,7 +5,7 @@ import FieldConfigurator from '@/components/FieldConfigurator';
 import TruncatedText from '@/components/TruncatedText';
 import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
-import { ensureAnnotationChatSession } from '@/server/handler/actions/wordpress.action';
+import { ensureAnnotationChatSession } from '@/server/actions/wordpress.action';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';

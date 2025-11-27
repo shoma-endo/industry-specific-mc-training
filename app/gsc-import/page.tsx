@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
+import { runGscImport } from '@/server/actions/gscImport.actions';
 
 type ImportResponse = {
   success: boolean;
@@ -49,16 +50,19 @@ export default function GscImportPage() {
     setIsLoading(true);
     setResult(null);
     try {
-      const res = await fetch('/api/gsc/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate, endDate, searchType, maxRows, runEvaluation: false }),
+      const res = await runGscImport({
+        startDate,
+        endDate,
+        searchType,
+        maxRows,
+        runEvaluation: false,
       });
-
-      const json = (await res.json()) as ImportResponse;
-      setResult(json);
+      setResult(res);
     } catch (error) {
-      setResult({ success: false, error: error instanceof Error ? error.message : 'インポートに失敗しました' });
+      setResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'インポートに失敗しました',
+      });
     } finally {
       setIsLoading(false);
     }

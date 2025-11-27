@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
-import { useLiffContext } from '@/components/LiffProvider';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
 import {
   Dialog,
@@ -26,6 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useFeedbackDialog } from '@/hooks/useFeedbackDialog';
+import { fetchPrompts, savePrompt } from '@/server/actions/adminPrompts.actions';
 
 type PromptCategory = 'chat' | 'gsc';
 
@@ -47,7 +47,6 @@ const PROMPT_CATEGORIES: Array<{
 ];
 
 export default function PromptsPage() {
-  const { getAccessToken } = useLiffContext();
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [activeCategory, setActiveCategory] = useState<PromptCategory>('chat');
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
@@ -60,17 +59,12 @@ export default function PromptsPage() {
   const loadTemplates = useCallback(async () => {
     try {
       setIsLoading(true);
-      const token = await getAccessToken();
-      const res = await fetch('/api/admin/prompts', {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      const result = await res.json();
-      if (result?.success && result?.data) {
-        setTemplates(result.data as PromptTemplate[]);
+      const res = await fetchPrompts();
+      if (res?.success && res?.data) {
+        setTemplates(res.data as PromptTemplate[]);
         setError(null);
       } else {
-        setError(result?.error || 'プロンプトの取得に失敗しました');
+        setError(res?.error || 'プロンプトの取得に失敗しました');
       }
     } catch (error) {
       console.error('プロンプト取得エラー:', error);
@@ -78,7 +72,7 @@ export default function PromptsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [getAccessToken]);
+  }, []);
 
   const handleTemplateSelect = (templateId: string) => {
     const template = templates.find(t => t.id === templateId);
@@ -93,26 +87,16 @@ export default function PromptsPage() {
 
     try {
       setIsSaving(true);
-      const token = await getAccessToken();
-      const res = await fetch(`/api/admin/prompts/${selectedTemplate.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: selectedTemplate.name,
-          display_name: selectedTemplate.display_name,
-          content: editedContent,
-          variables: selectedTemplate.variables,
-        }),
+      const result = await savePrompt({
+        id: selectedTemplate.id,
+        name: selectedTemplate.name,
+        display_name: selectedTemplate.display_name,
+        content: editedContent,
+        variables: selectedTemplate.variables,
       });
-      const result = await res.json();
 
       if (result?.success) {
-        // テンプレート一覧を更新
         await loadTemplates();
-        // 選択中のテンプレートも更新
         const updatedTemplate = { ...selectedTemplate, content: editedContent };
         setSelectedTemplate(updatedTemplate);
         setError(null);

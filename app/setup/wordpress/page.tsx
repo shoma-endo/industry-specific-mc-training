@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import WordPressSettingsForm from '@/components/WordPressSettingsForm';
-import { getWordPressSettings } from '@/server/handler/actions/wordpress.action';
+import { getWordPressSettings } from '@/server/actions/wordpress.action';
 
 export const dynamic = 'force-dynamic';
 

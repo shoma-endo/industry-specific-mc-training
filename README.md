@@ -37,7 +37,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 ### Google Search Console 連携
 - `/setup/gsc` で OAuth 認証状態・接続アカウント・プロパティを可視化し、プロパティ選択や連携解除を実行
 - `app/api/gsc/oauth/*` が Google OAuth 2.0 の開始／コールバックに対応し、Supabase `gsc_credentials` テーブルへリフレッシュトークンを保存
-- `/api/gsc/status`, `/api/gsc/properties`, `/api/gsc/property`, `/api/gsc/disconnect` で連携状態の確認・プロパティ取得・選択更新・接続解除を提供
+- GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupActions.ts`）
 - Search Console 日次指標は `gsc_page_metrics` に保存し、WordPress 注釈 (`content_annotations`) と 1:N で紐付け可能（normalized_url でマッチング）。
 - 記事ごとの順位評価と改善提案ステップを `gsc_article_evaluations` / `gsc_article_evaluation_history` で管理し、デフォルト30日間隔で「タイトル→書き出し→本文→ペルソナ」の順にエスカレーション。改善が確認できたらステージをリセット。
 - 評価間隔は環境変数 `GSC_EVALUATION_INTERVAL_DAYS` で一括設定（未設定時は30日）。将来のユーザー別設定拡張を見込んでサーバー側で取得関数を用意。
@@ -83,7 +83,7 @@ graph TB
     WordPressAPI["/api/wordpress/*"]
     AdminAPI["/api/admin/*"]
     SubscriptionAPI["/api/refresh, /api/user/*"]
-    ServerActions["server/handler/actions/*"]
+    ServerActions["server/actions/*"]
   end
 
   subgraph Data["Supabase PostgreSQL"]
@@ -387,7 +387,7 @@ npm run ngrok
 | `/api/admin/prompts/[id]` | POST | テンプレート更新・バージョン生成 | Cookie + admin ロール |
 | `/api/wordpress/bulk-import-posts` | POST | WordPress 記事の一括インポート | Bearer + admin ロール |
 
-サーバーアクション (`src/server/handler/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
+サーバーアクション (`src/server/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
 
 ## 🛡️ セキュリティと運用の注意点
 - Supabase では主要テーブルに RLS を適用済み（開発ポリシーが残る箇所は運用前に見直す）

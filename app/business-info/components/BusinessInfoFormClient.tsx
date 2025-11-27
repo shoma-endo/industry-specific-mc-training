@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/dialog';
 import { useFeedbackDialog } from '@/hooks/useFeedbackDialog';
 import { useLiffContext } from '@/components/LiffProvider';
-import { saveBrief, getBrief } from '@/server/handler/actions/brief.actions';
-import { paymentEnum, type Payment, type BriefInput } from '@/server/handler/actions/brief.schema';
+import { saveBrief, getBrief } from '@/server/actions/brief.actions';
+import { paymentEnum, type Payment, type BriefInput } from '@/server/schemas/brief.schema';
 import { Building2, Loader2 } from 'lucide-react';
 
 interface BusinessInfoFormClientProps {

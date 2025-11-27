@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSubscriptionPriceDetails } from '@/server/handler/actions/subscription.actions';
+import { getSubscriptionPriceDetails } from '@/server/actions/subscription.actions';
 import { Button } from '@/components/ui/button';
 import { useLiff } from '@/hooks/useLiff';
 import { useSubscription } from '@/hooks/useSubscription';

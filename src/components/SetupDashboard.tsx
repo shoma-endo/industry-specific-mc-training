@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, AlertCircle, Settings, Plug, Loader2, ShieldCheck, ShieldOff, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
+import { fetchGscStatus } from './GscSetupActions';
 
 interface WordPressStatus {
   connected: boolean;
@@ -73,12 +74,11 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
     setGscConnection(gscStatus);
   }, [gscStatus]);
 
-  const fetchGscStatus = useCallback(async () => {
+  const refetchGscStatus = useCallback(async () => {
     setIsLoadingGscStatus(true);
     try {
-      const response = await fetch('/api/gsc/status', { credentials: 'include' });
-      const result = await response.json();
-      if (result.success) {
+      const result = await fetchGscStatus();
+      if (result.success && result.data) {
         setGscConnection(result.data);
       }
     } catch (error) {
@@ -89,8 +89,8 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
   }, []);
 
   useEffect(() => {
-    fetchGscStatus();
-  }, [fetchGscStatus]);
+    refetchGscStatus();
+  }, [refetchGscStatus]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">

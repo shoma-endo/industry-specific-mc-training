@@ -23,6 +23,12 @@ import {
   ShieldOff,
   Unplug,
 } from 'lucide-react';
+import {
+  disconnectGsc,
+  fetchGscProperties,
+  fetchGscStatus,
+  saveGscProperty,
+} from './GscSetupActions';
 
 interface GscSetupClientProps {
   initialStatus: GscConnectionStatus;
@@ -78,9 +84,8 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     setIsSyncingStatus(true);
     setAlertMessage(null);
     try {
-      const response = await fetch('/api/gsc/status', { credentials: 'include' });
-      const result = await response.json();
-      if (result.success) {
+      const result = await fetchGscStatus();
+      if (result.success && result.data) {
         setStatus(result.data as GscConnectionStatus);
       } else {
         throw new Error(result.error || 'ステータスの取得に失敗しました');
@@ -100,9 +105,8 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     setIsLoadingProperties(true);
     setAlertMessage(null);
     try {
-      const response = await fetch('/api/gsc/properties', { credentials: 'include' });
-      const result = await response.json();
-      if (result.success) {
+      const result = await fetchGscProperties();
+      if (result.success && Array.isArray(result.data)) {
         setProperties(result.data as GscSiteEntry[]);
       } else {
         throw new Error(result.error || 'プロパティ一覧の取得に失敗しました');
@@ -130,16 +134,10 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     setAlertMessage(null);
     try {
       const selected = properties.find(property => property.siteUrl === value);
-      const response = await fetch('/api/gsc/property', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyUri: value,
-          permissionLevel: selected?.permissionLevel,
-        }),
+      const result = await saveGscProperty({
+        propertyUri: value,
+        permissionLevel: selected?.permissionLevel ?? null,
       });
-      const result = await response.json();
       if (!result.success) {
         throw new Error(result.error || 'プロパティの保存に失敗しました');
       }
@@ -159,11 +157,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     setIsDisconnecting(true);
     setAlertMessage(null);
     try {
-      const response = await fetch('/api/gsc/disconnect', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const result = await response.json();
+      const result = await disconnectGsc();
       if (!result.success) {
         throw new Error(result.error || '連携解除に失敗しました');
       }
@@ -172,9 +166,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
       setAlertMessage('Google Search Consoleとの連携を解除しました');
     } catch (error) {
       console.error(error);
-      setAlertMessage(
-        error instanceof Error ? error.message : '連携解除に失敗しました'
-      );
+      setAlertMessage(error instanceof Error ? error.message : '連携解除に失敗しました');
     } finally {
       setIsDisconnecting(false);
     }

@@ -19,7 +19,7 @@ import type { WordPressSettingsFormProps } from '@/types/components';
 import {
   saveWordPressSettingsAction,
   testWordPressConnectionAction,
-} from '@/server/handler/actions/wordpress.action';
+} from '@/server/actions/wordpress.action';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 interface StatusOutcome {
