@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, AlertCircle, Settings, Plug, Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
+import { CheckCircle, AlertCircle, Settings, Plug, Loader2, ShieldCheck, ShieldOff, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
 
@@ -216,7 +216,7 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
                   <Button
                     asChild
                     variant={wordpressSettings.hasSettings ? 'outline' : 'default'}
-                    className="w-full"
+                    className={`w-full ${wordpressSettings.hasSettings ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
                   >
                     <Link href="/setup/wordpress">
                       <Settings size={16} className="mr-2" />
@@ -309,11 +309,21 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
 
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <Button asChild className="w-full">
-                    <Link href="/setup/gsc">{gscConnection.connected ? '連携を管理' : '連携を開始'}</Link>
+                  <Button asChild variant={gscConnection.connected ? 'outline' : 'default'} className={`w-full ${gscConnection.connected ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}>
+                    <Link href="/setup/gsc">
+                      <Settings size={16} className="mr-2" />
+                      {gscConnection.connected ? '連携を管理' : '連携を開始'}
+                    </Link>
                   </Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={fetchGscStatus} disabled={isLoadingGscStatus}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={fetchGscStatus}
+                  disabled={isLoadingGscStatus}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoadingGscStatus ? 'animate-spin' : ''}`} />
                   再読込
                 </Button>
               </div>
