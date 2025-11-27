@@ -29,6 +29,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // maxRows のバリデーション（GSC API の上限は 25000）
+    if (typeof maxRows !== 'number' || maxRows < 1 || maxRows > 25000) {
+      return NextResponse.json(
+        { success: false, error: 'maxRows は 1～25000 の範囲で指定してください' },
+        { status: 400 }
+      );
+    }
+
+    // 期間のバリデーション（最大365日）
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return NextResponse.json(
+        { success: false, error: '日付の形式が不正です' },
+        { status: 400 }
+      );
+    }
+    if (start > end) {
+      return NextResponse.json(
+        { success: false, error: '開始日は終了日より前である必要があります' },
+        { status: 400 }
+      );
+    }
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 365) {
+      return NextResponse.json(
+        { success: false, error: '期間は最大365日までです' },
+        { status: 400 }
+      );
+    }
+
     const summary = await googleSearchConsoleImportService.importAndMaybeEvaluate(authResult.userId, {
       startDate,
       endDate,

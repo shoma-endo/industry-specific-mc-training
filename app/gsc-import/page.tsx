@@ -35,6 +35,16 @@ export default function GscImportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResponse | null>(null);
 
+  // 期間（日数）を計算
+  const calculateDaysDiff = (start: string, end: string): number => {
+    const startMs = new Date(start).getTime();
+    const endMs = new Date(end).getTime();
+    return Math.ceil((endMs - startMs) / (1000 * 60 * 60 * 24));
+  };
+
+  const daysDiff = calculateDaysDiff(startDate, endDate);
+  const showWarning = daysDiff > 90 || maxRows > 2000;
+
   const handleSubmit = async () => {
     setIsLoading(true);
     setResult(null);
@@ -112,13 +122,30 @@ export default function GscImportPage() {
                 id="maxRows"
                 type="number"
                 min={1}
-                max={5000}
+                max={25000}
                 value={maxRows}
-                onChange={e => setMaxRows(Math.max(1, Math.min(5000, Number(e.target.value) || 0)))}
+                onChange={e => setMaxRows(Math.max(1, Math.min(25000, Number(e.target.value) || 0)))}
               />
-              <p className="text-xs text-gray-500">初期値1000。GSC APIの行数上限に注意してください。</p>
+              <p className="text-xs text-gray-500">
+                推奨: 1000～2000 / 上限: 25000
+              </p>
             </div>
           </div>
+
+          {showWarning && (
+            <Alert variant="default" className="border-amber-200 bg-amber-50">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden />
+                <div className="text-sm text-amber-800">
+                  <p className="font-medium mb-1">処理に時間がかかる可能性があります</p>
+                  <ul className="space-y-1 text-xs">
+                    {daysDiff > 90 && <li>• 期間が90日を超えています（{daysDiff}日間）。推奨: 30日以内</li>}
+                    {maxRows > 2000 && <li>• 最大取得行数が2000を超えています。推奨: 1000～2000</li>}
+                  </ul>
+                </div>
+              </div>
+            </Alert>
+          )}
 
           <div className="flex items-center gap-3">
             <Button onClick={handleSubmit} disabled={isLoading} className="min-w-[180px]">
