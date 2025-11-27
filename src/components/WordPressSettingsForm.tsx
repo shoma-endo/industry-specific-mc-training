@@ -310,7 +310,7 @@ export default function WordPressSettingsForm({
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
+    <div className="container mx-auto px-4 py-8 max-w-3xl space-y-6">
       {/* ヘッダー */}
       <div className="mb-8">
         <Link

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import {
 import type { GscConnectionStatus, GscSiteEntry } from '@/types/googleSearchConsole';
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   Plug,
   RefreshCw,
@@ -180,8 +182,19 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Google Search Console 連携</h1>
+      {/* ヘッダー */}
+      <div className="mb-8">
+        <Link
+          href="/setup"
+          className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4"
+        >
+          <ArrowLeft size={20} className="mr-2" />
+          設定ダッシュボードに戻る
+        </Link>
+        <div className="flex items-center gap-3 mb-4">
+          <Plug className="text-red-500" size={32} />
+          <h1 className="text-3xl font-bold">Google Search Console 連携</h1>
+        </div>
         <p className="text-gray-600">
           Google Search Consoleから検索パフォーマンス指標を取得し、広告・LP改善に活用します。
         </p>
@@ -206,10 +219,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Plug className="text-red-500" size={20} />
-            連携ステータス
-          </CardTitle>
+          <CardTitle className="text-lg font-semibold">連携ステータス</CardTitle>
           <Button
             variant="ghost"
             size="sm"
@@ -352,10 +362,10 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
               </Button>
               <Button
                 type="button"
-                variant="destructive"
+                variant="outline"
                 onClick={handleDisconnect}
                 disabled={isDisconnecting}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
               >
                 <Unplug className="h-4 w-4" />
                 連携解除
@@ -380,6 +390,74 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
           </CardContent>
         </Card>
       )}
+
+      {/* 設定ガイド */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Google Search Console 連携ガイド</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6 text-sm text-gray-700">
+            {/* 連携手順 */}
+            <div>
+              <h4 className="font-medium mb-2">連携手順</h4>
+              <ol className="list-decimal list-inside space-y-1 ml-4">
+                <li>Search Consoleで対象サイトを登録し、所有者ステータスを確認</li>
+                <li>上部の「Googleアカウントで認証」ボタンでOAuth認可を完了</li>
+                <li>権限が確認でき次第、利用可能なプロパティが自動表示されます</li>
+                <li>プロパティを選択して保存</li>
+              </ol>
+            </div>
+
+            {/* 必要な権限 */}
+            <div>
+              <h4 className="font-medium mb-2">必要な権限</h4>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>Search Consoleでサイト全体の「所有者」または「フルユーザー」権限が必要です</li>
+                <li>読み取り専用スコープ（webmasters.readonly）のみを使用します</li>
+                <li>データの書き込み・削除は一切行いません</li>
+              </ul>
+            </div>
+
+            {/* トラブルシューティング */}
+            <div>
+              <h4 className="font-medium mb-2">トラブルシューティング</h4>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>プロパティが表示されない → Search Console側で権限を確認してください</li>
+                <li>接続エラーが出る → 再読込ボタンで最新状態を取得してください</li>
+                <li>認証がうまくいかない → 一度連携解除してから再度認証してください</li>
+              </ul>
+            </div>
+
+            {/* 参考リンク */}
+            <div>
+              <h4 className="font-medium mb-2">参考リンク</h4>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>
+                  <a
+                    href="https://support.google.com/webmasters/answer/7687615?hl=ja"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    所有者、ユーザー、権限の管理
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://support.google.com/webmasters/answer/6258314?hl=ja"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Search Console の基本的な使用方法
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
