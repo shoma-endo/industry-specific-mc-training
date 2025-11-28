@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -69,10 +70,32 @@ export default function GscImportPage() {
   };
 
   return (
-    <div className="w-full px-4 py-8 max-w-3xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Google Search Console 日次指標インポート</h1>
+    <div className="w-full px-4 py-8">
+      <div className="mx-auto max-w-5xl space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Google Search Console 日次指標インポート</h1>
+          <p className="text-gray-600 mt-2">
+            Google Search Consoleから日次の検索パフォーマンス指標を取得し、システムに保存します。
+            評価は行わず、指標データのみを保存します。
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/setup"
+              className="inline-flex items-center text-blue-600 hover:text-blue-800"
+            >
+              設定ダッシュボードを見る
+            </Link>
+            <span className="text-gray-300">|</span>
+            <Link
+              href="/analytics"
+              className="inline-flex items-center text-blue-600 hover:text-blue-800"
+            >
+              コンテンツ一覧に戻る
+            </Link>
+          </div>
+        </div>
 
-      <Card>
+        <Card>
         <CardHeader>
           <CardTitle>期間を指定してインポート</CardTitle>
         </CardHeader>
@@ -151,22 +174,19 @@ export default function GscImportPage() {
             </Alert>
           )}
 
-          <div className="flex items-center gap-3">
-            <Button onClick={handleSubmit} disabled={isLoading} className="min-w-[180px]">
-              {isLoading ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  インポート中...
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-2">
-                  <Download className="w-4 h-4" />
-                  インポートを実行
-                </span>
-              )}
-            </Button>
-            <p className="text-sm text-gray-600">評価は行わず、指標のみをシステムに保存します。</p>
-          </div>
+          <Button onClick={handleSubmit} disabled={isLoading} className="w-full">
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                インポート実行中...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Google Search Console 指標をインポート
+              </>
+            )}
+          </Button>
 
           {result && (
             <Alert variant={result.success ? 'default' : 'destructive'}>
@@ -198,6 +218,7 @@ export default function GscImportPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
