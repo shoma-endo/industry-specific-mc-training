@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Info, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Info, Calendar as CalendarIcon, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -102,7 +102,7 @@ export function EvaluationSettings({
 
   return (
     <div className="space-y-4 border-t pt-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="space-y-4">
         <div>
           <h3 className="text-lg font-semibold flex items-center gap-2">
             評価サイクル設定
@@ -118,7 +118,10 @@ export function EvaluationSettings({
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button variant="default">{isUpdateMode ? '設定を変更' : '評価を開始'}</Button>
+            <Button variant="default">
+              <Settings className="w-4 h-4" />
+              {isUpdateMode ? '設定を変更' : '評価を開始'}
+            </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
