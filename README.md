@@ -294,30 +294,217 @@ erDiagram
 ## 🚀 セットアップ手順
 
 ### 必要条件
-- Node.js 18 以上
-- npm
-- Supabase プロジェクト（Service Role キー取得済み）
-- LINE Developers アカウント（LIFF & Login 設定）
-- Stripe アカウント（サブスクリプション利用時）
+- **Node.js**: 18 以上（推奨: 20.x LTS）
+- **npm**: 9 以上
+- **Supabase プロジェクト**（Service Role キー取得済み）
+- **LINE Developers アカウント**（LIFF & Login Channel 作成済み）
+- **Stripe アカウント**（サブスクリプション利用時）
+- **ngrok アカウント**（LIFF ローカルテスト用、任意）
 
-### クイックスタート
+### 1. リポジトリのクローンと依存関係のインストール
 
 ```bash
+# リポジトリをクローン
 git clone <repository-url>
 cd industry-specific-mc-training
+
+# 依存関係をインストール
 npm install
-# .env.local に上記環境変数を設定
-npx supabase db push       # マイグレーション適用
-npm run dev                # tsc-watch + next dev --turbopack
-# LIFF 実機確認が必要な場合は別ターミナルで
+```
+
+### 2. Supabase のセットアップ
+
+#### 2.1 Supabase プロジェクトの作成
+1. [Supabase](https://supabase.com) にログインし、新規プロジェクトを作成
+2. プロジェクト設定から以下の情報を取得：
+   - **Project URL** (`https://xxxxx.supabase.co`)
+   - **anon public key**
+   - **service_role key**（秘密情報、サーバーサイド専用）
+   - **Database Password**
+
+#### 2.2 マイグレーションの適用
+```bash
+# Supabase CLI がインストールされていない場合
+npm install -g supabase
+
+# プロジェクトにリンク
+npx supabase link --project-ref <your-project-id>
+
+# マイグレーションを適用
+npx supabase db push
+```
+
+### 3. LINE Developers の設定
+
+#### 3.1 LINE Login Channel の作成
+1. [LINE Developers Console](https://developers.line.biz/console/) にアクセス
+2. 新規プロバイダーまたは既存プロバイダーを選択
+3. 「LINE Login」タイプのチャネルを作成
+4. チャネル基本設定から以下を取得：
+   - **Channel ID**
+   - **Channel Secret**
+
+#### 3.2 LIFF アプリの作成
+1. 作成した LINE Login チャネルの「LIFF」タブへ移動
+2. 「追加」ボタンで新規 LIFF アプリを作成
+3. 設定項目：
+   - **LIFF アプリ名**: 任意（例: GrowMate Dev）
+   - **サイズ**: Full
+   - **エンドポイント URL**: `https://your-ngrok-url.ngrok.io`（ローカル開発時）または本番 URL
+   - **Scope**: `profile`, `openid`, `email` を選択
+4. 作成後、**LIFF ID** (`<liff-id>`) をコピー
+
+#### 3.3 コールバック URL の設定
+1. LINE Login チャネルの「LINE Login 設定」タブ
+2. 「コールバック URL」に以下を追加：
+   - ローカル: `https://your-ngrok-url.ngrok.io/api/line/callback`
+   - 本番: `https://your-domain.com/api/line/callback`
+
+### 4. Stripe の設定（サブスクリプション機能を使用する場合）
+
+#### 4.1 Stripe アカウントの作成とキー取得
+1. [Stripe Dashboard](https://dashboard.stripe.com/) にログイン
+2. 「開発者」→「API キー」から以下を取得：
+   - **シークレットキー**（`sk_test_...` または `sk_live_...`）
+
+#### 4.2 サブスクリプション商品と Price ID の作成
+1. Stripe Dashboard の「商品」→「商品を追加」
+2. サブスクリプション商品を作成し、**Price ID** (`price_xxxxx`) をコピー
+
+#### 4.3 Stripe を無効化する場合
+- `STRIPE_ENABLED=false` を設定
+- ただし、`STRIPE_SECRET_KEY` と `STRIPE_PRICE_ID` にはダミー値（例: `sk_test_dummy`）を設定する必要があります
+
+### 5. 環境変数の設定
+
+プロジェクトルートに `.env.local` ファイルを作成し、以下の環境変数を設定してください：
+
+```bash
+# ────────────────────────────────────────────────────────
+# Supabase 設定
+# ────────────────────────────────────────────────────────
+DBPASS=your_supabase_database_password
+SUPABASE_SERVICE_ROLE=your_supabase_service_role_key
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# ────────────────────────────────────────────────────────
+# LINE 設定
+# ────────────────────────────────────────────────────────
+LINE_CHANNEL_ID=your_line_channel_id
+LINE_CHANNEL_SECRET=your_line_channel_secret
+NEXT_PUBLIC_LIFF_ID=your_liff_id
+NEXT_PUBLIC_LIFF_CHANNEL_ID=your_line_channel_id
+
+# ────────────────────────────────────────────────────────
+# Stripe 設定
+# ────────────────────────────────────────────────────────
+STRIPE_ENABLED=true  # Stripe を無効化する場合は false
+STRIPE_SECRET_KEY=sk_test_xxxxx
+STRIPE_PRICE_ID=price_xxxxx
+NEXT_PUBLIC_STRIPE_ENABLED=true  # 省略時は STRIPE_ENABLED を継承
+
+# ────────────────────────────────────────────────────────
+# AI API キー
+# ────────────────────────────────────────────────────────
+ANTHROPIC_API_KEY=sk-ant-xxxxx
+OPENAI_API_KEY=sk-proj-xxxxx
+
+# ────────────────────────────────────────────────────────
+# サイト URL
+# ────────────────────────────────────────────────────────
+NEXT_PUBLIC_SITE_URL=https://your-ngrok-url.ngrok.io  # ローカル開発時
+# NEXT_PUBLIC_SITE_URL=https://your-domain.com  # 本番環境
+
+# ────────────────────────────────────────────────────────
+# WordPress.com OAuth 設定（任意）
+# ────────────────────────────────────────────────────────
+WORDPRESS_COM_CLIENT_ID=your_wordpress_com_client_id
+WORDPRESS_COM_CLIENT_SECRET=your_wordpress_com_client_secret
+WORDPRESS_COM_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/wordpress/oauth/callback
+COOKIE_SECRET=your_random_32_char_secret_key  # openssl rand -hex 32 で生成
+OAUTH_STATE_COOKIE_NAME=wp_oauth_state
+OAUTH_TOKEN_COOKIE_NAME=wp_oauth_token
+
+# ────────────────────────────────────────────────────────
+# 機能フラグ（任意）
+# ────────────────────────────────────────────────────────
+FEATURE_RPC_V2=false  # 新しい Supabase RPC を有効化する場合は true
+```
+
+**重要**: `.env.local` は `.gitignore` に含まれています。本番環境では Vercel の環境変数設定を使用してください。
+
+### 6. 開発サーバーの起動
+
+```bash
+# TypeScript の型チェック + Next.js 開発サーバーを起動
+npm run dev
+```
+
+ブラウザで `http://localhost:3000` にアクセスしてアプリケーションを確認できます。
+
+### 7. LIFF ローカル開発のための ngrok セットアップ（任意）
+
+LIFF はHTTPS環境が必須のため、ローカル開発では ngrok を使用します。
+
+#### 7.1 ngrok のセットアップ
+1. [ngrok](https://ngrok.com/) にサインアップ
+2. 無料プランでは固定サブドメインが使えないため、有料プランまたは起動毎の動的 URL を使用
+3. `package.json` の ngrok スクリプトを環境に合わせて調整：
+   ```json
+   "ngrok": "ngrok http --region=jp --subdomain=your-subdomain 3000"
+   ```
+
+#### 7.2 ngrok の起動
+```bash
+# 別ターミナルで ngrok を起動
 npm run ngrok
 ```
 
+ngrok が表示する HTTPS URL（例: `https://your-subdomain.ngrok.io`）を以下に設定：
+- `.env.local` の `NEXT_PUBLIC_SITE_URL`
+- LINE Developers の LIFF エンドポイント URL
+- LINE Login のコールバック URL
+
+### 8. 動作確認と検証
+
+#### 8.1 Lint チェック
+```bash
+npm run lint
+```
+
+#### 8.2 ビルドチェック
+```bash
+npm run build
+npm run start
+```
+
+#### 8.3 データベース統計確認
+```bash
+npm run db:stats
+```
+
+#### 8.4 Vercel 統計確認（Vercel にデプロイ済みの場合）
+```bash
+npm run vercel:stats
+```
+
+### 9. 初期データのセットアップ
+
+アプリケーションに初回ログインした後、以下の設定を行います：
+
+1. **管理者ロールの付与**: Supabase の `users` テーブルで自分のユーザーの `role` を `admin` に変更
+2. **事業者情報の登録**: `/business-info` で 5W2H などの基本情報を入力
+3. **WordPress 連携**（任意）: `/setup/wordpress` で WordPress サイトを接続
+4. **プロンプトテンプレートの確認**: `/admin/prompts` でデフォルトテンプレートを確認・編集
+
 ### ローカル開発のポイント
-- `npm run lint` で ESLint + Next/Tailwind ルールを検証（Husky pre-commit でも実行）
+- `npm run lint` で ESLint + Next/Tailwind ルールを検証（Husky pre-commit でも自動実行）
 - `npm run build` → `npm run start` で本番ビルドの健全性をチェック
 - Supabase への変更は `supabase/migrations/` に SQL を追加し、ロールバック手順をコメントに残す
-- LIFF 連携の動作確認は ngrok などで https 公開した上で LINE Developers のコールバック URL を更新
+- LIFF 連携の動作確認は ngrok などで HTTPS 公開した上で LINE Developers のコールバック URL を更新
+- TypeScript strict モードが有効なため、型エラーを解決してから commit する
+- コミット前に Husky が自動で lint を実行します（失敗時は commit がブロックされます）
 
 ## 📁 プロジェクト構成
 
