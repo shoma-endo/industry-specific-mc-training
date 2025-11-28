@@ -296,7 +296,7 @@ erDiagram
 ### 必要条件
 - **Node.js**: 18 以上（推奨: 20.x LTS）
 - **npm**: 9 以上
-- **Supabase プロジェクト**（Service Role キー取得済み）
+- **Supabase 接続情報**（管理者から取得）
 - **LINE Developers アカウント**（LIFF & Login Channel 作成済み）
 - **Stripe アカウント**（サブスクリプション利用時）
 - **ngrok アカウント**（LIFF ローカルテスト用、任意）
@@ -314,25 +314,28 @@ npm install
 
 ### 2. Supabase のセットアップ
 
-#### 2.1 Supabase プロジェクトの作成
-1. [Supabase](https://supabase.com) にログインし、新規プロジェクトを作成
-2. プロジェクト設定から以下の情報を取得：
+#### 2.1 既存プロジェクトの接続情報を取得
+
+**重要**: このプロジェクトは本番環境と開発環境でSupabaseプロジェクトを共有しています。新規にプロジェクトを作成する必要はありません。
+
+1. プロジェクト管理者から以下の接続情報を取得してください：
    - **Project URL** (`https://xxxxx.supabase.co`)
    - **anon public key**
    - **service_role key**（秘密情報、サーバーサイド専用）
    - **Database Password**
 
-#### 2.2 マイグレーションの適用
-```bash
-# Supabase CLI がインストールされていない場合
-npm install -g supabase
+2. これらの情報を `.env.local` ファイルに設定します（詳細は「5. 環境変数の設定」を参照）
 
-# プロジェクトにリンク
-npx supabase link --project-ref <your-project-id>
+#### 2.2 データベーススキーマについて
 
-# マイグレーションを適用
-npx supabase db push
-```
+- データベースマイグレーションは既に本番環境に適用済みです
+- ローカル開発では、既存のスキーマをそのまま使用します
+- **ローカルでのマイグレーション適用は不要です**（`npx supabase db push` は実行しないでください）
+
+**注意事項:**
+- 本番データと同じデータベースを使用するため、データ操作には十分注意してください
+- テスト用のデータ作成時は、自分のユーザーIDに紐付けて作成し、他のユーザーのデータを誤って変更・削除しないようにしてください
+- スキーマ変更が必要な場合は、必ずプロジェクト管理者に相談してください
 
 ### 3. LINE Developers の設定
 
@@ -501,7 +504,8 @@ npm run vercel:stats
 ### ローカル開発のポイント
 - `npm run lint` で ESLint + Next/Tailwind ルールを検証（Husky pre-commit でも自動実行）
 - `npm run build` → `npm run start` で本番ビルドの健全性をチェック
-- Supabase への変更は `supabase/migrations/` に SQL を追加し、ロールバック手順をコメントに残す
+- **Supabase スキーマ変更**: 本番環境と共有しているため、スキーマ変更は必ず管理者に相談してください。変更が必要な場合は `supabase/migrations/` に SQL を追加し、ロールバック手順をコメントに残します
+- **データ操作の注意**: 本番データと同じDBを使用するため、テストデータは自分のユーザーIDに紐付けて作成し、他のユーザーデータを誤って変更・削除しないよう注意してください
 - LIFF 連携の動作確認は ngrok などで HTTPS 公開した上で LINE Developers のコールバック URL を更新
 - TypeScript strict モードが有効なため、型エラーを解決してから commit する
 - コミット前に Husky が自動で lint を実行します（失敗時は commit がブロックされます）
