@@ -297,7 +297,7 @@ erDiagram
 - **Node.js**: 18 以上（推奨: 20.x LTS）
 - **npm**: 9 以上
 - **Supabase 接続情報**（管理者から取得）
-- **LINE Developers アカウント**（LIFF & Login Channel 作成済み）
+- **LINE 接続情報**（管理者から取得）
 - **Stripe アカウント**（サブスクリプション利用時）
 - **ngrok アカウント**（LIFF ローカルテスト用、任意）
 
@@ -337,31 +337,27 @@ npm install
 - テスト用のデータ作成時は、自分のユーザーIDに紐付けて作成し、他のユーザーのデータを誤って変更・削除しないようにしてください
 - スキーマ変更が必要な場合は、必ずプロジェクト管理者に相談してください
 
-### 3. LINE Developers の設定
+### 3. LINE の設定
 
-#### 3.1 LINE Login Channel の作成
-1. [LINE Developers Console](https://developers.line.biz/console/) にアクセス
-2. 新規プロバイダーまたは既存プロバイダーを選択
-3. 「LINE Login」タイプのチャネルを作成
-4. チャネル基本設定から以下を取得：
-   - **Channel ID**
-   - **Channel Secret**
+**重要**: このプロジェクトは本番環境と開発環境でLINE Login ChannelおよびLIFFアプリを共有しています。新規に作成する必要はありません。
 
-#### 3.2 LIFF アプリの作成
-1. 作成した LINE Login チャネルの「LIFF」タブへ移動
-2. 「追加」ボタンで新規 LIFF アプリを作成
-3. 設定項目：
-   - **LIFF アプリ名**: 任意（例: GrowMate Dev）
-   - **サイズ**: Full
-   - **エンドポイント URL**: `https://your-ngrok-url.ngrok.io`（ローカル開発時）または本番 URL
-   - **Scope**: `profile`, `openid`, `email` を選択
-4. 作成後、**LIFF ID** (`<liff-id>`) をコピー
+#### 3.1 既存のLINE接続情報を取得
 
-#### 3.3 コールバック URL の設定
-1. LINE Login チャネルの「LINE Login 設定」タブ
-2. 「コールバック URL」に以下を追加：
-   - ローカル: `https://your-ngrok-url.ngrok.io/api/line/callback`
-   - 本番: `https://your-domain.com/api/line/callback`
+プロジェクト管理者から以下の接続情報を取得してください：
+
+- **LINE Channel ID**: LINE Login チャネルのチャネル ID
+- **LINE Channel Secret**: LINE Login チャネルのチャネルシークレット
+- **LIFF ID**: 既存のLIFFアプリのID（`<liff-id>` 形式）
+
+これらの情報を `.env.local` ファイルに設定します（詳細は「5. 環境変数の設定」を参照）。
+
+#### 3.2 LINE設定の注意事項
+
+**注意事項:**
+- 本番環境と同じLINE ChannelおよびLIFFアプリを使用します
+- **LINE Developers Consoleでの設定変更は本番環境にも影響します**
+- LIFF エンドポイント URL やコールバック URL の変更は行わないでください
+- 設定変更が必要な場合は、必ずプロジェクト管理者に相談してください
 
 ### 4. Stripe の設定（サブスクリプション機能を使用する場合）
 
@@ -448,7 +444,9 @@ npm run dev
 
 ### 7. LIFF ローカル開発のための ngrok セットアップ（任意）
 
-LIFF はHTTPS環境が必須のため、ローカル開発では ngrok を使用します。
+LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテストする場合は ngrok を使用します。
+
+**重要**: 本番環境とLINE設定を共有しているため、通常のローカル開発ではngrokは不要です。LIFF認証が必要な機能を開発・テストする場合のみ使用してください。
 
 #### 7.1 ngrok のセットアップ
 1. [ngrok](https://ngrok.com/) にサインアップ
@@ -458,16 +456,19 @@ LIFF はHTTPS環境が必須のため、ローカル開発では ngrok を使用
    "ngrok": "ngrok http --region=jp --subdomain=your-subdomain 3000"
    ```
 
-#### 7.2 ngrok の起動
+#### 7.2 ngrok の起動とテスト用設定
+
 ```bash
 # 別ターミナルで ngrok を起動
 npm run ngrok
 ```
 
-ngrok が表示する HTTPS URL（例: `https://your-subdomain.ngrok.io`）を以下に設定：
-- `.env.local` の `NEXT_PUBLIC_SITE_URL`
-- LINE Developers の LIFF エンドポイント URL
-- LINE Login のコールバック URL
+ngrok が表示する HTTPS URL（例: `https://your-subdomain.ngrok.io`）を `.env.local` の `NEXT_PUBLIC_SITE_URL` に一時的に設定できます。
+
+**注意**:
+- LINE Developers Console の LIFF エンドポイント URL やコールバック URL は**本番設定のまま変更しないでください**
+- ngrok URL での完全なLIFF動作確認は、本番設定との競合が発生するため推奨されません
+- LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（http://localhost:3000）を使用してください
 
 ### 8. 動作確認と検証
 
@@ -506,7 +507,8 @@ npm run vercel:stats
 - `npm run build` → `npm run start` で本番ビルドの健全性をチェック
 - **Supabase スキーマ変更**: 本番環境と共有しているため、スキーマ変更は必ず管理者に相談してください。変更が必要な場合は `supabase/migrations/` に SQL を追加し、ロールバック手順をコメントに残します
 - **データ操作の注意**: 本番データと同じDBを使用するため、テストデータは自分のユーザーIDに紐付けて作成し、他のユーザーデータを誤って変更・削除しないよう注意してください
-- LIFF 連携の動作確認は ngrok などで HTTPS 公開した上で LINE Developers のコールバック URL を更新
+- **LINE設定の注意**: 本番環境とLINE ChannelおよびLIFFアプリを共有しているため、LINE Developers Consoleでの設定変更は絶対に行わないでください。設定変更が必要な場合は必ず管理者に相談してください
+- LIFF 機能のテストは本番環境で実施するか、管理者の指示に従ってください
 - TypeScript strict モードが有効なため、型エラーを解決してから commit する
 - コミット前に Husky が自動で lint を実行します（失敗時は commit がブロックされます）
 
