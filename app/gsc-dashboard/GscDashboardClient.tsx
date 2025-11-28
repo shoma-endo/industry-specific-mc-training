@@ -46,6 +46,7 @@ type DetailResponse = {
     property_uri: string;
     last_evaluated_on: string | null;
     base_evaluation_date: string;
+    cycle_days: number;
     last_seen_position: number | null;
     status: string;
     created_at: string;
@@ -171,13 +172,14 @@ export default function GscDashboardClient({
     }
   };
 
-  const handleRegisterEvaluation = async (dateStr: string) => {
+  const handleRegisterEvaluation = async (dateStr: string, cycleDays: number) => {
     if (!selectedId || !detail?.credential?.propertyUri) return;
 
     const res = await registerEvaluation({
       contentAnnotationId: selectedId,
       propertyUri: detail.credential.propertyUri,
       baseEvaluationDate: dateStr,
+      cycleDays,
     });
 
     if (!res.success) {
@@ -188,12 +190,13 @@ export default function GscDashboardClient({
     await refreshDetail(selectedId);
   };
 
-  const handleUpdateEvaluation = async (dateStr: string) => {
+  const handleUpdateEvaluation = async (dateStr: string, cycleDays: number) => {
     if (!selectedId) return;
 
     const res = await updateEvaluation({
       contentAnnotationId: selectedId,
       baseEvaluationDate: dateStr,
+      cycleDays,
     });
 
     if (!res.success) {

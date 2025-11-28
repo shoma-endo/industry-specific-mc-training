@@ -32,6 +32,7 @@ export type GscDetailResponse = {
       property_uri: string;
       last_evaluated_on: string | null;
       base_evaluation_date: string;
+      cycle_days: number;
       last_seen_position: number | null;
       status: string;
       created_at: string;
@@ -147,6 +148,7 @@ export async function registerEvaluation(params: {
   contentAnnotationId: string;
   propertyUri: string;
   baseEvaluationDate: string;
+  cycleDays?: number;
 }) {
   try {
     const { userId, error } = await getAuthUserId();
@@ -154,7 +156,7 @@ export async function registerEvaluation(params: {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
     }
 
-    const { contentAnnotationId, propertyUri, baseEvaluationDate } = params;
+    const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays } = params;
     if (!contentAnnotationId || !propertyUri || !baseEvaluationDate) {
       return { success: false, error: 'contentAnnotationId, propertyUri, baseEvaluationDate は必須です' };
     }
@@ -166,6 +168,11 @@ export async function registerEvaluation(params: {
     const evaluationDate = new Date(`${baseEvaluationDate}T00:00:00.000Z`);
     if (Number.isNaN(evaluationDate.getTime())) {
       return { success: false, error: '無効な日付が指定されました' };
+    }
+
+    const validatedCycleDays = cycleDays ?? 30;
+    if (validatedCycleDays < 1 || validatedCycleDays > 365) {
+      return { success: false, error: '評価サイクル日数は1〜365日の範囲で指定してください' };
     }
 
     const { data: annotation, error: annotationError } = await supabaseService
@@ -206,6 +213,7 @@ export async function registerEvaluation(params: {
         content_annotation_id: contentAnnotationId,
         property_uri: propertyUri,
         base_evaluation_date: baseEvaluationDate,
+        cycle_days: validatedCycleDays,
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -227,6 +235,7 @@ export async function registerEvaluation(params: {
 export async function updateEvaluation(params: {
   contentAnnotationId: string;
   baseEvaluationDate: string;
+  cycleDays?: number;
 }) {
   try {
     const { userId, error } = await getAuthUserId();
@@ -234,7 +243,7 @@ export async function updateEvaluation(params: {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
     }
 
-    const { contentAnnotationId, baseEvaluationDate } = params;
+    const { contentAnnotationId, baseEvaluationDate, cycleDays } = params;
     if (!contentAnnotationId || !baseEvaluationDate) {
       return { success: false, error: 'contentAnnotationId, baseEvaluationDate は必須です' };
     }
@@ -246,6 +255,10 @@ export async function updateEvaluation(params: {
     const evaluationDate = new Date(`${baseEvaluationDate}T00:00:00.000Z`);
     if (Number.isNaN(evaluationDate.getTime())) {
       return { success: false, error: '無効な日付が指定されました' };
+    }
+
+    if (cycleDays !== undefined && (cycleDays < 1 || cycleDays > 365)) {
+      return { success: false, error: '評価サイクル日数は1〜365日の範囲で指定してください' };
     }
 
     const { data: evaluation, error: evaluationError } = await supabaseService
@@ -264,13 +277,18 @@ export async function updateEvaluation(params: {
       return { success: false, error: '評価対象が見つかりません' };
     }
 
+    const updateData: { base_evaluation_date: string; cycle_days?: number; updated_at: string } = {
+      base_evaluation_date: baseEvaluationDate,
+      updated_at: new Date().toISOString(),
+    };
+    if (cycleDays !== undefined) {
+      updateData.cycle_days = cycleDays;
+    }
+
     const { error: updateError } = await supabaseService
       .getClient()
       .from('gsc_article_evaluations')
-      .update({
-        base_evaluation_date: baseEvaluationDate,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', evaluation.id)
       .eq('user_id', userId);
 

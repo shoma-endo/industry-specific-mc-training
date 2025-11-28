@@ -19,9 +19,10 @@ interface EvaluationSettingsProps {
   currentEvaluation: {
     base_evaluation_date: string;
     last_evaluated_on: string | null;
+    cycle_days: number;
   } | null;
-  onRegister: (date: string) => Promise<void>;
-  onUpdate: (date: string) => Promise<void>;
+  onRegister: (date: string, cycleDays: number) => Promise<void>;
+  onUpdate: (date: string, cycleDays: number) => Promise<void>;
 }
 
 // 日付フォーマット用のユーティリティ
@@ -40,8 +41,9 @@ const formatDateJP = (dateStr: string | undefined | null) => {
 const addDays = (dateStr: string | null | undefined, days: number) => {
   if (!dateStr) return '';
   const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return ''; // 無効な日付の場合は空文字列を返す
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  return d.toISOString().split('T')[0]!;
 };
 
 export function EvaluationSettings({
@@ -52,6 +54,7 @@ export function EvaluationSettings({
   const [isOpen, setIsOpen] = useState(false);
   // date string format: YYYY-MM-DD
   const [dateStr, setDateStr] = useState<string>('');
+  const [cycleDays, setCycleDays] = useState<number>(30);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -64,10 +67,12 @@ export function EvaluationSettings({
       if (currentEvaluation && currentEvaluation.base_evaluation_date) {
         // 型推論の曖昧さを排除するためにテンプレートリテラルで文字列化
         setDateStr(`${currentEvaluation.base_evaluation_date}`);
+        setCycleDays(currentEvaluation.cycle_days);
       } else {
         // 今日をデフォルトに
         const today = new Date().toISOString().split('T')[0]!;
         setDateStr(today);
+        setCycleDays(30);
       }
       setError(null);
       setSuccess(null);
@@ -83,10 +88,10 @@ export function EvaluationSettings({
 
     try {
       if (isUpdateMode) {
-        await onUpdate(dateStr);
+        await onUpdate(dateStr, cycleDays);
         setSuccess('評価基準日を更新しました');
       } else {
-        await onRegister(dateStr);
+        await onRegister(dateStr, cycleDays);
         setSuccess('評価を開始しました');
       }
       // 成功メッセージを見せるために少し待ってから閉じる
@@ -98,7 +103,7 @@ export function EvaluationSettings({
     }
   };
 
-  const nextEvaluationDateStr = dateStr ? addDays(dateStr, 30) : '';
+  const nextEvaluationDateStr = dateStr ? addDays(dateStr, cycleDays) : '';
 
   return (
     <div className="space-y-4 border-t pt-6">
@@ -113,7 +118,9 @@ export function EvaluationSettings({
             )}
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            30日ごとに検索順位の変動を自動的に追跡・評価します
+            {currentEvaluation
+              ? `${currentEvaluation.cycle_days}日ごとに検索順位の変動を自動的に追跡・評価します`
+              : '設定した日数ごとに検索順位の変動を自動的に追跡・評価します'}
           </p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -127,7 +134,7 @@ export function EvaluationSettings({
             <DialogHeader>
               <DialogTitle>{isUpdateMode ? '評価基準日の変更' : '評価サイクルの開始'}</DialogTitle>
               <DialogDescription>
-                基準日を設定すると、その日から30日後に初回の順位評価が行われます。
+                基準日を設定すると、その日から設定した日数後に初回の順位評価が行われます。
               </DialogDescription>
             </DialogHeader>
 
@@ -151,6 +158,27 @@ export function EvaluationSettings({
                 </div>
                 <p className="text-xs text-muted-foreground">
                   カレンダーアイコンをタップするか、直接入力してください
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="cycle-days"
+                  className="text-sm font-medium text-gray-700 block"
+                >
+                  評価サイクル日数
+                </label>
+                <Input
+                  id="cycle-days"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={cycleDays}
+                  onChange={e => setCycleDays(Math.max(1, Math.min(365, Number(e.target.value))))}
+                  className="max-w-[250px] text-base"
+                />
+                <p className="text-xs text-muted-foreground">
+                  1〜365日の範囲で指定できます（デフォルト: 30日）
                 </p>
               </div>
 
@@ -220,7 +248,8 @@ export function EvaluationSettings({
               {(() => {
                 const refDate =
                   currentEvaluation.last_evaluated_on || currentEvaluation.base_evaluation_date;
-                const nextDate = addDays(refDate, 30);
+                const cycleDays = currentEvaluation.cycle_days || 30;
+                const nextDate = addDays(refDate, cycleDays);
                 return formatDateJP(nextDate);
               })()}
             </div>

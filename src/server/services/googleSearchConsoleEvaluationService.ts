@@ -1,5 +1,4 @@
 import { SupabaseService } from '@/server/services/supabaseService';
-import { getGscEvaluationConfig } from '@/server/lib/googleSearchConsoleConfig';
 import type { GscEvaluationOutcome, GscPageMetric } from '@/types/googleSearchConsole';
 
 interface EvaluationResultSummary {
@@ -16,6 +15,7 @@ type EvaluationRow = {
   property_uri: string;
   last_evaluated_on?: string | null;
   base_evaluation_date: string;
+  cycle_days: number;
   last_seen_position?: number | null;
   status: string;
 };
@@ -25,7 +25,6 @@ export class GoogleSearchConsoleEvaluationService {
 
   async runDueEvaluationsForUser(userId: string): Promise<EvaluationResultSummary> {
     const today = this.todayISO();
-    const { intervalDays } = getGscEvaluationConfig();
 
     const summary: EvaluationResultSummary = {
       processed: 0,
@@ -49,16 +48,17 @@ export class GoogleSearchConsoleEvaluationService {
     const allEvaluations = (evaluations ?? []) as EvaluationRow[];
 
     // 評価期限が来ているものをフィルタリング
-    // 初回（last_evaluated_on が null）: base_evaluation_date + 30日 <= today
-    // 2回目以降: last_evaluated_on + 30日 <= today
+    // 初回（last_evaluated_on が null）: base_evaluation_date + cycle_days <= today
+    // 2回目以降: last_evaluated_on + cycle_days <= today
     const evaluationRows = allEvaluations.filter((evaluation) => {
+      const cycleDays = evaluation.cycle_days || 30; // フォールバック: cycle_daysが無い場合は30日
       if (!evaluation.last_evaluated_on) {
-        // 初回評価: base_evaluation_date + intervalDays <= today
-        const firstEvaluationDate = this.addDaysISO(evaluation.base_evaluation_date, intervalDays);
+        // 初回評価: base_evaluation_date + cycleDays <= today
+        const firstEvaluationDate = this.addDaysISO(evaluation.base_evaluation_date, cycleDays);
         return firstEvaluationDate <= today;
       } else {
-        // 2回目以降: last_evaluated_on + intervalDays <= today
-        const nextEvaluationDate = this.addDaysISO(evaluation.last_evaluated_on, intervalDays);
+        // 2回目以降: last_evaluated_on + cycleDays <= today
+        const nextEvaluationDate = this.addDaysISO(evaluation.last_evaluated_on, cycleDays);
         return nextEvaluationDate <= today;
       }
     });
