@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   LineChart,
   Line,
@@ -14,7 +15,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import {
   fetchGscDetail,
   registerEvaluation,
@@ -205,7 +206,14 @@ export default function GscDashboardClient({
 
   return (
     <div className="w-full px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="space-y-4">
+        <Link
+          href="/analytics"
+          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1.5" />
+          コンテンツ一覧に戻る
+        </Link>
         <h1 className="text-3xl font-bold">Google Search Console ダッシュボード</h1>
       </div>
 
