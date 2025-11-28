@@ -205,15 +205,15 @@ export function EvaluationSettings({
       {/* 現在の状態表示カード */}
       {currentEvaluation ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4">
-            <div className="text-sm text-muted-foreground mb-1">現在の評価基準日</div>
-            <div className="text-2xl font-bold">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 shadow-sm p-4">
+            <div className="text-sm text-blue-600 mb-1">現在の評価基準日</div>
+            <div className="text-2xl font-bold text-blue-900">
               {formatDateJP(currentEvaluation.base_evaluation_date)}
             </div>
           </div>
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 bg-slate-50/50">
-            <div className="text-sm text-muted-foreground mb-1">次回評価予定</div>
-            <div className="text-2xl font-bold text-slate-900">
+          <div className="rounded-lg border border-green-200 bg-green-50 shadow-sm p-4">
+            <div className="text-sm text-green-600 mb-1">次回評価予定</div>
+            <div className="text-2xl font-bold text-green-900">
               {(() => {
                 const refDate =
                   currentEvaluation.last_evaluated_on || currentEvaluation.base_evaluation_date;
