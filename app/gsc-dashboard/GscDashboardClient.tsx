@@ -13,11 +13,14 @@ import {
   Legend,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle2 } from 'lucide-react';
-import { fetchGscDetail, registerEvaluation, updateEvaluation } from '@/server/actions/gscDashboard.actions';
+import { Loader2 } from 'lucide-react';
+import {
+  fetchGscDetail,
+  registerEvaluation,
+  updateEvaluation,
+} from '@/server/actions/gscDashboard.actions';
+import { EvaluationSettings } from './EvaluationSettings';
 
 type DetailResponse = {
   annotation: { id: string; wp_post_title: string | null; canonical_url: string | null };
@@ -57,7 +60,10 @@ interface Props {
   initialDetail?: DetailResponse | null;
 }
 
-export default function GscDashboardClient({ initialSelectedId = null, initialDetail = null }: Props) {
+export default function GscDashboardClient({
+  initialSelectedId = null,
+  initialDetail = null,
+}: Props) {
   const searchParams = useSearchParams();
 
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
@@ -71,17 +77,6 @@ export default function GscDashboardClient({ initialSelectedId = null, initialDe
     ctr: true,
     position: true,
   });
-
-  // 評価開始フォームの状態
-  const [nextEvaluationOn, setNextEvaluationOn] = useState('');
-  const [registerLoading, setRegisterLoading] = useState(false);
-  const [registerSuccess, setRegisterSuccess] = useState(false);
-
-  // 評価日編集の状態
-  const [isEditingEvaluation, setIsEditingEvaluation] = useState(false);
-  const [editEvaluationDate, setEditEvaluationDate] = useState('');
-  const [updateLoading, setUpdateLoading] = useState(false);
-  const [updateSuccess, setUpdateSuccess] = useState(false);
 
   // URLのクエリから選択を同期
   useEffect(() => {
@@ -159,25 +154,6 @@ export default function GscDashboardClient({ initialSelectedId = null, initialDe
     setVisibleMetrics(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const getDefaultEvaluationDate = () => {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() + 30);
-    return d.toISOString().slice(0, 10);
-  };
-
-  const getTodayISO = () => new Date().toISOString().slice(0, 10);
-
-  const calculateNextEvaluationDate = (evaluation: {
-    base_evaluation_date: string;
-    last_evaluated_on: string | null;
-  } | null): string => {
-    if (!evaluation) return '';
-    const referenceDate = evaluation.last_evaluated_on || evaluation.base_evaluation_date;
-    const date = new Date(`${referenceDate}T00:00:00.000Z`);
-    date.setUTCDate(date.getUTCDate() + 30);
-    return date.toISOString().slice(0, 10);
-  };
-
   const refreshDetail = async (annotationId: string) => {
     setDetailLoading(true);
     setError(null);
@@ -194,86 +170,38 @@ export default function GscDashboardClient({ initialSelectedId = null, initialDe
     }
   };
 
-  const handleRegisterEvaluation = async () => {
-    if (!selectedId || !detail?.credential?.propertyUri || !nextEvaluationOn) {
-      setError('必要な情報が不足しています');
-      return;
+  const handleRegisterEvaluation = async (dateStr: string) => {
+    if (!selectedId || !detail?.credential?.propertyUri) return;
+
+    const res = await registerEvaluation({
+      contentAnnotationId: selectedId,
+      propertyUri: detail.credential.propertyUri,
+      baseEvaluationDate: dateStr,
+    });
+
+    if (!res.success) {
+      throw new Error(res.error || '評価対象の登録に失敗しました');
     }
 
-    setRegisterLoading(true);
-    setRegisterSuccess(false);
-    setError(null);
-
-    try {
-      const res = await registerEvaluation({
-        contentAnnotationId: selectedId,
-        propertyUri: detail.credential.propertyUri,
-        baseEvaluationDate: nextEvaluationOn,
-      });
-
-      if (!res.success) {
-        throw new Error(res.error || '評価対象の登録に失敗しました');
-      }
-
-      setRegisterSuccess(true);
-      await refreshDetail(selectedId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '評価対象の登録に失敗しました');
-    } finally {
-      setRegisterLoading(false);
-    }
+    // データリロード
+    await refreshDetail(selectedId);
   };
 
-  const handleStartEditEvaluation = () => {
-    if (detail?.evaluation?.base_evaluation_date) {
-      setEditEvaluationDate(detail.evaluation.base_evaluation_date);
-      setIsEditingEvaluation(true);
-      setUpdateSuccess(false);
+  const handleUpdateEvaluation = async (dateStr: string) => {
+    if (!selectedId) return;
+
+    const res = await updateEvaluation({
+      contentAnnotationId: selectedId,
+      baseEvaluationDate: dateStr,
+    });
+
+    if (!res.success) {
+      throw new Error(res.error || '評価日の更新に失敗しました');
     }
+
+    // データリロード
+    await refreshDetail(selectedId);
   };
-
-  const handleCancelEditEvaluation = () => {
-    setIsEditingEvaluation(false);
-    setEditEvaluationDate('');
-    setUpdateSuccess(false);
-  };
-
-  const handleUpdateEvaluation = async () => {
-    if (!selectedId || !editEvaluationDate) {
-      setError('必要な情報が不足しています');
-      return;
-    }
-
-    setUpdateLoading(true);
-    setUpdateSuccess(false);
-    setError(null);
-
-    try {
-      const res = await updateEvaluation({
-        contentAnnotationId: selectedId,
-        baseEvaluationDate: editEvaluationDate,
-      });
-
-      if (!res.success) {
-        throw new Error(res.error || '評価日の更新に失敗しました');
-      }
-
-      setUpdateSuccess(true);
-      setIsEditingEvaluation(false);
-      await refreshDetail(selectedId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '評価日の更新に失敗しました');
-    } finally {
-      setUpdateLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (detail && !detail.evaluation && !nextEvaluationOn) {
-      setNextEvaluationOn(getDefaultEvaluationDate());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail]);
 
   return (
     <div className="w-full px-4 py-8 space-y-6">
@@ -290,28 +218,32 @@ export default function GscDashboardClient({ initialSelectedId = null, initialDe
       <div className="grid grid-cols-1 gap-6">
         <Card className="min-h-[520px]">
           <CardHeader>
-            <CardTitle>記事詳細</CardTitle>
+            <CardTitle className="text-lg">記事詳細</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             {detailLoading ? (
-              <div className="flex items-center gap-2 text-gray-500">
-                <Loader2 className="w-4 h-4 animate-spin" /> 読み込み中...
+              <div className="flex items-center gap-2 text-gray-500 py-10 justify-center">
+                <Loader2 className="w-6 h-6 animate-spin" /> 読み込み中...
               </div>
             ) : detail ? (
               <>
-                <div>
-                  <p className="text-sm text-gray-600">タイトル</p>
-                  <p className="font-semibold">{detail.annotation.wp_post_title || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">URL</p>
-                  <p className="text-sm text-blue-700 break-all">
-                    {detail.annotation.canonical_url || '—'}
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">タイトル</p>
+                    <p className="font-semibold text-lg">
+                      {detail.annotation.wp_post_title || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">URL</p>
+                    <p className="text-sm text-blue-700 break-all bg-blue-50/50 p-2 rounded">
+                      {detail.annotation.canonical_url || '—'}
+                    </p>
+                  </div>
                 </div>
 
                 {metricsSummary && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 select-none">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 select-none">
                     <div
                       className={`p-4 rounded-lg border cursor-pointer transition-all ${
                         visibleMetrics.clicks
@@ -370,167 +302,106 @@ export default function GscDashboardClient({ initialSelectedId = null, initialDe
                   </div>
                 )}
 
-                {!detail.evaluation && detail.credential?.propertyUri ? (
-                  <div className="border-t pt-4 mt-4">
-                    <p className="text-sm font-semibold mb-3">評価開始</p>
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <label htmlFor="nextEvaluationOn" className="text-sm font-medium text-gray-700">
-                          評価基準日（この日付 + 30日が初回評価日になります）
-                        </label>
-                        <Input
-                          id="nextEvaluationOn"
-                          type="date"
-                          value={nextEvaluationOn}
-                          min={getTodayISO()}
-                          onChange={e => setNextEvaluationOn(e.target.value)}
-                          className="max-w-xs"
+                <div className="h-80 w-full mt-4">
+                  <ResponsiveContainer>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} tickMargin={10} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: '8px',
+                          border: 'none',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        }}
+                      />
+                      <Legend />
+                      {visibleMetrics.clicks && (
+                        <Line
+                          type="monotone"
+                          dataKey="clicks"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                          dot={false}
+                          name="クリック"
                         />
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <Button onClick={handleRegisterEvaluation} disabled={registerLoading}>
-                          {registerLoading ? (
-                            <span className="inline-flex items-center gap-2">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              登録中...
-                            </span>
-                          ) : (
-                            '評価を開始'
-                          )}
-                        </Button>
-                        {registerSuccess && (
-                          <span className="flex items-center text-sm text-green-700 gap-1">
-                            <CheckCircle2 className="w-4 h-4" />
-                            登録しました
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* 評価情報の表示と編集 */}
-                {detail.evaluation && (
-                  <div className="border-t pt-4 mt-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">評価基準日</p>
-                        <p className="font-semibold">{detail.evaluation.base_evaluation_date}</p>
-                      </div>
-                      {!isEditingEvaluation ? (
-                        <Button variant="outline" onClick={handleStartEditEvaluation}>
-                          評価日を編集
-                        </Button>
-                      ) : null}
-                    </div>
-
-                    {detail.evaluation.last_evaluated_on && (
-                      <div>
-                        <p className="text-sm text-gray-600">最終評価日</p>
-                        <p className="font-semibold">{detail.evaluation.last_evaluated_on}</p>
-                      </div>
-                    )}
-
-                    {isEditingEvaluation && (
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <label htmlFor="editEvaluationDate" className="text-sm font-medium text-gray-700">
-                            評価基準日を変更
-                          </label>
-                          <Input
-                            id="editEvaluationDate"
-                            type="date"
-                            value={editEvaluationDate}
-                            onChange={e => setEditEvaluationDate(e.target.value)}
-                            className="max-w-xs"
-                          />
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Button onClick={handleUpdateEvaluation} disabled={updateLoading}>
-                            {updateLoading ? (
-                              <span className="inline-flex items-center gap-2">
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                更新中...
-                              </span>
-                            ) : (
-                              '保存'
-                            )}
-                          </Button>
-                          <Button variant="ghost" onClick={handleCancelEditEvaluation}>
-                            キャンセル
-                          </Button>
-                          {updateSuccess && (
-                            <span className="flex items-center text-sm text-green-700 gap-1">
-                              <CheckCircle2 className="w-4 h-4" />
-                              更新しました
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <p className="text-sm text-gray-600">次回評価予定</p>
-                        <p className="font-semibold">
-                          {calculateNextEvaluationDate(detail.evaluation) || '—'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="border-t pt-4 mt-4">
-                  <p className="text-sm font-semibold mb-3">メトリクス</p>
-                  <div className="w-full h-96">
-                    <ResponsiveContainer>
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        {visibleMetrics.clicks && (
-                          <Line type="monotone" dataKey="clicks" stroke="#22c55e" name="クリック" />
-                        )}
-                        {visibleMetrics.impressions && (
-                          <Line
-                            type="monotone"
-                            dataKey="impressions"
-                            stroke="#a855f7"
-                            name="表示回数"
-                          />
-                        )}
-                        {visibleMetrics.ctr && (
-                          <Line type="monotone" dataKey="ctr" stroke="#fb923c" name="CTR(%)" />
-                        )}
-                        {visibleMetrics.position && (
-                          <Line type="monotone" dataKey="position" stroke="#3b82f6" name="掲載順位" />
-                        )}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                      )}
+                      {visibleMetrics.impressions && (
+                        <Line
+                          type="monotone"
+                          dataKey="impressions"
+                          stroke="#a855f7"
+                          strokeWidth={2}
+                          dot={false}
+                          name="表示回数"
+                        />
+                      )}
+                      {visibleMetrics.ctr && (
+                        <Line
+                          type="monotone"
+                          dataKey="ctr"
+                          stroke="#fb923c"
+                          strokeWidth={2}
+                          dot={false}
+                          name="CTR(%)"
+                        />
+                      )}
+                      {visibleMetrics.position && (
+                        <Line
+                          type="monotone"
+                          dataKey="position"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          dot={false}
+                          name="掲載順位"
+                        />
+                      )}
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
 
-                <div className="border-t pt-4 mt-4 space-y-3">
-                  <p className="text-sm font-semibold">評価履歴</p>
+                {/* 評価設定（コンポーネント化） */}
+                {detail.credential?.propertyUri && (
+                  <EvaluationSettings
+                    currentEvaluation={detail.evaluation}
+                    onRegister={handleRegisterEvaluation}
+                    onUpdate={handleUpdateEvaluation}
+                  />
+                )}
+
+                <div className="border-t pt-6">
+                  <p className="text-lg font-semibold mb-4">評価履歴</p>
                   {detail.history.length === 0 ? (
-                    <p className="text-sm text-gray-600">評価履歴がありません</p>
+                    <p className="text-sm text-gray-500">まだ評価履歴がありません</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {detail.history.map(item => (
                         <div
                           key={item.id}
-                          className="p-3 rounded-lg border flex items-center justify-between"
+                          className="p-4 rounded-lg border bg-white flex items-center justify-between shadow-sm"
                         >
                           <div>
-                            <p className="text-sm font-medium">{item.evaluation_date}</p>
-                            <p className="text-xs text-gray-600">結果: {item.outcome}</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {item.evaluation_date}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-gray-500">判定:</span>
+                              <span className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+                                {item.outcome}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-700">
-                            <p>前回順位: {item.previous_position ?? '—'}</p>
-                            <p>今回順位: {item.current_position}</p>
+                          <div className="text-right">
+                            <div className="flex items-baseline gap-2 justify-end">
+                              <span className="text-xs text-gray-500">
+                                前回: {item.previous_position ?? '—'}
+                              </span>
+                              <span className="text-gray-400">→</span>
+                              <span className="text-lg font-bold text-gray-900">
+                                {item.current_position}
+                              </span>
+                              <span className="text-xs text-gray-500">位</span>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -539,7 +410,9 @@ export default function GscDashboardClient({ initialSelectedId = null, initialDe
                 </div>
               </>
             ) : (
-              <div className="text-sm text-gray-600">記事が選択されていません</div>
+              <div className="py-20 text-center text-gray-500">
+                <p>左側のリストまたはURLから記事を選択してください</p>
+              </div>
             )}
           </CardContent>
         </Card>
