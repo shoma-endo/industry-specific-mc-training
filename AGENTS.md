@@ -55,7 +55,7 @@ AI運用5原則
 - `src/domain/` — フロント向けサービス層（`ChatService`, `SubscriptionService` など）。クライアント側のビジネスロジックを集約。
 - `src/hooks/` — カスタム React フック。
 - `src/lib/` — ユーティリティと設定（`constants`, `prompts`, `client-manager` など）。
-- `src/server/` — Server Actions・ミドルウェア・外部サービス連携（WordPress / Stripe / LLM / Supabase）。サーバーサイドの中核。
+- `src/server/` — Server Actions・ミドルウェア・外部サービス連携（WordPress / Stripe / LLM / Supabase）。サーバーサイドの中核（Server Actions は `src/server/actions/`、共有スキーマは `src/server/schemas/`）。
 - `src/types/` — 共通型定義。環境変数・チャット・WordPress などを集約し、フロント・サーバー双方で再利用。
 - `supabase/migrations/` — PostgreSQL スキーマと RLS のマイグレーションファイル。追加時は README との整合性を保つこと。
 

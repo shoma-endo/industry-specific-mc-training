@@ -37,7 +37,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 ### Google Search Console 連携
 - `/setup/gsc` で OAuth 認証状態・接続アカウント・プロパティを可視化し、プロパティ選択や連携解除を実行
 - `app/api/gsc/oauth/*` が Google OAuth 2.0 の開始／コールバックに対応し、Supabase `gsc_credentials` テーブルへリフレッシュトークンを保存
-- GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupActions.ts`）
+- GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupActions.ts` / `src/server/actions/gscDashboard.actions.ts` など）
 - Search Console 日次指標は `gsc_page_metrics` に保存し、WordPress 注釈 (`content_annotations`) と 1:N で紐付け可能（normalized_url でマッチング）。
 - 記事ごとの順位評価と改善提案ステップを `gsc_article_evaluations` / `gsc_article_evaluation_history` で管理し、デフォルト30日間隔で「タイトル→書き出し→本文→ペルソナ」の順にエスカレーション。改善が確認できたらステージをリセット。
 - 評価間隔は環境変数 `GSC_EVALUATION_INTERVAL_DAYS` で一括設定（未設定時は30日）。将来のユーザー別設定拡張を見込んでサーバー側で取得関数を用意。
@@ -111,7 +111,7 @@ graph TB
   Annotation --> ServerActions
   Analytics --> WordPressAPI
   BusinessForm --> ServerActions
-  AdminUI --> AdminAPI
+  AdminUI --> ServerActions
 
   ServerActions --> UsersTable
   ServerActions --> BriefsTable
@@ -354,7 +354,7 @@ npm run ngrok
 │   ├── hooks/               # LIFF / サブスクリプション / UI ユーティリティ
 │   ├── lib/                 # 定数・プロンプト管理・Supabase クライアント生成
 │   ├── server/
-│   │   ├── handler/actions/ # Server Actions 経由のビジネスロジック
+│   │   ├── actions/ # Server Actions 経由のビジネスロジック
 │   │   ├── middleware/      # 認証・ロール判定ミドルウェア
 │   │   └── services/        # Stripe / WordPress / Supabase / LLM などの統合層
 │   └── types/               # 共通型定義（chat, prompt, annotation, wordpress 等）
