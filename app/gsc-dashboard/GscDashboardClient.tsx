@@ -378,21 +378,14 @@ export default function GscDashboardClient({ initialSelectedId = null, initialDe
                         <label htmlFor="nextEvaluationOn" className="text-sm font-medium text-gray-700">
                           評価基準日（この日付 + 30日が初回評価日になります）
                         </label>
-                        <div className="flex items-center gap-3">
-                          <Input
-                            id="nextEvaluationOn"
-                            type="date"
-                            value={nextEvaluationOn}
-                            min={getTodayISO()}
-                            onChange={e => setNextEvaluationOn(e.target.value)}
-                          />
-                          <Button
-                            variant="outline"
-                            onClick={() => setNextEvaluationOn(getDefaultEvaluationDate())}
-                          >
-                            30日後を設定
-                          </Button>
-                        </div>
+                        <Input
+                          id="nextEvaluationOn"
+                          type="date"
+                          value={nextEvaluationOn}
+                          min={getTodayISO()}
+                          onChange={e => setNextEvaluationOn(e.target.value)}
+                          className="max-w-xs"
+                        />
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -450,6 +443,7 @@ export default function GscDashboardClient({ initialSelectedId = null, initialDe
                             type="date"
                             value={editEvaluationDate}
                             onChange={e => setEditEvaluationDate(e.target.value)}
+                            className="max-w-xs"
                           />
                         </div>
                         <div className="flex items-center gap-3">
