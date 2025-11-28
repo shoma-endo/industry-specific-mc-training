@@ -100,7 +100,7 @@ export default function GscImportPage() {
           <CardTitle>期間を指定してインポート</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="startDate" className="text-sm font-medium text-gray-700">
                 開始日
@@ -127,7 +127,7 @@ export default function GscImportPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <span className="text-sm font-medium text-gray-700">検索タイプ</span>
               <Select value={searchType} onValueChange={v => setSearchType(v as typeof searchType)}>
@@ -141,7 +141,7 @@ export default function GscImportPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2 sm:col-span-2">
+            <div className="space-y-2">
               <label htmlFor="maxRows" className="text-sm font-medium text-gray-700">
                 最大取得件数
               </label>
@@ -154,7 +154,7 @@ export default function GscImportPage() {
                 onChange={e => setMaxRows(Math.max(1, Math.min(25000, Number(e.target.value) || 0)))}
               />
               <p className="text-xs text-gray-500">
-                推奨: 1000～2000 / 上限: 25000
+                推奨: 1000～2000
               </p>
             </div>
           </div>
