@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Info, Calendar as CalendarIcon, Settings } from 'lucide-react';
+import { Loader2, Info, Calendar as CalendarIcon, Settings, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -225,7 +225,11 @@ export function EvaluationSettings({
                 キャンセル
               </Button>
               <Button onClick={handleSubmit} disabled={loading || !dateStr || !!success}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
                 {isUpdateMode ? '更新して保存' : 'この日程で開始'}
               </Button>
             </DialogFooter>

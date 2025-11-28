@@ -89,7 +89,7 @@ const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProp
             tabIndex={0}
           >
             <Link href="/admin">
-              <Settings className="h-4 w-4 mr-2" />
+              <Settings className="h-4 w-4" />
               管理者ダッシュボード
             </Link>
           </Button>

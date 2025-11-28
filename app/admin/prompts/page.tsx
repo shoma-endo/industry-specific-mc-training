@@ -16,6 +16,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
+import { Save, RotateCw } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -194,6 +195,7 @@ export default function PromptsPage() {
                   variant="outline"
                   aria-label="再試行"
                 >
+                  <RotateCw className="h-4 w-4" />
                   再試行
                 </Button>
               </div>
@@ -346,7 +348,12 @@ export default function PromptsPage() {
                 aria-label="保存"
                 tabIndex={0}
               >
-                {isSaving ? '保存中...' : '保存'}
+                {isSaving ? '保存中...' : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    保存
+                  </>
+                )}
               </Button>
               <Button
                 variant="outline"
