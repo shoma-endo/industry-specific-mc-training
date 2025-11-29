@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import type { GscEvaluationOutcome } from '@/types/googleSearchConsole';
 
 const supabaseService = new SupabaseService();
 
@@ -23,7 +24,7 @@ export type GscDetailResponse = {
       evaluation_date: string;
       previous_position: number | null;
       current_position: number;
-      outcome: string;
+      outcome: GscEvaluationOutcome;
     }>;
     evaluation: {
       id: string;

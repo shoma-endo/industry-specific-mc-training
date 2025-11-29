@@ -22,6 +22,10 @@ import {
   updateEvaluation,
 } from '@/server/actions/gscDashboard.actions';
 import { EvaluationSettings } from './EvaluationSettings';
+import {
+  GSC_EVALUATION_OUTCOME_CONFIG,
+  GscEvaluationOutcome,
+} from '@/types/googleSearchConsole';
 
 type DetailResponse = {
   annotation: { id: string; wp_post_title: string | null; canonical_url: string | null };
@@ -37,7 +41,7 @@ type DetailResponse = {
     evaluation_date: string;
     previous_position: number | null;
     current_position: number;
-    outcome: string;
+    outcome: GscEvaluationOutcome;
   }>;
   evaluation: {
     id: string;
@@ -397,8 +401,10 @@ export default function GscDashboardClient({
                             </p>
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-xs text-gray-500">判定:</span>
-                              <span className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
-                                {item.outcome}
+                              <span
+                                className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].className}`}
+                              >
+                                {GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].label}
                               </span>
                             </div>
                           </div>

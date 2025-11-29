@@ -60,6 +60,26 @@ export interface GscPageMetric {
 export type GscEvaluationStatus = 'active' | 'paused' | 'completed';
 export type GscEvaluationOutcome = 'improved' | 'no_change' | 'worse';
 
+export interface GscEvaluationOutcomeConfig {
+  label: string;
+  className: string;
+}
+
+export const GSC_EVALUATION_OUTCOME_CONFIG: Record<GscEvaluationOutcome, GscEvaluationOutcomeConfig> = {
+  improved: {
+    label: '改善',
+    className: 'bg-green-100 text-green-800',
+  },
+  no_change: {
+    label: '変化なし',
+    className: 'bg-yellow-100 text-yellow-800',
+  },
+  worse: {
+    label: '悪化',
+    className: 'bg-red-100 text-red-800',
+  },
+};
+
 export interface GscArticleEvaluation {
   id: string;
   userId: string;
