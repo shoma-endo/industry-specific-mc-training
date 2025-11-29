@@ -55,6 +55,14 @@ function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) 
 export default function AnalyticsTable({ items }: Props) {
   const router = useRouter();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
+  const columnLabelMap = React.useMemo(
+    () =>
+      ANALYTICS_COLUMNS.reduce<Record<string, string>>((acc, col) => {
+        acc[col.id] = col.label;
+        return acc;
+      }, {}),
+    []
+  );
 
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
@@ -111,82 +119,92 @@ export default function AnalyticsTable({ items }: Props) {
           <table className="min-w-[2200px] divide-y divide-gray-200">
             <thead className="bg-gray-50 analytics-head">
               <tr>
-                <th className="analytics-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[100px]">
+                <th className="analytics-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[100px]">
                   操作
                 </th>
                 {visibleSet.has('main_kw') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[180px]">
-                    主軸kw
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[180px]">
+                    {columnLabelMap.main_kw}
                   </th>
                 )}
                 {visibleSet.has('kw') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[180px]">
-                    kw（参考）
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[180px]">
+                    {columnLabelMap.kw}
                   </th>
                 )}
                 {visibleSet.has('impressions') && (
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[120px]">
-                    表示回数
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[120px]">
+                    {columnLabelMap.impressions}
                   </th>
                 )}
                 {visibleSet.has('needs') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
-                    ニーズ
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
+                    {columnLabelMap.needs}
                   </th>
                 )}
                 {visibleSet.has('persona') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
-                    デモグラ・ペルソナ
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
+                    {columnLabelMap.persona}
                   </th>
                 )}
                 {visibleSet.has('goal') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
-                    ゴール
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
+                    {columnLabelMap.goal}
                   </th>
                 )}
                 {visibleSet.has('prep') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
-                    PREP
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
+                    {columnLabelMap.prep}
                   </th>
                 )}
                 {visibleSet.has('basic_structure') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
-                    基本構成
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
+                    {columnLabelMap.basic_structure}
                   </th>
                 )}
                 {visibleSet.has('opening_proposal') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
-                    書き出し案
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
+                    {columnLabelMap.opening_proposal}
                   </th>
                 )}
                 {visibleSet.has('categories') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[200px]">
-                    カテゴリ
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[200px]">
+                    {columnLabelMap.categories}
                   </th>
                 )}
                 {visibleSet.has('date') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[120px]">
-                    更新日
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[120px]">
+                    {columnLabelMap.date}
                   </th>
                 )}
                 {visibleSet.has('wp_post_title') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[360px]">
-                    タイトル
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[360px]">
+                    {columnLabelMap.wp_post_title}
+                  </th>
+                )}
+                {visibleSet.has('ads_headline') && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[280px]">
+                    {columnLabelMap.ads_headline}
+                  </th>
+                )}
+                {visibleSet.has('ads_description') && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[320px]">
+                    {columnLabelMap.ads_description}
                   </th>
                 )}
                 {visibleSet.has('url') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[300px]">
-                    URL
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[300px]">
+                    {columnLabelMap.url}
                   </th>
                 )}
                 {visibleSet.has('memo') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[220px]">
-                    メモ
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
+                    {columnLabelMap.memo}
                   </th>
                 )}
                 {visibleSet.has('rank') && (
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[100px]">
-                    順位
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[100px]">
+                    {columnLabelMap.rank}
                   </th>
                 )}
               </tr>
@@ -332,6 +350,24 @@ export default function AnalyticsTable({ items }: Props) {
                     {visibleSet.has('wp_post_title') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {annotation?.wp_post_title || '（未紐付け）'}
+                      </td>
+                    )}
+                    {visibleSet.has('ads_headline') && (
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {annotation?.ads_headline ? (
+                          <TruncatedText text={annotation.ads_headline} lines={2} />
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                    )}
+                    {visibleSet.has('ads_description') && (
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {annotation?.ads_description ? (
+                          <TruncatedText text={annotation.ads_description} lines={3} />
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     )}
                     {visibleSet.has('url') && (

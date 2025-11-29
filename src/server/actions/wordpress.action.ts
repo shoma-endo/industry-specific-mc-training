@@ -609,6 +609,8 @@ export async function upsertContentAnnotation(
       prep: payload.prep ?? null,
       basic_structure: payload.basic_structure ?? null,
       opening_proposal: payload.opening_proposal ?? null,
+      ads_headline: payload.ads_headline ?? null,
+      ads_description: payload.ads_description ?? null,
       updated_at: new Date().toISOString(),
     };
 
@@ -906,6 +908,8 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
       prep: payload.prep ?? null,
       basic_structure: payload.basic_structure ?? null,
       opening_proposal: payload.opening_proposal ?? null,
+      ads_headline: payload.ads_headline ?? null,
+      ads_description: payload.ads_description ?? null,
       updated_at: new Date().toISOString(),
     };
 
