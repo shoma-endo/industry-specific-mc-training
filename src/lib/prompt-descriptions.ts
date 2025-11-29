@@ -26,6 +26,21 @@ export const PROMPT_DESCRIPTIONS: Record<string, PromptDescription> = {
     description: 'ブログ（記事）の下書きを作成するプロンプト',
     variables: 'canonicalLinkPairs（改行区切りの内部リンク候補「タイトル | URL」一覧）が利用可能です',
   },
+  gsc_insight_ctr_boost: {
+    description: 'タイトルとmeta descriptionだけを差し替え、CTRを改善する案を出します',
+    variables:
+      '対象URL、期間、指標サマリー、上位クエリ、現行タイトル・ディスクリプションを使用します',
+  },
+  gsc_insight_intro_refresh: {
+    description: '記事の書き出し（導入文）だけを改善し、検索意図と読了率を高める案を出します',
+    variables:
+      '対象URL、期間、指標サマリー、上位クエリ、現行の導入文を使用します',
+  },
+  gsc_insight_body_rewrite: {
+    description: '本文全体を意図整合・網羅性観点でリライトする指示セットを出します',
+    variables:
+      '対象URL、期間、指標サマリー、上位クエリ、見出し構成、本文サマリーを使用します',
+  },
 };
 
 /**
@@ -73,6 +88,19 @@ export const VARIABLE_TYPE_DESCRIPTIONS: Record<string, string> = {
   contentPrep: 'PREP要約',
   contentBasicStructure: '基本構成',
   contentOpeningProposal: '書き出し案',
+  // GSC インサイト用
+  gscPeriod: '計測期間（例: 2025-10-01〜2025-10-28）',
+  gscPageUrl: '対象URL（正規化済み）',
+  gscMetricsSummary: 'クリック数・表示回数・CTR・平均掲載順位などの要約テキスト',
+  gscTopQueries: '上位検索クエリと指標の表形式テキスト',
+  currentTitle: '現在のtitleタグ',
+  currentMetaDescription: '現在のmeta description',
+  pageHeadings: '記事の見出し構成やサマリー',
+  conversionGoal: 'CTA/コンバージョン目標（問い合わせ、購入、予約など）',
+  emergingQueries: '新興・ロングテールクエリの一覧や指標',
+  competingSnippets: '競合上位ページのスニペット傾向（タイトル/ディスクリプションの特徴）',
+  currentIntro: '現在の書き出し（導入文）',
+  currentBodySummary: '本文全体の要約または主要ポイント',
 };
 
 /**

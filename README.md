@@ -34,6 +34,14 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - `app/analytics` の一覧で投稿と Supabase `content_annotations` を突き合わせ、未紐付けの注釈も表示
 - `AnnotationPanel` でセッション単位のメモ・キーワード・ペルソナ・PREP 等を保存し、ブログ生成時に再利用
 
+### Google Search Console 連携
+- `/setup/gsc` で OAuth 認証状態・接続アカウント・プロパティを可視化し、プロパティ選択や連携解除を実行
+- `app/api/gsc/oauth/*` が Google OAuth 2.0 の開始／コールバックに対応し、Supabase `gsc_credentials` テーブルへリフレッシュトークンを保存
+- GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupActions.ts` / `src/server/actions/gscDashboard.actions.ts` など）
+- Search Console 日次指標は `gsc_page_metrics` に保存し、WordPress 注釈 (`content_annotations`) と 1:N で紐付け可能（normalized_url でマッチング）。
+- 記事ごとの順位評価と改善提案ステップを `gsc_article_evaluations` / `gsc_article_evaluation_history` で管理し、デフォルト30日間隔で「タイトル→書き出し→本文→ペルソナ」の順にエスカレーション。改善が確認できたらステージをリセット。
+- 評価間隔は環境変数 `GSC_EVALUATION_INTERVAL_DAYS` で一括設定（未設定時は30日）。将来のユーザー別設定拡張を見込んでサーバー側で取得関数を用意。
+
 ### サブスクリプションと権限
 - Stripe v17.7 で Checkout / Billing Portal / Subscription 状態確認を実装（`SubscriptionService`）
 - `SubscriptionService` とカスタムフック `useSubscriptionStatus` で UI 側から有効プランを判定
@@ -51,7 +59,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 
 ### セットアップ導線
 - `/setup/wordpress` で WordPress 連携の初期設定を案内
-- `/setup/gsc` は将来的な Google Search Console 連携のプレースホルダー
+- `/setup/gsc` で Google Search Console OAuth 連携とプロパティ選択を管理
 - `/subscription` でプラン購入、`/analytics` で WordPress 投稿と注釈を照合
 
 ## 🏗️ システムアーキテクチャ
@@ -75,7 +83,7 @@ graph TB
     WordPressAPI["/api/wordpress/*"]
     AdminAPI["/api/admin/*"]
     SubscriptionAPI["/api/refresh, /api/user/*"]
-    ServerActions["server/handler/actions/*"]
+    ServerActions["server/actions/*"]
   end
 
   subgraph Data["Supabase PostgreSQL"]
@@ -103,7 +111,7 @@ graph TB
   Annotation --> ServerActions
   Analytics --> WordPressAPI
   BusinessForm --> ServerActions
-  AdminUI --> AdminAPI
+  AdminUI --> ServerActions
 
   ServerActions --> UsersTable
   ServerActions --> BriefsTable
@@ -264,7 +272,7 @@ erDiagram
     prompt_templates ||--o{ prompt_versions : captures
 ```
 
-## 📋 環境変数（15 項目）
+## 📋 環境変数（19 項目）
 
 `src/env.ts` で厳格にバリデーションされるサーバー／クライアント環境変数です。`.env.local` を手動で用意してください。
 
@@ -279,6 +287,10 @@ erDiagram
 | Server | `ANTHROPIC_API_KEY` | ✅ | Claude ストリーミング用 API キー |
 | Server | `LINE_CHANNEL_ID` | ✅ | LINE Login 用チャネル ID |
 | Server | `LINE_CHANNEL_SECRET` | ✅ | LINE Login 用チャネルシークレット |
+| Server | `GOOGLE_OAUTH_CLIENT_ID` | 任意（GSC 連携利用時は必須） | Google Search Console OAuth 用クライアント ID |
+| Server | `GOOGLE_OAUTH_CLIENT_SECRET` | 任意（GSC 連携利用時は必須） | Google Search Console OAuth 用クライアントシークレット |
+| Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC 連携利用時は必須） | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など） |
+| Server | `GSC_OAUTH_STATE_COOKIE_NAME` | 任意 | GSC OAuth state 用 Cookie 名（未設定時は `gsc_oauth_state`） |
 | Client | `NEXT_PUBLIC_LIFF_ID` | ✅ | LIFF アプリ ID |
 | Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID` | ✅ | LIFF Channel ID |
 | Client | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase プロジェクト URL |
@@ -288,7 +300,8 @@ erDiagram
 
 ### 追加で利用できる任意設定
 - `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`: WordPress.com OAuth 連携で必須
-- `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress OAuth のセキュアな Cookie 管理
+- `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress / Google Search Console OAuth のセキュアな Cookie 管理
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`: Google Search Console 連携を利用する場合のみ設定
 - `FEATURE_RPC_V2`: `true` で新しい Supabase RPC 経路を有効化（`FEATURE_FLAGS.USE_RPC_V2`）
 
 ## 🚀 セットアップ手順
@@ -534,7 +547,7 @@ npm run vercel:stats
 │   ├── hooks/               # LIFF / サブスクリプション / UI ユーティリティ
 │   ├── lib/                 # 定数・プロンプト管理・Supabase クライアント生成
 │   ├── server/
-│   │   ├── handler/actions/ # Server Actions 経由のビジネスロジック
+│   │   ├── actions/ # Server Actions 経由のビジネスロジック
 │   │   ├── middleware/      # 認証・ロール判定ミドルウェア
 │   │   └── services/        # Stripe / WordPress / Supabase / LLM などの統合層
 │   └── types/               # 共通型定義（chat, prompt, annotation, wordpress 等）
@@ -567,7 +580,7 @@ npm run vercel:stats
 | `/api/admin/prompts/[id]` | POST | テンプレート更新・バージョン生成 | Cookie + admin ロール |
 | `/api/wordpress/bulk-import-posts` | POST | WordPress 記事の一括インポート | Bearer + admin ロール |
 
-サーバーアクション (`src/server/handler/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
+サーバーアクション (`src/server/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
 
 ## 🛡️ セキュリティと運用の注意点
 - Supabase では主要テーブルに RLS を適用済み（開発ポリシーが残る箇所は運用前に見直す）

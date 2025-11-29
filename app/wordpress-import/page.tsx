@@ -8,6 +8,7 @@ import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useLiffContext } from '@/components/LiffProvider';
 import Link from 'next/link';
 import { ErrorAlert } from '@/components/ErrorAlert';
+import { runWordpressBulkImport } from '@/server/actions/wordpressImport.actions';
 
 interface ImportResult {
   totalPosts: number;
@@ -50,6 +51,57 @@ export default function WordPressImportPage() {
     return `カスタム投稿（${type}）`;
   };
 
+  const normalizeResult = (data: unknown): ImportResult => {
+    if (!data || typeof data !== 'object') {
+      return {
+        totalPosts: 0,
+        newPosts: 0,
+        skippedExistingPosts: 0,
+        skippedWithoutCanonical: 0,
+        insertedPosts: 0,
+        duplicatePosts: 0,
+        errorPosts: 0,
+        existingContentTotal: 0,
+        contentTypes: [],
+        statsByType: {},
+        maxLimitReached: false,
+        maxLimitValue: 1000,
+        backfilledTitles: 0,
+      };
+    }
+
+    const payload = data as Record<string, unknown>;
+    return {
+      totalPosts: typeof payload.totalPosts === 'number' ? payload.totalPosts : 0,
+      newPosts: typeof payload.newPosts === 'number' ? payload.newPosts : 0,
+      skippedExistingPosts:
+        typeof payload.skippedExistingPosts === 'number' ? payload.skippedExistingPosts : 0,
+      skippedWithoutCanonical:
+        typeof payload.skippedWithoutCanonical === 'number' ? payload.skippedWithoutCanonical : 0,
+      insertedPosts: typeof payload.insertedPosts === 'number' ? payload.insertedPosts : 0,
+      duplicatePosts: typeof payload.duplicatePosts === 'number' ? payload.duplicatePosts : 0,
+      errorPosts: typeof payload.errorPosts === 'number' ? payload.errorPosts : 0,
+      existingContentTotal:
+        typeof payload.existingContentTotal === 'number' ? payload.existingContentTotal : 0,
+      contentTypes: Array.isArray(payload.contentTypes)
+        ? (payload.contentTypes as string[])
+        : [],
+      statsByType:
+        typeof payload.statsByType === 'object' && payload.statsByType !== null
+          ? (payload.statsByType as ImportResult['statsByType'])
+          : {},
+      maxLimitReached: Boolean(payload.maxLimitReached),
+      maxLimitValue:
+        typeof payload.maxLimitValue === 'number' && !Number.isNaN(payload.maxLimitValue)
+          ? payload.maxLimitValue
+          : 1000,
+      backfilledTitles:
+        typeof payload.backfilledTitles === 'number' && !Number.isNaN(payload.backfilledTitles)
+          ? payload.backfilledTitles
+          : 0,
+    };
+  };
+
   const handleImport = async () => {
     setIsLoading(true);
     setError(null);
@@ -57,51 +109,13 @@ export default function WordPressImportPage() {
 
     try {
       const token = await getAccessToken();
-      const response = await fetch('/api/wordpress/bulk-import-posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await runWordpressBulkImport(token);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'インポートに失敗しました');
+      if (!response.success) {
+        throw new Error(response.error || 'インポートに失敗しました');
       }
 
-      if (data.success) {
-        const normalized: ImportResult = {
-          totalPosts: data.data?.totalPosts ?? 0,
-          newPosts: data.data?.newPosts ?? 0,
-          skippedExistingPosts: data.data?.skippedExistingPosts ?? 0,
-          skippedWithoutCanonical: data.data?.skippedWithoutCanonical ?? 0,
-          insertedPosts: data.data?.insertedPosts ?? 0,
-          duplicatePosts: data.data?.duplicatePosts ?? 0,
-          errorPosts: data.data?.errorPosts ?? 0,
-          existingContentTotal: data.data?.existingContentTotal ?? 0,
-          contentTypes: Array.isArray(data.data?.contentTypes)
-            ? (data.data.contentTypes as string[])
-            : [],
-          statsByType:
-            typeof data.data?.statsByType === 'object' && data.data?.statsByType !== null
-              ? (data.data.statsByType as ImportResult['statsByType'])
-              : {},
-          maxLimitReached: Boolean(data.data?.maxLimitReached),
-          maxLimitValue:
-            typeof data.data?.maxLimitValue === 'number' && !Number.isNaN(data.data?.maxLimitValue)
-              ? data.data.maxLimitValue
-              : 1000,
-          backfilledTitles:
-            typeof data.data?.backfilledTitles === 'number' && !Number.isNaN(data.data?.backfilledTitles)
-              ? data.data.backfilledTitles
-              : 0,
-        };
-        setResult(normalized);
-      } else {
-        throw new Error(data.error || 'インポートに失敗しました');
-      }
+      setResult(normalizeResult(response.data));
     } catch (err) {
       if (err instanceof Error) {
         if (err.message.includes('LIFF') || err.message.includes('logged in')) {

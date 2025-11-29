@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { WPCOM_TOKEN_COOKIE_NAME } from '@/server/services/wordpressContext';
-import { verifyWpOAuthState } from '@/server/lib/wpOAuthState';
+import { verifyOAuthState } from '@/server/lib/oauthState';
 
 const supabaseService = new SupabaseService();
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const clearStateCookie = NextResponse.next(); // Use a temporary response to clear cookie first
   clearStateCookie.cookies.delete(stateCookieName);
 
-  const stateVerification = verifyWpOAuthState(state, cookieSecret);
+  const stateVerification = verifyOAuthState(state, cookieSecret);
   if (!stateVerification.valid) {
     console.error('Failed to verify OAuth state payload.', { reason: stateVerification.reason });
     return NextResponse.json({ error: 'Invalid state payload.' }, { status: 400 });

@@ -16,9 +16,9 @@ import {
 } from '@/components/ui/dialog';
 import { useFeedbackDialog } from '@/hooks/useFeedbackDialog';
 import { useLiffContext } from '@/components/LiffProvider';
-import { saveBrief, getBrief } from '@/server/handler/actions/brief.actions';
-import { paymentEnum, type Payment, type BriefInput } from '@/server/handler/actions/brief.schema';
-import { Building2, Loader2 } from 'lucide-react';
+import { saveBrief, getBrief } from '@/server/actions/brief.actions';
+import { paymentEnum, type Payment, type BriefInput } from '@/server/schemas/brief.schema';
+import { Building2, Loader2, Save } from 'lucide-react';
 
 interface BusinessInfoFormClientProps {
   initialData: BriefInput | null;
@@ -429,7 +429,10 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
                 保存中...
               </>
             ) : (
-              '事業者情報を保存'
+              <>
+                <Save className="h-4 w-4" />
+                事業者情報を保存
+              </>
             )}
           </Button>
         </div>

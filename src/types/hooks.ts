@@ -3,7 +3,7 @@
  */
 import type { SubscriptionStatus as DomainSubscriptionStatus } from '../domain/interfaces/ISubscriptionService';
 import type { ChatState } from '../domain/models/chat.models';
-import type { getLineProfileServerResponse } from '../server/handler/actions/login.actions';
+import type { getLineProfileServerResponse } from '../server/actions/login.actions';
 
 /**
  * LIFF フック関連

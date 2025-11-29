@@ -23,6 +23,8 @@ const PLACEHOLDERS: Record<AnnotationFieldKey, string> = {
   prep: 'PREP法の要点や伝えたい流れ',
   basic_structure: '導入や見出し構成など基本的な流れ',
   opening_proposal: '書き出しの方向性や冒頭で伝えたい内容',
+  ads_headline: 'Google広告で使っているタイトルを入力',
+  ads_description: 'Google広告で使っている説明文を入力',
 };
 
 const TEXTAREA_ROWS: Record<AnnotationFieldKey, number> = {
@@ -35,6 +37,8 @@ const TEXTAREA_ROWS: Record<AnnotationFieldKey, number> = {
   prep: 3,
   basic_structure: 3,
   opening_proposal: 3,
+  ads_headline: 2,
+  ads_description: 3,
 };
 
 interface Props {

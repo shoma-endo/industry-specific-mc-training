@@ -2,8 +2,9 @@
 
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { briefInputSchema, type BriefInput } from './brief.schema';
+import { briefInputSchema, type BriefInput } from '@/server/schemas/brief.schema';
 import { cookies } from 'next/headers';
+import type { ZodIssue } from 'zod';
 
 const supabaseService = new SupabaseService();
 
@@ -26,7 +27,7 @@ export const saveBrief = async (
     const validationResult = briefInputSchema.safeParse(formData);
     if (!validationResult.success) {
       const fieldErrors = validationResult.error.issues
-        .map(err => `${err.path.join('.')}: ${err.message}`)
+        .map((issue: ZodIssue) => `${issue.path.join('.')}: ${issue.message}`)
         .join(', ');
       return { success: false, error: `入力エラー: ${fieldErrors}` };
     }

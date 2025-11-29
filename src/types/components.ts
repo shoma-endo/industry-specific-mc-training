@@ -2,6 +2,7 @@
  * コンポーネント専用の型定義
  */
 import type { WordPressType } from './wordpress';
+import type { GscConnectionStatus } from './gsc';
 
 /**
  * LIFF関連の型定義
@@ -50,6 +51,7 @@ export interface ExistingWordPressSettings {
 
 export interface SetupDashboardProps {
   wordpressSettings: WordPressSettingsState;
+  gscStatus: GscConnectionStatus;
 }
 
 export interface WordPressSettingsState {

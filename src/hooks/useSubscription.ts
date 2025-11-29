@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createSubscriptionSession } from '@/server/handler/actions/subscription.actions';
+import { createSubscriptionSession } from '@/server/actions/subscription.actions';
 import { useLiff } from '@/hooks/useLiff';
 import { SubscriptionError } from '@/domain/errors/SubscriptionError';
 import { env } from '@/env';

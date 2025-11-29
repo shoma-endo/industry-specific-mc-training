@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import liff from '@line/liff';
-import { getLineProfileServer } from '@/server/handler/actions/login.actions';
-import { getLineProfileServerResponse } from '@/server/handler/actions/login.actions';
+import { getLineProfileServer } from '@/server/actions/login.actions';
+import { getLineProfileServerResponse } from '@/server/actions/login.actions';
 import { env } from '@/env';
 import { LiffError } from '@/domain/errors/LiffError';
 import { LiffProfile, UseLiffResult } from '@/types/hooks';

@@ -6,11 +6,9 @@ const inter = Inter({ subsets: ['latin'] });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja" className={inter.className}>
+    <html lang="ja" className={inter.className} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <LiffProvider initialize={true}>
-          {children}
-        </LiffProvider>
+        <LiffProvider initialize={true}>{children}</LiffProvider>
       </body>
     </html>
   );

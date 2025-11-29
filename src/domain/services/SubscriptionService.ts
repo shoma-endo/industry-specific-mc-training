@@ -3,7 +3,7 @@ import {
   SubscriptionStatus,
   SubscriptionDetails,
 } from '../interfaces/ISubscriptionService';
-import { getUserSubscription } from '@/server/handler/actions/subscription.actions';
+import { getUserSubscription } from '@/server/actions/subscription.actions';
 
 export class SubscriptionService implements ISubscriptionService {
   private cachedSubscription: SubscriptionDetails | null = null;

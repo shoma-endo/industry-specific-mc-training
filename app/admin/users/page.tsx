@@ -18,9 +18,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { getAllUsers, updateUserRole } from '@/server/handler/actions/admin.actions';
+import { getAllUsers, updateUserRole } from '@/server/actions/admin.actions';
 import { getRoleDisplayName } from '@/auth-utils';
 import type { User, UserRole } from '@/types/user';
+import { clearAuthCache } from '@/server/actions/adminUsers.actions';
 
 const formatDateTime = (timestamp: number | undefined) => {
   if (!timestamp) return '未ログイン';
@@ -112,11 +113,7 @@ export default function UsersPage() {
         });
 
         // キャッシュクリア通知を送信（権限変更の即座反映のため）
-        try {
-          await fetch('/api/auth/clear-cache', { method: 'POST' });
-        } catch (error) {
-          console.warn('Cache clear failed:', error);
-        }
+        await clearAuthCache();
       } else {
         setFeedback({
           open: true,

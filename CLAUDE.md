@@ -42,7 +42,7 @@ AI運用5原則
 
 - `app/` … Next.js App Router ルート。`chat`, `analytics`, `business-info`, `setup`, `admin` などが機能単位で配置。
 - `app/api/` … Route Handlers。`chat/anthropic`, `chat/canvas`, `wordpress`, `admin`, `line`, `refresh`, `user` を実装。
-- `src/server/` … サーバーサイドの中核。`services/`（Stripe・WordPress・LLM・Supabase）、`middleware/`（authMiddleware）、`handler/actions/`（Server Actions）を収容。
+- `src/server/` … サーバーサイドの中核。`services/`（Stripe・WordPress・LLM・Supabase）、`middleware/`（authMiddleware）、`actions/`（Server Actions）、`schemas/` を収容。
 - `src/domain/` … フロントエンド用サービス層（ChatService, SubscriptionService）。
 - `src/components/` … shadcn ベースの UI と共通コンポーネント（CanvasPanel, AnnotationFormFields 等）。
 - `src/lib/` … `constants`, `prompts`, `client-manager` などのユーティリティと設定。
@@ -109,3 +109,18 @@ AI運用5原則
 選択肢を提示する時は、以下のように推奨度と理由を記載する。
 1. 選択肢A（推奨度：⭐の5段階評価）
    - 理由:
+
+## 企画評価の多角的視点
+
+企画の場合、3つの異なる立場から評価してください。
+
+1. CFO(最高財務責任者)の視点
+   - コスト、ROI、財務リスクを重視
+
+2. エンジニアリングマネージャーの視点
+   - 技術的実現可能性、リソース、保守性を重視
+
+3. エンドユーザーの視点
+   - 使いやすさ、価値、満足度を重視
+
+各視点から率直な懸念点を述べてください。

@@ -9,8 +9,8 @@ import {
   cancelUserSubscription,
   resumeUserSubscription,
   createCustomerPortalSession,
-} from '@/server/handler/actions/subscription.actions';
-import { updateUserFullName } from '@/server/handler/actions/user.actions';
+} from '@/server/actions/subscription.actions';
+import { updateUserFullName } from '@/server/actions/user.actions';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Settings, Shield, List } from 'lucide-react';
@@ -89,7 +89,7 @@ const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProp
             tabIndex={0}
           >
             <Link href="/admin">
-              <Settings className="h-4 w-4 mr-2" />
+              <Settings className="h-4 w-4" />
               管理者ダッシュボード
             </Link>
           </Button>
@@ -302,7 +302,8 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600 text-center mb-4">
-                WordPress連携などの設定はこちらから行えます
+                WordPressやGoogle Search Consoleの<br />
+                連携設定はこちらから
               </p>
               <Button asChild className="w-full" aria-label="設定ページへ移動" tabIndex={0}>
                 <Link href="/setup">設定を開く</Link>
@@ -322,7 +323,8 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600 text-center mb-4">
-                WordPressの投稿とメタ情報を一覧表示します（今後GSC指標を合流）
+                WordPressとGoogle Search Consoleの<br />
+                メタ情報を一覧表示します
               </p>
               <Button asChild className="w-full" aria-label="コンテンツ一覧へ移動" tabIndex={0}>
                 <Link href="/analytics">一覧を開く</Link>
