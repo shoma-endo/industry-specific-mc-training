@@ -25,6 +25,7 @@ export type GscDetailResponse = {
       previous_position: number | null;
       current_position: number;
       outcome: GscEvaluationOutcome;
+      suggestion_summary: string | null;
     }>;
     evaluation: {
       id: string;

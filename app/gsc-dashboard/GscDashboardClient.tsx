@@ -15,7 +15,13 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Loader2, ArrowLeft, ChevronRight } from 'lucide-react';
 import {
   fetchGscDetail,
   registerEvaluation,
@@ -42,6 +48,7 @@ type DetailResponse = {
     previous_position: number | null;
     current_position: number;
     outcome: GscEvaluationOutcome;
+    suggestion_summary: string | null;
   }>;
   evaluation: {
     id: string;
@@ -83,6 +90,14 @@ export default function GscDashboardClient({
     ctr: true,
     position: true,
   });
+  const [selectedHistory, setSelectedHistory] = useState<{
+    id: string;
+    evaluation_date: string;
+    previous_position: number | null;
+    current_position: number;
+    outcome: GscEvaluationOutcome;
+    suggestion_summary: string | null;
+  } | null>(null);
 
   // URLのクエリから選択を同期
   useEffect(() => {
@@ -393,7 +408,8 @@ export default function GscDashboardClient({
                       {detail.history.map(item => (
                         <div
                           key={item.id}
-                          className="p-4 rounded-lg border bg-white flex items-center justify-between shadow-sm"
+                          className="group p-4 rounded-lg border bg-white flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                          onClick={() => setSelectedHistory(item)}
                         >
                           <div>
                             <p className="text-sm font-medium text-gray-900">
@@ -408,17 +424,20 @@ export default function GscDashboardClient({
                               </span>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="flex items-baseline gap-2 justify-end">
-                              <span className="text-xs text-gray-500">
-                                前回: {item.previous_position ?? '—'}
-                              </span>
-                              <span className="text-gray-400">→</span>
-                              <span className="text-lg font-bold text-gray-900">
-                                {item.current_position}
-                              </span>
-                              <span className="text-xs text-gray-500">位</span>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="flex items-baseline gap-2 justify-end">
+                                <span className="text-xs text-gray-500">
+                                  前回: {item.previous_position ?? '—'}
+                                </span>
+                                <span className="text-gray-400">→</span>
+                                <span className="text-lg font-bold text-gray-900">
+                                  {item.current_position}
+                                </span>
+                                <span className="text-xs text-gray-500">位</span>
+                              </div>
                             </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200" />
                           </div>
                         </div>
                       ))}
@@ -434,6 +453,53 @@ export default function GscDashboardClient({
           </CardContent>
         </Card>
       </div>
+
+      {/* 評価履歴詳細Dialog */}
+      <Dialog open={selectedHistory !== null} onOpenChange={(open) => !open && setSelectedHistory(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>AIの改善提案内容</DialogTitle>
+          </DialogHeader>
+          {selectedHistory && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">評価日</p>
+                  <p className="text-sm font-medium">{selectedHistory.evaluation_date}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">判定</p>
+                  <span
+                    className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].className}`}
+                  >
+                    {GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].label}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">前回順位</p>
+                  <p className="text-sm font-medium">{selectedHistory.previous_position ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">現在順位</p>
+                  <p className="text-sm font-medium">{selectedHistory.current_position}位</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-semibold mb-2">改善提案</p>
+                {selectedHistory.suggestion_summary ? (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                      {selectedHistory.suggestion_summary}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">提案なし</p>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
