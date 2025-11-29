@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import GscSetupClient from '@/components/GscSetupClient';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { toGscConnectionStatus } from '@/server/lib/googleSearchConsoleStatus';
+import { toGscConnectionStatus } from '@/server/lib/gscStatus';
 
 export const dynamic = 'force-dynamic';
 

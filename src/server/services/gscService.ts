@@ -1,4 +1,4 @@
-import type { GscPropertyType, GscSiteEntry } from '@/types/googleSearchConsole';
+import type { GscPropertyType, GscSiteEntry } from '@/types/gsc';
 
 export interface GoogleOAuthTokens {
   accessToken: string;
@@ -25,7 +25,7 @@ const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const USER_INFO_ENDPOINT = 'https://openidconnect.googleapis.com/v1/userinfo';
 const SITES_ENDPOINT = 'https://www.googleapis.com/webmasters/v3/sites';
 
-export class GoogleSearchConsoleService {
+export class GscService {
   private readonly clientId: string | undefined;
   private readonly clientSecret: string | undefined;
 

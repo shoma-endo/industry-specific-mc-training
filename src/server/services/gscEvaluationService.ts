@@ -1,5 +1,5 @@
 import { SupabaseService } from '@/server/services/supabaseService';
-import type { GscEvaluationOutcome, GscPageMetric } from '@/types/googleSearchConsole';
+import type { GscEvaluationOutcome, GscPageMetric } from '@/types/gsc';
 
 interface EvaluationResultSummary {
   processed: number;
@@ -20,7 +20,7 @@ type EvaluationRow = {
   status: string;
 };
 
-export class GoogleSearchConsoleEvaluationService {
+export class GscEvaluationService {
   private readonly supabaseService = new SupabaseService();
 
   async runDueEvaluationsForUser(userId: string): Promise<EvaluationResultSummary> {
@@ -178,4 +178,4 @@ export class GoogleSearchConsoleEvaluationService {
   }
 }
 
-export const googleSearchConsoleEvaluationService = new GoogleSearchConsoleEvaluationService();
+export const gscEvaluationService = new GscEvaluationService();

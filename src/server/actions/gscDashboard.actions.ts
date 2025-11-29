@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import type { GscEvaluationOutcome } from '@/types/googleSearchConsole';
+import type { GscEvaluationOutcome } from '@/types/gsc';
 
 const supabaseService = new SupabaseService();
 

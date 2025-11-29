@@ -2,7 +2,7 @@
  * コンポーネント専用の型定義
  */
 import type { WordPressType } from './wordpress';
-import type { GscConnectionStatus } from './googleSearchConsole';
+import type { GscConnectionStatus } from './gsc';
 
 /**
  * LIFF関連の型定義

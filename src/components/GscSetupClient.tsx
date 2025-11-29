@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { GscConnectionStatus, GscSiteEntry } from '@/types/googleSearchConsole';
+import type { GscConnectionStatus, GscSiteEntry } from '@/types/gsc';
 import {
   AlertCircle,
   ArrowLeft,

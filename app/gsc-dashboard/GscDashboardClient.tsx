@@ -31,7 +31,7 @@ import { EvaluationSettings } from './EvaluationSettings';
 import {
   GSC_EVALUATION_OUTCOME_CONFIG,
   GscEvaluationOutcome,
-} from '@/types/googleSearchConsole';
+} from '@/types/gsc';
 
 type DetailResponse = {
   annotation: { id: string; wp_post_title: string | null; canonical_url: string | null };

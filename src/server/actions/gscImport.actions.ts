@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { googleSearchConsoleImportService } from '@/server/services/googleSearchConsoleImportService';
+import { gscImportService } from '@/server/services/gscImportService';
 
 export interface GscImportParams {
   startDate: string;
@@ -47,7 +47,7 @@ export async function runGscImport(params: GscImportParams) {
       return { success: false, error: '期間は最大365日までです' };
     }
 
-    const summary = await googleSearchConsoleImportService.importAndMaybeEvaluate(authResult.userId, {
+    const summary = await gscImportService.importAndMaybeEvaluate(authResult.userId, {
       startDate,
       endDate,
       searchType,

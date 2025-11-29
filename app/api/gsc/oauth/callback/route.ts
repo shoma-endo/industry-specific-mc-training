@@ -3,12 +3,12 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { verifyOAuthState } from '@/server/lib/oauthState';
 import { SupabaseService } from '@/server/services/supabaseService';
 import {
-  GoogleSearchConsoleService,
+  GscService,
   formatGscPropertyDisplayName,
-} from '@/server/services/googleSearchConsoleService';
+} from '@/server/services/gscService';
 
 const supabaseService = new SupabaseService();
-const gscService = new GoogleSearchConsoleService();
+const gscService = new GscService();
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

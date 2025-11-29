@@ -1,7 +1,7 @@
-import { GoogleSearchConsoleService } from '@/server/services/googleSearchConsoleService';
+import { GscService } from '@/server/services/gscService';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { googleSearchConsoleEvaluationService } from '@/server/services/googleSearchConsoleEvaluationService';
-import type { GscPageMetric, GscSearchType } from '@/types/googleSearchConsole';
+import { gscEvaluationService } from '@/server/services/gscEvaluationService';
+import type { GscPageMetric, GscSearchType } from '@/types/gsc';
 
 type ImportResult = {
   totalFetched: number;
@@ -27,15 +27,15 @@ interface SearchAnalyticsRow {
   position: number;
 }
 
-export class GoogleSearchConsoleImportService {
-  private readonly gscService = new GoogleSearchConsoleService();
+export class GscImportService {
+  private readonly gscService = new GscService();
   private readonly supabaseService = new SupabaseService();
 
   async importAndMaybeEvaluate(userId: string, options: ImportOptions): Promise<ImportResult> {
     const summary = await this.importMetrics(userId, options);
 
     if (options.runEvaluation) {
-      const evalSummary = await googleSearchConsoleEvaluationService.runDueEvaluationsForUser(userId);
+      const evalSummary = await gscEvaluationService.runDueEvaluationsForUser(userId);
       summary.evaluated = evalSummary.processed;
     }
 
@@ -220,4 +220,4 @@ export class GoogleSearchConsoleImportService {
   }
 }
 
-export const googleSearchConsoleImportService = new GoogleSearchConsoleImportService();
+export const gscImportService = new GscImportService();

@@ -4,15 +4,15 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { GoogleSearchConsoleService } from '@/server/services/googleSearchConsoleService';
-import type { GscCredential } from '@/types/googleSearchConsole';
-import { toGscConnectionStatus } from '@/server/lib/googleSearchConsoleStatus';
-import type { GscSiteEntry } from '@/types/googleSearchConsole';
-import { formatGscPropertyDisplayName } from '@/server/services/googleSearchConsoleService';
-import { propertyTypeFromUri } from '@/server/lib/googleSearchConsoleStatus';
+import { GscService } from '@/server/services/gscService';
+import type { GscCredential } from '@/types/gsc';
+import { toGscConnectionStatus } from '@/server/lib/gscStatus';
+import type { GscSiteEntry } from '@/types/gsc';
+import { formatGscPropertyDisplayName } from '@/server/services/gscService';
+import { propertyTypeFromUri } from '@/server/lib/gscStatus';
 
 const supabaseService = new SupabaseService();
-const gscService = new GoogleSearchConsoleService();
+const gscService = new GscService();
 
 const ACCESS_TOKEN_SAFETY_MARGIN_MS = 60 * 1000; // 1 minute
 

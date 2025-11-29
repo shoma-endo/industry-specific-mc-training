@@ -1,5 +1,5 @@
-import type { GscConnectionStatus, GscCredential, GscPropertyType } from '@/types/googleSearchConsole';
-import { formatGscPropertyDisplayName } from '@/server/services/googleSearchConsoleService';
+import type { GscConnectionStatus, GscCredential, GscPropertyType } from '@/types/gsc';
+import { formatGscPropertyDisplayName } from '@/server/services/gscService';
 
 export function toGscConnectionStatus(credential: GscCredential | null): GscConnectionStatus {
   if (!credential) {

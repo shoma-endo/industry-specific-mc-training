@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { googleSearchConsoleEvaluationService } from '@/server/services/googleSearchConsoleEvaluationService';
+import { gscEvaluationService } from '@/server/services/gscEvaluationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const summary = await googleSearchConsoleEvaluationService.runDueEvaluationsForUser(
+    const summary = await gscEvaluationService.runDueEvaluationsForUser(
       authResult.userId
     );
 
