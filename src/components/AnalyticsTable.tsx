@@ -270,7 +270,7 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('kw') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {annotation?.kw ? (
                           <TruncatedText text={annotation.kw} lines={2} />
                         ) : (
@@ -279,12 +279,12 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('impressions') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                         {annotation?.impressions ?? '—'}
                       </td>
                     )}
                     {visibleSet.has('needs') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {annotation?.needs ? (
                           <TruncatedText text={annotation.needs} lines={3} />
                         ) : (
@@ -293,7 +293,7 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('persona') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {annotation?.persona ? (
                           <TruncatedText text={annotation.persona} lines={3} />
                         ) : (
@@ -302,7 +302,7 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('goal') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {annotation?.goal ? (
                           <TruncatedText text={annotation.goal} lines={3} />
                         ) : (
@@ -311,7 +311,7 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('prep') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {annotation?.prep ? (
                           <TruncatedText text={annotation.prep} lines={3} />
                         ) : (
@@ -320,7 +320,7 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('basic_structure') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {annotation?.basic_structure ? (
                           <TruncatedText text={annotation.basic_structure} lines={3} />
                         ) : (
@@ -329,7 +329,7 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('opening_proposal') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {annotation?.opening_proposal ? (
                           <TruncatedText text={annotation.opening_proposal} lines={3} />
                         ) : (
@@ -338,12 +338,12 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('categories') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {annotation?.wp_post_type ?? '—'}
                       </td>
                     )}
                     {visibleSet.has('date') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {updatedAt ?? '—'}
                       </td>
                     )}
@@ -387,7 +387,7 @@ export default function AnalyticsTable({ items }: Props) {
                       </td>
                     )}
                     {visibleSet.has('memo') && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {annotation?.memo ? (
                           <TruncatedText text={annotation.memo} lines={3} />
                         ) : (
