@@ -23,8 +23,23 @@ import {
   updateEvaluation,
 } from '@/server/actions/gscDashboard.actions';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { EvaluationSettings } from './EvaluationSettings';
 import { GSC_EVALUATION_OUTCOME_CONFIG, GscEvaluationOutcome } from '@/types/gsc';
+import { toast } from 'sonner';
+import { getUnreadSuggestions } from '@/server/actions/gscNotification.actions';
+import { runDummyClaudeSuggestion } from '@/server/actions/gscDummyClaude.actions';
+
+type DummyPayload = {
+  id: string;
+  evaluation_date: string;
+  previous_position: number | null;
+  current_position: number;
+  outcome: GscEvaluationOutcome;
+  suggestion_summary: string | null;
+};
+
+const DUMMY_LS_KEY = 'gsc_dummy_payload';
 
 type DetailResponse = {
   annotation: { id: string; wp_post_title: string | null; canonical_url: string | null };
@@ -92,6 +107,7 @@ export default function GscDashboardClient({
     outcome: GscEvaluationOutcome;
     suggestion_summary: string | null;
   } | null>(null);
+  const [isRunningEvaluation, setIsRunningEvaluation] = useState(false);
 
   // URLのクエリから選択を同期
   useEffect(() => {
@@ -220,6 +236,138 @@ export default function GscDashboardClient({
     await refreshDetail(selectedId);
   };
 
+  // ダミーデータでAI改善提案を疑似実行（DBを経由せずUI確認用）
+  const handleSeedDummy = async () => {
+    setIsRunningEvaluation(true);
+    try {
+      const res = await runDummyClaudeSuggestion();
+      if (!res.success || !res.suggestion) {
+        throw new Error(res.error || '提案の生成に失敗しました');
+      }
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const payload = {
+        id: 'dummy-claude-suggestion',
+        evaluation_date: todayStr,
+        previous_position: 12.3,
+        current_position: 18.7,
+        outcome: 'worse' as GscEvaluationOutcome,
+        suggestion_summary: res.suggestion,
+      };
+
+      // Dialogはトーストから開く（ここでは開かない）
+      setSelectedHistory(null);
+
+      // グローバルトーストブリッジに通知（localStorage + カスタムイベント）
+      localStorage.setItem(DUMMY_LS_KEY, JSON.stringify(payload));
+      window.dispatchEvent(new CustomEvent<DummyPayload>('gsc-dummy-update', { detail: payload }));
+
+      // 即時表示のため、同ページでもトーストを発火（ブリッジ未ロードでも見えるように）
+      toast.custom(
+        () => (
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent<DummyPayload>('gsc-dummy-open', { detail: payload }));
+              toast.dismiss('GSC_DUMMY_SUGGESTION');
+            }}
+            className="flex w-full flex-col items-start gap-1 rounded-md bg-white px-4 py-3 text-left shadow-lg ring-1 ring-gray-200 transition hover:bg-gray-50"
+          >
+            <span className="font-semibold text-gray-900">AI改善提案が届きました</span>
+            <span className="text-sm text-gray-600">クリックして詳細を確認してください。</span>
+          </button>
+        ),
+        {
+          id: 'GSC_DUMMY_SUGGESTION',
+          duration: Infinity,
+          dismissible: true,
+          onDismiss: () => {
+            localStorage.removeItem(DUMMY_LS_KEY);
+          },
+        }
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : '提案の生成に失敗しました');
+    } finally {
+      setIsRunningEvaluation(false);
+    }
+  };
+
+  // グローバルトーストからの開封イベントを受け取り、Dialogを開く
+  useEffect(() => {
+    const openFromStorage = () => {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(DUMMY_LS_KEY) : null;
+      if (!raw) return;
+      try {
+        const payload = JSON.parse(raw) as DummyPayload;
+        setSelectedHistory(payload);
+        localStorage.removeItem(DUMMY_LS_KEY);
+        toast.dismiss('GSC_DUMMY_SUGGESTION');
+      } catch {
+        localStorage.removeItem(DUMMY_LS_KEY);
+      }
+    };
+
+    openFromStorage();
+
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<DummyPayload>).detail;
+      if (detail) {
+        setSelectedHistory(detail);
+        localStorage.removeItem(DUMMY_LS_KEY);
+        toast.dismiss('GSC_DUMMY_SUGGESTION');
+      }
+    };
+
+    window.addEventListener('gsc-dummy-open', handler);
+    return () => {
+      window.removeEventListener('gsc-dummy-open', handler);
+    };
+  }, []);
+
+  // 実データで評価＆改善提案を実行
+  const handleRunEvaluation = async () => {
+    setIsRunningEvaluation(true);
+    try {
+      const res = await fetch('/api/gsc/evaluate', { method: 'POST' });
+      const body = await res.json();
+
+      if (!body.success) {
+        throw new Error(body.error || '評価の実行に失敗しました');
+      }
+
+      // 未読の改善提案を取得し、UIで即時確認できるようにする
+      const unread = await getUnreadSuggestions();
+      const first = unread.suggestions.at(0);
+      if (unread.count > 0 && first) {
+        setSelectedHistory({
+          id: first.id,
+          evaluation_date: first.evaluation_date,
+          previous_position: first.previous_position,
+          current_position: first.current_position,
+          outcome: first.outcome,
+          suggestion_summary: first.suggestion_summary,
+        });
+        toast.success('評価を実行し、改善提案を取得しました', {
+          description: 'ダイアログで内容を確認してください。',
+        });
+      } else {
+        toast.info('評価を実行しましたが、新しい改善提案はありませんでした');
+      }
+
+      // 選択中の記事があれば再取得
+      if (selectedId) {
+        await refreshDetail(selectedId);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : '評価の実行に失敗しました');
+    } finally {
+      setIsRunningEvaluation(false);
+    }
+  };
+
   return (
     <div className="w-full px-4 py-8 space-y-6">
       <div className="space-y-4">
@@ -240,6 +388,31 @@ export default function GscDashboardClient({
       )}
 
       <div className="grid grid-cols-1 gap-6">
+        <div className="flex flex-wrap gap-3 items-center">
+          <button
+            type="button"
+            onClick={() => void handleSeedDummy()}
+            className="inline-flex items-center gap-2 rounded-md border border-dashed border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+          >
+            💡 ダミー改善提案を挿入
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleRunEvaluation()}
+            disabled={isRunningEvaluation}
+            className="inline-flex items-center gap-2 rounded-md border border-transparent bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          >
+            {isRunningEvaluation ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                実行中...
+              </>
+            ) : (
+              '🔄 改善提案を実行'
+            )}
+          </button>
+        </div>
+
         <Card className="min-h-[520px]">
           <CardHeader>
             <CardTitle className="text-lg">記事詳細</CardTitle>
@@ -453,7 +626,7 @@ export default function GscDashboardClient({
         open={selectedHistory !== null}
         onOpenChange={open => !open && setSelectedHistory(null)}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl w-[90vw] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>AIの改善提案内容</DialogTitle>
           </DialogHeader>
@@ -486,7 +659,27 @@ export default function GscDashboardClient({
                 {selectedHistory.suggestion_summary ? (
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="text-sm text-gray-800 prose prose-sm max-w-none">
-                      <ReactMarkdown>{selectedHistory.suggestion_summary}</ReactMarkdown>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          h1: (props) => (
+                            <h2 className="text-xl font-bold mt-4 mb-2" {...props} />
+                          ),
+                          h2: (props) => (
+                            <h3 className="text-lg font-semibold mt-3 mb-2" {...props} />
+                          ),
+                          h3: (props) => (
+                            <h4 className="text-base font-semibold mt-3 mb-1" {...props} />
+                          ),
+                          p: (props) => <p className="mb-2 leading-relaxed" {...props} />,
+                          ul: (props) => <ul className="list-disc pl-5 space-y-1 mb-3" {...props} />,
+                          ol: (props) => <ol className="list-decimal pl-5 space-y-1 mb-3" {...props} />,
+                          li: (props) => <li className="leading-relaxed" {...props} />,
+                          hr: () => <hr className="my-4 border-gray-200" />,
+                        }}
+                      >
+                        {selectedHistory.suggestion_summary}
+                      </ReactMarkdown>
                     </div>
                   </div>
                 ) : (
