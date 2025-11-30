@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSubscriptionPriceDetails } from '@/server/handler/actions/subscription.actions';
+import { getSubscriptionPriceDetails } from '@/server/actions/subscription.actions';
 import { Button } from '@/components/ui/button';
 import { useLiff } from '@/hooks/useLiff';
 import { useSubscription } from '@/hooks/useSubscription';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { CreditCard } from 'lucide-react';
 
 // 価格情報の型定義
 interface PriceDetails {
@@ -142,7 +143,12 @@ export default function SubscriptionPage() {
           disabled={loading || priceLoading}
           className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
         >
-          {loading ? '処理中...' : 'サブスクリプションに登録する'}
+          {loading ? '処理中...' : (
+            <>
+              <CreditCard className="h-4 w-4" />
+              サブスクリプションに登録する
+            </>
+          )}
         </Button>
 
         <p className="text-xs text-gray-500 mt-4">

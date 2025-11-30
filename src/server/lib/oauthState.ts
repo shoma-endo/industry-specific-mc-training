@@ -1,19 +1,19 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
-export interface WpOAuthStatePayload {
+export interface OAuthStatePayload {
   nonce: string;
   userId: string;
   issuedAt: number;
   version: 'v1';
 }
 
-const STATE_VERSION: WpOAuthStatePayload['version'] = 'v1';
+const STATE_VERSION: OAuthStatePayload['version'] = 'v1';
 const DEFAULT_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
 
-const encode = (payload: WpOAuthStatePayload) =>
+const encode = (payload: OAuthStatePayload) =>
   Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 
-const decode = (input: string): WpOAuthStatePayload | null => {
+const decode = (input: string): OAuthStatePayload | null => {
   try {
     const json = Buffer.from(input, 'base64url').toString('utf8');
     const parsed = JSON.parse(json);
@@ -25,7 +25,7 @@ const decode = (input: string): WpOAuthStatePayload | null => {
       typeof parsed.userId === 'string' &&
       typeof parsed.issuedAt === 'number'
     ) {
-      return parsed as WpOAuthStatePayload;
+      return parsed as OAuthStatePayload;
     }
     return null;
   } catch {
@@ -36,11 +36,11 @@ const decode = (input: string): WpOAuthStatePayload | null => {
 const sign = (payloadEncoded: string, secret: string) =>
   createHmac('sha256', secret).update(payloadEncoded).digest('base64url');
 
-export function generateWpOAuthState(
+export function generateOAuthState(
   userId: string,
   secret: string
-): { state: string; payload: WpOAuthStatePayload } {
-  const payload: WpOAuthStatePayload = {
+): { state: string; payload: OAuthStatePayload } {
+  const payload: OAuthStatePayload = {
     nonce: randomBytes(16).toString('hex'),
     userId,
     issuedAt: Date.now(),
@@ -54,11 +54,11 @@ export function generateWpOAuthState(
   };
 }
 
-export function verifyWpOAuthState(
+export function verifyOAuthState(
   state: string,
   secret: string,
   maxAgeMs: number = DEFAULT_MAX_AGE_MS
-): { valid: true; payload: WpOAuthStatePayload } | { valid: false; reason: string } {
+): { valid: true; payload: OAuthStatePayload } | { valid: false; reason: string } {
   const [rawPayload, signature] = state.split('.', 2);
   if (!rawPayload || !signature) {
     return { valid: false, reason: 'invalid_state_format' };

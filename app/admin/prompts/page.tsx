@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ErrorAlert } from '@/components/ErrorAlert';
@@ -15,8 +15,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
-import { useLiffContext } from '@/components/LiffProvider';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
+import { Save, RotateCw } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -26,10 +26,30 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useFeedbackDialog } from '@/hooks/useFeedbackDialog';
+import { fetchPrompts, savePrompt } from '@/server/actions/adminPrompts.actions';
+
+type PromptCategory = 'chat' | 'gsc';
+
+const PROMPT_CATEGORIES: Array<{
+  id: PromptCategory;
+  label: string;
+  filter: (template: PromptTemplate) => boolean;
+}> = [
+  {
+    id: 'chat',
+    label: 'AIチャット・生成',
+    filter: template => !template.name.startsWith('gsc_'),
+  },
+  {
+    id: 'gsc',
+    label: 'GSC改善提案',
+    filter: template => template.name.startsWith('gsc_'),
+  },
+];
 
 export default function PromptsPage() {
-  const { getAccessToken } = useLiffContext();
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
+  const [activeCategory, setActiveCategory] = useState<PromptCategory>('chat');
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -40,17 +60,12 @@ export default function PromptsPage() {
   const loadTemplates = useCallback(async () => {
     try {
       setIsLoading(true);
-      const token = await getAccessToken();
-      const res = await fetch('/api/admin/prompts', {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      const result = await res.json();
-      if (result?.success && result?.data) {
-        setTemplates(result.data as PromptTemplate[]);
+      const res = await fetchPrompts();
+      if (res?.success && res?.data) {
+        setTemplates(res.data as PromptTemplate[]);
         setError(null);
       } else {
-        setError(result?.error || 'プロンプトの取得に失敗しました');
+        setError(res?.error || 'プロンプトの取得に失敗しました');
       }
     } catch (error) {
       console.error('プロンプト取得エラー:', error);
@@ -58,7 +73,7 @@ export default function PromptsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [getAccessToken]);
+  }, []);
 
   const handleTemplateSelect = (templateId: string) => {
     const template = templates.find(t => t.id === templateId);
@@ -73,26 +88,16 @@ export default function PromptsPage() {
 
     try {
       setIsSaving(true);
-      const token = await getAccessToken();
-      const res = await fetch(`/api/admin/prompts/${selectedTemplate.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: selectedTemplate.name,
-          display_name: selectedTemplate.display_name,
-          content: editedContent,
-          variables: selectedTemplate.variables,
-        }),
+      const result = await savePrompt({
+        id: selectedTemplate.id,
+        name: selectedTemplate.name,
+        display_name: selectedTemplate.display_name,
+        content: editedContent,
+        variables: selectedTemplate.variables,
       });
-      const result = await res.json();
 
       if (result?.success) {
-        // テンプレート一覧を更新
         await loadTemplates();
-        // 選択中のテンプレートも更新
         const updatedTemplate = { ...selectedTemplate, content: editedContent };
         setSelectedTemplate(updatedTemplate);
         setError(null);
@@ -134,6 +139,26 @@ export default function PromptsPage() {
     loadTemplates();
   }, [loadTemplates]);
 
+  const categoryCounts = useMemo(() => {
+    return PROMPT_CATEGORIES.reduce<Record<PromptCategory, number>>((acc, category) => {
+      acc[category.id] = templates.filter(category.filter).length;
+      return acc;
+    }, {} as Record<PromptCategory, number>);
+  }, [templates]);
+
+  const filteredTemplates = useMemo(() => {
+    const category = PROMPT_CATEGORIES.find(c => c.id === activeCategory);
+    if (!category) return templates;
+    return templates.filter(category.filter);
+  }, [activeCategory, templates]);
+
+  useEffect(() => {
+    if (selectedTemplate && !filteredTemplates.some(t => t.id === selectedTemplate.id)) {
+      setSelectedTemplate(null);
+      setEditedContent('');
+    }
+  }, [activeCategory, filteredTemplates, selectedTemplate]);
+
   // Early return pattern
   if (isLoading) {
     return (
@@ -170,6 +195,7 @@ export default function PromptsPage() {
                   variant="outline"
                   aria-label="再試行"
                 >
+                  <RotateCw className="h-4 w-4" />
                   再試行
                 </Button>
               </div>
@@ -223,21 +249,52 @@ export default function PromptsPage() {
       {/* プロンプトテンプレート選択 */}
       <Card>
         <CardHeader>
-          <CardTitle>プロンプトテンプレート選択</CardTitle>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              <CardTitle>プロンプトテンプレート選択</CardTitle>
+              <div className="flex flex-wrap gap-2">
+                {PROMPT_CATEGORIES.map(category => (
+                  <Button
+                    key={category.id}
+                    variant={activeCategory === category.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setActiveCategory(category.id)}
+                    aria-pressed={activeCategory === category.id}
+                  >
+                    {category.label}
+                    <span
+                      className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        activeCategory === category.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {categoryCounts[category.id] ?? 0}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <p className="text-sm text-gray-500">用途別にタブを切り替えて編集します</p>
+          </div>
         </CardHeader>
         <CardContent>
-          <Select value={selectedTemplate?.id || ''} onValueChange={handleTemplateSelect}>
-            <SelectTrigger className="w-full" aria-label="プロンプトテンプレート選択" tabIndex={0}>
-              <SelectValue placeholder="編集するプロンプトテンプレートを選択してください" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map(template => (
-                <SelectItem key={template.id} value={template.id}>
-                  {template.display_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {filteredTemplates.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              選択中のカテゴリに該当するテンプレートがありません。
+            </p>
+          ) : (
+            <Select value={selectedTemplate?.id || ''} onValueChange={handleTemplateSelect}>
+              <SelectTrigger className="w-full" aria-label="プロンプトテンプレート選択" tabIndex={0}>
+                <SelectValue placeholder="編集するプロンプトテンプレートを選択してください" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredTemplates.map(template => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </CardContent>
       </Card>
 
@@ -291,7 +348,12 @@ export default function PromptsPage() {
                 aria-label="保存"
                 tabIndex={0}
               >
-                {isSaving ? '保存中...' : '保存'}
+                {isSaving ? '保存中...' : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    保存
+                  </>
+                )}
               </Button>
               <Button
                 variant="outline"

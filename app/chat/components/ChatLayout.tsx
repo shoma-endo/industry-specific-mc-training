@@ -23,7 +23,7 @@ import CanvasPanel from './CanvasPanel';
 import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/types/canvas';
 import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
-import { getContentAnnotationBySession } from '@/server/handler/actions/wordpress.action';
+import { getContentAnnotationBySession } from '@/server/actions/wordpress.action';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 

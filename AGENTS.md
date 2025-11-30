@@ -55,7 +55,7 @@ AI運用5原則
 - `src/domain/` — フロント向けサービス層（`ChatService`, `SubscriptionService` など）。クライアント側のビジネスロジックを集約。
 - `src/hooks/` — カスタム React フック。
 - `src/lib/` — ユーティリティと設定（`constants`, `prompts`, `client-manager` など）。
-- `src/server/` — Server Actions・ミドルウェア・外部サービス連携（WordPress / Stripe / LLM / Supabase）。サーバーサイドの中核。
+- `src/server/` — Server Actions・ミドルウェア・外部サービス連携（WordPress / Stripe / LLM / Supabase）。サーバーサイドの中核（Server Actions は `src/server/actions/`、共有スキーマは `src/server/schemas/`）。
 - `src/types/` — 共通型定義。環境変数・チャット・WordPress などを集約し、フロント・サーバー双方で再利用。
 - `supabase/migrations/` — PostgreSQL スキーマと RLS のマイグレーションファイル。追加時は README との整合性を保つこと。
 
@@ -104,3 +104,18 @@ AI運用5原則
 選択肢を提示する時は、以下のように推奨度と理由を記載する。
 1. 選択肢A（推奨度：⭐の5段階評価）
    - 理由:
+
+## 企画評価の多角的視点
+
+企画の場合、3つの異なる立場から評価してください。
+
+1. CFO(最高財務責任者)の視点
+   - コスト、ROI、財務リスクを重視
+
+2. エンジニアリングマネージャーの視点
+   - 技術的実現可能性、リソース、保守性を重視
+
+3. エンドユーザーの視点
+   - 使いやすさ、価値、満足度を重視
+
+各視点から率直な懸念点を述べてください。

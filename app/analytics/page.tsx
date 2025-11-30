@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import AnalyticsTable from '@/components/AnalyticsTable';
-import { Download, Settings } from 'lucide-react';
+import { Download, Settings, BarChart3 } from 'lucide-react';
 import { analyticsContentService } from '@/server/services/analyticsContentService';
 import { cn } from '@/lib/utils';
 import { ErrorAlert } from '@/components/ErrorAlert';
@@ -38,7 +38,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <CardTitle>投稿一覧</CardTitle>
             <button
               id="analytics-field-config-trigger"
-              className="inline-flex items-center gap-2 rounded-md bg-black text-white text-sm font-medium px-3 h-9 hover:bg-black/90"
+              className={cn(
+                buttonVariants({ variant: 'outline' }),
+                'h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10'
+              )}
             >
               <Settings className="w-4 h-4" aria-hidden />
               フィールド構成
@@ -49,6 +52,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             >
               <Download className="w-4 h-4" aria-hidden />
               <span>WordPress記事一括インポート</span>
+            </Link>
+            <Link
+              href="/gsc-import"
+              className={cn(buttonVariants(), 'h-9 inline-flex items-center gap-2')}
+            >
+              <BarChart3 className="w-4 h-4" aria-hidden />
+              <span>Google Search Console 日次指標インポート</span>
             </Link>
           </div>
         </CardHeader>
