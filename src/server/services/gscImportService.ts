@@ -50,14 +50,14 @@ export class GscImportService {
 
     const credentials = await this.supabaseService.getGscCredentialByUserId(userId);
     if (!credentials) {
-      throw new Error('GSC資格情報が見つかりません');
+      throw new Error('Google Search Console の資格情報が見つかりません');
     }
 
     const refreshed = await this.gscService.refreshAccessToken(credentials.refreshToken);
     const accessToken = refreshed.accessToken;
     const propertyUri = credentials.propertyUri;
     if (!propertyUri) {
-      throw new Error('GSCプロパティが設定されていません');
+      throw new Error('Google Search Console のプロパティが設定されていません');
     }
 
     const rows = await this.fetchSearchAnalytics(
@@ -150,7 +150,7 @@ export class GscImportService {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`GSC Search Analytics API エラー: ${response.status} ${text}`);
+      throw new Error(`Google Search Console Search Analytics API エラー: ${response.status} ${text}`);
     }
 
     const json = (await response.json()) as { rows?: SearchAnalyticsRow[] };
