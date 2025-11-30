@@ -7,6 +7,12 @@ export const ERROR_MESSAGES = {
 // Chat Configuration
 export const CHAT_HISTORY_LIMIT = 12;
 
+export const GOOGLE_SEARCH_CONSOLE_SCOPES = [
+  'https://www.googleapis.com/auth/webmasters.readonly',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'openid',
+];
+
 // Feature Flags
 export const FEATURE_FLAGS = {
   USE_RPC_V2: process.env.FEATURE_RPC_V2 === 'true',
@@ -55,6 +61,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 5000 },
   blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 5000 },
   blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 15000 },
+  gsc_insight_ctr_boost: { ...ANTHROPIC_BASE, maxTokens: 8000 },
+  gsc_insight_intro_refresh: { ...ANTHROPIC_BASE, maxTokens: 8000 },
+  gsc_insight_body_rewrite: { ...ANTHROPIC_BASE, maxTokens: 12000 },
 };
 
 // =============================================================================
@@ -112,7 +121,9 @@ export const ANALYTICS_COLUMNS = [
   { id: 'opening_proposal', label: '書き出し案' },
   { id: 'categories', label: 'カテゴリ' },
   { id: 'date', label: '公開日' },
-  { id: 'wp_post_title', label: 'タイトル' },
+  { id: 'wp_post_title', label: 'WordPressタイトル' },
+  { id: 'ads_headline', label: '広告タイトル' },
+  { id: 'ads_description', label: '広告説明文' },
   { id: 'url', label: 'URL' },
   { id: 'memo', label: 'メモ' },
   { id: 'rank', label: '順位' },

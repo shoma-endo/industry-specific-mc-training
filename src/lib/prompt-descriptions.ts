@@ -26,6 +26,21 @@ export const PROMPT_DESCRIPTIONS: Record<string, PromptDescription> = {
     description: 'ブログ（記事）の下書きを作成するプロンプト',
     variables: 'canonicalLinkPairs（改行区切りの内部リンク候補「タイトル | URL」一覧）が利用可能です',
   },
+  gsc_insight_ctr_boost: {
+    description: 'Google広告の見出しと説明文を差し替え、CTR改善案を出します',
+    variables:
+      '広告タイトル（ads_headline）、広告説明文（ads_description）を使用します',
+  },
+  gsc_insight_intro_refresh: {
+    description: '記事の書き出し（opening_proposal）を改善し、検索意図と読了率を高める案を出します',
+    variables:
+      '現行の書き出し（opening_proposal）を使用します',
+  },
+  gsc_insight_body_rewrite: {
+    description: '本文全体を意図整合・網羅性観点でリライトする指示セットを出します',
+    variables:
+      'WordPress本文（wpContent）を使用します',
+  },
 };
 
 /**
@@ -73,6 +88,14 @@ export const VARIABLE_TYPE_DESCRIPTIONS: Record<string, string> = {
   contentPrep: 'PREP要約',
   contentBasicStructure: '基本構成',
   contentOpeningProposal: '書き出し案',
+  // GSC インサイト用
+  adsHeadline: 'Google広告の代表タイトル（content_annotations.ads_headline）',
+  adsDescription: 'Google広告の代表説明文（content_annotations.ads_description）',
+  openingProposal: 'WordPress記事の書き出し（content_annotations.opening_proposal）',
+  wpContent: 'WordPress本文（HTML除去後テキスト）',
+  conversionGoal: 'CTA/コンバージョン目標（問い合わせ、購入、予約など）',
+  emergingQueries: '新興・ロングテールクエリの一覧や指標',
+  competingSnippets: '競合上位ページのスニペット傾向（タイトル/ディスクリプションの特徴）',
 };
 
 /**

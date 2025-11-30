@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { getCheckoutSessionDetails } from '@/server/handler/actions/subscription.actions';
+import { getCheckoutSessionDetails } from '@/server/actions/subscription.actions';
 import { useLiff } from '@/hooks/useLiff';
 
 interface SessionDetails {

@@ -24,6 +24,7 @@ import {
 } from '@/server/services/wordpressContext';
 import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
+import { stripHtml } from '@/lib/utils';
 import type {
   AnnotationRecord,
   ContentAnnotationPayload,
@@ -596,6 +597,38 @@ export async function upsertContentAnnotation(
       }
     }
 
+    // WordPress記事本文のキャッシュを取得
+    let wpContentCache: string | null = null;
+    let wpContentCachedAt: string | null = null;
+
+    if (resolvedWpId) {
+      try {
+        const getCookieFunc = (name: string) => cookieStore.get(name)?.value;
+        const ctx = await resolveWordPressContext(getCookieFunc);
+
+        if (ctx.success) {
+          const post = await ctx.service.resolveContentById(resolvedWpId);
+          if (post.success && post.data) {
+            const rawContent = post.data.content;
+            const contentHtml =
+              typeof rawContent === 'string'
+                ? rawContent
+                : typeof (rawContent as { rendered?: unknown })?.rendered === 'string'
+                  ? (rawContent as { rendered: string }).rendered
+                  : '';
+            const text = stripHtml(contentHtml).trim();
+            if (text) {
+              wpContentCache = text;
+              wpContentCachedAt = new Date().toISOString();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[upsertContentAnnotation] WordPress記事本文の取得に失敗:', error);
+        // エラーが発生してもアノテーション保存は続行
+      }
+    }
+
     const upsertData: Record<string, unknown> = {
       user_id: userId,
       wp_post_id: resolvedWpId,
@@ -609,6 +642,10 @@ export async function upsertContentAnnotation(
       prep: payload.prep ?? null,
       basic_structure: payload.basic_structure ?? null,
       opening_proposal: payload.opening_proposal ?? null,
+      ads_headline: payload.ads_headline ?? null,
+      ads_description: payload.ads_description ?? null,
+      wp_content_cache: wpContentCache,
+      wp_content_cached_at: wpContentCachedAt,
       updated_at: new Date().toISOString(),
     };
 
@@ -906,6 +943,8 @@ export async function upsertContentAnnotationBySession(payload: SessionAnnotatio
       prep: payload.prep ?? null,
       basic_structure: payload.basic_structure ?? null,
       opening_proposal: payload.opening_proposal ?? null,
+      ads_headline: payload.ads_headline ?? null,
+      ads_description: payload.ads_description ?? null,
       updated_at: new Date().toISOString(),
     };
 

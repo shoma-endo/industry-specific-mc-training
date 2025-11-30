@@ -65,6 +65,7 @@ async function buildConnectionStatus(
       };
     }
 
+    // クッキーに無いがDBにトークンがある場合のため、wordpress_auth_missing 以外はエラー返却
     return { ok: false, error: context.message, status: context.status };
   }
 

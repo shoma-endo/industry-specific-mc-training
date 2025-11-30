@@ -14,7 +14,7 @@ import {
   deleteChatSessionSA,
   updateChatSessionTitleSA,
   searchChatSessionsSA,
-} from '@/server/handler/actions/chat.actions';
+} from '@/server/actions/chat.actions';
 import { ChatError, ChatErrorCode } from '../errors/ChatError';
 import type { ChatMessage as ServerChatMessage } from '@/types/chat';
 
