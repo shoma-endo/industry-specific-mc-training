@@ -1,5 +1,6 @@
 import { SupabaseService } from '@/server/services/supabaseService';
 import type { GscEvaluationOutcome, GscPageMetric } from '@/types/gsc';
+import { gscSuggestionService } from '@/server/services/gscSuggestionService';
 
 interface EvaluationResultSummary {
   processed: number;
@@ -99,7 +100,7 @@ export class GscEvaluationService {
       }
 
       // 挿入: history
-      const { error: historyError } = await this.supabaseService
+      const { data: historyRow, error: historyError } = await this.supabaseService
         .getClient()
         .from('gsc_article_evaluation_history')
         .insert({
@@ -111,10 +112,25 @@ export class GscEvaluationService {
           outcome,
           suggestion_applied: false,
           created_at: new Date().toISOString(),
-        });
+        })
+        .select('id')
+        .maybeSingle();
 
       if (historyError) {
         throw new Error(historyError.message || '評価履歴の保存に失敗しました');
+      }
+
+      // 改善提案: 改善していない場合のみ実行
+      if (outcome !== 'improved' && historyRow?.id) {
+        await gscSuggestionService.generate({
+          userId,
+          contentAnnotationId: evaluation.content_annotation_id,
+          evaluationId: evaluation.id,
+          evaluationHistoryId: historyRow.id,
+          outcome,
+          currentPosition: currentPos,
+          previousPosition: lastSeen,
+        });
       }
 
       summary.processed += 1;

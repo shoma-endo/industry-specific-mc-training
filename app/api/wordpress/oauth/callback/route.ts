@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json();
-    const { access_token, expires_in } = tokenData;
+    const { access_token, refresh_token, expires_in } = tokenData;
 
     if (!access_token) {
       console.error('Access token not found in response from WordPress.com', tokenData);
@@ -138,7 +138,27 @@ export async function GET(request: NextRequest) {
 
       // 3) WordPress設定をデータベースに保存（クライアントID/シークレットと合わせて）
       if (siteId && clientId && clientSecret) {
-        await supabaseService.createOrUpdateWordPressSettings(targetUserId, clientId, clientSecret, siteId);
+        const saveOptions: {
+          wpContentTypes?: string[];
+          accessToken?: string;
+          refreshToken?: string;
+          tokenExpiresAt?: string;
+        } = {};
+        if (access_token) saveOptions.accessToken = access_token;
+        if (refresh_token) saveOptions.refreshToken = refresh_token;
+        if (expires_in) {
+          saveOptions.tokenExpiresAt = new Date(
+            Date.now() + Number(expires_in) * 1000
+          ).toISOString();
+        }
+
+        await supabaseService.createOrUpdateWordPressSettings(
+          targetUserId,
+          clientId,
+          clientSecret,
+          siteId,
+          saveOptions
+        );
       }
     } catch (error) {
       console.error('Error saving WordPress settings:', error);

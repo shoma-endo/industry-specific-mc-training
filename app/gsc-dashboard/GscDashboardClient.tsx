@@ -27,6 +27,7 @@ import {
   registerEvaluation,
   updateEvaluation,
 } from '@/server/actions/gscDashboard.actions';
+import ReactMarkdown from 'react-markdown';
 import { EvaluationSettings } from './EvaluationSettings';
 import {
   GSC_EVALUATION_OUTCOME_CONFIG,
@@ -484,19 +485,19 @@ export default function GscDashboardClient({
                   <p className="text-sm font-medium">{selectedHistory.current_position}位</p>
                 </div>
               </div>
-              <div>
-                <p className="text-sm font-semibold mb-2">改善提案</p>
-                {selectedHistory.suggestion_summary ? (
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
-                      {selectedHistory.suggestion_summary}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">提案なし</p>
-                )}
+                <div>
+                  <p className="text-sm font-semibold mb-2">改善提案</p>
+                  {selectedHistory.suggestion_summary ? (
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="text-sm text-gray-800 prose prose-sm max-w-none">
+                        <ReactMarkdown>{selectedHistory.suggestion_summary}</ReactMarkdown>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">提案なし</p>
+                  )}
+                </div>
               </div>
-            </div>
           )}
         </DialogContent>
       </Dialog>

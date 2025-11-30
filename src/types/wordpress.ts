@@ -18,6 +18,10 @@ export interface WordPressSettings {
   wpSiteUrl?: string;
   wpUsername?: string;
   wpApplicationPassword?: string;
+  // 共通（トークン）
+  wpAccessToken?: string | null;
+  wpRefreshToken?: string | null;
+  wpTokenExpiresAt?: string | null;
   wpContentTypes?: string[];
   createdAt?: string;
   updatedAt?: string;

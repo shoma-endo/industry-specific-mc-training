@@ -619,6 +619,9 @@ export class SupabaseService {
       wpSiteUrl: data.wp_site_url,
       wpUsername: data.wp_username,
       wpApplicationPassword: data.wp_application_password,
+      wpAccessToken: data.wp_access_token,
+      wpRefreshToken: data.wp_refresh_token,
+      wpTokenExpiresAt: data.wp_token_expires_at,
       wpContentTypes: normalizeContentTypes(data.wp_content_types as string[] | null),
       createdAt: data.created_at,
       updatedAt: data.updated_at,
@@ -633,7 +636,12 @@ export class SupabaseService {
     wpClientId: string,
     wpClientSecret: string,
     wpSiteId: string,
-    options?: { wpContentTypes?: string[] }
+    options?: {
+      wpContentTypes?: string[];
+      accessToken?: string;
+      refreshToken?: string;
+      tokenExpiresAt?: string;
+    }
   ): Promise<void> {
     const payload: Record<string, unknown> = {
       user_id: userId,
@@ -647,6 +655,9 @@ export class SupabaseService {
     if (options && 'wpContentTypes' in options) {
       payload.wp_content_types = normalizeContentTypes(options.wpContentTypes);
     }
+    if (options?.accessToken) payload.wp_access_token = options.accessToken;
+    if (options?.refreshToken) payload.wp_refresh_token = options.refreshToken;
+    if (options?.tokenExpiresAt) payload.wp_token_expires_at = options.tokenExpiresAt;
 
     const { error } = await this.supabase
       .from('wordpress_settings')
@@ -712,6 +723,81 @@ export class SupabaseService {
     if (error) {
       console.error('Error updating WordPress content types:', error);
       throw new Error(`WordPress投稿タイプの更新に失敗しました: ${error.message}`);
+    }
+  }
+
+  /**
+   * WordPress.com アクセストークンをリフレッシュ
+   */
+  async refreshWpComToken(
+    userId: string,
+    wpSettings?: WordPressSettings
+  ): Promise<
+    | { success: true; accessToken: string; refreshToken?: string | null; expiresAt?: string | null }
+    | { success: false; error: string }
+  > {
+    const settings = wpSettings ?? (await this.getWordPressSettingsByUserId(userId));
+    if (!settings || settings.wpType !== 'wordpress_com') {
+      return { success: false, error: 'WordPress.com設定が見つかりません' };
+    }
+    const clientId = settings.wpClientId || process.env.WORDPRESS_COM_CLIENT_ID;
+    const clientSecret = settings.wpClientSecret || process.env.WORDPRESS_COM_CLIENT_SECRET;
+    const refreshToken = settings.wpRefreshToken;
+
+    if (!clientId || !clientSecret || !refreshToken) {
+      return { success: false, error: 'クライアントID/シークレットまたはリフレッシュトークンが不足しています' };
+    }
+
+    try {
+      const resp = await fetch('https://public-api.wordpress.com/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token',
+        }),
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        return { success: false, error: `token refresh failed: ${resp.status} ${text}` };
+      }
+
+      const json = (await resp.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+        expires_in?: number;
+      };
+      if (!json.access_token) {
+        return { success: false, error: 'token refresh failed: access_token missing' };
+      }
+
+      const expiresAt =
+        json.expires_in && Number.isFinite(json.expires_in)
+          ? new Date(Date.now() + Number(json.expires_in) * 1000).toISOString()
+          : null;
+
+      await this.supabase
+        .from('wordpress_settings')
+        .update({
+          wp_access_token: json.access_token,
+          wp_refresh_token: json.refresh_token ?? refreshToken,
+          wp_token_expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      return {
+        success: true,
+        accessToken: json.access_token,
+        refreshToken: json.refresh_token ?? refreshToken,
+        expiresAt,
+      };
+    } catch (error) {
+      console.error('[SupabaseService.refreshWpComToken] error', error);
+      return { success: false, error: 'token refresh request failed' };
     }
   }
 

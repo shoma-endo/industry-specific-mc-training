@@ -61,6 +61,9 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 5000 },
   blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 5000 },
   blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 15000 },
+  gsc_insight_ctr_boost: { ...ANTHROPIC_BASE, maxTokens: 8000 },
+  gsc_insight_intro_refresh: { ...ANTHROPIC_BASE, maxTokens: 8000 },
+  gsc_insight_body_rewrite: { ...ANTHROPIC_BASE, maxTokens: 12000 },
 };
 
 // =============================================================================

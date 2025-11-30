@@ -34,7 +34,7 @@ export function buildWordPressServiceFromSettings(
   getCookie: CookieGetter
 ): WordPressServiceBuildResult {
   if (wpSettings.wpType === 'wordpress_com') {
-    const accessToken = getCookie(WPCOM_TOKEN_COOKIE_NAME);
+    const accessToken = getCookie(WPCOM_TOKEN_COOKIE_NAME) || wpSettings.wpAccessToken || '';
     if (!accessToken) {
       return {
         success: false,
