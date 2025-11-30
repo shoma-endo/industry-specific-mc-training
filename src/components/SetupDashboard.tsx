@@ -23,8 +23,6 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
   const [gscConnection, setGscConnection] = useState(gscStatus);
   const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(false);
 
-  const isSetupComplete = wordpressSettings.hasSettings;
-
   // WordPress接続ステータスを取得
   useEffect(() => {
     const fetchWordPressStatus = async () => {
@@ -98,30 +96,6 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
         <h1 className="text-3xl font-bold mb-4">設定</h1>
         <p className="text-gray-600">各種サービス連携に必要な設定を管理します</p>
       </div>
-
-      {/* 全体のステータス */}
-      <Card className="mb-8">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            {isSetupComplete ? (
-              <>
-                <CheckCircle className="text-green-500" size={24} />
-                <h2 className="text-xl font-semibold text-green-700">設定完了</h2>
-              </>
-            ) : (
-              <>
-                <AlertCircle className="text-orange-500" size={24} />
-                <h2 className="text-xl font-semibold text-orange-700">設定が必要です</h2>
-              </>
-            )}
-          </div>
-          <p className="text-gray-600 mb-4">
-            {isSetupComplete
-              ? 'すべての設定が完了しています。'
-              : '一部の設定が未完了です。下記の設定項目を確認してください。'}
-          </p>
-        </CardContent>
-      </Card>
 
       {/* サービス連携 */}
       <h2 className="text-xl font-semibold mb-3">サービス連携</h2>
@@ -333,7 +307,7 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
       </div>
 
       {/* 初回セットアップガイド */}
-      {!isSetupComplete && (
+      {!wordpressSettings.hasSettings && (
         <Card className="mt-8">
           <CardHeader>
             <CardTitle>初回セットアップガイド</CardTitle>
