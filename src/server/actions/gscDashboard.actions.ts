@@ -40,6 +40,7 @@ export type GscDetailResponse = {
       created_at: string;
       updated_at: string;
     } | null;
+    next_evaluation_run_utc?: string | null;
     credential: {
       propertyUri: string | null;
     } | null;
@@ -136,6 +137,7 @@ export async function fetchGscDetail(
         metrics: metrics ?? [],
         history: history ?? [],
         evaluation: evaluation ?? null,
+        next_evaluation_run_utc: evaluation ? computeNextRunAtJst(evaluation) : null,
         credential: credential ? { propertyUri: credential.propertyUri ?? null } : null,
       },
     };
@@ -144,6 +146,21 @@ export async function fetchGscDetail(
     const message = error instanceof Error ? error.message : '詳細の取得に失敗しました';
     return { success: false, error: message };
   }
+}
+
+function computeNextRunAtJst(evaluation: {
+  last_evaluated_on: string | null;
+  base_evaluation_date: string;
+  cycle_days: number;
+}): string {
+  const cycle = evaluation.cycle_days || 30;
+  const last = evaluation.last_evaluated_on;
+  const baseDate = last ?? evaluation.base_evaluation_date;
+  const base = new Date(`${baseDate}T00:00:00.000Z`);
+  base.setUTCDate(base.getUTCDate() + cycle);
+  // JST 12:00 は UTC 03:00
+  base.setUTCHours(3, 0, 0, 0);
+  return base.toISOString();
 }
 
 export async function registerEvaluation(params: {

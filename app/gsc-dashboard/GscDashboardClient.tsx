@@ -15,12 +15,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, ArrowLeft, ChevronRight } from 'lucide-react';
 import {
   fetchGscDetail,
@@ -29,10 +24,7 @@ import {
 } from '@/server/actions/gscDashboard.actions';
 import ReactMarkdown from 'react-markdown';
 import { EvaluationSettings } from './EvaluationSettings';
-import {
-  GSC_EVALUATION_OUTCOME_CONFIG,
-  GscEvaluationOutcome,
-} from '@/types/gsc';
+import { GSC_EVALUATION_OUTCOME_CONFIG, GscEvaluationOutcome } from '@/types/gsc';
 
 type DetailResponse = {
   annotation: { id: string; wp_post_title: string | null; canonical_url: string | null };
@@ -64,6 +56,7 @@ type DetailResponse = {
     created_at: string;
     updated_at: string;
   } | null;
+  next_evaluation_run_utc?: string | null;
   credential: {
     propertyUri: string | null;
   } | null;
@@ -456,7 +449,10 @@ export default function GscDashboardClient({
       </div>
 
       {/* 評価履歴詳細Dialog */}
-      <Dialog open={selectedHistory !== null} onOpenChange={(open) => !open && setSelectedHistory(null)}>
+      <Dialog
+        open={selectedHistory !== null}
+        onOpenChange={open => !open && setSelectedHistory(null)}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>AIの改善提案内容</DialogTitle>
@@ -485,19 +481,19 @@ export default function GscDashboardClient({
                   <p className="text-sm font-medium">{selectedHistory.current_position}位</p>
                 </div>
               </div>
-                <div>
-                  <p className="text-sm font-semibold mb-2">改善提案</p>
-                  {selectedHistory.suggestion_summary ? (
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="text-sm text-gray-800 prose prose-sm max-w-none">
-                        <ReactMarkdown>{selectedHistory.suggestion_summary}</ReactMarkdown>
-                      </div>
+              <div>
+                <p className="text-sm font-semibold mb-2">改善提案</p>
+                {selectedHistory.suggestion_summary ? (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-sm text-gray-800 prose prose-sm max-w-none">
+                      <ReactMarkdown>{selectedHistory.suggestion_summary}</ReactMarkdown>
                     </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 italic">提案なし</p>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">提案なし</p>
+                )}
               </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

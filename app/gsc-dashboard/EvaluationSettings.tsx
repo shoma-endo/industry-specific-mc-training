@@ -162,10 +162,7 @@ export function EvaluationSettings({
               </div>
 
               <div className="space-y-2">
-                <label
-                  htmlFor="cycle-days"
-                  className="text-sm font-medium text-gray-700 block"
-                >
+                <label htmlFor="cycle-days" className="text-sm font-medium text-gray-700 block">
                   評価サイクル日数
                 </label>
                 <Input
@@ -196,7 +193,7 @@ export function EvaluationSettings({
                         <div>
                           <p className="text-blue-600 text-xs mb-1">初回評価日</p>
                           <p className="font-semibold text-blue-900">
-                            {formatDateJP(nextEvaluationDateStr)}
+                            {formatDateJP(nextEvaluationDateStr)} 12:00 (日本時間)
                           </p>
                         </div>
                       </div>
@@ -254,7 +251,7 @@ export function EvaluationSettings({
                   currentEvaluation.last_evaluated_on || currentEvaluation.base_evaluation_date;
                 const cycleDays = currentEvaluation.cycle_days || 30;
                 const nextDate = addDays(refDate, cycleDays);
-                return formatDateJP(nextDate);
+                return `${formatDateJP(nextDate)} 12:00 (日本時間)`;
               })()}
             </div>
           </div>
