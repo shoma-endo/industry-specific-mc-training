@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // PostgreSQL接続用の型定義（pgライブラリがインストールされていない場合のフォールバック）
@@ -42,82 +42,30 @@ function loadEnv() {
 }
 
 /**
- * マイグレーションファイルからテーブル名を抽出する
- */
-function extractTablesFromMigrations(): Set<string> {
-  const tables = new Set<string>();
-  const migrationsDir = join(__dirname, '../supabase/migrations');
-
-  try {
-    const migrationFiles = readdirSync(migrationsDir)
-      .filter(file => file.endsWith('.sql'))
-      .sort(); // 時系列順にソート
-
-    for (const file of migrationFiles) {
-      const filePath = join(migrationsDir, file);
-      const content = readFileSync(filePath, 'utf-8');
-
-      // CREATE TABLE文からテーブル名を抽出
-      // CREATE TABLE IF NOT EXISTS table_name または CREATE TABLE table_name のパターンにマッチ
-      // スキーマ名（public.）を除外してテーブル名のみを抽出
-      const createTableRegex =
-        /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?([a-z_][a-z0-9_]*)/gi;
-      let match;
-
-      while ((match = createTableRegex.exec(content)) !== null) {
-        const tableName = match[1];
-        // 'public'という名前のテーブルは除外（スキーマ名の誤検出を防ぐ）
-        if (tableName && tableName !== 'public') {
-          tables.add(tableName);
-        }
-      }
-
-      // DROP TABLE文から削除されたテーブルを除外
-      const dropTableRegex = /DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?([a-z_][a-z0-9_]*)/gi;
-      while ((match = dropTableRegex.exec(content)) !== null) {
-        const tableName = match[1];
-        if (tableName && tableName !== 'public') {
-          tables.delete(tableName);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('マイグレーションファイルの読み込みエラー:', error);
-  }
-
-  return tables;
-}
-
-/**
  * データベースから実際に存在するテーブル一覧を取得する
- * マイグレーションファイルから抽出したテーブル名に対して存在確認を行う
+ * get_table_sizes RPC関数を使用して、実際のデータベースから直接取得
  */
 async function getAllTables(client: ReturnType<typeof createClient>): Promise<string[]> {
   try {
-    // マイグレーションファイルからテーブル名を抽出
-    const tablesFromMigrations = extractTablesFromMigrations();
+    // get_table_sizes(NULL) を呼び出すと、publicスキーマ内の全テーブルを取得できる
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (client as any).rpc('get_table_sizes', {
+      table_names: null,
+    });
 
-    if (tablesFromMigrations.size === 0) {
-      console.warn('⚠️  マイグレーションファイルからテーブルが見つかりませんでした。');
+    if (error) {
+      console.error('⚠️  テーブル一覧の取得に失敗しました:', error.message);
       return [];
     }
 
-    // 実際にデータベースに存在するテーブルのみをフィルタリング
-    const existingTables: string[] = [];
-
-    for (const tableName of tablesFromMigrations) {
-      try {
-        const { error } = await client.from(tableName).select('*', { count: 'exact', head: true });
-
-        if (!error) {
-          existingTables.push(tableName);
-        }
-      } catch {
-        // テーブルが存在しない場合はスキップ（削除されたテーブルなど）
-      }
+    if (!data || !Array.isArray(data)) {
+      console.warn('⚠️  テーブルデータが取得できませんでした。');
+      return [];
     }
 
-    return existingTables.sort(); // アルファベット順にソート
+    // テーブル名のみを抽出してソート
+    const tableNames = data.map((row: TableSizeInfo) => row.table_name).sort();
+    return tableNames;
   } catch (error) {
     console.error('テーブル一覧の取得エラー:', error);
     return [];
@@ -129,8 +77,7 @@ async function getAllTables(client: ReturnType<typeof createClient>): Promise<st
  */
 async function getDatabaseSizes(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  client: any,
-  tables: string[]
+  client: any
 ): Promise<{
   databaseSize: DatabaseSizeInfo | null;
   tableSizes: TableSizeInfo[];
@@ -143,11 +90,9 @@ async function getDatabaseSizes(
       console.warn('⚠️  データベースサイズの取得に失敗しました:', dbSizeError.message);
     }
 
-    // テーブルごとのサイズを取得
-    // 関数側で全テーブルを取得できるように改善したが、スクリプト側で取得したテーブルリストを渡すことで
-    // マイグレーションファイルとデータベースの整合性を確認できる
+    // テーブルごとのサイズを取得（全テーブル）
     const { data: tableSizeData, error: tableSizeError } = await client.rpc('get_table_sizes', {
-      table_names: tables.length > 0 ? tables : null, // 空配列の場合はNULLを渡して全テーブルを取得
+      table_names: null, // NULLを渡して全テーブルを取得
     });
 
     if (tableSizeError) {
@@ -228,7 +173,7 @@ async function checkDatabaseStats() {
     // 容量情報を取得（RPC関数を使用）
     console.log('\n💾 データベース容量情報:');
     try {
-      const { databaseSize, tableSizes } = await getDatabaseSizes(client, tables);
+      const { databaseSize, tableSizes } = await getDatabaseSizes(client);
 
       if (databaseSize) {
         console.log(`  📦 データベース全体のサイズ: ${databaseSize.database_size_pretty}`);
