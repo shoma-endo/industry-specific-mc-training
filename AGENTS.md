@@ -72,6 +72,54 @@ AI運用5原則
 - `npm run ngrok` ― LIFF 実機検証用 HTTPS トンネル
 - `npx supabase db push` ― Supabase スキーマ反映（本番反映前は要確認）
 
+## 命名規則
+
+プロジェクト全体で統一された命名規則に従ってください。
+
+### ディレクトリ命名
+
+| カテゴリ | 命名規則 | 例 |
+|---------|----------|-----|
+| **App Router** | kebab-case | `business-info/`, `gsc-dashboard/`, `wordpress-import/` |
+| **API Routes** | kebab-case | `api/line-oauth-init/`, `api/clear-cache/` |
+| **機能モジュール** | kebab-case | `src/server/actions/`, `src/domain/services/` |
+
+### ファイル命名
+
+| カテゴリ | 命名規則 | 拡張子 | 例 |
+|---------|----------|--------|-----|
+| **Page/Layout** | 固定名 | `.tsx` | `page.tsx`, `layout.tsx` |
+| **Route Handlers** | 固定名 | `.ts` | `route.ts` |
+| **Components (shadcn)** | kebab-case | `.tsx` | `avatar.tsx`, `button.tsx`, `card.tsx` |
+| **Components (カスタム)** | PascalCase | `.tsx` | `ChatClient.tsx`, `CanvasPanel.tsx`, `AnnotationPanel.tsx` |
+| **Hooks** | camelCase | `.ts` | `useChatSession.ts`, `useMobile.ts`, `useSubscription.ts` |
+| **Services** | camelCase + Service | `.ts` | `chatService.ts`, `stripeService.ts`, `wordpressService.ts` |
+| **Actions** | camelCase + .actions | `.ts` | `chat.actions.ts`, `gscSetup.actions.ts`, `user.actions.ts` |
+| **Middleware** | camelCase + .middleware | `.ts` | `auth.middleware.ts` |
+| **Schemas** | camelCase + .schema | `.ts` | `brief.schema.ts` |
+| **Models** | camelCase + Models | `.ts` | `chatModels.ts` |
+| **Types** | kebab-case | `.ts` | `analytics.ts`, `canvas.ts`, `chat.ts` |
+| **Lib/Utils** | kebab-case | `.ts` | `blog-canvas.ts`, `client-manager.ts`, `prompt-descriptions.ts` |
+
+### コード内の命名
+
+| 要素 | 命名規則 | 例 |
+|------|----------|-----|
+| **React コンポーネント** | PascalCase | `ChatLayout`, `MessageArea`, `SessionSidebar` |
+| **クラス** | PascalCase | `ChatService`, `SupabaseService`, `WordPressService` |
+| **関数・メソッド** | camelCase | `sendMessage()`, `fetchGscStatus()`, `updateSessionTitle()` |
+| **変数・定数** | camelCase | `accessToken`, `sessionId`, `currentUser` |
+| **定数（グローバル）** | UPPER_SNAKE_CASE | `MODEL_CONFIGS`, `BLOG_STEP_IDS`, `ERROR_MESSAGES` |
+| **型・インターフェース** | PascalCase | `ChatMessage`, `UserRole`, `GscCredential` |
+| **Enum** | PascalCase | `ChatErrorCode`, `SubscriptionStatus` |
+
+### 命名の統一性
+
+- **Services**: フロント（`src/domain/services/`）とサーバー（`src/server/services/`）で命名規則を統一し、すべて camelCase を使用します。
+- **Server Actions**: `src/server/actions/` 配下に配置し、`.actions.ts` サフィックスを付けます。
+- **Components**: shadcn/ui は kebab-case（外部ライブラリの規約）、カスタムコンポーネントは PascalCase で統一します。
+- **一貫性重視**: 同じ役割のファイルは同じ命名パターンを踏襲し、プロジェクト全体での見通しを良くします。
+
 ## コーディングスタイル
 
 - TypeScript ファースト。共有型は `src/types/` に追加し、フロント・サーバー双方で再利用します。
