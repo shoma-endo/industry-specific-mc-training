@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { gscEvaluationService } from '@/server/services/gscEvaluationService';
+import { gscImportService } from '@/server/services/gscImportService';
+
+const toISODate = (date: Date) => date.toISOString().slice(0, 10);
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,9 +21,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const summary = await gscEvaluationService.runDueEvaluationsForUser(
-      authResult.userId
-    );
+    // 最新データを評価前に同期する（直近30日間）
+    const today = new Date();
+    const endDate = toISODate(today);
+    const start = new Date(today);
+    start.setUTCDate(start.getUTCDate() - 30);
+    const startDate = toISODate(start);
+
+    const summary = await gscImportService.importAndMaybeEvaluate(authResult.userId, {
+      startDate,
+      endDate,
+      searchType: 'web',
+      maxRows: 5000,
+      runEvaluation: true,
+    });
 
     return NextResponse.json({ success: true, data: summary });
   } catch (error) {
