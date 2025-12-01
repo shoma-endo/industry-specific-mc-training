@@ -122,6 +122,13 @@ export function EvaluationSettings({
               ? `${currentEvaluation.cycle_days}日ごとに検索順位の変動を自動的に追跡・評価します`
               : '設定した日数ごとに検索順位の変動を自動的に追跡・評価します'}
           </p>
+          <div className="mt-2 inline-flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+            <Info className="h-4 w-4 mt-[1px]" />
+            <span>
+              評価日は「当日の計測値」ではなく、最新に取得できたSearch Consoleデータ（日付付き）を対象に判定します。
+              データが遅延する場合でも最終取得日の数値で評価されます。
+            </span>
+          </div>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
