@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, AlertCircle, Settings, Plug, Loader2, ShieldCheck, ShieldOff, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
-import { fetchGscStatus } from './GscSetupActions';
+import { fetchGscStatus } from '@/server/actions/gscSetup.actions';
 
 interface WordPressStatus {
   connected: boolean;

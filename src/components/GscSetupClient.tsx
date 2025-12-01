@@ -28,7 +28,7 @@ import {
   fetchGscProperties,
   fetchGscStatus,
   saveGscProperty,
-} from './GscSetupActions';
+} from '@/server/actions/gscSetup.actions';
 
 interface GscSetupClientProps {
   initialStatus: GscConnectionStatus;
