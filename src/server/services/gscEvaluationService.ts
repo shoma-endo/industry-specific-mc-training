@@ -106,7 +106,7 @@ export class GscEvaluationService {
         .insert({
           user_id: userId,
           content_annotation_id: evaluation.content_annotation_id,
-          evaluation_date: today,
+          evaluation_date: metric.date ?? today,
           previous_position: lastSeen,
           current_position: currentPos,
           outcome,
@@ -149,6 +149,8 @@ export class GscEvaluationService {
     userId: string,
     evaluation: EvaluationRow
   ): Promise<Pick<GscPageMetric, 'position' | 'date'> | null> {
+    // 評価日は固定せず「最新取得済みの指標」を採用する。
+    // 直近日が欠損/nullでも、最終取得日で判定できるよう null position は除外。
     const { data, error } = await this.supabaseService
       .getClient()
       .from('gsc_page_metrics')
@@ -156,6 +158,7 @@ export class GscEvaluationService {
       .eq('user_id', userId)
       .eq('property_uri', evaluation.property_uri)
       .eq('content_annotation_id', evaluation.content_annotation_id)
+      .not('position', 'is', null)
       .order('date', { ascending: false })
       .limit(1)
       .maybeSingle();
