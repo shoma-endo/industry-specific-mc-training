@@ -18,58 +18,66 @@ export const useFaviconBadge = (count: number) => {
       return;
     }
 
-    const drawBadge = () => {
+    const drawBadge = (img?: HTMLImageElement) => {
       const favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
       if (!favicon) return;
 
-      const img = new Image();
-      // 元のアイコン読み込み（CORS対応が必要な場合はcrossOrigin設定）
-      img.crossOrigin = 'Anonymous';
-      
-      // 元の画像がない場合や読み込めない場合のフォールバックも考慮すべきだが
-      // ここでは元のfaviconパスを使用
-      img.src = originalHref.current || favicon.href;
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 32;
-        canvas.height = 32;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        // 元画像を書き込み
+      if (img) {
         ctx.drawImage(img, 0, 0, 32, 32);
-
-        // バッジを描画
-        // 右下に赤丸
-        const badgeSize = 14;
-        const x = 32 - badgeSize;
-        const y = 32 - badgeSize;
-        
+      } else {
+        // フォールバック: 単色の丸をベースに描画（CORSで元画像が読めない場合）
+        ctx.fillStyle = '#1f2937'; // gray-800
         ctx.beginPath();
-        ctx.arc(x + badgeSize/2, y + badgeSize/2, badgeSize/2, 0, 2 * Math.PI);
-        ctx.fillStyle = '#ef4444'; // red-500
+        ctx.arc(16, 16, 16, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+      }
 
-        // 数字を描画
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        // 99以上は '99+'
-        const text = count > 99 ? '99+' : count.toString();
-        ctx.fillText(text, x + badgeSize/2, y + badgeSize/2 + 1); // 微調整
+      // バッジ描画
+      const badgeSize = 14;
+      const x = 32 - badgeSize;
+      const y = 32 - badgeSize;
 
-        // ファビコン更新
-        favicon.href = canvas.toDataURL('image/png');
-      };
+      ctx.beginPath();
+      ctx.arc(x + badgeSize / 2, y + badgeSize / 2, badgeSize / 2, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ef4444'; // red-500
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const text = count > 99 ? '99+' : count.toString();
+      ctx.fillText(text, x + badgeSize / 2, y + badgeSize / 2 + 1);
+
+      favicon.href = canvas.toDataURL('image/png');
     };
 
-    drawBadge();
+    const favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+    if (!favicon) return;
+
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.src = originalHref.current || favicon.href;
+
+    img.onload = () => drawBadge(img);
+    img.onerror = () => drawBadge(); // フォールバック描画
+
+    // 画像が即座にcache hitしない場合もあるのでtimeoutフォールバック
+    setTimeout(() => {
+      // onload/onerrorのどちらもまだ呼ばれていなければフォールバック
+      if (!img.complete) {
+        drawBadge();
+      }
+    }, 3000);
 
     // クリーンアップは特に不要（アンマウント時に元に戻すかは要件次第だが、戻したほうが安全）
     return () => {
@@ -79,4 +87,3 @@ export const useFaviconBadge = (count: number) => {
     };
   }, [count]);
 };
-
