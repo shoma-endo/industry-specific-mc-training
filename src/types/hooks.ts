@@ -2,7 +2,7 @@
  * フック専用の型定義
  */
 import type { SubscriptionStatus as DomainSubscriptionStatus } from '../domain/interfaces/ISubscriptionService';
-import type { ChatState } from '../domain/models/chat.models';
+import type { ChatState } from '../domain/models/chatModels';
 import type { getLineProfileServerResponse } from '../server/actions/login.actions';
 
 /**
