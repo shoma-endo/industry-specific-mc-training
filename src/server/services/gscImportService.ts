@@ -83,6 +83,13 @@ export class GscImportService {
       const normalized = metric.normalizedUrl ?? null;
       const annotationId = normalized ? matchMap.get(normalized) ?? null : null;
 
+      // 紐付けできないデータは保存しない（評価対象外のノイズを避ける）
+      if (!annotationId) {
+        skipped += 1;
+        unmatched += 1;
+        continue;
+      }
+
       const upsertPayload = {
         user_id: userId,
         content_annotation_id: annotationId,
@@ -110,7 +117,6 @@ export class GscImportService {
       }
 
       upserted += 1;
-      if (!annotationId) unmatched += 1;
     }
 
     return {
