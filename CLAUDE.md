@@ -108,6 +108,21 @@ AI運用5原則
 - **Components**: shadcn/ui は kebab-case（外部ライブラリの規約）、カスタムコンポーネントは PascalCase で統一します。
 - **一貫性重視**: 同じ役割のファイルは同じ命名パターンを踏襲し、プロジェクト全体での見通しを良くします。
 
+### 命名規則の使い分け基準
+
+プロジェクトでは kebab-case と camelCase が混在していますが、これは意図的な設計です：
+
+**kebab-case を使う場合:**
+- URL に直結するもの（App Router ディレクトリ、API Routes）
+- モジュールとして識別されるもの（Types, Lib/Utils）
+- 外部ライブラリの規約に従う場合（shadcn/ui コンポーネント）
+
+**camelCase を使う場合:**
+- TypeScript/JavaScript の実装ファイル（Services, Actions, Hooks, Middleware, Schemas, Models）
+- 関数名やクラス名とファイル名の対応を明確にする場合
+
+この使い分けにより、Next.js や TypeScript のコミュニティ慣習と整合性を保ち、学習コストを最小化しています。URL は kebab-case（SEO 推奨）、実装ファイルは camelCase（TypeScript 慣習）という、それぞれの領域でのベストプラクティスに従っています。
+
 ## 実装指針
 
 - TypeScript は strict 前提。型・`zod` スキーマを積極的に活用し、`any` は避ける。
