@@ -1,37 +1,25 @@
-import { GscService } from '@/server/services/gscService';
-import { SupabaseService } from '@/server/services/supabaseService';
-import { gscEvaluationService } from '@/server/services/gscEvaluationService';
-import type { GscPageMetric, GscSearchType } from '@/types/gsc';
-
-type ImportResult = {
-  totalFetched: number;
-  upserted: number;
-  skipped: number;
-  unmatched: number;
-  evaluated: number;
-};
-
-interface ImportOptions {
-  startDate: string; // YYYY-MM-DD
-  endDate: string; // YYYY-MM-DD
-  searchType?: GscSearchType;
-  maxRows?: number;
-  runEvaluation?: boolean;
-}
-
-interface SearchAnalyticsRow {
-  keys: string[]; // [date, page]
-  clicks: number;
-  impressions: number;
-  ctr: number;
-  position: number;
-}
+import { GscService } from './gscService';
+import { SupabaseService } from './supabaseService';
+import { gscEvaluationService } from './gscEvaluationService';
+import { getGscQueryMaxPages, getGscQueryRowLimit } from '../lib/gscConfig';
+import { normalizeQuery } from '../../lib/normalizeQuery';
+import type {
+  GscPageMetric,
+  GscPropertyType,
+  GscQueryMetricInsert,
+  GscSearchAnalyticsRow,
+  GscSearchType,
+  GscImportOptions,
+  GscImportResult,
+} from '@/types/gsc';
 
 export class GscImportService {
   private readonly gscService = new GscService();
   private readonly supabaseService = new SupabaseService();
+  private readonly queryRowLimit = getGscQueryRowLimit();
+  private readonly queryMaxPages = getGscQueryMaxPages();
 
-  async importAndMaybeEvaluate(userId: string, options: ImportOptions): Promise<ImportResult> {
+  async importAndMaybeEvaluate(userId: string, options: GscImportOptions): Promise<GscImportResult> {
     const summary = await this.importMetrics(userId, options);
 
     if (options.runEvaluation) {
@@ -42,7 +30,7 @@ export class GscImportService {
     return summary;
   }
 
-  async importMetrics(userId: string, options: ImportOptions): Promise<ImportResult> {
+  async importMetrics(userId: string, options: GscImportOptions): Promise<GscImportResult> {
     const startDate = options.startDate;
     const endDate = options.endDate;
     const searchType = options.searchType ?? 'web';
@@ -50,30 +38,32 @@ export class GscImportService {
 
     const credentials = await this.supabaseService.getGscCredentialByUserId(userId);
     if (!credentials) {
-      throw new Error('Google Search Console の資格情報が見つかりません');
+      throw new Error('GSC資格情報が見つかりません');
     }
 
     const refreshed = await this.gscService.refreshAccessToken(credentials.refreshToken);
     const accessToken = refreshed.accessToken;
     const propertyUri = credentials.propertyUri;
     if (!propertyUri) {
-      throw new Error('Google Search Console のプロパティが設定されていません');
+      throw new Error('GSCプロパティが設定されていません');
     }
 
-    const rows = await this.fetchSearchAnalytics(
+    const rows = await this.fetchSearchAnalytics({
       accessToken,
       propertyUri,
       startDate,
       endDate,
       searchType,
-      maxRows
-    );
+      rowLimit: maxRows,
+      dimensions: ['date', 'page'],
+    });
 
     const metrics: GscPageMetric[] = rows
       .map(row => this.toMetric(userId, propertyUri, searchType, row))
       .filter((m): m is GscPageMetric => m !== null);
 
     const matchMap = await this.loadAnnotationUrlMap(userId);
+    const propertyType = this.getPropertyType(propertyUri, credentials.propertyType ?? null);
 
     let upserted = 0;
     let skipped = 0;
@@ -113,6 +103,17 @@ export class GscImportService {
       if (!annotationId) unmatched += 1;
     }
 
+    await this.importQueryMetrics({
+      userId,
+      propertyUri,
+      propertyType,
+      searchType,
+      accessToken,
+      startDate,
+      endDate,
+      matchMap,
+    });
+
     return {
       totalFetched: metrics.length,
       upserted,
@@ -122,22 +123,37 @@ export class GscImportService {
     };
   }
 
-  private async fetchSearchAnalytics(
-    accessToken: string,
-    propertyUri: string,
-    startDate: string,
-    endDate: string,
-    searchType: GscSearchType,
-    rowLimit: number
-  ): Promise<SearchAnalyticsRow[]> {
+  private async fetchSearchAnalytics({
+    accessToken,
+    propertyUri,
+    startDate,
+    endDate,
+    searchType,
+    rowLimit,
+    startRow,
+    dimensions,
+  }: {
+    accessToken: string;
+    propertyUri: string;
+    startDate: string;
+    endDate: string;
+    searchType: GscSearchType;
+    rowLimit: number;
+    startRow?: number;
+    dimensions: string[];
+  }): Promise<GscSearchAnalyticsRow[]> {
     const url = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUri)}/searchAnalytics/query`;
-    const body = {
+    const body: Record<string, unknown> = {
       startDate,
       endDate,
-      dimensions: ['date', 'page'],
+      dimensions,
       searchType,
       rowLimit,
     };
+
+    if (typeof startRow === 'number' && startRow > 0) {
+      body.startRow = startRow;
+    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -150,10 +166,10 @@ export class GscImportService {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Google Search Console Search Analytics API エラー: ${response.status} ${text}`);
+      throw new Error(`GSC Search Analytics API エラー: ${response.status} ${text}`);
     }
 
-    const json = (await response.json()) as { rows?: SearchAnalyticsRow[] };
+    const json = (await response.json()) as { rows?: GscSearchAnalyticsRow[] };
     return Array.isArray(json.rows) ? json.rows : [];
   }
 
@@ -161,7 +177,7 @@ export class GscImportService {
     userId: string,
     propertyUri: string,
     searchType: GscSearchType,
-    row: SearchAnalyticsRow
+    row: GscSearchAnalyticsRow
   ): GscPageMetric | null {
     const dateKey = row.keys?.[0];
     const pageUrl = row.keys?.[1];
@@ -184,6 +200,158 @@ export class GscImportService {
       ctr: row.ctr ?? 0,
       position: row.position ?? 0,
       importedAt: new Date().toISOString(),
+    };
+  }
+
+  private async importQueryMetrics({
+    userId,
+    propertyUri,
+    propertyType,
+    searchType,
+    accessToken,
+    startDate,
+    endDate,
+    matchMap,
+  }: {
+    userId: string;
+    propertyUri: string;
+    propertyType: GscPropertyType;
+    searchType: GscSearchType;
+    accessToken: string;
+    startDate: string;
+    endDate: string;
+    matchMap: Map<string, string>;
+  }): Promise<void> {
+    const rows = await this.fetchQueryAnalyticsRows({
+      accessToken,
+      propertyUri,
+      startDate,
+      endDate,
+      searchType,
+    });
+
+    if (!rows.length) {
+      return;
+    }
+
+    const metrics: GscQueryMetricInsert[] = rows
+      .map(row =>
+        this.toQueryMetric({
+          userId,
+          propertyUri,
+          propertyType,
+          searchType,
+          row,
+          matchMap,
+        })
+      )
+      .filter((metric): metric is GscQueryMetricInsert => metric !== null);
+
+    if (!metrics.length) {
+      return;
+    }
+
+    await this.supabaseService.upsertGscQueryMetrics(metrics);
+  }
+
+  private async fetchQueryAnalyticsRows({
+    accessToken,
+    propertyUri,
+    startDate,
+    endDate,
+    searchType,
+  }: {
+    accessToken: string;
+    propertyUri: string;
+    startDate: string;
+    endDate: string;
+    searchType: GscSearchType;
+  }): Promise<GscSearchAnalyticsRow[]> {
+    const rows: GscSearchAnalyticsRow[] = [];
+    let startRow = 0;
+    for (let page = 0; page < this.queryMaxPages; page += 1) {
+      const batch = await this.fetchSearchAnalytics({
+        accessToken,
+        propertyUri,
+        startDate,
+        endDate,
+        searchType,
+        rowLimit: this.queryRowLimit,
+        startRow,
+        // dimensions 順に合わせて keys を受け取る
+        dimensions: ['date', 'query', 'page'],
+      });
+
+      if (!batch.length) {
+        break;
+      }
+
+      rows.push(...batch);
+
+      if (batch.length < this.queryRowLimit) {
+        break;
+      }
+
+      startRow += this.queryRowLimit;
+    }
+
+    return rows;
+  }
+
+  private toQueryMetric({
+    userId,
+    propertyUri,
+    propertyType,
+    searchType,
+    row,
+    matchMap,
+  }: {
+    userId: string;
+    propertyUri: string;
+    propertyType: GscPropertyType;
+    searchType: GscSearchType;
+    row: GscSearchAnalyticsRow;
+    matchMap: Map<string, string>;
+  }): GscQueryMetricInsert | null {
+    const [dateKey, queryText, pageUrl] = row.keys ?? [];
+    if (!dateKey || !pageUrl || !queryText) {
+      return null;
+    }
+
+    const normalizedUrl = this.normalizeUrl(pageUrl);
+    if (!normalizedUrl) {
+      return null;
+    }
+
+    const queryNormalized = normalizeQuery(queryText);
+    if (!queryNormalized) {
+      return null;
+    }
+
+    const clicks = row.clicks ?? 0;
+    const impressions = row.impressions ?? 0;
+
+    if (clicks === 0 && impressions === 0) {
+      return null;
+    }
+
+    const importedAt = new Date().toISOString();
+    return {
+      userId,
+      propertyUri,
+      propertyType,
+      searchType,
+      date: dateKey,
+      url: pageUrl,
+      normalizedUrl,
+      query: queryText,
+      queryNormalized,
+      clicks,
+      impressions,
+      ctr: this.calculateCtr(clicks, impressions, row.ctr),
+      position: typeof row.position === 'number' ? row.position : 0,
+      contentAnnotationId: matchMap.get(normalizedUrl) ?? null,
+      importedAt,
     };
   }
 
@@ -213,10 +381,27 @@ export class GscImportService {
     try {
       // mimic normalize_url: lowercase, remove protocol + www, trim trailing slash
       const lowered = url.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
-      return lowered.replace(/\/+$|^\/+/, '');
+      return lowered.replace(/\/+$/g, '').replace(/^\/+/, '');
     } catch {
       return null;
     }
+  }
+
+  private getPropertyType(propertyUri: string, fallback?: GscPropertyType | null): GscPropertyType {
+    if (fallback === 'sc-domain' || fallback === 'url-prefix') {
+      return fallback;
+    }
+    return propertyUri.startsWith('sc-domain:') ? 'sc-domain' : 'url-prefix';
+  }
+
+  private calculateCtr(clicks: number, impressions: number, fallback?: number): number {
+    if (typeof fallback === 'number') {
+      return fallback;
+    }
+    if (impressions <= 0) {
+      return 0;
+    }
+    return clicks / impressions;
   }
 }
 
