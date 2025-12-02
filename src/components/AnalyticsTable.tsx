@@ -253,7 +253,7 @@ export default function AnalyticsTable({ items }: Props) {
                           onClick={() => {
                             const target = new URLSearchParams();
                             target.set('annotationId', annotation.id ?? '');
-                            router.push(`/gsc-dashboard?${target.toString()}`);
+                            window.open(`/gsc-dashboard?${target.toString()}`, '_blank', 'noopener,noreferrer');
                           }}
                         >
                           詳細
