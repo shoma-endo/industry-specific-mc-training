@@ -323,3 +323,244 @@ export async function updateEvaluation(params: {
     return { success: false, error: message };
   }
 }
+
+// ============================================
+// Query Analysis 用の型定義と関数
+// ============================================
+
+export interface QueryAggregation {
+  query: string;
+  queryNormalized: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  positionChange: number | null;
+  clicksChange: number | null;
+  wordCount: number;
+}
+
+export interface QueryAnalysisResponse {
+  success: boolean;
+  data?: {
+    queries: QueryAggregation[];
+    summary: {
+      totalQueries: number;
+      totalClicks: number;
+      totalImpressions: number;
+      avgPosition: number;
+    };
+    period: {
+      start: string;
+      end: string;
+      comparisonStart: string;
+      comparisonEnd: string;
+    };
+  };
+  error?: string;
+}
+
+/**
+ * クエリ別集計データを取得
+ * @param annotationId - content_annotation_id
+ * @param dateRange - '7d' | '28d' | '3m'
+ */
+export async function fetchQueryAnalysis(
+  annotationId: string,
+  dateRange: '7d' | '28d' | '3m' = '28d'
+): Promise<QueryAnalysisResponse> {
+  try {
+    const { userId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+
+    // 期間計算
+    const now = new Date();
+    const days = dateRange === '7d' ? 7 : dateRange === '28d' ? 28 : 90;
+
+    const endDate = new Date(now);
+    endDate.setUTCDate(endDate.getUTCDate() - 2); // GSCは2日前まで
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - days + 1);
+
+    // 比較期間
+    const compEndDate = new Date(startDate);
+    compEndDate.setUTCDate(compEndDate.getUTCDate() - 1);
+    const compStartDate = new Date(compEndDate);
+    compStartDate.setUTCDate(compStartDate.getUTCDate() - days + 1);
+
+    const startIso = startDate.toISOString().slice(0, 10);
+    const endIso = endDate.toISOString().slice(0, 10);
+    const compStartIso = compStartDate.toISOString().slice(0, 10);
+    const compEndIso = compEndDate.toISOString().slice(0, 10);
+
+    // annotationのcanonical_urlを取得
+    const { data: annotation, error: annotationError } = await supabaseService
+      .getClient()
+      .from('content_annotations')
+      .select('canonical_url')
+      .eq('id', annotationId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (annotationError || !annotation?.canonical_url) {
+      return { success: false, error: '記事が見つかりません' };
+    }
+
+    // URLを正規化（末尾スラッシュ除去、小文字化）
+    const normalizedUrl = annotation.canonical_url
+      .toLowerCase()
+      .replace(/\/$/, '');
+
+    // 現在期間のクエリデータを取得
+    const { data: currentMetrics, error: currentError } = await supabaseService
+      .getClient()
+      .from('gsc_query_metrics')
+      .select('query, query_normalized, clicks, impressions, ctr, position')
+      .eq('user_id', userId)
+      .eq('normalized_url', normalizedUrl)
+      .gte('date', startIso)
+      .lte('date', endIso);
+
+    if (currentError) {
+      throw new Error(currentError.message);
+    }
+
+    // 比較期間のクエリデータを取得
+    const { data: previousMetrics, error: previousError } = await supabaseService
+      .getClient()
+      .from('gsc_query_metrics')
+      .select('query_normalized, clicks, position')
+      .eq('user_id', userId)
+      .eq('normalized_url', normalizedUrl)
+      .gte('date', compStartIso)
+      .lte('date', compEndIso);
+
+    if (previousError) {
+      throw new Error(previousError.message);
+    }
+
+    // クエリ別に集計（現在期間）
+    const queryMap = new Map<
+      string,
+      {
+        query: string;
+        queryNormalized: string;
+        clicks: number;
+        impressions: number;
+        ctrSum: number;
+        positionSum: number;
+        count: number;
+      }
+    >();
+
+    for (const row of currentMetrics ?? []) {
+      const key = row.query_normalized;
+      const existing = queryMap.get(key);
+      if (existing) {
+        existing.clicks += row.clicks;
+        existing.impressions += row.impressions;
+        existing.ctrSum += row.ctr;
+        existing.positionSum += row.position;
+        existing.count += 1;
+      } else {
+        queryMap.set(key, {
+          query: row.query,
+          queryNormalized: row.query_normalized,
+          clicks: row.clicks,
+          impressions: row.impressions,
+          ctrSum: row.ctr,
+          positionSum: row.position,
+          count: 1,
+        });
+      }
+    }
+
+    // 比較期間の集計
+    const prevMap = new Map<string, { clicks: number; positionSum: number; count: number }>();
+    for (const row of previousMetrics ?? []) {
+      const key = row.query_normalized;
+      const existing = prevMap.get(key);
+      if (existing) {
+        existing.clicks += row.clicks;
+        existing.positionSum += row.position;
+        existing.count += 1;
+      } else {
+        prevMap.set(key, {
+          clicks: row.clicks,
+          positionSum: row.position,
+          count: 1,
+        });
+      }
+    }
+
+    // 結果を配列に変換
+    const queries: QueryAggregation[] = [];
+    let totalClicks = 0;
+    let totalImpressions = 0;
+    let positionSumAll = 0;
+    let positionCountAll = 0;
+
+    for (const [key, value] of queryMap) {
+      const avgPosition = value.positionSum / value.count;
+      const avgCtr = value.ctrSum / value.count;
+      const prev = prevMap.get(key);
+
+      let positionChange: number | null = null;
+      let clicksChange: number | null = null;
+
+      if (prev) {
+        const prevAvgPosition = prev.positionSum / prev.count;
+        positionChange = avgPosition - prevAvgPosition; // 正: 悪化, 負: 改善
+        clicksChange = value.clicks - prev.clicks;
+      }
+
+      // 単語数をカウント（スペース区切り）
+      const wordCount = value.query.trim().split(/\s+/).length;
+
+      queries.push({
+        query: value.query,
+        queryNormalized: value.queryNormalized,
+        clicks: value.clicks,
+        impressions: value.impressions,
+        ctr: avgCtr,
+        position: avgPosition,
+        positionChange,
+        clicksChange,
+        wordCount,
+      });
+
+      totalClicks += value.clicks;
+      totalImpressions += value.impressions;
+      positionSumAll += avgPosition;
+      positionCountAll += 1;
+    }
+
+    // クリック数降順でソート
+    queries.sort((a, b) => b.clicks - a.clicks);
+
+    return {
+      success: true,
+      data: {
+        queries,
+        summary: {
+          totalQueries: queries.length,
+          totalClicks,
+          totalImpressions,
+          avgPosition: positionCountAll > 0 ? positionSumAll / positionCountAll : 0,
+        },
+        period: {
+          start: startIso,
+          end: endIso,
+          comparisonStart: compStartIso,
+          comparisonEnd: compEndIso,
+        },
+      },
+    };
+  } catch (error) {
+    console.error('[gsc-dashboard] fetch query analysis failed', error);
+    const message = error instanceof Error ? error.message : 'クエリ分析の取得に失敗しました';
+    return { success: false, error: message };
+  }
+}
