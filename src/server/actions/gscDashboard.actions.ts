@@ -408,9 +408,10 @@ export async function fetchQueryAnalysis(
       return { success: false, error: '記事が見つかりません' };
     }
 
-    // URLを正規化（末尾スラッシュ除去、小文字化）
+    // URLを正規化（プロトコル除去、末尾スラッシュ除去、小文字化）
     const normalizedUrl = annotation.canonical_url
       .toLowerCase()
+      .replace(/^https?:\/\//, '')
       .replace(/\/$/, '');
 
     // 現在期間のクエリデータを取得
