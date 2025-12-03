@@ -211,6 +211,30 @@ export function QueryAnalysisTab({ annotationId }: QueryAnalysisTabProps) {
     }));
   }, [filteredQueries]);
 
+  // 散布図の軸範囲を動的に計算
+  const chartDomains = useMemo(() => {
+    if (scatterData.length === 0) {
+      return { zRange: [50, 400] as [number, number], yMax: 30 };
+    }
+
+    // Z軸（バブルサイズ）: 表示回数の最小〜最大から動的に計算
+    const impressions = scatterData.map(d => d.impressions);
+    const minImpressions = Math.min(...impressions);
+    const maxImpressions = Math.max(...impressions);
+
+    // 対数スケールで見やすくする（最小50px、最大400px）
+    // 表示回数が均一な場合は固定サイズ
+    const zRange: [number, number] = maxImpressions === minImpressions ? [150, 150] : [50, 400];
+
+    // Y軸（CTR）: 異常値をキャップ（最大50%、または95パーセンタイル+5）
+    const ctrs = scatterData.map(d => d.ctr).sort((a, b) => a - b);
+    const p95Index = Math.floor(ctrs.length * 0.95);
+    const p95Ctr = ctrs[p95Index] ?? 30;
+    const yMax = Math.min(50, Math.max(p95Ctr + 5, THRESHOLD_CTR * 2));
+
+    return { zRange, yMax };
+  }, [scatterData]);
+
   // ソートトグル
   const toggleSort = (key: SortKey) => {
     if (sortBy === key) {
@@ -318,11 +342,16 @@ export function QueryAnalysisTab({ annotationId }: QueryAnalysisTabProps) {
                   type="number"
                   dataKey="ctr"
                   name="CTR(%)"
-                  domain={[0, 'dataMax']}
+                  domain={[0, chartDomains.yMax]}
                   tick={{ fontSize: 12 }}
                   label={{ value: 'CTR(%)', angle: -90, position: 'insideLeft', fontSize: 12 }}
                 />
-                <ZAxis type="number" dataKey="impressions" range={[50, 400]} name="表示回数" />
+                <ZAxis
+                  type="number"
+                  dataKey="impressions"
+                  range={chartDomains.zRange}
+                  name="表示回数"
+                />
                 {/* 象限の境界線（閾値） */}
                 <ReferenceLine x={THRESHOLD_POSITION} stroke="#e5e7eb" strokeDasharray="3 3" />
                 <ReferenceLine y={THRESHOLD_CTR} stroke="#e5e7eb" strokeDasharray="3 3" />

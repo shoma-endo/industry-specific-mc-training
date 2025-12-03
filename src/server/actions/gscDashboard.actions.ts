@@ -177,7 +177,10 @@ export async function registerEvaluation(params: {
 
     const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays } = params;
     if (!contentAnnotationId || !propertyUri || !baseEvaluationDate) {
-      return { success: false, error: 'contentAnnotationId, propertyUri, baseEvaluationDate は必須です' };
+      return {
+        success: false,
+        error: 'contentAnnotationId, propertyUri, baseEvaluationDate は必須です',
+      };
     }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -395,6 +398,13 @@ export async function fetchQueryAnalysis(
     const compStartIso = compStartDate.toISOString().slice(0, 10);
     const compEndIso = compEndDate.toISOString().slice(0, 10);
 
+    // GSC Credential取得（PropertyURIが必要）
+    const credential = await supabaseService.getGscCredentialByUserId(userId);
+    if (!credential || !credential.propertyUri) {
+      return { success: false, error: 'GSC連携設定が見つかりません' };
+    }
+    const propertyUri = credential.propertyUri;
+
     // annotationのcanonical_urlを取得
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
@@ -416,132 +426,55 @@ export async function fetchQueryAnalysis(
       .replace(/^www\./, '')
       .replace(/\/+$/g, '');
 
-    // 現在期間のクエリデータを取得
-    const { data: currentMetrics, error: currentError } = await supabaseService
+    // RPC呼び出しでDB側で集計（パフォーマンス最適化）
+    const { data: rpcData, error: rpcError } = await supabaseService
       .getClient()
-      .from('gsc_query_metrics')
-      .select('query, query_normalized, clicks, impressions, ctr, position')
-      .eq('user_id', userId)
-      .eq('normalized_url', normalizedUrl)
-      .gte('date', startIso)
-      .lte('date', endIso);
-
-    if (currentError) {
-      throw new Error(currentError.message);
-    }
-
-    // 比較期間のクエリデータを取得
-    const { data: previousMetrics, error: previousError } = await supabaseService
-      .getClient()
-      .from('gsc_query_metrics')
-      .select('query_normalized, clicks, position')
-      .eq('user_id', userId)
-      .eq('normalized_url', normalizedUrl)
-      .gte('date', compStartIso)
-      .lte('date', compEndIso);
-
-    if (previousError) {
-      throw new Error(previousError.message);
-    }
-
-    // クエリ別に集計（現在期間）
-    const queryMap = new Map<
-      string,
-      {
-        query: string;
-        queryNormalized: string;
-        clicks: number;
-        impressions: number;
-        ctrSum: number;
-        positionSum: number;
-        count: number;
-      }
-    >();
-
-    for (const row of currentMetrics ?? []) {
-      const key = row.query_normalized;
-      const existing = queryMap.get(key);
-      if (existing) {
-        existing.clicks += row.clicks;
-        existing.impressions += row.impressions;
-        existing.ctrSum += row.ctr;
-        existing.positionSum += row.position;
-        existing.count += 1;
-      } else {
-        queryMap.set(key, {
-          query: row.query,
-          queryNormalized: row.query_normalized,
-          clicks: row.clicks,
-          impressions: row.impressions,
-          ctrSum: row.ctr,
-          positionSum: row.position,
-          count: 1,
-        });
-      }
-    }
-
-    // 比較期間の集計
-    const prevMap = new Map<string, { clicks: number; positionSum: number; count: number }>();
-    for (const row of previousMetrics ?? []) {
-      const key = row.query_normalized;
-      const existing = prevMap.get(key);
-      if (existing) {
-        existing.clicks += row.clicks;
-        existing.positionSum += row.position;
-        existing.count += 1;
-      } else {
-        prevMap.set(key, {
-          clicks: row.clicks,
-          positionSum: row.position,
-          count: 1,
-        });
-      }
-    }
-
-    // 結果を配列に変換
-    const queries: QueryAggregation[] = [];
-    let totalClicks = 0;
-    let totalImpressions = 0;
-    let positionSumAll = 0;
-    let positionCountAll = 0;
-
-    for (const [key, value] of queryMap) {
-      const avgPosition = value.positionSum / value.count;
-      const avgCtr = value.ctrSum / value.count;
-      const prev = prevMap.get(key);
-
-      let positionChange: number | null = null;
-      let clicksChange: number | null = null;
-
-      if (prev) {
-        const prevAvgPosition = prev.positionSum / prev.count;
-        positionChange = avgPosition - prevAvgPosition; // 正: 悪化, 負: 改善
-        clicksChange = value.clicks - prev.clicks;
-      }
-
-      // 単語数をカウント（スペース区切り）
-      const wordCount = value.query.trim().split(/\s+/).length;
-
-      queries.push({
-        query: value.query,
-        queryNormalized: value.queryNormalized,
-        clicks: value.clicks,
-        impressions: value.impressions,
-        ctr: avgCtr,
-        position: avgPosition,
-        positionChange,
-        clicksChange,
-        wordCount,
+      .rpc('get_gsc_query_analysis', {
+        p_user_id: userId,
+        p_property_uri: propertyUri,
+        p_normalized_url: normalizedUrl,
+        p_start_date: startIso,
+        p_end_date: endIso,
+        p_comp_start_date: compStartIso,
+        p_comp_end_date: compEndIso,
       });
 
-      totalClicks += value.clicks;
-      totalImpressions += value.impressions;
-      positionSumAll += avgPosition;
-      positionCountAll += 1;
+    if (rpcError) {
+      throw new Error(rpcError.message);
     }
 
-    // クリック数降順でソート
-    queries.sort((a, b) => b.clicks - a.clicks);
+    // RPC結果をQueryAggregation形式に変換
+    const queries: QueryAggregation[] = (rpcData ?? []).map(
+      (row: {
+        query: string;
+        query_normalized: string;
+        clicks: number;
+        impressions: number;
+        avg_ctr: number;
+        avg_position: number;
+        position_change: number | null;
+        clicks_change: number | null;
+        word_count: number;
+      }) => ({
+        query: row.query,
+        queryNormalized: row.query_normalized,
+        clicks: Number(row.clicks),
+        impressions: Number(row.impressions),
+        ctr: Number(row.avg_ctr),
+        position: Number(row.avg_position),
+        positionChange: row.position_change !== null ? Number(row.position_change) : null,
+        clicksChange: row.clicks_change !== null ? Number(row.clicks_change) : null,
+        wordCount: row.word_count,
+      })
+    );
+
+    // サマリー計算（軽量RPCを使うことも可能だが、ここではクエリ数なども必要なため集計結果から算出）
+    // 大量データの場合は get_gsc_query_summary を別途呼ぶ設計もありうるが、
+    // 現状はフィルタ後の件数表示などにqueriesが必要なためこのまま。
+    const totalClicks = queries.reduce((sum, q) => sum + q.clicks, 0);
+    const totalImpressions = queries.reduce((sum, q) => sum + q.impressions, 0);
+    const avgPosition =
+      queries.length > 0 ? queries.reduce((sum, q) => sum + q.position, 0) / queries.length : 0;
 
     return {
       success: true,
@@ -551,7 +484,7 @@ export async function fetchQueryAnalysis(
           totalQueries: queries.length,
           totalClicks,
           totalImpressions,
-          avgPosition: positionCountAll > 0 ? positionSumAll / positionCountAll : 0,
+          avgPosition,
         },
         period: {
           start: startIso,
