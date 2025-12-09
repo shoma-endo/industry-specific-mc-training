@@ -1,8 +1,8 @@
 import { GscService } from './gscService';
 import { SupabaseService } from './supabaseService';
 import { gscEvaluationService } from './gscEvaluationService';
-import { getGscQueryMaxPages, getGscQueryRowLimit } from '../lib/gscConfig';
-import { normalizeQuery } from '../../lib/normalizeQuery';
+import { getGscQueryMaxPages, getGscQueryRowLimit } from '../lib/gsc-config';
+import { normalizeQuery } from '../../lib/normalize-query';
 import type {
   GscPageMetric,
   GscPropertyType,

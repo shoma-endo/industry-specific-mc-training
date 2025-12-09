@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { generateOAuthState } from '@/server/lib/oauthState';
+import { generateOAuthState } from '@/server/lib/oauth-state';
 
 export async function GET() {
   const cookieStore = await cookies();

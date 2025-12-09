@@ -4,7 +4,7 @@ import { getWordPressSettings } from '@/server/actions/wordpress.actions';
 import SetupDashboard from '@/components/SetupDashboard';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { toGscConnectionStatus } from '@/server/lib/gscStatus';
+import { toGscConnectionStatus } from '@/server/lib/gsc-status';
 
 export const dynamic = 'force-dynamic';
 
