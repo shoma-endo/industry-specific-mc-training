@@ -8,7 +8,7 @@ import {
 } from '@/types/chat';
 import type { DbUser } from '@/types/user';
 import type { UserRole } from '@/types/user';
-import type { GscCredential, GscPropertyType } from '@/types/gsc';
+import type { GscCredential, GscPropertyType, GscSearchType } from '@/types/gsc';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 
@@ -958,6 +958,64 @@ export class SupabaseService {
     if (error) {
       console.error('Error deleting GSC credential:', error);
       throw new Error(`Google Search Console資格情報の削除に失敗しました: ${error.message}`);
+    }
+  }
+
+  async upsertGscQueryMetrics(
+    rows: Array<{
+      userId: string;
+      propertyUri: string;
+      propertyType: GscPropertyType;
+      searchType: GscSearchType;
+      date: string;
+      url: string;
+      normalizedUrl: string;
+      query: string;
+      queryNormalized: string;
+      clicks: number;
+      impressions: number;
+      ctr: number;
+      position: number;
+      contentAnnotationId?: string | null;
+      importedAt: string;
+    }>
+  ): Promise<void> {
+    if (!rows.length) {
+      return;
+    }
+
+    const chunkSize = 500;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const nowIso = new Date().toISOString();
+      const payload = chunk.map(row => ({
+        user_id: row.userId,
+        property_uri: row.propertyUri,
+        property_type: row.propertyType,
+        search_type: row.searchType,
+        date: row.date,
+        url: row.url,
+        normalized_url: row.normalizedUrl,
+        query: row.query,
+        query_normalized: row.queryNormalized,
+        clicks: row.clicks,
+        impressions: row.impressions,
+        ctr: row.ctr,
+        position: row.position,
+        content_annotation_id: row.contentAnnotationId ?? null,
+        imported_at: row.importedAt,
+        created_at: row.importedAt,
+        updated_at: nowIso,
+      }));
+
+      const { error } = await this.supabase.from('gsc_query_metrics').upsert(payload, {
+        onConflict: 'user_id,property_uri,date,normalized_url,query_normalized,search_type',
+      });
+
+      if (error) {
+        console.error('Error upserting GSC query metrics:', error);
+        throw new Error(`Google Search Consoleクエリ指標の保存に失敗しました: ${error.message}`);
+      }
     }
   }
 

@@ -39,7 +39,7 @@ export interface GscSiteEntry {
   verified: boolean;
 }
 
-export type GscSearchType = 'web' | 'image' | 'news';
+export type GscSearchType = 'web' | 'image' | 'news' | 'video';
 
 export interface GscPageMetric {
   id: string;
@@ -57,36 +57,79 @@ export interface GscPageMetric {
   importedAt: string;
 }
 
+export interface GscQueryMetric {
+  id: string;
+  userId: string;
+  propertyUri: string;
+  propertyType: GscPropertyType;
+  searchType: GscSearchType;
+  date: string;
+  url: string;
+  normalizedUrl: string;
+  query: string;
+  queryNormalized: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  contentAnnotationId?: string | null;
+  importedAt: string;
+}
+
+export type GscEvaluationStage = 1 | 2 | 3 | 4;
 export type GscEvaluationStatus = 'active' | 'paused' | 'completed';
 export type GscEvaluationOutcome = 'improved' | 'no_change' | 'worse';
 
-export interface GscEvaluationOutcomeConfig {
-  label: string;
-  className: string;
+export type GscImportResult = {
+  totalFetched: number;
+  upserted: number;
+  skipped: number;
+  unmatched: number;
+  evaluated: number;
+};
+
+export interface GscImportOptions {
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  searchType?: GscSearchType;
+  maxRows?: number;
+  runEvaluation?: boolean;
 }
 
-export const GSC_EVALUATION_OUTCOME_CONFIG: Record<GscEvaluationOutcome, GscEvaluationOutcomeConfig> = {
-  improved: {
-    label: '改善',
-    className: 'bg-green-100 text-green-800',
-  },
-  no_change: {
-    label: '変化なし',
-    className: 'bg-yellow-100 text-yellow-800',
-  },
-  worse: {
-    label: '悪化',
-    className: 'bg-red-100 text-red-800',
-  },
-};
+export interface GscSearchAnalyticsRow {
+  keys: string[];
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface GscQueryMetricInsert {
+  userId: string;
+  propertyUri: string;
+  propertyType: GscPropertyType;
+  searchType: GscSearchType;
+  date: string;
+  url: string;
+  normalizedUrl: string;
+  query: string;
+  queryNormalized: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  contentAnnotationId?: string | null;
+  importedAt: string;
+}
 
 export interface GscArticleEvaluation {
   id: string;
   userId: string;
   contentAnnotationId: string;
   propertyUri: string;
+  currentStage: GscEvaluationStage;
   lastEvaluatedOn?: string | null; // ISO date
-  baseEvaluationDate: string; // ISO date - 評価基準日（この日付 + 30日が初回評価日）
+  nextEvaluationOn: string; // ISO date
   lastSeenPosition?: number | null;
   status: GscEvaluationStatus;
   createdAt: string;
@@ -98,6 +141,7 @@ export interface GscArticleEvaluationHistory {
   userId: string;
   contentAnnotationId: string;
   evaluationDate: string; // ISO date
+  stage: GscEvaluationStage;
   previousPosition?: number | null;
   currentPosition: number;
   outcome: GscEvaluationOutcome;
@@ -105,3 +149,28 @@ export interface GscArticleEvaluationHistory {
   suggestionSummary?: string | null;
   createdAt: string;
 }
+
+export const GSC_EVALUATION_OUTCOME_CONFIG: Record<
+  GscEvaluationOutcome,
+  {
+    label: string;
+    badgeVariant: 'success' | 'secondary' | 'destructive';
+    className: string;
+  }
+> = {
+  improved: {
+    label: '改善',
+    badgeVariant: 'success',
+    className: 'bg-green-50 text-green-700 ring-green-600/20',
+  },
+  no_change: {
+    label: '変化なし',
+    badgeVariant: 'secondary',
+    className: 'bg-gray-50 text-gray-700 ring-gray-500/10',
+  },
+  worse: {
+    label: '悪化',
+    badgeVariant: 'destructive',
+    className: 'bg-red-50 text-red-700 ring-red-600/20',
+  },
+} as const;

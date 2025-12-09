@@ -177,7 +177,10 @@ export async function registerEvaluation(params: {
 
     const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays } = params;
     if (!contentAnnotationId || !propertyUri || !baseEvaluationDate) {
-      return { success: false, error: 'contentAnnotationId, propertyUri, baseEvaluationDate は必須です' };
+      return {
+        success: false,
+        error: 'contentAnnotationId, propertyUri, baseEvaluationDate は必須です',
+      };
     }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -320,6 +323,180 @@ export async function updateEvaluation(params: {
   } catch (error) {
     console.error('[gsc-dashboard] update evaluation failed', error);
     const message = error instanceof Error ? error.message : '評価日の更新に失敗しました';
+    return { success: false, error: message };
+  }
+}
+
+// ============================================
+// Query Analysis 用の型定義と関数
+// ============================================
+
+export interface QueryAggregation {
+  query: string;
+  queryNormalized: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  positionChange: number | null;
+  clicksChange: number | null;
+  wordCount: number;
+}
+
+export interface QueryAnalysisResponse {
+  success: boolean;
+  data?: {
+    queries: QueryAggregation[];
+    summary: {
+      totalQueries: number;
+      totalClicks: number;
+      totalImpressions: number;
+      avgPosition: number;
+    };
+    period: {
+      start: string;
+      end: string;
+      comparisonStart: string;
+      comparisonEnd: string;
+    };
+  };
+  error?: string;
+}
+
+/**
+ * クエリ別集計データを取得
+ * @param annotationId - content_annotation_id
+ * @param dateRange - '7d' | '28d' | '3m'
+ */
+export async function fetchQueryAnalysis(
+  annotationId: string,
+  dateRange: '7d' | '28d' | '3m' = '28d'
+): Promise<QueryAnalysisResponse> {
+  try {
+    const { userId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+
+    // 期間計算
+    const now = new Date();
+    const days = dateRange === '7d' ? 7 : dateRange === '28d' ? 28 : 90;
+
+    const endDate = new Date(now);
+    endDate.setUTCDate(endDate.getUTCDate() - 2); // GSCは2日前まで
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - days + 1);
+
+    // 比較期間
+    const compEndDate = new Date(startDate);
+    compEndDate.setUTCDate(compEndDate.getUTCDate() - 1);
+    const compStartDate = new Date(compEndDate);
+    compStartDate.setUTCDate(compStartDate.getUTCDate() - days + 1);
+
+    const startIso = startDate.toISOString().slice(0, 10);
+    const endIso = endDate.toISOString().slice(0, 10);
+    const compStartIso = compStartDate.toISOString().slice(0, 10);
+    const compEndIso = compEndDate.toISOString().slice(0, 10);
+
+    // GSC Credential取得（PropertyURIが必要）
+    const credential = await supabaseService.getGscCredentialByUserId(userId);
+    if (!credential || !credential.propertyUri) {
+      return { success: false, error: 'GSC連携設定が見つかりません' };
+    }
+    const propertyUri = credential.propertyUri;
+
+    // annotationのcanonical_urlを取得
+    const { data: annotation, error: annotationError } = await supabaseService
+      .getClient()
+      .from('content_annotations')
+      .select('canonical_url')
+      .eq('id', annotationId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (annotationError || !annotation?.canonical_url) {
+      return { success: false, error: '記事が見つかりません' };
+    }
+
+    // URLを正規化（DB規約 public.normalize_url に準拠）
+    // プロトコル除去、www.除去、末尾スラッシュ除去、小文字化
+    const normalizedUrl = annotation.canonical_url
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/+$/g, '');
+
+    // RPC呼び出しでDB側で集計（パフォーマンス最適化）
+    const { data: rpcData, error: rpcError } = await supabaseService
+      .getClient()
+      .rpc('get_gsc_query_analysis', {
+        p_user_id: userId,
+        p_property_uri: propertyUri,
+        p_normalized_url: normalizedUrl,
+        p_start_date: startIso,
+        p_end_date: endIso,
+        p_comp_start_date: compStartIso,
+        p_comp_end_date: compEndIso,
+      });
+
+    if (rpcError) {
+      throw new Error(rpcError.message);
+    }
+
+    // RPC結果をQueryAggregation形式に変換
+    const queries: QueryAggregation[] = (rpcData ?? []).map(
+      (row: {
+        query: string;
+        query_normalized: string;
+        clicks: number;
+        impressions: number;
+        avg_ctr: number;
+        avg_position: number;
+        position_change: number | null;
+        clicks_change: number | null;
+        word_count: number;
+      }) => ({
+        query: row.query,
+        queryNormalized: row.query_normalized,
+        clicks: Number(row.clicks),
+        impressions: Number(row.impressions),
+        ctr: Number(row.avg_ctr),
+        position: Number(row.avg_position),
+        positionChange: row.position_change !== null ? Number(row.position_change) : null,
+        clicksChange: row.clicks_change !== null ? Number(row.clicks_change) : null,
+        wordCount: row.word_count,
+      })
+    );
+
+    // サマリー計算（軽量RPCを使うことも可能だが、ここではクエリ数なども必要なため集計結果から算出）
+    // 大量データの場合は get_gsc_query_summary を別途呼ぶ設計もありうるが、
+    // 現状はフィルタ後の件数表示などにqueriesが必要なためこのまま。
+    const totalClicks = queries.reduce((sum, q) => sum + q.clicks, 0);
+    const totalImpressions = queries.reduce((sum, q) => sum + q.impressions, 0);
+    const avgPosition =
+      queries.length > 0 ? queries.reduce((sum, q) => sum + q.position, 0) / queries.length : 0;
+
+    return {
+      success: true,
+      data: {
+        queries,
+        summary: {
+          totalQueries: queries.length,
+          totalClicks,
+          totalImpressions,
+          avgPosition,
+        },
+        period: {
+          start: startIso,
+          end: endIso,
+          comparisonStart: compStartIso,
+          comparisonEnd: compEndIso,
+        },
+      },
+    };
+  } catch (error) {
+    console.error('[gsc-dashboard] fetch query analysis failed', error);
+    const message = error instanceof Error ? error.message : 'クエリ分析の取得に失敗しました';
     return { success: false, error: message };
   }
 }
