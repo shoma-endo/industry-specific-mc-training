@@ -140,7 +140,7 @@ AI運用5原則
 - TypeScript ファースト。共有型は `src/types/` に追加し、フロント・サーバー双方で再利用します。
 - TypeScript でオブジェクトの形状を表す場合は、可能な限り `interface` を使用してください（`type` は `interface` で表現できないケースに限定）。
 - Tailwind CSS でスタイルを記述し、冗長なユーティリティクラスは `cva` などで整理します。
-- React コンポーネント・カスタムフックは PascalCase / camelCase を徹底。サーバー専用ファイルは `.server.ts` / `.action.ts` を語尾に付けます。
+- React コンポーネント・カスタムフックは PascalCase / camelCase を徹底。サーバー専用ファイルは `.server.ts` / `.actions.ts` を語尾に付けます。
 - 既存の hooks/service クラス（`ChatService`, `SubscriptionService` 等）を流用し、重複実装を避けてください。
 - Supabase 呼び出しは `src/server/services/SupabaseService` 経由に統一し、直接 `createClient` を増やさないこと。
 
