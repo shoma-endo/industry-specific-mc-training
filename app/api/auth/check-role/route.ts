@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getUserRole } from '@/auth-utils';
+import { getUserRole } from '@/authUtils';
 
 export async function GET() {
   try {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { getUserRole, isAdmin } from '@/auth-utils';
+import { getUserRole, isAdmin } from '@/authUtils';
 import { PromptService } from '@/server/services/promptService';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';

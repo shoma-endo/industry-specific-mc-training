@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShieldX, Home } from 'lucide-react';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { getUserRole, getRoleDisplayName } from '@/auth-utils';
+import { getUserRole, getRoleDisplayName } from '@/authUtils';
 import type { UserRole } from '@/types/user';
 
 export const dynamic = 'force-dynamic';

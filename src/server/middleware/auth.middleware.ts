@@ -6,7 +6,7 @@ import Stripe from 'stripe';
 import { LineAuthService, LineTokenExpiredError } from '@/server/services/lineAuthService';
 import { StripeService } from '@/server/services/stripeService';
 import { userService } from '@/server/services/userService';
-import { isUnavailable } from '@/auth-utils';
+import { isUnavailable } from '@/authUtils';
 import { env } from '@/env';
 import { LiffError } from '@/domain/errors/LiffError';
 import type { User } from '@/types/user';
