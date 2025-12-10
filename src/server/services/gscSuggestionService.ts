@@ -14,12 +14,6 @@ type SuggestionTemplate =
   | 'gsc_insight_intro_refresh'
   | 'gsc_insight_body_rewrite';
 
-const TEMPLATE_LABELS: Record<SuggestionTemplate, string> = {
-  gsc_insight_ctr_boost: '広告タイトル・説明文の提案',
-  gsc_insight_intro_refresh: '書き出し案の提案',
-  gsc_insight_body_rewrite: '本文の提案',
-};
-
 interface GenerateParams {
   userId: string;
   contentAnnotationId: string;
@@ -91,7 +85,7 @@ export class GscSuggestionService {
     for (const result of results) {
       if (result.status === 'fulfilled' && result.value) {
         const { templateName, text } = result.value;
-        const label = TEMPLATE_LABELS[templateName];
+        const label = MODEL_CONFIGS[templateName]?.label ?? templateName;
         sections.push(`# ${label}\n\n${text}`);
       }
     }

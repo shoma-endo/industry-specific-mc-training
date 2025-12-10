@@ -26,6 +26,7 @@ interface ModelConfig {
   actualModel: string;
   seed?: number;
   top_p?: number;
+  label?: string; // 人間向けラベル（GSC改善提案で利用）
 }
 
 // 共通設定（DRY原則に基づく定数化）
@@ -61,9 +62,21 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 5000 },
   blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 5000 },
   blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 15000 },
-  gsc_insight_ctr_boost: { ...ANTHROPIC_BASE, maxTokens: 8000 },
-  gsc_insight_intro_refresh: { ...ANTHROPIC_BASE, maxTokens: 8000 },
-  gsc_insight_body_rewrite: { ...ANTHROPIC_BASE, maxTokens: 12000 },
+  gsc_insight_ctr_boost: {
+    ...ANTHROPIC_BASE,
+    maxTokens: 8000,
+    label: '広告タイトル・説明文の提案',
+  },
+  gsc_insight_intro_refresh: {
+    ...ANTHROPIC_BASE,
+    maxTokens: 8000,
+    label: '書き出し案の提案',
+  },
+  gsc_insight_body_rewrite: {
+    ...ANTHROPIC_BASE,
+    maxTokens: 12000,
+    label: '本文の提案',
+  },
 };
 
 // =============================================================================
