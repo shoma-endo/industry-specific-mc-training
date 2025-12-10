@@ -100,7 +100,7 @@ export class GscSuggestionService {
     const provider = modelConfig.provider;
     const model = modelConfig.actualModel;
 
-    const fullText = await llmChat(provider, model, [{ role: 'system', content: filled }], {
+    const fullText = await llmChat(provider, model, [{ role: 'user', content: filled }], {
       maxTokens: modelConfig.maxTokens,
       temperature: modelConfig.temperature,
     });

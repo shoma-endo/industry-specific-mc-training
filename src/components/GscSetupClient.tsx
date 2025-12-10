@@ -15,6 +15,7 @@ import {
 import type { GscConnectionStatus, GscSiteEntry } from '@/types/gsc';
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   Plug,
@@ -35,6 +36,17 @@ interface GscSetupClientProps {
   isOauthConfigured: boolean;
 }
 
+/** トークン期限切れ/取り消しエラーかどうかを判定 */
+const isTokenExpiredError = (message: string): boolean => {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('invalid_grant') ||
+    lower.includes('token has been expired') ||
+    lower.includes('token has been revoked') ||
+    lower.includes('トークンリフレッシュに失敗')
+  );
+};
+
 const OAUTH_START_PATH = '/api/gsc/oauth/start';
 
 const formatDate = (value?: string | null): string | null => {
@@ -47,7 +59,16 @@ const formatDate = (value?: string | null): string | null => {
   }).format(date);
 };
 
-const statusBadge = (connected: boolean) => {
+const statusBadge = (connected: boolean, needsReauth: boolean) => {
+  // 再認証が必要な場合は「要再認証」バッジを表示
+  if (needsReauth) {
+    return (
+      <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200">
+        <AlertTriangle className="mr-1 h-4 w-4" />
+        要再認証
+      </Badge>
+    );
+  }
   if (connected) {
     return (
       <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
@@ -59,7 +80,7 @@ const statusBadge = (connected: boolean) => {
   return (
     <Badge variant="secondary" className="text-gray-700">
       <AlertCircle className="mr-1 h-4 w-4" />
-      未接続
+      未設定
     </Badge>
   );
 };
@@ -68,6 +89,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
   const [status, setStatus] = useState<GscConnectionStatus>(initialStatus);
   const [properties, setProperties] = useState<GscSiteEntry[]>([]);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [needsReauth, setNeedsReauth] = useState(false);
   const [isSyncingStatus, setIsSyncingStatus] = useState(false);
   const [isLoadingProperties, setIsLoadingProperties] = useState(false);
   const [isUpdatingProperty, setIsUpdatingProperty] = useState(false);
@@ -104,18 +126,31 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     if (!status.connected) return;
     setIsLoadingProperties(true);
     setAlertMessage(null);
+    setNeedsReauth(false);
     try {
       const result = await fetchGscProperties();
       if (result.success && Array.isArray(result.data)) {
         setProperties(result.data as GscSiteEntry[]);
       } else {
-        throw new Error(result.error || 'プロパティ一覧の取得に失敗しました');
+        // Server Actionから再認証フラグが返された場合
+        if ('needsReauth' in result && result.needsReauth) {
+          setNeedsReauth(true);
+          setAlertMessage(result.error || 'Googleアカウントの認証が期限切れまたは取り消されています');
+        } else {
+          setAlertMessage(result.error || 'プロパティ一覧の取得に失敗しました');
+        }
       }
     } catch (error) {
       console.error(error);
-      setAlertMessage(
-        error instanceof Error ? error.message : 'プロパティ一覧の取得に失敗しました'
-      );
+      const errorMessage = error instanceof Error ? error.message : 'プロパティ一覧の取得に失敗しました';
+      
+      // トークン期限切れ/取り消しエラーの場合は再認証を促す
+      if (isTokenExpiredError(errorMessage)) {
+        setNeedsReauth(true);
+        setAlertMessage('Googleアカウントの認証が期限切れまたは取り消されています。再認証してください。');
+      } else {
+        setAlertMessage(errorMessage);
+      }
     } finally {
       setIsLoadingProperties(false);
     }
@@ -203,7 +238,36 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
         </div>
       )}
 
-      {alertMessage && (
+      {/* 再認証が必要な場合の警告パネル */}
+      {needsReauth && (
+        <div className="rounded-lg border border-orange-300 bg-orange-50 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-orange-800">
+            <AlertTriangle className="h-5 w-5" />
+            <p className="font-semibold">Googleアカウントの再認証が必要です</p>
+          </div>
+          <div className="text-sm text-orange-700 space-y-2">
+            <p>
+              認証トークンが期限切れまたは取り消されています。再認証してください。
+            </p>
+            <div>
+              <p className="font-medium">考えられる理由:</p>
+              <ul className="list-disc list-inside ml-2 mt-1">
+                <li>長期間アクセスがなかった</li>
+                <li>Googleアカウント側でアプリの連携を解除した</li>
+                <li>Googleアカウントのパスワードを変更した</li>
+              </ul>
+            </div>
+          </div>
+          {isOauthConfigured && (
+            <Button asChild className="bg-orange-600 hover:bg-orange-700">
+              <a href={OAUTH_START_PATH}>再認証する</a>
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* 通常のアラートメッセージ */}
+      {alertMessage && !needsReauth && (
         <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
           {alertMessage}
         </div>
@@ -227,10 +291,14 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-sm text-gray-500">現在の状態</span>
-              {statusBadge(status.connected)}
+              {statusBadge(status.connected, needsReauth)}
             </div>
             {isOauthConfigured ? (
-              status.connected ? (
+              needsReauth ? (
+                <Button asChild className="bg-orange-600 hover:bg-orange-700">
+                  <a href={OAUTH_START_PATH}>再認証する</a>
+                </Button>
+              ) : status.connected ? (
                 <Button asChild variant="outline">
                   <a href={OAUTH_START_PATH}>再認証</a>
                 </Button>

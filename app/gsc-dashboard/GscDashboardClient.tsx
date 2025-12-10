@@ -69,6 +69,7 @@ export default function GscDashboardClient({
             onToggleMetric={dashboard.toggleMetric}
             onRegisterEvaluation={dashboard.handleRegisterEvaluation}
             onUpdateEvaluation={dashboard.handleUpdateEvaluation}
+            onRunEvaluation={dashboard.handleRunEvaluation}
           />
         </TabsContent>
 

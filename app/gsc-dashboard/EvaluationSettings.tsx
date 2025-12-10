@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Info, Calendar as CalendarIcon, Settings, Save, Clock } from 'lucide-react';
+import { Loader2, Info, Calendar as CalendarIcon, Settings, Save, Clock, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { toast } from 'sonner';
 
 // 時間選択用の選択肢を生成
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => ({
@@ -37,6 +38,13 @@ interface EvaluationSettingsProps {
   } | null;
   onRegister: (date: string, cycleDays: number, evaluationHour: number) => Promise<void>;
   onUpdate: (date: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  onRunEvaluation: () => Promise<{
+    processed: number;
+    improved: number;
+    advanced: number;
+    skippedNoMetrics: number;
+    skippedImportFailed: number;
+  }>;
 }
 
 // 日付フォーマット用のユーティリティ
@@ -64,6 +72,7 @@ export function EvaluationSettings({
   currentEvaluation,
   onRegister,
   onUpdate,
+  onRunEvaluation,
 }: EvaluationSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
   // date string format: YYYY-MM-DD
@@ -71,6 +80,7 @@ export function EvaluationSettings({
   const [cycleDays, setCycleDays] = useState<number>(30);
   const [evaluationHour, setEvaluationHour] = useState<number>(12);
   const [loading, setLoading] = useState(false);
+  const [runningEvaluation, setRunningEvaluation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -120,6 +130,34 @@ export function EvaluationSettings({
     }
   };
 
+  const handleRunEvaluation = async () => {
+    setRunningEvaluation(true);
+    try {
+      const result = await onRunEvaluation();
+
+      // インポート失敗があった場合は警告を表示
+      if (result.skippedImportFailed > 0) {
+        toast.warning(
+          `${result.skippedImportFailed}件でデータ取得に失敗しました（GSC再認証が必要な可能性があります）`
+        );
+      }
+
+      if (result.processed > 0) {
+        toast.success(
+          `評価完了: ${result.processed}件処理（改善: ${result.improved}件、その他: ${result.advanced}件）`
+        );
+      } else if (result.skippedNoMetrics > 0) {
+        toast.info('評価対象のデータがありませんでした');
+      } else if (result.skippedImportFailed === 0) {
+        toast.info('評価対象の記事がありませんでした');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '評価処理に失敗しました');
+    } finally {
+      setRunningEvaluation(false);
+    }
+  };
+
   const nextEvaluationDateStr = dateStr ? addDays(dateStr, cycleDays) : '';
 
   return (
@@ -148,146 +186,167 @@ export function EvaluationSettings({
             </span>
           </div>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button variant="default">
-              <Settings className="w-4 h-4" />
-              {isUpdateMode ? '設定を変更' : '評価を開始'}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{isUpdateMode ? '評価基準日の変更' : '評価サイクルの開始'}</DialogTitle>
-              <DialogDescription>
-                基準日を設定すると、その日から設定した日数後に初回の順位評価が行われます。
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex flex-wrap gap-2">
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="default">
+                <Settings className="w-4 h-4" />
+                {isUpdateMode ? '設定を変更' : '評価を開始'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {isUpdateMode ? '評価基準日の変更' : '評価サイクルの開始'}
+                </DialogTitle>
+                <DialogDescription>
+                  基準日を設定すると、その日から設定した日数後に初回の順位評価が行われます。
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="py-6 space-y-6">
-              <div className="space-y-2">
-                <label
-                  htmlFor="evaluation-date"
-                  className="text-sm font-medium text-gray-700 block"
-                >
-                  評価基準日
-                </label>
-                <div className="relative">
-                  <Input
-                    id="evaluation-date"
-                    type="date"
-                    value={dateStr}
-                    onChange={e => setDateStr(e.target.value)}
-                    className="pl-10 text-base" // スマホでの操作性を考慮してtext-baseにするのも一案
-                  />
-                  <CalendarIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  カレンダーアイコンをタップするか、直接入力してください
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="cycle-days" className="text-sm font-medium text-gray-700 block">
-                  評価サイクル日数
-                </label>
-                <Input
-                  id="cycle-days"
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={cycleDays}
-                  onChange={e => setCycleDays(Math.max(1, Math.min(365, Number(e.target.value))))}
-                  className="max-w-[250px] text-base"
-                />
-                <p className="text-xs text-muted-foreground">
-                  1〜365日の範囲で指定できます（デフォルト: 30日）
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="evaluation-hour"
-                  className="text-sm font-medium text-gray-700 block"
-                >
-                  評価実行時間
-                </label>
-                <div className="relative">
-                  <Select
-                    value={evaluationHour.toString()}
-                    onValueChange={v => setEvaluationHour(Number(v))}
+              <div className="py-6 space-y-6">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="evaluation-date"
+                    className="text-sm font-medium text-gray-700 block"
                   >
-                    <SelectTrigger className="max-w-[250px] pl-10 text-base">
-                      <SelectValue placeholder="時間を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {HOUR_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Clock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                    評価基準日
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="evaluation-date"
+                      type="date"
+                      value={dateStr}
+                      onChange={e => setDateStr(e.target.value)}
+                      className="pl-10 text-base" // スマホでの操作性を考慮してtext-baseにするのも一案
+                    />
+                    <CalendarIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    カレンダーアイコンをタップするか、直接入力してください
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  評価バッチが実行される時間（日本時間）
-                </p>
-              </div>
 
-              {dateStr && (
-                <div className="rounded-lg bg-blue-50 p-4 border border-blue-100 space-y-3">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="font-medium text-blue-900">評価スケジュールのプレビュー</p>
-                      <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-blue-600 text-xs mb-1">基準日</p>
-                          <p className="font-semibold text-blue-900">{formatDateJP(dateStr)}</p>
-                        </div>
-                        <div>
-                          <p className="text-blue-600 text-xs mb-1">初回評価日</p>
-                          <p className="font-semibold text-blue-900">
-                            {formatDateJP(nextEvaluationDateStr)}{' '}
-                            {evaluationHour.toString().padStart(2, '0')}:00 (日本時間)
-                          </p>
+                <div className="space-y-2">
+                  <label htmlFor="cycle-days" className="text-sm font-medium text-gray-700 block">
+                    評価サイクル日数
+                  </label>
+                  <Input
+                    id="cycle-days"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={cycleDays}
+                    onChange={e => setCycleDays(Math.max(1, Math.min(365, Number(e.target.value))))}
+                    className="max-w-[250px] text-base"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    1〜365日の範囲で指定できます（デフォルト: 30日）
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="evaluation-hour"
+                    className="text-sm font-medium text-gray-700 block"
+                  >
+                    評価実行時間
+                  </label>
+                  <div className="relative">
+                    <Select
+                      value={evaluationHour.toString()}
+                      onValueChange={v => setEvaluationHour(Number(v))}
+                    >
+                      <SelectTrigger className="max-w-[250px] pl-10 text-base">
+                        <SelectValue placeholder="時間を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {HOUR_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Clock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    評価バッチが実行される時間（日本時間）
+                  </p>
+                </div>
+
+                {dateStr && (
+                  <div className="rounded-lg bg-blue-50 p-4 border border-blue-100 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-blue-900">評価スケジュールのプレビュー</p>
+                        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-blue-600 text-xs mb-1">基準日</p>
+                            <p className="font-semibold text-blue-900">{formatDateJP(dateStr)}</p>
+                          </div>
+                          <div>
+                            <p className="text-blue-600 text-xs mb-1">初回評価日</p>
+                            <p className="font-semibold text-blue-900">
+                              {formatDateJP(nextEvaluationDateStr)}{' '}
+                              {evaluationHour.toString().padStart(2, '0')}:00 (日本時間)
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertTitle>エラー</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {success && (
-                <Alert className="border-green-200 bg-green-50 text-green-800">
-                  <AlertTitle className="text-green-800">完了</AlertTitle>
-                  <AlertDescription>{success}</AlertDescription>
-                </Alert>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setIsOpen(false)} disabled={loading}>
-                キャンセル
-              </Button>
-              <Button onClick={handleSubmit} disabled={loading || !dateStr || !!success}>
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
                 )}
-                {isUpdateMode ? '更新して保存' : 'この日程で開始'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertTitle>エラー</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {success && (
+                  <Alert className="border-green-200 bg-green-50 text-green-800">
+                    <AlertTitle className="text-green-800">完了</AlertTitle>
+                    <AlertDescription>{success}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setIsOpen(false)} disabled={loading}>
+                  キャンセル
+                </Button>
+                <Button onClick={handleSubmit} disabled={loading || !dateStr || !!success}>
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {isUpdateMode ? '更新して保存' : 'この日程で開始'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* 今すぐ評価を実行ボタン（評価設定がある場合のみ表示） */}
+          {currentEvaluation && (
+            <Button
+              variant="outline"
+              onClick={handleRunEvaluation}
+              disabled={runningEvaluation}
+              className="gap-2"
+            >
+              {runningEvaluation ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              今すぐ評価を実行
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* 現在の状態表示カード */}

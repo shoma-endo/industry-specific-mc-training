@@ -526,3 +526,43 @@ export async function fetchQueryAnalysis(
     return { success: false, error: message };
   }
 }
+
+/**
+ * 今すぐ評価を実行（手動実行用）
+ *
+ * 評価期限に関係なく、ログインユーザーの全評価対象記事について：
+ * 1. cycle_days 日分のデータをインポート
+ * 2. 評価を実行（順位比較 + 改善提案生成）
+ */
+export async function runEvaluationNow() {
+  try {
+    const { userId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+
+    // 動的インポートで循環参照を回避
+    const { gscEvaluationService } = await import('@/server/services/gscEvaluationService');
+
+    // 手動実行なので force: true で評価期限をスキップ
+    const summary = await gscEvaluationService.runDueEvaluationsForUser(userId, { force: true });
+
+    revalidatePath('/gsc-dashboard');
+    revalidatePath('/analytics');
+
+    return {
+      success: true,
+      data: {
+        processed: summary.processed,
+        improved: summary.improved,
+        advanced: summary.advanced,
+        skippedNoMetrics: summary.skippedNoMetrics,
+        skippedImportFailed: summary.skippedImportFailed,
+      },
+    };
+  } catch (error) {
+    console.error('[gsc-dashboard] run evaluation now failed', error);
+    const message = error instanceof Error ? error.message : '評価処理に失敗しました';
+    return { success: false, error: message };
+  }
+}

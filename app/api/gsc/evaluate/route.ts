@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { gscImportService } from '@/server/services/gscImportService';
+import { gscEvaluationService } from '@/server/services/gscEvaluationService';
 
-const toISODate = (date: Date) => date.toISOString().slice(0, 10);
-
+/**
+ * GSC 評価実行 API（手動実行用）
+ *
+ * 認証済みユーザーの評価対象記事について：
+ * 1. cycle_days 日分のデータをインポート
+ * 2. 評価を実行（順位比較 + 改善提案生成）
+ *
+ * Cron バッチと同じロジックを使用。
+ */
 export async function POST(request: NextRequest) {
   try {
     const liffAccessToken = request.cookies.get('line_access_token')?.value;
@@ -21,22 +28,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 最新データを評価前に同期する（直近30日間）
-    const today = new Date();
-    const endDate = toISODate(today);
-    const start = new Date(today);
-    start.setUTCDate(start.getUTCDate() - 30);
-    const startDate = toISODate(start);
+    // Cron バッチと同じロジックで評価を実行
+    // （cycle_days 日分のデータインポート + 評価）
+    const summary = await gscEvaluationService.runDueEvaluationsForUser(authResult.userId);
 
-    const summary = await gscImportService.importAndMaybeEvaluate(authResult.userId, {
-      startDate,
-      endDate,
-      searchType: 'web',
-      maxRows: 5000,
-      runEvaluation: true,
+    return NextResponse.json({
+      success: true,
+      data: {
+        processed: summary.processed,
+        improved: summary.improved,
+        advanced: summary.advanced,
+        skippedNoMetrics: summary.skippedNoMetrics,
+      },
     });
-
-    return NextResponse.json({ success: true, data: summary });
   } catch (error) {
     console.error('[gsc/evaluate] Evaluation failed', error);
     const message = error instanceof Error ? error.message : '評価処理に失敗しました';

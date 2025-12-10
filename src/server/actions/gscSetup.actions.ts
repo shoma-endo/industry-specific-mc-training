@@ -16,6 +16,18 @@ const gscService = new GscService();
 
 const ACCESS_TOKEN_SAFETY_MARGIN_MS = 60 * 1000; // 1 minute
 
+/** トークン期限切れ/取り消しエラーかどうかを判定 */
+const isTokenExpiredError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error);
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('invalid_grant') ||
+    lower.includes('token has been expired') ||
+    lower.includes('token has been revoked') ||
+    lower.includes('トークンリフレッシュに失敗')
+  );
+};
+
 type CredentialWithActiveToken = GscCredential & {
   accessToken: string;
   accessTokenExpiresAt: string;
@@ -88,6 +100,16 @@ export async function fetchGscProperties() {
     return { success: true, data: sites as GscSiteEntry[] };
   } catch (error) {
     console.error('[GSC Setup] fetch properties failed', error);
+    
+    // トークン期限切れ/取り消しの場合は再認証フラグを返す
+    if (isTokenExpiredError(error)) {
+      return {
+        success: false,
+        error: 'Googleアカウントの認証が期限切れまたは取り消されています',
+        needsReauth: true,
+      };
+    }
+    
     return { success: false, error: 'プロパティ一覧の取得に失敗しました' };
   }
 }

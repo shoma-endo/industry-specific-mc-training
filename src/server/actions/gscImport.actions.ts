@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { gscImportService } from '@/server/services/gscImportService';
+import { gscEvaluationService } from '@/server/services/gscEvaluationService';
 
 export interface GscImportParams {
   startDate: string;
@@ -47,13 +48,19 @@ export async function runGscImport(params: GscImportParams) {
       return { success: false, error: '期間は最大365日までです' };
     }
 
-    const summary = await gscImportService.importAndMaybeEvaluate(authResult.userId, {
+    // データインポート
+    const summary = await gscImportService.importMetrics(authResult.userId, {
       startDate,
       endDate,
       searchType,
       maxRows,
-      runEvaluation,
     });
+
+    // 評価実行（オプション）
+    if (runEvaluation) {
+      const evalSummary = await gscEvaluationService.runDueEvaluationsForUser(authResult.userId);
+      summary.evaluated = evalSummary.processed;
+    }
 
     revalidatePath('/gsc-import');
     return { success: true, data: summary };

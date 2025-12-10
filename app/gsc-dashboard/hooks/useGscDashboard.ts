@@ -6,6 +6,7 @@ import {
   fetchGscDetail,
   registerEvaluation,
   updateEvaluation,
+  runEvaluationNow,
 } from '@/server/actions/gscDashboard.actions';
 import type {
   GscDashboardDetailResponse,
@@ -39,6 +40,7 @@ interface UseGscDashboardReturn {
   toggleMetric: (key: keyof GscVisibleMetrics) => void;
   handleRegisterEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
   handleUpdateEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  handleRunEvaluation: () => Promise<{ processed: number; improved: number; advanced: number; skippedNoMetrics: number; skippedImportFailed: number }>;
   refreshDetail: (annotationId: string) => Promise<void>;
 }
 
@@ -204,6 +206,22 @@ export function useGscDashboard({
     [selectedId, refreshDetail]
   );
 
+  // アクション: 今すぐ評価を実行
+  const handleRunEvaluation = useCallback(async () => {
+    const res = await runEvaluationNow();
+
+    if (!res.success) {
+      throw new Error(res.error || '評価処理に失敗しました');
+    }
+
+    // データリロード
+    if (selectedId) {
+      await refreshDetail(selectedId);
+    }
+
+    return res.data!;
+  }, [selectedId, refreshDetail]);
+
   return {
     // State
     selectedId,
@@ -223,6 +241,7 @@ export function useGscDashboard({
     toggleMetric,
     handleRegisterEvaluation,
     handleUpdateEvaluation,
+    handleRunEvaluation,
     refreshDetail,
   };
 }

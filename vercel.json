@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/gsc-evaluate",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
+
