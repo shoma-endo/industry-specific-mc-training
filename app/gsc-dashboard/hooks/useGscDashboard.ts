@@ -37,8 +37,8 @@ interface UseGscDashboardReturn {
   setSelectedId: (id: string | null) => void;
   setSelectedHistory: (history: GscEvaluationHistoryItem | null) => void;
   toggleMetric: (key: keyof GscVisibleMetrics) => void;
-  handleRegisterEvaluation: (dateStr: string, cycleDays: number) => Promise<void>;
-  handleUpdateEvaluation: (dateStr: string, cycleDays: number) => Promise<void>;
+  handleRegisterEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  handleUpdateEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
   refreshDetail: (annotationId: string) => Promise<void>;
 }
 
@@ -161,7 +161,7 @@ export function useGscDashboard({
 
   // アクション: 評価登録
   const handleRegisterEvaluation = useCallback(
-    async (dateStr: string, cycleDays: number) => {
+    async (dateStr: string, cycleDays: number, evaluationHour: number) => {
       if (!selectedId || !detail?.credential?.propertyUri) return;
 
       const res = await registerEvaluation({
@@ -169,6 +169,7 @@ export function useGscDashboard({
         propertyUri: detail.credential.propertyUri,
         baseEvaluationDate: dateStr,
         cycleDays,
+        evaluationHour,
       });
 
       if (!res.success) {
@@ -183,13 +184,14 @@ export function useGscDashboard({
 
   // アクション: 評価更新
   const handleUpdateEvaluation = useCallback(
-    async (dateStr: string, cycleDays: number) => {
+    async (dateStr: string, cycleDays: number, evaluationHour: number) => {
       if (!selectedId) return;
 
       const res = await updateEvaluation({
         contentAnnotationId: selectedId,
         baseEvaluationDate: dateStr,
         cycleDays,
+        evaluationHour,
       });
 
       if (!res.success) {

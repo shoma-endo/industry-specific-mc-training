@@ -19,8 +19,8 @@ interface OverviewTabProps {
   metricsSummary: GscMetricsSummary | null;
   visibleMetrics: GscVisibleMetrics;
   onToggleMetric: (key: keyof GscVisibleMetrics) => void;
-  onRegisterEvaluation: (dateStr: string, cycleDays: number) => Promise<void>;
-  onUpdateEvaluation: (dateStr: string, cycleDays: number) => Promise<void>;
+  onRegisterEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  onUpdateEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
 }
 
 export function OverviewTab({

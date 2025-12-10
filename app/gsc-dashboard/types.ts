@@ -53,6 +53,7 @@ export interface GscCurrentEvaluation {
   last_evaluated_on: string | null;
   base_evaluation_date: string;
   cycle_days: number;
+  evaluation_hour: number;
   last_seen_position: number | null;
   status: string;
   created_at: string;

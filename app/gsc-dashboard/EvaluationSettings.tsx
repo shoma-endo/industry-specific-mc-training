@@ -1,9 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Info, Calendar as CalendarIcon, Settings, Save } from 'lucide-react';
+import { Loader2, Info, Calendar as CalendarIcon, Settings, Save, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -15,14 +22,21 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+// 時間選択用の選択肢を生成
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => ({
+  value: i.toString(),
+  label: `${i.toString().padStart(2, '0')}:00`,
+}));
+
 interface EvaluationSettingsProps {
   currentEvaluation: {
     base_evaluation_date: string;
     last_evaluated_on: string | null;
     cycle_days: number;
+    evaluation_hour: number;
   } | null;
-  onRegister: (date: string, cycleDays: number) => Promise<void>;
-  onUpdate: (date: string, cycleDays: number) => Promise<void>;
+  onRegister: (date: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  onUpdate: (date: string, cycleDays: number, evaluationHour: number) => Promise<void>;
 }
 
 // 日付フォーマット用のユーティリティ
@@ -55,6 +69,7 @@ export function EvaluationSettings({
   // date string format: YYYY-MM-DD
   const [dateStr, setDateStr] = useState<string>('');
   const [cycleDays, setCycleDays] = useState<number>(30);
+  const [evaluationHour, setEvaluationHour] = useState<number>(12);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -68,11 +83,13 @@ export function EvaluationSettings({
         // 型推論の曖昧さを排除するためにテンプレートリテラルで文字列化
         setDateStr(`${currentEvaluation.base_evaluation_date}`);
         setCycleDays(currentEvaluation.cycle_days);
+        setEvaluationHour(currentEvaluation.evaluation_hour ?? 12);
       } else {
         // 今日をデフォルトに
         const today = new Date().toISOString().split('T')[0]!;
         setDateStr(today);
         setCycleDays(30);
+        setEvaluationHour(12);
       }
       setError(null);
       setSuccess(null);
@@ -88,10 +105,10 @@ export function EvaluationSettings({
 
     try {
       if (isUpdateMode) {
-        await onUpdate(dateStr, cycleDays);
+        await onUpdate(dateStr, cycleDays, evaluationHour);
         setSuccess('評価基準日を更新しました');
       } else {
-        await onRegister(dateStr, cycleDays);
+        await onRegister(dateStr, cycleDays, evaluationHour);
         setSuccess('評価を開始しました');
       }
       // 成功メッセージを見せるために少し待ってから閉じる
@@ -125,7 +142,8 @@ export function EvaluationSettings({
           <div className="mt-2 inline-flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
             <Info className="h-4 w-4 mt-[1px]" />
             <span>
-              評価日は「当日の計測値」ではなく、最新に取得できたSearch Consoleデータ（日付付き）を対象に判定します。
+              評価日は「当日の計測値」ではなく、最新に取得できたSearch
+              Consoleデータ（日付付き）を対象に判定します。
               データが遅延する場合でも最終取得日の数値で評価されます。
             </span>
           </div>
@@ -186,6 +204,36 @@ export function EvaluationSettings({
                 </p>
               </div>
 
+              <div className="space-y-2">
+                <label
+                  htmlFor="evaluation-hour"
+                  className="text-sm font-medium text-gray-700 block"
+                >
+                  評価実行時間
+                </label>
+                <div className="relative">
+                  <Select
+                    value={evaluationHour.toString()}
+                    onValueChange={v => setEvaluationHour(Number(v))}
+                  >
+                    <SelectTrigger className="max-w-[250px] pl-10 text-base">
+                      <SelectValue placeholder="時間を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {HOUR_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Clock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  評価バッチが実行される時間（日本時間）
+                </p>
+              </div>
+
               {dateStr && (
                 <div className="rounded-lg bg-blue-50 p-4 border border-blue-100 space-y-3">
                   <div className="flex items-start gap-2">
@@ -200,7 +248,8 @@ export function EvaluationSettings({
                         <div>
                           <p className="text-blue-600 text-xs mb-1">初回評価日</p>
                           <p className="font-semibold text-blue-900">
-                            {formatDateJP(nextEvaluationDateStr)} 12:00 (日本時間)
+                            {formatDateJP(nextEvaluationDateStr)}{' '}
+                            {evaluationHour.toString().padStart(2, '0')}:00 (日本時間)
                           </p>
                         </div>
                       </div>
@@ -256,9 +305,10 @@ export function EvaluationSettings({
               {(() => {
                 const refDate =
                   currentEvaluation.last_evaluated_on || currentEvaluation.base_evaluation_date;
-                const cycleDays = currentEvaluation.cycle_days || 30;
-                const nextDate = addDays(refDate, cycleDays);
-                return `${formatDateJP(nextDate)} 12:00 (日本時間)`;
+                const cycle = currentEvaluation.cycle_days || 30;
+                const hour = currentEvaluation.evaluation_hour ?? 12;
+                const nextDate = addDays(refDate, cycle);
+                return `${formatDateJP(nextDate)} ${hour.toString().padStart(2, '0')}:00 (日本時間)`;
               })()}
             </div>
           </div>
