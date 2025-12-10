@@ -71,7 +71,7 @@ export function GscNotificationHandler() {
               </div>
             ),
             {
-              duration: 10000,
+              duration: Infinity,
             }
           );
           sessionStorage.setItem(TOAST_SESSION_KEY, 'true');
