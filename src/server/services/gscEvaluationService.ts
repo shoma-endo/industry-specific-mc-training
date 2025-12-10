@@ -76,16 +76,16 @@ export class GscEvaluationService {
       ? allEvaluations
       : allEvaluations.filter((evaluation) => {
           const cycleDays = evaluation.cycle_days || 30;
-          if (!evaluation.last_evaluated_on) {
-            // 初回評価: base_evaluation_date + cycleDays <= today
-            const firstEvaluationDate = this.addDaysISO(evaluation.base_evaluation_date, cycleDays);
-            return firstEvaluationDate <= today;
-          } else {
-            // 2回目以降: last_evaluated_on + cycleDays <= today
-            const nextEvaluationDate = this.addDaysISO(evaluation.last_evaluated_on, cycleDays);
-            return nextEvaluationDate <= today;
-          }
-        });
+      if (!evaluation.last_evaluated_on) {
+        // 初回評価: base_evaluation_date + cycleDays <= today
+        const firstEvaluationDate = this.addDaysISO(evaluation.base_evaluation_date, cycleDays);
+        return firstEvaluationDate <= today;
+      } else {
+        // 2回目以降: last_evaluated_on + cycleDays <= today
+        const nextEvaluationDate = this.addDaysISO(evaluation.last_evaluated_on, cycleDays);
+        return nextEvaluationDate <= today;
+      }
+    });
 
     for (const evaluation of evaluationRows) {
       // cycle_days 日分のデータをインポート

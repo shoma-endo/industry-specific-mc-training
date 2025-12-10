@@ -23,9 +23,9 @@ export function GscNotificationHandler() {
   const fetchUnread = useCallback(async () => {
     if (!isLoggedIn || isLoading) return;
 
-    try {
+      try {
       const result = await getUnreadSuggestionsCount();
-      setUnreadCount(result.count);
+          setUnreadCount(result.count);
 
       // セッション中に一度だけトースト表示
       if (result.count > 0 && !toastShownRef.current) {
@@ -48,7 +48,7 @@ export function GscNotificationHandler() {
                     <Bell className="h-5 w-5" />
                   </span>
                 </div>
-
+                
                 <div className="flex-1 min-w-0 pr-6">
                   <p className="text-sm font-bold text-amber-900 whitespace-nowrap">
                     {result.count}件の改善提案があります
