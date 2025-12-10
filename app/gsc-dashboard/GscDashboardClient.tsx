@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, TrendingUp, Search, History } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Search, History, Bell } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGscDashboard } from './hooks/useGscDashboard';
@@ -20,6 +20,10 @@ export default function GscDashboardClient({
   initialDetail = null,
 }: Props) {
   const dashboard = useGscDashboard({ initialSelectedId, initialDetail });
+
+  // 未読の改善提案があるか判定（improved以外で is_read が false のもの）
+  const hasUnreadSuggestions =
+    dashboard.detail?.history?.some(item => !item.is_read && item.outcome !== 'improved') ?? false;
 
   return (
     <div className="w-full px-4 py-8 space-y-6">
@@ -54,7 +58,13 @@ export default function GscDashboardClient({
             <span className="hidden sm:inline">検索クエリ分析</span>
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
-            <History className="w-4 h-4" />
+            {hasUnreadSuggestions ? (
+              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-amber-100 text-amber-600 animate-pulse">
+                <Bell className="h-5 w-5" />
+              </span>
+            ) : (
+              <History className="w-4 h-4" />
+            )}
             <span className="hidden sm:inline">評価履歴</span>
           </TabsTrigger>
         </TabsList>
