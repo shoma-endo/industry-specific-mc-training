@@ -7,11 +7,12 @@ import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constan
 import type { AnalyticsContentItem } from '@/types/analytics';
 import { ensureAnnotationChatSession } from '@/server/actions/wordpress.actions';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Props {
   items: AnalyticsContentItem[];
+  unreadAnnotationIds?: Set<string>;
 }
 
 interface LaunchPayload {
@@ -52,7 +53,7 @@ function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) 
   );
 }
 
-export default function AnalyticsTable({ items }: Props) {
+export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const router = useRouter();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
   const columnLabelMap = React.useMemo(
@@ -222,43 +223,55 @@ export default function AnalyticsTable({ items }: Props) {
                 const updatedAt = annotation?.updated_at
                   ? new Date(annotation.updated_at).toLocaleDateString('ja-JP')
                   : null;
+                const hasUnreadSuggestion = annotation?.id
+                  ? unreadAnnotationIds?.has(annotation.id) ?? false
+                  : false;
 
                 return (
                   <tr key={item.rowKey} className="analytics-row group">
                     <td className="analytics-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
-                      <LaunchChatButton
-                        label="チャット"
-                        isPending={pendingRowKey === item.rowKey}
-                        onClick={() => {
-                          const hasExistingBlog =
-                            (canonicalUrl && canonicalUrl.trim().length > 0) ||
-                            (typeof wpPostId === 'number' && Number.isFinite(wpPostId));
-                          handleLaunch({
-                            rowKey: item.rowKey,
-                            sessionId: annotation?.session_id ?? null,
-                            annotationId: annotation?.id ?? null,
-                            wpPostId,
-                            wpPostTitle: annotation?.wp_post_title ?? null,
-                            canonicalUrl,
-                            fallbackTitle,
-                          initialStep: hasExistingBlog ? 'step7' : null,
-                        });
-                      }}
-                    />
-                      {annotation?.id ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-2"
+                      <div className="flex items-center justify-end gap-2">
+                        {hasUnreadSuggestion && (
+                          <span
+                            className="inline-flex items-center text-amber-500"
+                            title="改善提案があります"
+                          >
+                            <Bell className="h-4 w-4" />
+                          </span>
+                        )}
+                        <LaunchChatButton
+                          label="チャット"
+                          isPending={pendingRowKey === item.rowKey}
                           onClick={() => {
-                            const target = new URLSearchParams();
-                            target.set('annotationId', annotation.id ?? '');
-                            window.open(`/gsc-dashboard?${target.toString()}`, '_blank', 'noopener,noreferrer');
+                            const hasExistingBlog =
+                              (canonicalUrl && canonicalUrl.trim().length > 0) ||
+                              (typeof wpPostId === 'number' && Number.isFinite(wpPostId));
+                            handleLaunch({
+                              rowKey: item.rowKey,
+                              sessionId: annotation?.session_id ?? null,
+                              annotationId: annotation?.id ?? null,
+                              wpPostId,
+                              wpPostTitle: annotation?.wp_post_title ?? null,
+                              canonicalUrl,
+                              fallbackTitle,
+                              initialStep: hasExistingBlog ? 'step7' : null,
+                            });
                           }}
-                        >
-                          詳細
-                        </Button>
-                      ) : null}
+                        />
+                        {annotation?.id ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const target = new URLSearchParams();
+                              target.set('annotationId', annotation.id ?? '');
+                              window.open(`/gsc-dashboard?${target.toString()}`, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            詳細
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                     {visibleSet.has('main_kw') && (
                       <td className="px-6 py-4 text-sm text-gray-900">

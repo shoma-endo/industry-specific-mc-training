@@ -6,6 +6,7 @@ import { Download, Settings, BarChart3 } from 'lucide-react';
 import { analyticsContentService } from '@/server/services/analyticsContentService';
 import { cn } from '@/lib/utils';
 import { ErrorAlert } from '@/components/ErrorAlert';
+import { getAnnotationIdsWithUnreadSuggestions } from '@/server/actions/gscNotification.actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,8 +20,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const page = Math.max(1, parseInt(pageParam || '1', 10));
   const perPage = 100; // 1ページ最大100件（WP RESTの上限）
 
-  const analyticsPage = await analyticsContentService.getPage({ page, perPage });
+  // 並列でデータ取得
+  const [analyticsPage, unreadResult] = await Promise.all([
+    analyticsContentService.getPage({ page, perPage }),
+    getAnnotationIdsWithUnreadSuggestions(),
+  ]);
   const { items, total, totalPages, page: resolvedPage, error } = analyticsPage;
+  const unreadAnnotationIds = new Set(unreadResult.annotationIds);
   const currentPage = resolvedPage ?? page;
   const shouldRenderTable = items.length > 0;
   const prevDisabled = currentPage <= 1;
@@ -69,7 +75,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             </div>
           ) : null}
           {shouldRenderTable ? (
-            <AnalyticsTable items={items} />
+            <AnalyticsTable items={items} unreadAnnotationIds={unreadAnnotationIds} />
           ) : error ? null : (
             <div className="text-center py-8 text-gray-500">投稿が見つかりません</div>
           )}

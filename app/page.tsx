@@ -100,7 +100,6 @@ const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProp
 };
 
 import { Toaster } from '@/components/ui/sonner';
-import { GscNotificationHandler } from '@/components/GscNotificationHandler';
 
 export default function Home() {
   const { getAccessToken, isLoading, isLoggedIn, user } = useLiffContext();
@@ -282,7 +281,6 @@ export default function Home() {
   return (
     <>
       <Toaster />
-      {isLoggedIn && <GscNotificationHandler />}
       <FullNameDialog open={showFullNameDialog} onSave={handleSaveFullName} />
 
       {(!isLoading && isLoggedIn) && (

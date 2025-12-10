@@ -20,6 +20,34 @@ export interface UnreadSuggestionsResponse {
 }
 
 /**
+ * 未読のGSC改善提案の件数のみを取得する（グローバル通知用の軽量版）
+ */
+export async function getUnreadSuggestionsCount(): Promise<{ count: number }> {
+  const service = new SupabaseService();
+  const supabase = service.getClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { count: 0 };
+  }
+
+  const { count, error } = await supabase
+    .from('gsc_article_evaluation_history')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_read', false)
+    .neq('outcome', 'improved');
+
+  if (error) {
+    console.error('Error fetching unread suggestions count:', error);
+    return { count: 0 };
+  }
+
+  return { count: count ?? 0 };
+}
+
+/**
  * 未読のGSC改善提案を取得する
  */
 export async function getUnreadSuggestions(): Promise<UnreadSuggestionsResponse> {
@@ -141,5 +169,36 @@ export async function markAllSuggestionsAsRead(): Promise<{ success: boolean; er
 
   revalidatePath('/');
   return { success: true };
+}
+
+/**
+ * 指定したannotation_idに紐づく未読の改善提案IDリストを取得する
+ * AnalyticsTableでの🔔バッジ表示用
+ */
+export async function getAnnotationIdsWithUnreadSuggestions(): Promise<{ annotationIds: string[] }> {
+  const service = new SupabaseService();
+  const supabase = service.getClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { annotationIds: [] };
+  }
+
+  const { data, error } = await supabase
+    .from('gsc_article_evaluation_history')
+    .select('content_annotation_id')
+    .eq('is_read', false)
+    .neq('outcome', 'improved');
+
+  if (error) {
+    console.error('Error fetching annotation ids with unread suggestions:', error);
+    return { annotationIds: [] };
+  }
+
+  // 重複を除去してリストを返す
+  const uniqueIds = [...new Set(data?.map(d => d.content_annotation_id) ?? [])];
+  return { annotationIds: uniqueIds };
 }
 

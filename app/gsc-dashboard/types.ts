@@ -39,6 +39,7 @@ export interface GscEvaluationHistoryItem {
   current_position: number;
   outcome: GscEvaluationOutcome;
   suggestion_summary: string | null;
+  is_read: boolean;
 }
 
 /**
