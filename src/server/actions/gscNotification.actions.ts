@@ -1,7 +1,9 @@
 'use server';
 
-import { SupabaseService } from '@/server/services/supabaseService';
+import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { SupabaseService } from '@/server/services/supabaseService';
 
 export interface UnreadSuggestion {
   id: string;
@@ -19,28 +21,39 @@ export interface UnreadSuggestionsResponse {
   suggestions: UnreadSuggestion[];
 }
 
+const supabaseService = new SupabaseService();
+
+const getAuthUserId = async () => {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get('line_access_token')?.value;
+  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+
+  const authResult = await authMiddleware(accessToken, refreshToken);
+  if (authResult.error || !authResult.userId) {
+    return { error: authResult.error || 'ユーザー認証に失敗しました' };
+  }
+  return { userId: authResult.userId };
+};
+
 /**
  * 未読のGSC改善提案の件数のみを取得する（グローバル通知用の軽量版）
  */
 export async function getUnreadSuggestionsCount(): Promise<{ count: number }> {
-  const service = new SupabaseService();
-  const supabase = service.getClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const { userId, error } = await getAuthUserId();
+  if (error || !userId) {
     return { count: 0 };
   }
 
-  const { count, error } = await supabase
+  const { count, error: queryError } = await supabaseService
+    .getClient()
     .from('gsc_article_evaluation_history')
     .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
     .eq('is_read', false)
     .neq('outcome', 'improved');
 
-  if (error) {
-    console.error('Error fetching unread suggestions count:', error);
+  if (queryError) {
+    console.error('Error fetching unread suggestions count:', queryError);
     return { count: 0 };
   }
 
@@ -51,20 +64,13 @@ export async function getUnreadSuggestionsCount(): Promise<{ count: number }> {
  * 未読のGSC改善提案を取得する
  */
 export async function getUnreadSuggestions(): Promise<UnreadSuggestionsResponse> {
-  const service = new SupabaseService();
-  const supabase = service.getClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const { userId, error } = await getAuthUserId();
+  if (error || !userId) {
     return { count: 0, suggestions: [] };
   }
 
-  // user_idはRLSで自動的に絞り込まれるが、明示的に指定
-  // outcomeがimproved以外のもの（提案が生成されるもの）かつ未読のもの
-  // content_annotationsをjoinしてURLなどの情報を取得したい
-  const { data, error } = await supabase
+  const { data, error: queryError } = await supabaseService
+    .getClient()
     .from('gsc_article_evaluation_history')
     .select(`
       id,
@@ -81,12 +87,13 @@ export async function getUnreadSuggestions(): Promise<UnreadSuggestionsResponse>
         property_uri
       )
     `)
+    .eq('user_id', userId)
     .eq('is_read', false)
     .neq('outcome', 'improved')
     .order('evaluation_date', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching unread suggestions:', error);
+  if (queryError) {
+    console.error('Error fetching unread suggestions:', queryError);
     return { count: 0, suggestions: [] };
   }
 
@@ -99,7 +106,7 @@ export async function getUnreadSuggestions(): Promise<UnreadSuggestionsResponse>
   const suggestions: UnreadSuggestion[] = data.map((item: any) => ({
     id: item.id,
     evaluation_date: item.evaluation_date,
-    url: item.gsc_article_evaluations?.property_uri || '', // property_uriをURLとして代用（必要に応じて加工）
+    url: item.gsc_article_evaluations?.property_uri || '',
     keyword: item.content_annotations?.target_keyword || '',
     suggestion_summary: item.suggestion_summary,
     outcome: item.outcome,
@@ -117,28 +124,26 @@ export async function getUnreadSuggestions(): Promise<UnreadSuggestionsResponse>
  * 改善提案を既読にする
  */
 export async function markSuggestionAsRead(historyId: string): Promise<{ success: boolean; error?: string }> {
-  const service = new SupabaseService();
-  const supabase = service.getClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' };
+  const { userId, error } = await getAuthUserId();
+  if (error || !userId) {
+    return { success: false, error: error || 'Unauthorized' };
   }
 
-  const { error } = await supabase
+  const { error: updateError } = await supabaseService
+    .getClient()
     .from('gsc_article_evaluation_history')
     .update({ is_read: true })
     .eq('id', historyId)
-    .eq('user_id', user.id);
+    .eq('user_id', userId);
 
-  if (error) {
-    console.error('Error marking suggestion as read:', error);
-    return { success: false, error: error.message };
+  if (updateError) {
+    console.error('Error marking suggestion as read:', updateError);
+    return { success: false, error: updateError.message };
   }
 
   revalidatePath('/');
+  revalidatePath('/analytics');
+  revalidatePath('/gsc-dashboard');
   return { success: true };
 }
 
@@ -146,28 +151,26 @@ export async function markSuggestionAsRead(historyId: string): Promise<{ success
  * 全ての改善提案を既読にする
  */
 export async function markAllSuggestionsAsRead(): Promise<{ success: boolean; error?: string }> {
-  const service = new SupabaseService();
-  const supabase = service.getClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: 'Unauthorized' };
+  const { userId, error } = await getAuthUserId();
+  if (error || !userId) {
+    return { success: false, error: error || 'Unauthorized' };
   }
 
-  const { error } = await supabase
+  const { error: updateError } = await supabaseService
+    .getClient()
     .from('gsc_article_evaluation_history')
     .update({ is_read: true })
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('is_read', false);
 
-  if (error) {
-    console.error('Error marking all suggestions as read:', error);
-    return { success: false, error: error.message };
+  if (updateError) {
+    console.error('Error marking all suggestions as read:', updateError);
+    return { success: false, error: updateError.message };
   }
 
   revalidatePath('/');
+  revalidatePath('/analytics');
+  revalidatePath('/gsc-dashboard');
   return { success: true };
 }
 
@@ -176,24 +179,21 @@ export async function markAllSuggestionsAsRead(): Promise<{ success: boolean; er
  * AnalyticsTableでの🔔バッジ表示用
  */
 export async function getAnnotationIdsWithUnreadSuggestions(): Promise<{ annotationIds: string[] }> {
-  const service = new SupabaseService();
-  const supabase = service.getClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const { userId, error } = await getAuthUserId();
+  if (error || !userId) {
     return { annotationIds: [] };
   }
 
-  const { data, error } = await supabase
+  const { data, error: queryError } = await supabaseService
+    .getClient()
     .from('gsc_article_evaluation_history')
     .select('content_annotation_id')
+    .eq('user_id', userId)
     .eq('is_read', false)
     .neq('outcome', 'improved');
 
-  if (error) {
-    console.error('Error fetching annotation ids with unread suggestions:', error);
+  if (queryError) {
+    console.error('Error fetching annotation ids with unread suggestions:', queryError);
     return { annotationIds: [] };
   }
 
@@ -201,4 +201,3 @@ export async function getAnnotationIdsWithUnreadSuggestions(): Promise<{ annotat
   const uniqueIds = [...new Set(data?.map(d => d.content_annotation_id) ?? [])];
   return { annotationIds: uniqueIds };
 }
-
