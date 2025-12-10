@@ -224,7 +224,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                   ? new Date(annotation.updated_at).toLocaleDateString('ja-JP')
                   : null;
                 const hasUnreadSuggestion = annotation?.id
-                  ? unreadAnnotationIds?.has(annotation.id) ?? false
+                  ? (unreadAnnotationIds?.has(annotation.id) ?? false)
                   : false;
 
                 return (
@@ -233,10 +233,10 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                       <div className="flex items-center justify-end gap-2">
                         {hasUnreadSuggestion && (
                           <span
-                            className="inline-flex items-center text-amber-500"
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-amber-100 text-amber-600 animate-pulse"
                             title="改善提案があります"
                           >
-                            <Bell className="h-4 w-4" />
+                            <Bell className="h-5 w-5" />
                           </span>
                         )}
                         <LaunchChatButton
@@ -265,7 +265,11 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                             onClick={() => {
                               const target = new URLSearchParams();
                               target.set('annotationId', annotation.id ?? '');
-                              window.open(`/gsc-dashboard?${target.toString()}`, '_blank', 'noopener,noreferrer');
+                              window.open(
+                                `/gsc-dashboard?${target.toString()}`,
+                                '_blank',
+                                'noopener,noreferrer'
+                              );
                             }}
                           >
                             詳細
@@ -284,11 +288,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                     )}
                     {visibleSet.has('kw') && (
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.kw ? (
-                          <TruncatedText text={annotation.kw} lines={2} />
-                        ) : (
-                          '—'
-                        )}
+                        {annotation?.kw ? <TruncatedText text={annotation.kw} lines={2} /> : '—'}
                       </td>
                     )}
                     {visibleSet.has('impressions') && (
