@@ -146,8 +146,9 @@ AI運用5原則
 
 ## テストと検証
 
-- 重要フロー（LIFF 認証、Stripe、WordPress 投稿取得、Canvas 編集）はローカルで手動検証し、手順や想定結果を PR に記述します。
-- Stripe・WordPress・LIFF は本番キーとサンドボックスで環境変数が変わるため、変更時は README と `.env.local` 用のメモを更新します。
+- 重要フロー（LIFF 認証、Stripe、WordPress 投稿取得、Canvas 編集、GSC 連携）はローカルで手動検証し、手順や想定結果を PR に記述します。
+- Stripe・WordPress・LIFF・GSC は本番キーとサンドボックスで環境変数が変わるため、変更時は README と `.env.local` 用のメモを更新します。
+- GSC 連携の変更時は `/app/gsc-dashboard` と `/app/gsc-import` の表示・動作を手動で確認してください。
 
 ## ドキュメントとナレッジ
 

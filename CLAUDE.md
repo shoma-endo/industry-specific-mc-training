@@ -139,6 +139,7 @@ AI運用5原則
 - 自動テストは未整備。動作確認は `npm run dev` での手動検証と API 叩きで行う。
 - auth や Stripe 周りの改修では `/app/page.tsx` や `/subscription` の UI フローまで確認する。
 - WordPress 連携変更時は `/app/analytics` と `AnnotationPanel` の表示・保存動作を手動で確認。
+- GSC 連携変更時は `/app/gsc-dashboard` と `/app/gsc-import` の表示・動作を手動で確認。
 - マイグレーション追加時は `supabase db push` 実行とロールバック方針を README / PR で共有する。
 
 ## 主要機能の把握
@@ -147,14 +148,17 @@ AI運用5原則
 - **Canvas 選択編集**: `POST /api/chat/canvas/stream` が Tool Use を使って全文置換を生成、保存はクライアント側で実施。
 - **Annotation**: `AnnotationPanel` から `content_annotations` を upsert。ブログ生成時に `PromptService.buildContentVariables` 経由で利用。
 - **WordPress**: `WordPressService` が REST API を複数候補で試行し、ステータスや投稿一覧を返す。OAuth トークンは cookie 管理。
+- **GSC**: `gscService` + `gscEvaluationService` で Google Search Console 連携、記事評価、改善提案を自動化。`/api/gsc/*` と `/api/cron/gsc-evaluate` で定期評価を実行。
 - **Stripe**: `SubscriptionService` + `stripeService` で購買／解約／ポータル遷移を行う。`authMiddleware` が `requiresSubscription` を返却。
 - **Admin**: `/admin/prompts` がテンプレート編集とバージョン管理、`/admin/users` がロール切り替えとキャッシュクリアを実装。
 - **Business Info**: `briefs` テーブルに 5W2H を含む JSON を保存し、プロンプトの変数へ注入。
 
 ## 外部サービスと環境変数
 
-- `.env.local` に 17 個の必須変数を設定（詳細は README 参照）。Stripe を無効化したい場合もダミー値を入れる。
+- `.env.local` に 18 個の環境変数を設定（必須14、オプション4。詳細は README 参照）。Stripe を無効化したい場合もダミー値を入れる。
 - WordPress.com OAuth を使う場合は `WORDPRESS_COM_*`, `COOKIE_SECRET`, `OAUTH_*` を忘れずに。
+- GSC 連携を使う場合は `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` を設定。
+- `GSC_EVALUATION_INTERVAL_DAYS` で記事評価の実行間隔（日数）を設定可能（デフォルト: 30日）。
 - `FEATURE_RPC_V2=true` で新しい Supabase RPC を有効化。デフォルトは `false`。
 - LIFF と Stripe は sandbox／本番でキーを切り替える。
 
