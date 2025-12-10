@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Bell } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 import { useLiffContext } from '@/components/LiffProvider';
 import { useFaviconBadge } from '@/hooks/useFaviconBadge';
 import { getUnreadSuggestionsCount } from '@/server/actions/gscNotification.actions';
@@ -49,7 +49,7 @@ export function GscNotificationHandler() {
                   </span>
                 </div>
 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 pr-6">
                   <p className="text-sm font-bold text-amber-900 whitespace-nowrap">
                     {result.count}件の改善提案があります
                   </p>
@@ -59,14 +59,13 @@ export function GscNotificationHandler() {
                 </div>
 
                 <button
-                  className="flex-shrink-0 px-4 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-md shadow-sm transition-colors whitespace-nowrap"
+                  className="absolute top-2 right-2 p-1.5 text-amber-900/40 hover:text-amber-900 hover:bg-amber-900/10 rounded-full transition-colors"
                   onClick={e => {
                     e.stopPropagation();
                     toast.dismiss(t);
-                    router.push('/analytics');
                   }}
                 >
-                  確認する
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             ),
