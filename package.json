@@ -6,7 +6,7 @@
     "dev": "tsc-watch --onSuccess \"next dev --turbopack\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "ngrok": "ngrok http --region=jp --subdomain=industry-specific-mc-training 3000",
     "db:stats": "tsx scripts/check-db-stats.ts",
     "vercel:stats": "tsx scripts/check-vercel-stats.ts",
