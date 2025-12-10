@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { getAllUsers, updateUserRole } from '@/server/actions/admin.actions';
-import { getRoleDisplayName } from '@/auth-utils';
+import { getRoleDisplayName } from '@/authUtils';
 import type { User, UserRole } from '@/types/user';
 import { clearAuthCache } from '@/server/actions/adminUsers.actions';
 

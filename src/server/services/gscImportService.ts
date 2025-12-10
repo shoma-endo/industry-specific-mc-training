@@ -1,8 +1,7 @@
 import { GscService } from './gscService';
 import { SupabaseService } from './supabaseService';
-import { gscEvaluationService } from './gscEvaluationService';
-import { getGscQueryMaxPages, getGscQueryRowLimit } from '../lib/gscConfig';
-import { normalizeQuery } from '../../lib/normalizeQuery';
+import { getGscQueryMaxPages, getGscQueryRowLimit } from '../lib/gsc-config';
+import { normalizeQuery } from '../../lib/normalize-query';
 import type {
   GscPageMetric,
   GscPropertyType,
@@ -18,17 +17,6 @@ export class GscImportService {
   private readonly supabaseService = new SupabaseService();
   private readonly queryRowLimit = getGscQueryRowLimit();
   private readonly queryMaxPages = getGscQueryMaxPages();
-
-  async importAndMaybeEvaluate(userId: string, options: GscImportOptions): Promise<GscImportResult> {
-    const summary = await this.importMetrics(userId, options);
-
-    if (options.runEvaluation) {
-      const evalSummary = await gscEvaluationService.runDueEvaluationsForUser(userId);
-      summary.evaluated = evalSummary.processed;
-    }
-
-    return summary;
-  }
 
   async importMetrics(userId: string, options: GscImportOptions): Promise<GscImportResult> {
     const startDate = options.startDate;
@@ -73,6 +61,13 @@ export class GscImportService {
       const normalized = metric.normalizedUrl ?? null;
       const annotationId = normalized ? matchMap.get(normalized) ?? null : null;
 
+      // 紐付けできないデータは保存しない（評価対象外のノイズを避ける）
+      if (!annotationId) {
+        skipped += 1;
+        unmatched += 1;
+        continue;
+      }
+
       const upsertPayload = {
         user_id: userId,
         content_annotation_id: annotationId,
@@ -100,7 +95,6 @@ export class GscImportService {
       }
 
       upserted += 1;
-      if (!annotationId) unmatched += 1;
     }
 
     await this.importQueryMetrics({

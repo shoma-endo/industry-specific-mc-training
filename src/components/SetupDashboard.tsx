@@ -4,10 +4,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, AlertCircle, Settings, Plug, Loader2, ShieldCheck, ShieldOff, RefreshCw } from 'lucide-react';
+import {
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  Settings,
+  Plug,
+  Loader2,
+  ShieldCheck,
+  ShieldOff,
+  RefreshCw,
+} from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
-import { fetchGscStatus } from './GscSetupActions';
+import { fetchGscStatus, fetchGscProperties } from '@/server/actions/gscSetup.actions';
 
 interface WordPressStatus {
   connected: boolean;
@@ -21,6 +31,7 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
   const [wpStatus, setWpStatus] = useState<WordPressStatus | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [gscConnection, setGscConnection] = useState(gscStatus);
+  const [gscNeedsReauth, setGscNeedsReauth] = useState(false);
   const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(false);
 
   // WordPress接続ステータスを取得
@@ -74,10 +85,23 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
 
   const refetchGscStatus = useCallback(async () => {
     setIsLoadingGscStatus(true);
+    setGscNeedsReauth(false);
     try {
       const result = await fetchGscStatus();
       if (result.success && result.data) {
         setGscConnection(result.data);
+
+        // 接続済みの場合、プロパティ取得を試みてトークンの有効性をチェック
+        if (result.data.connected) {
+          const propertiesResult = await fetchGscProperties();
+          if (
+            !propertiesResult.success &&
+            'needsReauth' in propertiesResult &&
+            propertiesResult.needsReauth
+          ) {
+            setGscNeedsReauth(true);
+          }
+        }
       }
     } catch (error) {
       console.error('GSCステータス取得エラー:', error);
@@ -115,7 +139,7 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
                   {wordpressSettings.hasSettings ? (
                     <>
                       <CheckCircle className="text-green-500" size={20} />
-                      <span className="text-green-700 font-medium">設定済み</span>
+                      <span className="text-green-700 font-medium">接続済み</span>
                     </>
                   ) : (
                     <>
@@ -215,7 +239,12 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {gscConnection.connected ? (
+                  {gscNeedsReauth ? (
+                    <>
+                      <AlertTriangle className="text-orange-500" size={20} />
+                      <span className="text-orange-700 font-medium">要再認証</span>
+                    </>
+                  ) : gscConnection.connected ? (
                     <>
                       <CheckCircle className="text-green-500" size={20} />
                       <span className="text-green-700 font-medium">接続済み</span>
@@ -236,19 +265,37 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
                   </div>
                 ) : (
                   <Badge
-                    variant={gscConnection.connected ? 'default' : 'secondary'}
+                    variant={
+                      gscNeedsReauth ? 'default' : gscConnection.connected ? 'default' : 'secondary'
+                    }
                     className={`text-xs ${
-                      gscConnection.connected
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-800'
+                      gscNeedsReauth
+                        ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                        : gscConnection.connected
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-800'
                     }`}
                   >
-                    {gscConnection.connected ? '接続OK' : '未接続'}
+                    {gscNeedsReauth ? '要再認証' : gscConnection.connected ? '接続OK' : '未設定'}
                   </Badge>
                 )}
               </div>
 
-              {gscConnection.connected ? (
+              {gscNeedsReauth ? (
+                <div className="text-sm space-y-2">
+                  <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                    <p className="text-orange-800 font-medium">
+                      Googleアカウントの再認証が必要です
+                    </p>
+                    <p className="text-orange-700 text-xs mt-1">
+                      認証トークンが期限切れまたは取り消されています。再認証してください。
+                    </p>
+                  </div>
+                  <p className="text-gray-600">
+                    アカウント: {gscConnection.googleAccountEmail ?? '取得中'}
+                  </p>
+                </div>
+              ) : gscConnection.connected ? (
                 <div className="text-sm text-gray-600 space-y-1">
                   <p>アカウント: {gscConnection.googleAccountEmail ?? '取得中'}</p>
                   <p>
@@ -274,7 +321,10 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
                 </div>
               ) : (
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p>Search Consoleから検索パフォーマンス指標を取り込み、改善アクションに活用できます。</p>
+                  <p>
+                    Search
+                    Consoleから検索パフォーマンス指標を取り込み、改善アクションに活用できます。
+                  </p>
                   <p className="text-xs text-gray-500">
                     所有者またはフルユーザー権限が必要です。連携後にプロパティを選択してください。
                   </p>
@@ -283,17 +333,30 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
 
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <Button asChild variant={gscConnection.connected ? 'outline' : 'default'} className={`w-full ${gscConnection.connected ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}>
-                    <Link href="/setup/gsc">
-                      <Settings size={16} className="mr-2" />
-                      {gscConnection.connected ? '連携を管理' : '連携を開始'}
-                    </Link>
-                  </Button>
+                  {gscNeedsReauth ? (
+                    <Button asChild className="w-full bg-orange-600 hover:bg-orange-700">
+                      <Link href="/setup/gsc">
+                        <AlertTriangle size={16} className="mr-2" />
+                        再認証する
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      asChild
+                      variant={gscConnection.connected ? 'outline' : 'default'}
+                      className={`w-full ${gscConnection.connected ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
+                    >
+                      <Link href="/setup/gsc">
+                        <Settings size={16} className="mr-2" />
+                        {gscConnection.connected ? '連携を管理' : '連携を開始'}
+                      </Link>
+                    </Button>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={fetchGscStatus}
+                  onClick={refetchGscStatus}
                   disabled={isLoadingGscStatus}
                   className="flex items-center gap-1"
                 >

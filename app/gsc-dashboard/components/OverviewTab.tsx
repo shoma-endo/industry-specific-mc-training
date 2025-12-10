@@ -19,8 +19,9 @@ interface OverviewTabProps {
   metricsSummary: GscMetricsSummary | null;
   visibleMetrics: GscVisibleMetrics;
   onToggleMetric: (key: keyof GscVisibleMetrics) => void;
-  onRegisterEvaluation: (dateStr: string, cycleDays: number) => Promise<void>;
-  onUpdateEvaluation: (dateStr: string, cycleDays: number) => Promise<void>;
+  onRegisterEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  onUpdateEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  onRunEvaluation: () => Promise<{ processed: number; improved: number; advanced: number; skippedNoMetrics: number; skippedImportFailed: number }>;
 }
 
 export function OverviewTab({
@@ -32,6 +33,7 @@ export function OverviewTab({
   onToggleMetric,
   onRegisterEvaluation,
   onUpdateEvaluation,
+  onRunEvaluation,
 }: OverviewTabProps) {
   if (detailLoading) {
     return (
@@ -90,6 +92,7 @@ export function OverviewTab({
             currentEvaluation={detail.evaluation}
             onRegister={onRegisterEvaluation}
             onUpdate={onUpdateEvaluation}
+            onRunEvaluation={onRunEvaluation}
           />
         )}
       </CardContent>

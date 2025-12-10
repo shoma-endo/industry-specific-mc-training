@@ -7,7 +7,7 @@ import {
   initialChatState,
   createUserMessage,
   createAssistantMessage,
-} from '@/domain/models/chat.models';
+} from '@/domain/models/chatModels';
 import { ChatError } from '@/domain/errors/ChatError';
 import type { ChatSessionActions, ChatSessionHook } from '@/types/hooks';
 import { ERROR_MESSAGES as CHAT_ERROR_MESSAGES, CHAT_HISTORY_LIMIT } from '@/lib/constants';

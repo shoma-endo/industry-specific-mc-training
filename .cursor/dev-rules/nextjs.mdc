@@ -1,79 +1,118 @@
 ---
-description: 
-globs: 
-alwaysApply: false
----
----
-description: Apply this rule to the entire repository
-globs: 
+description: Next.js 15 App Router のベストプラクティスとプロジェクト固有の実装ルール
+globs:
 alwaysApply: true
 ---
 まず、このファイルを参照したら、このファイル名を発言すること
 
-# Next.js ベストプラクティス実装ルール
+# Next.js 15 ベストプラクティス実装ルール
 
-## 1. ルーティングとファイル構造
+## 1. プロジェクト構造
 
-### ディレクトリ構造例
+### 実際のディレクトリ構成
 
-src/
-├── app/                    # ルーティングとページコンポーネント
-│   ├── (marketing)/       # ランディングページ、プライシング、お問い合わせなど
-│   │   ├── about/
-│   │   ├── pricing/
-│   │   └── contact/
-│   ├── (dashboard)/       # ログイン後のメイン機能
-│   │   ├── projects/
-│   │   ├── settings/
-│   │   └── profile/
-│   └── api/               # APIルート
+```
+.
+├── app/                          # Next.js App Router
+│   ├── chat/                     # チャット機能
+│   ├── analytics/                # 分析機能
+│   ├── business-info/            # ビジネス情報管理
+│   ├── setup/                    # セットアップ
+│   ├── admin/                    # 管理機能
+│   ├── subscription/             # サブスクリプション
+│   ├── api/                      # API Route Handlers
+│   │   ├── chat/
+│   │   ├── wordpress/
+│   │   ├── gsc/
+│   │   └── admin/
+│   └── page.tsx                  # トップページ
 │
-├── components/            # Reactコンポーネント
-│   ├── common/           # 共通コンポーネント
-│   │   ├── buttons/
-│   │   ├── forms/
-│   │   ├── icons/
-│   │   └── typography/
-│   ├── features/         # 機能別コンポーネント
-│   │   ├── dashboard/    # ダッシュボード関連
-│   │   └── marketing/    # マーケティングページ関連
-│   └── layouts/          # レイアウトコンポーネント
-│       ├── marketing/
-│       └── dashboard/
+├── src/
+│   ├── components/               # React コンポーネント
+│   │   ├── ui/                   # shadcn/ui コンポーネント (kebab-case)
+│   │   └── *.tsx                 # カスタムコンポーネント (PascalCase)
+│   │
+│   ├── domain/                   # フロントエンド用サービス層
+│   │   ├── services/             # camelCase (例: chatService.ts)
+│   │   ├── interfaces/           # インターフェース定義
+│   │   ├── errors/               # エラークラス
+│   │   └── models/               # モデル (例: chatModels.ts)
+│   │
+│   ├── hooks/                    # カスタムフック (camelCase)
+│   │   └── useChatSession.ts
+│   │
+│   ├── lib/                      # ユーティリティと設定 (kebab-case)
+│   │   ├── constants.ts
+│   │   ├── prompts.ts
+│   │   └── client-manager.ts
+│   │
+│   ├── server/                   # サーバーサイド
+│   │   ├── actions/              # Server Actions (camelCase + .actions.ts)
+│   │   │   ├── chat.actions.ts
+│   │   │   ├── gscSetup.actions.ts
+│   │   │   └── user.actions.ts
+│   │   ├── services/             # サーバーサイドサービス (camelCase + Service)
+│   │   │   ├── supabaseService.ts
+│   │   │   ├── stripeService.ts
+│   │   │   └── wordpressService.ts
+│   │   ├── middleware/           # ミドルウェア (camelCase + .middleware.ts)
+│   │   │   └── auth.middleware.ts
+│   │   └── schemas/              # Zod スキーマ (camelCase + .schema.ts)
+│   │       └── brief.schema.ts
+│   │
+│   └── types/                    # 型定義 (kebab-case)
+│       ├── chat.ts
+│       ├── analytics.ts
+│       └── wordpress.ts
 │
-├── hooks/                # カスタムフック
-│   ├── auth/
-│   ├── form/
-│   └── query/
-│
-├── lib/                  # ユーティリティ関数
-│   ├── constants/        # 定数
-│   │   ├── config/
-│   │   └── messages/
-│   ├── types/           # 型定義
-│   └── utils/           # ヘルパー関数
-│       ├── date/
-│       ├── format/
-│       └── validation/
-│
-├── dal/            # Data Access Layer
-│   │── auth/
-│   │── projects/
-│
-│
-└── public/             # 静的アセット
-    ├── images/
-    │   ├── marketing/
-    │   └── dashboard/
-    ├── fonts/
-    └── icons/
+└── supabase/
+    └── migrations/               # DB マイグレーション
+```
 
-### 命名規則
+## 2. 命名規則
+
+### ディレクトリ命名
+
+| カテゴリ | 命名規則 | 例 |
+|---------|----------|-----|
+| App Router | kebab-case | `business-info/`, `gsc-dashboard/` |
+| API Routes | kebab-case | `api/line-oauth-init/` |
+
+### ファイル命名
+
+| カテゴリ | 命名規則 | 拡張子 | 例 |
+|---------|----------|--------|-----|
+| Page/Layout | 固定名 | `.tsx` | `page.tsx`, `layout.tsx` |
+| Route Handlers | 固定名 | `.ts` | `route.ts` |
+| Components (shadcn) | kebab-case | `.tsx` | `avatar.tsx`, `button.tsx` |
+| Components (カスタム) | PascalCase | `.tsx` | `ChatClient.tsx`, `CanvasPanel.tsx` |
+| Hooks | camelCase | `.ts` | `useChatSession.ts` |
+| Services | camelCase + Service | `.ts` | `chatService.ts`, `stripeService.ts` |
+| Actions | camelCase + .actions | `.ts` | `chat.actions.ts` |
+| Middleware | camelCase + .middleware | `.ts` | `auth.middleware.ts` |
+| Schemas | camelCase + .schema | `.ts` | `brief.schema.ts` |
+| Models | camelCase + Models | `.ts` | `chatModels.ts` |
+| Types | kebab-case | `.ts` | `analytics.ts`, `chat.ts` |
+| Lib/Utils | kebab-case | `.ts` | `blog-canvas.ts` |
+
+### 命名規則の使い分け基準
+
+**kebab-case を使う場合:**
+- URL に直結するもの（App Router ディレクトリ、API Routes）
+- モジュールとして識別されるもの（Types, Lib/Utils）
+- 外部ライブラリの規約（shadcn/ui）
+
+**camelCase を使う場合:**
+- TypeScript/JavaScript の実装ファイル（Services, Actions, Hooks, Middleware, Schemas, Models）
+- 関数名やクラス名とファイル名の対応を明確にする場合
+
+### Next.js 特殊ファイル
 
 - ページコンポーネント: `page.tsx`
-- レイアウトコンポーネント: `layout.tsx`
-- ローディング状態: `loading.tsx`
+- レイアウト: `layout.tsx`
+- ローディング: `loading.tsx`
 - エラーハンドリング: `error.tsx`
+- グローバルエラー: `global-error.tsx`
 - 404 ページ: `not-found.tsx`
 
 ## 2. コンポーネント設計

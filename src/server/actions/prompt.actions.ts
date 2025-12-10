@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { PromptService } from '@/server/services/promptService';
-import { canUseServices } from '@/auth-utils';
+import { canUseServices } from '@/authUtils';
 import {
   CreatePromptTemplateInput,
   UpdatePromptTemplateInput,

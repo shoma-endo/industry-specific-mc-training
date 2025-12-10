@@ -272,7 +272,7 @@ erDiagram
     prompt_templates ||--o{ prompt_versions : captures
 ```
 
-## 📋 環境変数（19 項目）
+## 📋 環境変数（18 項目: 必須14項目、オプション4項目）
 
 `src/env.ts` で厳格にバリデーションされるサーバー／クライアント環境変数です。`.env.local` を手動で用意してください。
 
@@ -302,6 +302,7 @@ erDiagram
 - `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`: WordPress.com OAuth 連携で必須
 - `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress / Google Search Console OAuth のセキュアな Cookie 管理
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`: Google Search Console 連携を利用する場合のみ設定
+- `GSC_EVALUATION_INTERVAL_DAYS`: GSC記事評価の実行間隔（日数）。未設定時は30日がデフォルト
 - `FEATURE_RPC_V2`: `true` で新しい Supabase RPC 経路を有効化（`FEATURE_FLAGS.USE_RPC_V2`）
 
 ## 🚀 セットアップ手順
@@ -538,8 +539,10 @@ npm run vercel:stats
 │   ├── unauthorized/        # 未認可ユーザー向けページ
 │   ├── unavailable/         # 利用不可ユーザー向けページ（role が unavailable の場合）
 │   ├── wordpress-import/    # WordPress 記事の一括インポートページ
+│   ├── gsc-dashboard/       # GSC ダッシュボードページ
+│   ├── gsc-import/          # GSC データインポートページ
 │   ├── admin/               # 管理者向け機能（プロンプト・ユーザー管理）
-│   ├── api/                 # Route Handlers（chat, wordpress, admin, auth, user, line）
+│   ├── api/                 # Route Handlers（chat, wordpress, admin, auth, user, line, gsc, cron）
 │   └── layout.tsx など      # App Router ルートレイアウト
 ├── src/
 │   ├── components/          # 再利用可能な UI（shadcn/ui, AnnotationFormFields 等）
@@ -547,9 +550,19 @@ npm run vercel:stats
 │   ├── hooks/               # LIFF / サブスクリプション / UI ユーティリティ
 │   ├── lib/                 # 定数・プロンプト管理・Supabase クライアント生成
 │   ├── server/
-│   │   ├── actions/ # Server Actions 経由のビジネスロジック
+│   │   ├── actions/         # Server Actions 経由のビジネスロジック
 │   │   ├── middleware/      # 認証・ロール判定ミドルウェア
-│   │   └── services/        # Stripe / WordPress / Supabase / LLM などの統合層
+│   │   ├── services/        # 統合層（Stripe / WordPress / Supabase / LLM / GSC など）
+│   │   │   ├── chatService.ts            # チャットセッション管理
+│   │   │   ├── gscService.ts             # GSC 基本操作
+│   │   │   ├── gscEvaluationService.ts   # GSC 記事評価処理
+│   │   │   ├── gscSuggestionService.ts   # GSC 改善提案生成
+│   │   │   ├── gscImportService.ts       # GSC データインポート
+│   │   │   ├── analyticsContentService.ts # アナリティクスコンテンツ処理
+│   │   │   ├── chatLimitService.ts       # チャット制限管理
+│   │   │   └── ... その他サービス
+│   │   ├── schemas/         # Zod バリデーションスキーマ
+│   │   └── lib/             # サーバー専用ユーティリティ
 │   └── types/               # 共通型定義（chat, prompt, annotation, wordpress 等）
 ├── scripts/                 # ユーティリティスクリプト（DB 統計・Vercel 統計）
 ├── claudedocs/              # プロジェクト分析レポート
@@ -579,6 +592,17 @@ npm run vercel:stats
 | `/api/admin/prompts` | GET | プロンプトテンプレート一覧（管理者専用） | Cookie + admin ロール |
 | `/api/admin/prompts/[id]` | POST | テンプレート更新・バージョン生成 | Cookie + admin ロール |
 | `/api/wordpress/bulk-import-posts` | POST | WordPress 記事の一括インポート | Bearer + admin ロール |
+| `/api/gsc/status` | GET | GSC連携状態確認 | Cookie |
+| `/api/gsc/oauth/start` | GET | GSC OAuth リダイレクト開始 | 公開（環境変数必須） |
+| `/api/gsc/oauth/callback` | GET | GSC OAuth コールバック | Cookie |
+| `/api/gsc/disconnect` | POST | GSC連携解除 | Cookie |
+| `/api/gsc/properties` | GET | GSCプロパティ一覧取得 | Cookie |
+| `/api/gsc/property` | POST | GSCプロパティ選択 | Cookie |
+| `/api/gsc/dashboard` | GET | GSCダッシュボードデータ取得 | Cookie |
+| `/api/gsc/import` | POST | GSCデータインポート | Cookie |
+| `/api/gsc/evaluate` | POST | GSC記事評価の手動実行 | Cookie |
+| `/api/gsc/evaluations` | GET | GSC評価履歴取得 | Cookie |
+| `/api/cron/gsc-evaluate` | POST | GSC記事評価の定期実行（Vercel Cron） | Vercel Cron または 認証トークン |
 
 サーバーアクション (`src/server/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
 
