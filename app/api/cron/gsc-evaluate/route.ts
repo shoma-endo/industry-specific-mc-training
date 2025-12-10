@@ -25,10 +25,7 @@ export async function GET(request: NextRequest) {
 
     if (authHeader !== `Bearer ${cronSecret}`) {
       console.warn('[cron/gsc-evaluate] Unauthorized request');
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     console.log('[cron/gsc-evaluate] Starting scheduled evaluation batch...');
@@ -45,14 +42,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[cron/gsc-evaluate] Batch failed:', error);
     const message = error instanceof Error ? error.message : 'バッチ処理に失敗しました';
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
 // Vercel Cron は GET リクエストを使用
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // 最大60秒（Vercel Pro プラン）
-
