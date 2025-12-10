@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { verifyOAuthState } from '@/server/lib/oauthState';
+import { verifyOAuthState } from '@/server/lib/oauth-state';
 import { SupabaseService } from '@/server/services/supabaseService';
 import {
   GscService,

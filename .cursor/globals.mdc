@@ -98,7 +98,17 @@ alwaysApply: true
 
 6. **守るべきルールのディレクトリ/ファイル**
 
-   - ./cursor/rules/dev-rules/*.mdc 
+   - ./.cursor/dev-rules/*.mdc
+   - ./.cursor/dev-rules/nextjs.mdc（Next.js 15 ベストプラクティス）
+   - ./.cursor/dev-rules/supabase.mdc（Supabase データベース管理）
+   - ./.cursor/dev-rules/stripe.mdc（Stripe 決済機能）
+   - ./.cursor/dev-rules/wordpress.mdc（WordPress 連携）
+   - ./.cursor/dev-rules/line-liff.mdc（LINE LIFF 認証）
+   - ./.cursor/dev-rules/anthropic.mdc（Anthropic Claude API）
+   - ./.cursor/dev-rules/typescript.mdc（TypeScript 型定義と規約）
+   - ./.cursor/dev-rules/gsc.mdc（Google Search Console 連携）
+   - AGENTS.md（プロジェクト全体のガイドライン）
+   - CLAUDE.md（Claude Code 向けの作業フロー）
    - 上記ファイルのルールを厳守してください。
 
 ---

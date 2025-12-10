@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { isAdmin, isUnavailable, getUserRoleWithRefresh } from '@/auth-utils';
+import { isAdmin, isUnavailable, getUserRoleWithRefresh } from '@/authUtils';
 import { hasPaidFeatureAccess, type UserRole } from '@/types/user';
 
 const ADMIN_REQUIRED_PATHS = ['/admin'] as const;

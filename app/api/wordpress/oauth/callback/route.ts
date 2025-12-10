@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { WPCOM_TOKEN_COOKIE_NAME } from '@/server/services/wordpressContext';
-import { verifyOAuthState } from '@/server/lib/oauthState';
+import { verifyOAuthState } from '@/server/lib/oauth-state';
 
 const supabaseService = new SupabaseService();
 

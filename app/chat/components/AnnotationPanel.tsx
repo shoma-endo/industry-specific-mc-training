@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { upsertContentAnnotationBySession } from '@/server/actions/wordpress.action';
+import { upsertContentAnnotationBySession } from '@/server/actions/wordpress.actions';
 import { Button } from '@/components/ui/button';
 import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';

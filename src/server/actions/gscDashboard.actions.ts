@@ -26,6 +26,7 @@ export type GscDetailResponse = {
       current_position: number;
       outcome: GscEvaluationOutcome;
       suggestion_summary: string | null;
+      is_read: boolean;
     }>;
     evaluation: {
       id: string;
@@ -35,6 +36,7 @@ export type GscDetailResponse = {
       last_evaluated_on: string | null;
       base_evaluation_date: string;
       cycle_days: number;
+      evaluation_hour: number;
       last_seen_position: number | null;
       status: string;
       created_at: string;
@@ -152,14 +154,17 @@ function computeNextRunAtJst(evaluation: {
   last_evaluated_on: string | null;
   base_evaluation_date: string;
   cycle_days: number;
+  evaluation_hour?: number;
 }): string {
   const cycle = evaluation.cycle_days || 30;
+  const hour = evaluation.evaluation_hour ?? 12;
   const last = evaluation.last_evaluated_on;
   const baseDate = last ?? evaluation.base_evaluation_date;
   const base = new Date(`${baseDate}T00:00:00.000Z`);
   base.setUTCDate(base.getUTCDate() + cycle);
-  // JST 12:00 は UTC 03:00
-  base.setUTCHours(3, 0, 0, 0);
+  // JST時間をUTCに変換（JST = UTC + 9）
+  const utcHour = (hour - 9 + 24) % 24;
+  base.setUTCHours(utcHour, 0, 0, 0);
   return base.toISOString();
 }
 
@@ -168,6 +173,7 @@ export async function registerEvaluation(params: {
   propertyUri: string;
   baseEvaluationDate: string;
   cycleDays?: number;
+  evaluationHour?: number;
 }) {
   try {
     const { userId, error } = await getAuthUserId();
@@ -175,7 +181,8 @@ export async function registerEvaluation(params: {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
     }
 
-    const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays } = params;
+    const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays, evaluationHour } =
+      params;
     if (!contentAnnotationId || !propertyUri || !baseEvaluationDate) {
       return {
         success: false,
@@ -195,6 +202,11 @@ export async function registerEvaluation(params: {
     const validatedCycleDays = cycleDays ?? 30;
     if (validatedCycleDays < 1 || validatedCycleDays > 365) {
       return { success: false, error: '評価サイクル日数は1〜365日の範囲で指定してください' };
+    }
+
+    const validatedEvaluationHour = evaluationHour ?? 12;
+    if (validatedEvaluationHour < 0 || validatedEvaluationHour > 23) {
+      return { success: false, error: '評価実行時間は0〜23の範囲で指定してください' };
     }
 
     const { data: annotation, error: annotationError } = await supabaseService
@@ -236,6 +248,7 @@ export async function registerEvaluation(params: {
         property_uri: propertyUri,
         base_evaluation_date: baseEvaluationDate,
         cycle_days: validatedCycleDays,
+        evaluation_hour: validatedEvaluationHour,
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -258,6 +271,7 @@ export async function updateEvaluation(params: {
   contentAnnotationId: string;
   baseEvaluationDate: string;
   cycleDays?: number;
+  evaluationHour?: number;
 }) {
   try {
     const { userId, error } = await getAuthUserId();
@@ -265,7 +279,7 @@ export async function updateEvaluation(params: {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
     }
 
-    const { contentAnnotationId, baseEvaluationDate, cycleDays } = params;
+    const { contentAnnotationId, baseEvaluationDate, cycleDays, evaluationHour } = params;
     if (!contentAnnotationId || !baseEvaluationDate) {
       return { success: false, error: 'contentAnnotationId, baseEvaluationDate は必須です' };
     }
@@ -281,6 +295,10 @@ export async function updateEvaluation(params: {
 
     if (cycleDays !== undefined && (cycleDays < 1 || cycleDays > 365)) {
       return { success: false, error: '評価サイクル日数は1〜365日の範囲で指定してください' };
+    }
+
+    if (evaluationHour !== undefined && (evaluationHour < 0 || evaluationHour > 23)) {
+      return { success: false, error: '評価実行時間は0〜23の範囲で指定してください' };
     }
 
     const { data: evaluation, error: evaluationError } = await supabaseService
@@ -299,12 +317,20 @@ export async function updateEvaluation(params: {
       return { success: false, error: '評価対象が見つかりません' };
     }
 
-    const updateData: { base_evaluation_date: string; cycle_days?: number; updated_at: string } = {
+    const updateData: {
+      base_evaluation_date: string;
+      cycle_days?: number;
+      evaluation_hour?: number;
+      updated_at: string;
+    } = {
       base_evaluation_date: baseEvaluationDate,
       updated_at: new Date().toISOString(),
     };
     if (cycleDays !== undefined) {
       updateData.cycle_days = cycleDays;
+    }
+    if (evaluationHour !== undefined) {
+      updateData.evaluation_hour = evaluationHour;
     }
 
     const { error: updateError } = await supabaseService
@@ -497,6 +523,46 @@ export async function fetchQueryAnalysis(
   } catch (error) {
     console.error('[gsc-dashboard] fetch query analysis failed', error);
     const message = error instanceof Error ? error.message : 'クエリ分析の取得に失敗しました';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * 今すぐ評価を実行（手動実行用）
+ *
+ * 評価期限に関係なく、ログインユーザーの全評価対象記事について：
+ * 1. cycle_days 日分のデータをインポート
+ * 2. 評価を実行（順位比較 + 改善提案生成）
+ */
+export async function runEvaluationNow() {
+  try {
+    const { userId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+
+    // 動的インポートで循環参照を回避
+    const { gscEvaluationService } = await import('@/server/services/gscEvaluationService');
+
+    // 手動実行なので force: true で評価期限をスキップ
+    const summary = await gscEvaluationService.runDueEvaluationsForUser(userId, { force: true });
+
+    revalidatePath('/gsc-dashboard');
+    revalidatePath('/analytics');
+
+    return {
+      success: true,
+      data: {
+        processed: summary.processed,
+        improved: summary.improved,
+        advanced: summary.advanced,
+        skippedNoMetrics: summary.skippedNoMetrics,
+        skippedImportFailed: summary.skippedImportFailed,
+      },
+    };
+  } catch (error) {
+    console.error('[gsc-dashboard] run evaluation now failed', error);
+    const message = error instanceof Error ? error.message : '評価処理に失敗しました';
     return { success: false, error: message };
   }
 }

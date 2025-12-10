@@ -17,7 +17,7 @@ import { Settings, Shield, List } from 'lucide-react';
 import Link from 'next/link';
 import { FullNameDialog } from '@/components/FullNameDialog';
 import { env } from '@/env';
-import { SubscriptionService } from '@/domain/services/SubscriptionService';
+import { SubscriptionService } from '@/domain/services/subscriptionService';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import type { SubscriptionDetails as DomainSubscriptionDetails } from '@/domain/interfaces/ISubscriptionService';
@@ -98,6 +98,8 @@ const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProp
     </Card>
   );
 };
+
+import { Toaster } from '@/components/ui/sonner';
 
 export default function Home() {
   const { getAccessToken, isLoading, isLoggedIn, user } = useLiffContext();
@@ -278,6 +280,7 @@ export default function Home() {
 
   return (
     <>
+      <Toaster />
       <FullNameDialog open={showFullNameDialog} onSave={handleSaveFullName} />
 
       {(!isLoading && isLoggedIn) && (

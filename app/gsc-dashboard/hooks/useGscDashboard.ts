@@ -6,6 +6,7 @@ import {
   fetchGscDetail,
   registerEvaluation,
   updateEvaluation,
+  runEvaluationNow,
 } from '@/server/actions/gscDashboard.actions';
 import type {
   GscDashboardDetailResponse,
@@ -37,8 +38,9 @@ interface UseGscDashboardReturn {
   setSelectedId: (id: string | null) => void;
   setSelectedHistory: (history: GscEvaluationHistoryItem | null) => void;
   toggleMetric: (key: keyof GscVisibleMetrics) => void;
-  handleRegisterEvaluation: (dateStr: string, cycleDays: number) => Promise<void>;
-  handleUpdateEvaluation: (dateStr: string, cycleDays: number) => Promise<void>;
+  handleRegisterEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  handleUpdateEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  handleRunEvaluation: () => Promise<{ processed: number; improved: number; advanced: number; skippedNoMetrics: number; skippedImportFailed: number }>;
   refreshDetail: (annotationId: string) => Promise<void>;
 }
 
@@ -61,7 +63,7 @@ export function useGscDashboard({
   });
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
 
-  const selectedFromUrl = searchParams.get('annotationId');
+  const selectedFromUrl = searchParams?.get('annotationId') ?? null;
 
   // URLのクエリから選択を同期
   useEffect(() => {
@@ -161,7 +163,7 @@ export function useGscDashboard({
 
   // アクション: 評価登録
   const handleRegisterEvaluation = useCallback(
-    async (dateStr: string, cycleDays: number) => {
+    async (dateStr: string, cycleDays: number, evaluationHour: number) => {
       if (!selectedId || !detail?.credential?.propertyUri) return;
 
       const res = await registerEvaluation({
@@ -169,6 +171,7 @@ export function useGscDashboard({
         propertyUri: detail.credential.propertyUri,
         baseEvaluationDate: dateStr,
         cycleDays,
+        evaluationHour,
       });
 
       if (!res.success) {
@@ -183,13 +186,14 @@ export function useGscDashboard({
 
   // アクション: 評価更新
   const handleUpdateEvaluation = useCallback(
-    async (dateStr: string, cycleDays: number) => {
+    async (dateStr: string, cycleDays: number, evaluationHour: number) => {
       if (!selectedId) return;
 
       const res = await updateEvaluation({
         contentAnnotationId: selectedId,
         baseEvaluationDate: dateStr,
         cycleDays,
+        evaluationHour,
       });
 
       if (!res.success) {
@@ -201,6 +205,22 @@ export function useGscDashboard({
     },
     [selectedId, refreshDetail]
   );
+
+  // アクション: 今すぐ評価を実行
+  const handleRunEvaluation = useCallback(async () => {
+    const res = await runEvaluationNow();
+
+    if (!res.success) {
+      throw new Error(res.error || '評価処理に失敗しました');
+    }
+
+    // データリロード
+    if (selectedId) {
+      await refreshDetail(selectedId);
+    }
+
+    return res.data!;
+  }, [selectedId, refreshDetail]);
 
   return {
     // State
@@ -221,6 +241,7 @@ export function useGscDashboard({
     toggleMetric,
     handleRegisterEvaluation,
     handleUpdateEvaluation,
+    handleRunEvaluation,
     refreshDetail,
   };
 }

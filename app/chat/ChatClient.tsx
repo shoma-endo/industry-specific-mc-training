@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { useLiffContext } from '@/components/LiffProvider';
-import { ChatService } from '@/domain/services/ChatService';
-import { SubscriptionService } from '@/domain/services/SubscriptionService';
+import { ChatService } from '@/domain/services/chatService';
+import { SubscriptionService } from '@/domain/services/subscriptionService';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { useMobile } from '@/hooks/useMobile';

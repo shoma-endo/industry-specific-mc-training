@@ -72,19 +72,83 @@ AI運用5原則
 - `npm run ngrok` ― LIFF 実機検証用 HTTPS トンネル
 - `npx supabase db push` ― Supabase スキーマ反映（本番反映前は要確認）
 
+## 命名規則
+
+プロジェクト全体で統一された命名規則に従ってください。
+
+### ディレクトリ命名
+
+| カテゴリ | 命名規則 | 例 |
+|---------|----------|-----|
+| **App Router** | kebab-case | `business-info/`, `gsc-dashboard/`, `wordpress-import/` |
+| **API Routes** | kebab-case | `api/line-oauth-init/`, `api/clear-cache/` |
+| **機能モジュール** | kebab-case | `src/server/actions/`, `src/domain/services/` |
+
+### ファイル命名
+
+| カテゴリ | 命名規則 | 拡張子 | 例 |
+|---------|----------|--------|-----|
+| **Page/Layout** | 固定名 | `.tsx` | `page.tsx`, `layout.tsx` |
+| **Route Handlers** | 固定名 | `.ts` | `route.ts` |
+| **Components (shadcn)** | kebab-case | `.tsx` | `avatar.tsx`, `button.tsx`, `card.tsx` |
+| **Components (カスタム)** | PascalCase | `.tsx` | `ChatClient.tsx`, `CanvasPanel.tsx`, `AnnotationPanel.tsx` |
+| **Hooks** | camelCase | `.ts` | `useChatSession.ts`, `useMobile.ts`, `useSubscription.ts` |
+| **Services** | camelCase + Service | `.ts` | `chatService.ts`, `stripeService.ts`, `wordpressService.ts` |
+| **Actions** | camelCase + .actions | `.ts` | `chat.actions.ts`, `gscSetup.actions.ts`, `user.actions.ts` |
+| **Middleware** | camelCase + .middleware | `.ts` | `auth.middleware.ts` |
+| **Schemas** | camelCase + .schema | `.ts` | `brief.schema.ts` |
+| **Models** | camelCase + Models | `.ts` | `chatModels.ts` |
+| **Types** | kebab-case | `.ts` | `analytics.ts`, `canvas.ts`, `chat.ts` |
+| **Lib/Utils** | kebab-case | `.ts` | `blog-canvas.ts`, `client-manager.ts`, `prompt-descriptions.ts` |
+
+### コード内の命名
+
+| 要素 | 命名規則 | 例 |
+|------|----------|-----|
+| **React コンポーネント** | PascalCase | `ChatLayout`, `MessageArea`, `SessionSidebar` |
+| **クラス** | PascalCase | `ChatService`, `SupabaseService`, `WordPressService` |
+| **関数・メソッド** | camelCase | `sendMessage()`, `fetchGscStatus()`, `updateSessionTitle()` |
+| **変数・定数** | camelCase | `accessToken`, `sessionId`, `currentUser` |
+| **定数（グローバル）** | UPPER_SNAKE_CASE | `MODEL_CONFIGS`, `BLOG_STEP_IDS`, `ERROR_MESSAGES` |
+| **型・インターフェース** | PascalCase | `ChatMessage`, `UserRole`, `GscCredential` |
+| **Enum** | PascalCase | `ChatErrorCode`, `SubscriptionStatus` |
+
+### 命名の統一性
+
+- **Services**: フロント（`src/domain/services/`）とサーバー（`src/server/services/`）で命名規則を統一し、すべて camelCase を使用します。
+- **Server Actions**: `src/server/actions/` 配下に配置し、`.actions.ts` サフィックスを付けます。
+- **Components**: shadcn/ui は kebab-case（外部ライブラリの規約）、カスタムコンポーネントは PascalCase で統一します。
+- **一貫性重視**: 同じ役割のファイルは同じ命名パターンを踏襲し、プロジェクト全体での見通しを良くします。
+
+### 命名規則の使い分け基準
+
+プロジェクトでは kebab-case と camelCase が混在していますが、これは意図的な設計です：
+
+**kebab-case を使う場合:**
+- URL に直結するもの（App Router ディレクトリ、API Routes）
+- モジュールとして識別されるもの（Types, Lib/Utils）
+- 外部ライブラリの規約に従う場合（shadcn/ui コンポーネント）
+
+**camelCase を使う場合:**
+- TypeScript/JavaScript の実装ファイル（Services, Actions, Hooks, Middleware, Schemas, Models）
+- 関数名やクラス名とファイル名の対応を明確にする場合
+
+この使い分けにより、Next.js や TypeScript のコミュニティ慣習と整合性を保ち、学習コストを最小化しています。URL は kebab-case（SEO 推奨）、実装ファイルは camelCase（TypeScript 慣習）という、それぞれの領域でのベストプラクティスに従っています。
+
 ## コーディングスタイル
 
 - TypeScript ファースト。共有型は `src/types/` に追加し、フロント・サーバー双方で再利用します。
 - TypeScript でオブジェクトの形状を表す場合は、可能な限り `interface` を使用してください（`type` は `interface` で表現できないケースに限定）。
 - Tailwind CSS でスタイルを記述し、冗長なユーティリティクラスは `cva` などで整理します。
-- React コンポーネント・カスタムフックは PascalCase / camelCase を徹底。サーバー専用ファイルは `.server.ts` / `.action.ts` を語尾に付けます。
+- React コンポーネント・カスタムフックは PascalCase / camelCase を徹底。サーバー専用ファイルは `.server.ts` / `.actions.ts` を語尾に付けます。
 - 既存の hooks/service クラス（`ChatService`, `SubscriptionService` 等）を流用し、重複実装を避けてください。
 - Supabase 呼び出しは `src/server/services/SupabaseService` 経由に統一し、直接 `createClient` を増やさないこと。
 
 ## テストと検証
 
-- 重要フロー（LIFF 認証、Stripe、WordPress 投稿取得、Canvas 編集）はローカルで手動検証し、手順や想定結果を PR に記述します。
-- Stripe・WordPress・LIFF は本番キーとサンドボックスで環境変数が変わるため、変更時は README と `.env.local` 用のメモを更新します。
+- 重要フロー（LIFF 認証、Stripe、WordPress 投稿取得、Canvas 編集、GSC 連携）はローカルで手動検証し、手順や想定結果を PR に記述します。
+- Stripe・WordPress・LIFF・GSC は本番キーとサンドボックスで環境変数が変わるため、変更時は README と `.env.local` 用のメモを更新します。
+- GSC 連携の変更時は `/app/gsc-dashboard` と `/app/gsc-import` の表示・動作を手動で確認してください。
 
 ## ドキュメントとナレッジ
 

@@ -5,13 +5,14 @@ import FieldConfigurator from '@/components/FieldConfigurator';
 import TruncatedText from '@/components/TruncatedText';
 import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
-import { ensureAnnotationChatSession } from '@/server/actions/wordpress.action';
+import { ensureAnnotationChatSession } from '@/server/actions/wordpress.actions';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Bell, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Props {
   items: AnalyticsContentItem[];
+  unreadAnnotationIds?: Set<string>;
 }
 
 interface LaunchPayload {
@@ -52,7 +53,7 @@ function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) 
   );
 }
 
-export default function AnalyticsTable({ items }: Props) {
+export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const router = useRouter();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
   const columnLabelMap = React.useMemo(
@@ -222,43 +223,64 @@ export default function AnalyticsTable({ items }: Props) {
                 const updatedAt = annotation?.updated_at
                   ? new Date(annotation.updated_at).toLocaleDateString('ja-JP')
                   : null;
+                const hasUnreadSuggestion = annotation?.id
+                  ? (unreadAnnotationIds?.has(annotation.id) ?? false)
+                  : false;
 
                 return (
                   <tr key={item.rowKey} className="analytics-row group">
                     <td className="analytics-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
-                      <LaunchChatButton
-                        label="チャット"
-                        isPending={pendingRowKey === item.rowKey}
-                        onClick={() => {
-                          const hasExistingBlog =
-                            (canonicalUrl && canonicalUrl.trim().length > 0) ||
-                            (typeof wpPostId === 'number' && Number.isFinite(wpPostId));
-                          handleLaunch({
-                            rowKey: item.rowKey,
-                            sessionId: annotation?.session_id ?? null,
-                            annotationId: annotation?.id ?? null,
-                            wpPostId,
-                            wpPostTitle: annotation?.wp_post_title ?? null,
-                            canonicalUrl,
-                            fallbackTitle,
-                          initialStep: hasExistingBlog ? 'step7' : null,
-                        });
-                      }}
-                    />
-                      {annotation?.id ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-2"
+                      <div className="flex items-center justify-end gap-2">
+                        <LaunchChatButton
+                          label="チャット"
+                          isPending={pendingRowKey === item.rowKey}
                           onClick={() => {
-                            const target = new URLSearchParams();
-                            target.set('annotationId', annotation.id ?? '');
-                            window.open(`/gsc-dashboard?${target.toString()}`, '_blank', 'noopener,noreferrer');
+                            const hasExistingBlog =
+                              (canonicalUrl && canonicalUrl.trim().length > 0) ||
+                              (typeof wpPostId === 'number' && Number.isFinite(wpPostId));
+                            handleLaunch({
+                              rowKey: item.rowKey,
+                              sessionId: annotation?.session_id ?? null,
+                              annotationId: annotation?.id ?? null,
+                              wpPostId,
+                              wpPostTitle: annotation?.wp_post_title ?? null,
+                              canonicalUrl,
+                              fallbackTitle,
+                              initialStep: hasExistingBlog ? 'step7' : null,
+                            });
                           }}
-                        >
-                          詳細
-                        </Button>
-                      ) : null}
+                        />
+                        {annotation?.id ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                            onClick={() => {
+                              const target = new URLSearchParams();
+                              target.set('annotationId', annotation.id ?? '');
+                              window.open(
+                                `/gsc-dashboard?${target.toString()}`,
+                                '_blank',
+                                'noopener,noreferrer'
+                              );
+                            }}
+                          >
+                            <span className="inline-flex h-3 w-3 items-center justify-center">
+                              {hasUnreadSuggestion ? (
+                                <span
+                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-600 animate-pulse"
+                                  title="改善提案があります"
+                                >
+                                  <Bell className="h-3.5 w-3.5" />
+                                </span>
+                              ) : (
+                                <FileText className="h-3.5 w-3.5 text-gray-500" aria-hidden />
+                              )}
+                            </span>
+                            <span>詳細</span>
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                     {visibleSet.has('main_kw') && (
                       <td className="px-6 py-4 text-sm text-gray-900">
@@ -271,11 +293,7 @@ export default function AnalyticsTable({ items }: Props) {
                     )}
                     {visibleSet.has('kw') && (
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.kw ? (
-                          <TruncatedText text={annotation.kw} lines={2} />
-                        ) : (
-                          '—'
-                        )}
+                        {annotation?.kw ? <TruncatedText text={annotation.kw} lines={2} /> : '—'}
                       </td>
                     )}
                     {visibleSet.has('impressions') && (

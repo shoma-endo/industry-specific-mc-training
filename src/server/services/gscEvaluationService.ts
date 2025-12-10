@@ -1,12 +1,23 @@
 import { SupabaseService } from '@/server/services/supabaseService';
 import type { GscEvaluationOutcome, GscPageMetric } from '@/types/gsc';
 import { gscSuggestionService } from '@/server/services/gscSuggestionService';
+import { gscImportService } from '@/server/services/gscImportService';
 
 interface EvaluationResultSummary {
   processed: number;
   improved: number;
   advanced: number;
   skippedNoMetrics: number;
+  skippedImportFailed: number;
+}
+
+interface BatchResultSummary {
+  usersProcessed: number;
+  totalEvaluations: number;
+  totalImproved: number;
+  totalAdvanced: number;
+  totalSkipped: number;
+  errors: string[];
 }
 
 type EvaluationRow = {
@@ -17,14 +28,24 @@ type EvaluationRow = {
   last_evaluated_on?: string | null;
   base_evaluation_date: string;
   cycle_days: number;
+  evaluation_hour: number;
   last_seen_position?: number | null;
   status: string;
 };
 
+interface RunEvaluationOptions {
+  /** true の場合、評価期限チェックをスキップして全評価対象を処理（手動実行用） */
+  force?: boolean;
+}
+
 export class GscEvaluationService {
   private readonly supabaseService = new SupabaseService();
 
-  async runDueEvaluationsForUser(userId: string): Promise<EvaluationResultSummary> {
+  async runDueEvaluationsForUser(
+    userId: string,
+    options: RunEvaluationOptions = {}
+  ): Promise<EvaluationResultSummary> {
+    const { force = false } = options;
     const today = this.todayISO();
 
     const summary: EvaluationResultSummary = {
@@ -32,6 +53,7 @@ export class GscEvaluationService {
       improved: 0,
       advanced: 0,
       skippedNoMetrics: 0,
+      skippedImportFailed: 0,
     };
 
     // 全てのアクティブな評価対象を取得
@@ -48,11 +70,12 @@ export class GscEvaluationService {
 
     const allEvaluations = (evaluations ?? []) as EvaluationRow[];
 
-    // 評価期限が来ているものをフィルタリング
-    // 初回（last_evaluated_on が null）: base_evaluation_date + cycle_days <= today
-    // 2回目以降: last_evaluated_on + cycle_days <= today
-    const evaluationRows = allEvaluations.filter((evaluation) => {
-      const cycleDays = evaluation.cycle_days || 30; // フォールバック: cycle_daysが無い場合は30日
+    // force: true の場合はフィルタリングをスキップ（手動実行用）
+    // それ以外は評価期限が来ているものをフィルタリング
+    const evaluationRows = force
+      ? allEvaluations
+      : allEvaluations.filter((evaluation) => {
+          const cycleDays = evaluation.cycle_days || 30;
       if (!evaluation.last_evaluated_on) {
         // 初回評価: base_evaluation_date + cycleDays <= today
         const firstEvaluationDate = this.addDaysISO(evaluation.base_evaluation_date, cycleDays);
@@ -65,6 +88,24 @@ export class GscEvaluationService {
     });
 
     for (const evaluation of evaluationRows) {
+      // cycle_days 日分のデータをインポート
+      const cycleDays = evaluation.cycle_days || 30;
+      const startDate = this.addDaysISO(today, -cycleDays);
+      
+      try {
+        await gscImportService.importMetrics(userId, {
+          startDate,
+          endDate: today,
+          searchType: 'web',
+          maxRows: 5000,
+        });
+        console.log(`[gscEvaluationService] Imported ${cycleDays} days of data for evaluation ${evaluation.id}`);
+      } catch (importError) {
+        console.error(`[gscEvaluationService] Failed to import data for evaluation ${evaluation.id}:`, importError);
+        summary.skippedImportFailed += 1;
+        continue; // 最新データが取得できない場合は評価をスキップ
+      }
+
       const metric = await this.fetchLatestMetric(userId, evaluation);
 
       if (!metric) {
@@ -106,7 +147,7 @@ export class GscEvaluationService {
         .insert({
           user_id: userId,
           content_annotation_id: evaluation.content_annotation_id,
-          evaluation_date: today,
+          evaluation_date: metric.date ?? today,
           previous_position: lastSeen,
           current_position: currentPos,
           outcome,
@@ -149,6 +190,8 @@ export class GscEvaluationService {
     userId: string,
     evaluation: EvaluationRow
   ): Promise<Pick<GscPageMetric, 'position' | 'date'> | null> {
+    // 評価日は固定せず「最新取得済みの指標」を採用する。
+    // 直近日が欠損/nullでも、最終取得日で判定できるよう null position は除外。
     const { data, error } = await this.supabaseService
       .getClient()
       .from('gsc_page_metrics')
@@ -156,6 +199,7 @@ export class GscEvaluationService {
       .eq('user_id', userId)
       .eq('property_uri', evaluation.property_uri)
       .eq('content_annotation_id', evaluation.content_annotation_id)
+      .not('position', 'is', null)
       .order('date', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -191,6 +235,120 @@ export class GscEvaluationService {
   private toNumberOrNull(value: unknown): number | null {
     const num = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(num) ? num : null;
+  }
+
+  /**
+   * 次回評価予定日時に達した全ユーザーの評価を実行（Cron バッチ用）
+   *
+   * 条件: (last_evaluated_on ?? base_evaluation_date) + cycle_days の日付
+   *       + evaluation_hour の時間 <= 現在日時(JST)
+   */
+  async runAllDueEvaluations(): Promise<BatchResultSummary> {
+    const summary: BatchResultSummary = {
+      usersProcessed: 0,
+      totalEvaluations: 0,
+      totalImproved: 0,
+      totalAdvanced: 0,
+      totalSkipped: 0,
+      errors: [],
+    };
+
+    // 現在の日本時間を取得
+    const nowJst = this.getNowJst();
+    const todayJst = this.formatDateISO(nowJst);
+    const currentHourJst = nowJst.getHours();
+
+    console.log(`[gscEvaluationService] Running batch at JST: ${todayJst} ${currentHourJst}:00`);
+
+    // 全てのアクティブな評価対象を取得
+    const { data: allEvaluations, error: evalError } = await this.supabaseService
+      .getClient()
+      .from('gsc_article_evaluations')
+      .select('*')
+      .eq('status', 'active');
+
+    if (evalError) {
+      throw new Error(evalError.message || '評価対象の取得に失敗しました');
+    }
+
+    const evaluations = (allEvaluations ?? []) as EvaluationRow[];
+
+    // 次回評価予定日時に達しているものをフィルタリング
+    const dueEvaluations = evaluations.filter(evaluation => {
+      return this.isDue(evaluation, todayJst, currentHourJst);
+    });
+
+    console.log(`[gscEvaluationService] Found ${dueEvaluations.length} due evaluations out of ${evaluations.length} total`);
+
+    // ユーザーIDでグルーピング
+    const evaluationsByUser = new Map<string, EvaluationRow[]>();
+    for (const evaluation of dueEvaluations) {
+      const existing = evaluationsByUser.get(evaluation.user_id) ?? [];
+      existing.push(evaluation);
+      evaluationsByUser.set(evaluation.user_id, existing);
+    }
+
+    // 各ユーザーの評価を実行
+    for (const [userId, userEvaluations] of evaluationsByUser) {
+      try {
+        console.log(`[gscEvaluationService] Processing user ${userId} with ${userEvaluations.length} evaluations`);
+
+        const result = await this.runDueEvaluationsForUser(userId);
+
+        summary.usersProcessed += 1;
+        summary.totalEvaluations += result.processed;
+        summary.totalImproved += result.improved;
+        summary.totalAdvanced += result.advanced;
+        summary.totalSkipped += result.skippedNoMetrics;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[gscEvaluationService] Error processing user ${userId}:`, message);
+        summary.errors.push(`User ${userId}: ${message}`);
+      }
+    }
+
+    return summary;
+  }
+
+  /**
+   * 評価が予定日時に達しているかどうかを判定
+   */
+  private isDue(evaluation: EvaluationRow, todayJst: string, currentHourJst: number): boolean {
+    const cycleDays = evaluation.cycle_days || 30;
+    const evaluationHour = evaluation.evaluation_hour ?? 12;
+    const baseDate = evaluation.last_evaluated_on ?? evaluation.base_evaluation_date;
+    const nextEvaluationDate = this.addDaysISO(baseDate, cycleDays);
+
+    // 日付が未到達の場合はスキップ
+    if (nextEvaluationDate > todayJst) {
+      return false;
+    }
+
+    // 日付が過去の場合は実行対象
+    if (nextEvaluationDate < todayJst) {
+      return true;
+    }
+
+    // 日付が今日の場合は時間をチェック
+    // nextEvaluationDate === todayJst
+    return currentHourJst >= evaluationHour;
+  }
+
+  /**
+   * 現在の日本時間を取得
+   */
+  private getNowJst(): Date {
+    const now = new Date();
+    // UTC を JST (UTC+9) に変換
+    const jstOffset = 9 * 60 * 60 * 1000;
+    return new Date(now.getTime() + jstOffset);
+  }
+
+  /**
+   * Date を YYYY-MM-DD 形式にフォーマット
+   */
+  private formatDateISO(date: Date): string {
+    return date.toISOString().slice(0, 10);
   }
 }
 

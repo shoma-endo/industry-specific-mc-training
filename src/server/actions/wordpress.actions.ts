@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { withAuth } from '@/server/middleware/withAuth';
+import { withAuth } from '@/server/middleware/withAuth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import {
   WordPressSettings,

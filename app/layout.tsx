@@ -1,14 +1,25 @@
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { LiffProvider } from '@/components/LiffProvider';
+import { Toaster } from '@/components/ui/sonner';
+import { GlobalToastBridge } from '@/components/GlobalToastBridge';
+import { GscNotificationHandler } from '@/components/GscNotificationHandler';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" className={inter.className} suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      </head>
       <body suppressHydrationWarning>
-        <LiffProvider initialize={true}>{children}</LiffProvider>
+        <LiffProvider initialize={true}>
+          {children}
+          <Toaster />
+          <GlobalToastBridge />
+          <GscNotificationHandler />
+        </LiffProvider>
       </body>
     </html>
   );

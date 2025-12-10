@@ -6,8 +6,8 @@ import { BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 
 const ChatPageContent = () => {
   const searchParams = useSearchParams();
-  const initialSessionId = searchParams.get('session');
-  const rawInitialStep = searchParams.get('initialStep');
+  const initialSessionId = searchParams?.get('session') ?? undefined;
+  const rawInitialStep = searchParams?.get('initialStep');
   const initialStep = rawInitialStep && BLOG_STEP_IDS.includes(rawInitialStep as BlogStepId)
     ? (rawInitialStep as BlogStepId)
     : undefined;
