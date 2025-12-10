@@ -7,7 +7,7 @@ import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constan
 import type { AnalyticsContentItem } from '@/types/analytics';
 import { ensureAnnotationChatSession } from '@/server/actions/wordpress.actions';
 import { Button } from '@/components/ui/button';
-import { Loader2, Bell } from 'lucide-react';
+import { Loader2, Bell, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Props {
@@ -231,14 +231,6 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                   <tr key={item.rowKey} className="analytics-row group">
                     <td className="analytics-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {hasUnreadSuggestion && (
-                          <span
-                            className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-amber-100 text-amber-600 animate-pulse"
-                            title="改善提案があります"
-                          >
-                            <Bell className="h-5 w-5" />
-                          </span>
-                        )}
                         <LaunchChatButton
                           label="チャット"
                           isPending={pendingRowKey === item.rowKey}
@@ -262,6 +254,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                           <Button
                             variant="outline"
                             size="sm"
+                            className="flex items-center gap-2"
                             onClick={() => {
                               const target = new URLSearchParams();
                               target.set('annotationId', annotation.id ?? '');
@@ -272,7 +265,19 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                               );
                             }}
                           >
-                            詳細
+                            <span className="inline-flex h-3 w-3 items-center justify-center">
+                              {hasUnreadSuggestion ? (
+                                <span
+                                  className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-600 animate-pulse"
+                                  title="改善提案があります"
+                                >
+                                  <Bell className="h-3.5 w-3.5" />
+                                </span>
+                              ) : (
+                                <FileText className="h-3.5 w-3.5 text-gray-500" aria-hidden />
+                              )}
+                            </span>
+                            <span>詳細</span>
                           </Button>
                         ) : null}
                       </div>
