@@ -63,7 +63,7 @@ export function useGscDashboard({
   });
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
 
-  const selectedFromUrl = searchParams.get('annotationId');
+  const selectedFromUrl = searchParams?.get('annotationId') ?? null;
 
   // URLのクエリから選択を同期
   useEffect(() => {
