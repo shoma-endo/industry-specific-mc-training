@@ -4,12 +4,21 @@ import { llmChat } from '@/server/services/llmService';
 import { MODEL_CONFIGS } from '@/lib/constants';
 import type { GscEvaluationOutcome } from '@/types/gsc';
 import { stripHtml } from '@/lib/utils';
-import { buildWordPressServiceFromSettings, WPCOM_TOKEN_COOKIE_NAME } from '@/server/services/wordpressContext';
+import {
+  buildWordPressServiceFromSettings,
+  WPCOM_TOKEN_COOKIE_NAME,
+} from '@/server/services/wordpressContext';
 
 type SuggestionTemplate =
   | 'gsc_insight_ctr_boost'
   | 'gsc_insight_intro_refresh'
   | 'gsc_insight_body_rewrite';
+
+const TEMPLATE_LABELS: Record<SuggestionTemplate, string> = {
+  gsc_insight_ctr_boost: '広告タイトル・説明文の提案',
+  gsc_insight_intro_refresh: '書き出し案の提案',
+  gsc_insight_body_rewrite: '本文の提案',
+};
 
 interface GenerateParams {
   userId: string;
@@ -36,7 +45,7 @@ export class GscSuggestionService {
       params.userId
     );
 
-    const tasks: Array<Promise<void>> = [];
+    const tasks: Array<Promise<{ templateName: SuggestionTemplate; text: string } | null>> = [];
 
     // CTR改善（広告スニペット）
     if (annotation.ads_headline || annotation.ads_description) {
@@ -47,7 +56,6 @@ export class GscSuggestionService {
             adsHeadline: annotation.ads_headline || '',
             adsDescription: annotation.ads_description || '',
           },
-          params,
         })
       );
     }
@@ -60,7 +68,6 @@ export class GscSuggestionService {
           variables: {
             openingProposal: annotation.opening_proposal || '',
           },
-          params,
         })
       );
     }
@@ -73,28 +80,45 @@ export class GscSuggestionService {
           variables: {
             wpContent,
           },
-          params,
         })
       );
     }
 
-    await Promise.allSettled(tasks);
+    const results = await Promise.allSettled(tasks);
+
+    // 結果を組み合わせてマークダウン形式でDBに保存
+    const sections: string[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        const { templateName, text } = result.value;
+        const label = TEMPLATE_LABELS[templateName];
+        sections.push(`# ${label}\n\n${text}`);
+      }
+    }
+
+    if (sections.length > 0) {
+      const suggestionSummary = sections.join('\n\n---\n\n');
+      const client = this.supabase.getClient();
+      await client
+        .from('gsc_article_evaluation_history')
+        .update({ suggestion_summary: suggestionSummary })
+        .eq('id', params.evaluationHistoryId)
+        .eq('user_id', params.userId);
+    }
   }
 
   private async runOne({
     templateName,
     variables,
-    params,
   }: {
     templateName: SuggestionTemplate;
     variables: Record<string, string>;
-    params: GenerateParams;
-  }) {
+  }): Promise<{ templateName: SuggestionTemplate; text: string } | null> {
     const template = await PromptService.getTemplateByName(templateName);
-    if (!template) return;
+    if (!template) return null;
 
     const modelConfig = MODEL_CONFIGS[templateName];
-    if (!modelConfig) return;
+    if (!modelConfig) return null;
 
     const filled = PromptService.replaceVariables(template.content, variables);
     const provider = modelConfig.provider;
@@ -105,34 +129,14 @@ export class GscSuggestionService {
       temperature: modelConfig.temperature,
     });
 
-    const client = this.supabase.getClient();
-    const { data: existing } = await client
-      .from('gsc_article_evaluation_history')
-      .select('suggestion_summary')
-      .eq('id', params.evaluationHistoryId)
-      .eq('user_id', params.userId)
-      .maybeSingle();
-    const header = `### ${templateName}\n${fullText}`;
-    const combined = existing?.suggestion_summary
-      ? `${existing.suggestion_summary}\n\n---\n\n${header}`
-      : header;
-
-    await client
-      .from('gsc_article_evaluation_history')
-      .update({
-        suggestion_summary: combined,
-      })
-      .eq('id', params.evaluationHistoryId)
-      .eq('user_id', params.userId);
+    return { templateName, text: fullText };
   }
 
   private async loadAnnotation(userId: string, annotationId: string) {
     const { data, error } = await this.supabase
       .getClient()
       .from('content_annotations')
-      .select(
-        'id, wp_post_id, ads_headline, ads_description, opening_proposal, wp_content_text'
-      )
+      .select('id, wp_post_id, ads_headline, ads_description, opening_proposal, wp_content_text')
       .eq('user_id', userId)
       .eq('id', annotationId)
       .maybeSingle();
@@ -140,16 +144,14 @@ export class GscSuggestionService {
       console.error('[GscSuggestion] annotation fetch error', error);
       return null;
     }
-    return data as
-      | {
-          id: string;
-          wp_post_id: number | null;
-          ads_headline: string | null;
-          ads_description: string | null;
-          opening_proposal: string | null;
-          wp_content_text: string | null;
-        }
-      | null;
+    return data as {
+      id: string;
+      wp_post_id: number | null;
+      ads_headline: string | null;
+      ads_description: string | null;
+      opening_proposal: string | null;
+      wp_content_text: string | null;
+    } | null;
   }
 
   private async fetchWpContent(
@@ -198,18 +200,13 @@ export class GscSuggestionService {
       const expiresAt = wpSettings.wpTokenExpiresAt
         ? new Date(wpSettings.wpTokenExpiresAt).getTime()
         : null;
-      if (
-        accessToken &&
-        expiresAt &&
-        expiresAt - Date.now() < 60 * 1000
-      ) {
+      if (accessToken && expiresAt && expiresAt - Date.now() < 60 * 1000) {
         const refreshed = await this.supabase.refreshWpComToken(userId, wpSettings);
         if (refreshed.success) {
           accessToken = refreshed.accessToken;
           wpSettings.wpAccessToken = refreshed.accessToken ?? null;
           wpSettings.wpRefreshToken = refreshed.refreshToken ?? wpSettings.wpRefreshToken ?? null;
-          wpSettings.wpTokenExpiresAt =
-            refreshed.expiresAt ?? wpSettings.wpTokenExpiresAt ?? null;
+          wpSettings.wpTokenExpiresAt = refreshed.expiresAt ?? wpSettings.wpTokenExpiresAt ?? null;
         } else {
           accessToken = null;
         }
@@ -220,9 +217,8 @@ export class GscSuggestionService {
         return null;
       }
 
-      const ctx = buildWordPressServiceFromSettings(
-        wpSettings,
-        name => (name === WPCOM_TOKEN_COOKIE_NAME ? accessToken : undefined)
+      const ctx = buildWordPressServiceFromSettings(wpSettings, name =>
+        name === WPCOM_TOKEN_COOKIE_NAME ? accessToken : undefined
       );
       if (!ctx.success) return null;
 

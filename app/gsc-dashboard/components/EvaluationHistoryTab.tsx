@@ -3,7 +3,13 @@
 import { useState, useTransition } from 'react';
 import { ChevronRight, Loader2, CheckCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -26,13 +32,11 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
       if (result.success) {
         // ローカル状態を更新
         setHistory(prev =>
-          prev?.map(item =>
-            item.id === historyId ? { ...item, is_read: true } : item
-          )
+          prev?.map(item => (item.id === historyId ? { ...item, is_read: true } : item))
         );
         // ダイアログ内の選択中アイテムも更新
         if (selectedHistory?.id === historyId) {
-          setSelectedHistory(prev => prev ? { ...prev, is_read: true } : null);
+          setSelectedHistory(prev => (prev ? { ...prev, is_read: true } : null));
         }
         toast.success('既読にしました');
       } else {
@@ -108,7 +112,7 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
         open={selectedHistory !== null}
         onOpenChange={open => !open && setSelectedHistory(null)}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>AIの改善提案内容</DialogTitle>
           </DialogHeader>
@@ -139,8 +143,8 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
               <div>
                 <p className="text-sm font-semibold mb-2">改善提案</p>
                 {selectedHistory.suggestion_summary ? (
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="text-sm text-gray-800 prose prose-sm max-w-none">
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h1:text-xl prose-h1:border-b prose-h1:border-slate-300 prose-h1:pb-2 prose-h1:mb-4 prose-h2:text-lg prose-h2:mt-6 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1 prose-hr:my-6 prose-hr:border-slate-300">
                       <ReactMarkdown>{selectedHistory.suggestion_summary}</ReactMarkdown>
                     </div>
                   </div>
@@ -151,20 +155,22 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
             </div>
           )}
           <DialogFooter>
-            {selectedHistory && !selectedHistory.is_read && selectedHistory.outcome !== 'improved' && (
-              <Button
-                onClick={() => handleMarkAsRead(selectedHistory.id)}
-                disabled={isPending}
-                className="gap-2"
-              >
-                {isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCheck className="h-4 w-4" />
-                )}
-                既読にする
-              </Button>
-            )}
+            {selectedHistory &&
+              !selectedHistory.is_read &&
+              selectedHistory.outcome !== 'improved' && (
+                <Button
+                  onClick={() => handleMarkAsRead(selectedHistory.id)}
+                  disabled={isPending}
+                  className="gap-2"
+                >
+                  {isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCheck className="h-4 w-4" />
+                  )}
+                  既読にする
+                </Button>
+              )}
             {selectedHistory?.is_read && (
               <span className="text-sm text-gray-500 flex items-center gap-1">
                 <CheckCheck className="h-4 w-4" />
