@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { useFaviconBadge } from '@/hooks/useFaviconBadge';
 
 type DummyPayload = {
   id: string;
@@ -17,11 +16,6 @@ const LS_KEY = 'gsc_dummy_payload';
 const TOAST_ID = 'GSC_DUMMY_SUGGESTION';
 
 export function GlobalToastBridge() {
-  const [pending, setPending] = useState<DummyPayload | null>(null);
-
-  // faviconをトースト状態と連動
-  useFaviconBadge(pending ? 1 : 0);
-
   const openDialog = (payload: DummyPayload) => {
     if (window.location.pathname.startsWith('/gsc-dashboard')) {
       window.dispatchEvent(new CustomEvent<DummyPayload>('gsc-dummy-open', { detail: payload }));
@@ -31,12 +25,10 @@ export function GlobalToastBridge() {
       window.location.href = '/gsc-dashboard';
     }
     toast.dismiss(TOAST_ID);
-    setPending(null);
     localStorage.removeItem(LS_KEY);
   };
 
   const showToast = useCallback((payload: DummyPayload) => {
-    setPending(payload);
     toast.dismiss(TOAST_ID);
     toast.custom(
       () => (
@@ -54,7 +46,6 @@ export function GlobalToastBridge() {
         duration: Infinity,
         dismissible: true,
         onDismiss: () => {
-          setPending(null);
           localStorage.removeItem(LS_KEY);
         },
       }

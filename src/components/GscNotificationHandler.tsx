@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Bell, X } from 'lucide-react';
 import { useLiffContext } from '@/components/LiffProvider';
-import { useFaviconBadge } from '@/hooks/useFaviconBadge';
 import { getUnreadSuggestionsCount } from '@/server/actions/gscNotification.actions';
 
 const TOAST_SESSION_KEY = 'gsc_notification_toast_shown';
@@ -14,19 +13,13 @@ export function GscNotificationHandler() {
   const { isLoggedIn, isLoading } = useLiffContext();
   const pathname = usePathname();
   const router = useRouter();
-  const [unreadCount, setUnreadCount] = useState(0);
   const toastShownRef = useRef(false);
-
-  // Faviconバッジの更新
-  useFaviconBadge(unreadCount);
 
   const fetchUnread = useCallback(async () => {
     if (!isLoggedIn || isLoading) return;
 
       try {
       const result = await getUnreadSuggestionsCount();
-          setUnreadCount(result.count);
-
       // セッション中に一度だけトースト表示
       if (result.count > 0 && !toastShownRef.current) {
         const alreadyShown = sessionStorage.getItem(TOAST_SESSION_KEY);
@@ -90,7 +83,6 @@ export function GscNotificationHandler() {
   // ログアウト時にリセット
   useEffect(() => {
     if (!isLoggedIn && !isLoading) {
-      setUnreadCount(0);
       toastShownRef.current = false;
       sessionStorage.removeItem(TOAST_SESSION_KEY);
     }
