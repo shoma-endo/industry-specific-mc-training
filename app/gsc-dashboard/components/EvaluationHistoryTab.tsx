@@ -16,25 +16,10 @@ import { toast } from 'sonner';
 import { GSC_EVALUATION_OUTCOME_CONFIG } from '@/types/gsc';
 import { markSuggestionAsRead } from '@/server/actions/gscNotification.actions';
 import type { GscEvaluationHistoryItem } from '../types';
+import { formatDateTime } from '@/lib/utils';
 
 interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
-}
-
-/**
- * ISO8601形式の日時文字列を「2025年12月11日 12:34」形式にフォーマット
- */
-function formatDateTime(isoString: string): string {
-  const date = new Date(isoString);
-  const formatter = new Intl.DateTimeFormat('ja-JP', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Tokyo',
-  });
-  return formatter.format(date);
 }
 
 export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHistoryTabProps) {
