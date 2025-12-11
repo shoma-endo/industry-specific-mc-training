@@ -367,7 +367,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                     )}
                     {visibleSet.has('wp_post_title') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {annotation?.wp_post_title || '（未紐付け）'}
+                        {annotation?.wp_post_title || '—'}
                       </td>
                     )}
                     {visibleSet.has('ads_headline') && (
