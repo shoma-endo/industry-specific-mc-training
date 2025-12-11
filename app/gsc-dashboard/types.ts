@@ -40,6 +40,7 @@ export interface GscEvaluationHistoryItem {
   outcome: GscEvaluationOutcome;
   suggestion_summary: string | null;
   is_read: boolean;
+  created_at: string;
 }
 
 /**

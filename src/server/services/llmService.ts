@@ -104,7 +104,17 @@ export class LLMService {
   ): Promise<string> {
     const params = {
       model,
-      ...(systemPrompt ? { system: systemPrompt } : {}),
+      ...(systemPrompt
+        ? {
+            system: [
+              {
+                type: 'text' as const,
+                text: systemPrompt,
+                cache_control: { type: 'ephemeral' as const },
+              },
+            ],
+          }
+        : {}),
       messages: messages.map(m => ({
         role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
         content: [{ type: 'text' as const, text: m.content }],
