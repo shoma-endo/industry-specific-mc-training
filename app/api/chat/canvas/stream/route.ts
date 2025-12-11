@@ -408,15 +408,9 @@ export async function POST(req: NextRequest) {
               {
                 type: 'text',
                 text: finalSystemPrompt,
-                cache_control: { type: 'ephemeral' },
               },
             ],
-            tools: [
-              {
-                ...CANVAS_EDIT_TOOL,
-                cache_control: { type: 'ephemeral' as const },
-              },
-            ],
+            tools: [CANVAS_EDIT_TOOL],
             tool_choice: { type: 'tool', name: 'apply_full_text_replacement' },
             messages: [
               {
