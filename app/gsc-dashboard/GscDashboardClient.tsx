@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, TrendingUp, Search, History, Bell } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -20,10 +21,26 @@ export default function GscDashboardClient({
   initialDetail = null,
 }: Props) {
   const dashboard = useGscDashboard({ initialSelectedId, initialDetail });
+  const [readHistoryIds, setReadHistoryIds] = useState<Set<string>>(new Set());
 
   // 未読の改善提案があるか判定（improved以外で is_read が false のもの）
-  const hasUnreadSuggestions =
-    dashboard.detail?.history?.some(item => !item.is_read && item.outcome !== 'improved') ?? false;
+  const hasUnreadSuggestions = useMemo(() => {
+    if (!dashboard.detail?.history) return false;
+    return dashboard.detail.history.some(
+      item => !item.is_read && item.outcome !== 'improved' && !readHistoryIds.has(item.id)
+    );
+  }, [dashboard.detail?.history, readHistoryIds]);
+
+  const handleHistoryRead = (id: string) => {
+    setReadHistoryIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('gsc-unread-updated', { detail: { delta: -1 } }));
+    }
+  };
 
   return (
     <div className="w-full px-4 py-8 space-y-6">
@@ -88,7 +105,7 @@ export default function GscDashboardClient({
         </TabsContent>
 
         <TabsContent value="history" className="mt-6">
-          <EvaluationHistoryTab history={dashboard.detail?.history} />
+          <EvaluationHistoryTab history={dashboard.detail?.history} onHistoryRead={handleHistoryRead} />
         </TabsContent>
       </Tabs>
     </div>

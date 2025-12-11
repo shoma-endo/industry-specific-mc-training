@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { ChevronRight, Loader2, CheckCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -20,12 +20,22 @@ import { formatDateTime } from '@/lib/utils';
 
 interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
+  onHistoryRead?: (historyId: string) => void;
 }
 
-export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHistoryTabProps) {
+export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }: EvaluationHistoryTabProps) {
   const [history, setHistory] = useState(initialHistory);
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // 親からの最新履歴に同期
+  useEffect(() => {
+    setHistory(initialHistory);
+    // 選択中の履歴がなくなった場合に閉じる
+    if (selectedHistory && !initialHistory?.some(item => item.id === selectedHistory.id)) {
+      setSelectedHistory(null);
+    }
+  }, [initialHistory, selectedHistory]);
 
   const handleMarkAsRead = (historyId: string) => {
     startTransition(async () => {
@@ -39,7 +49,7 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
         if (selectedHistory?.id === historyId) {
           setSelectedHistory(prev => (prev ? { ...prev, is_read: true } : null));
         }
-        toast.success('既読にしました');
+        onHistoryRead?.(historyId);
       } else {
         toast.error(result.error || '既読処理に失敗しました');
       }

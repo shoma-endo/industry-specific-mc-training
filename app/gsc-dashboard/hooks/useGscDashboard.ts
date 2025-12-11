@@ -208,7 +208,11 @@ export function useGscDashboard({
 
   // アクション: 今すぐ評価を実行
   const handleRunEvaluation = useCallback(async () => {
-    const res = await runEvaluationNow();
+    if (!selectedId) {
+      throw new Error('評価対象が選択されていません');
+    }
+
+    const res = await runEvaluationNow(selectedId);
 
     if (!res.success) {
       throw new Error(res.error || '評価処理に失敗しました');
@@ -245,4 +249,3 @@ export function useGscDashboard({
     refreshDetail,
   };
 }
-

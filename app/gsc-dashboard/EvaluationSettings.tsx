@@ -75,7 +75,6 @@ export function EvaluationSettings({
   onRunEvaluation,
 }: EvaluationSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const isProduction = process.env.NODE_ENV === 'production';
   // date string format: YYYY-MM-DD
   const [dateStr, setDateStr] = useState<string>('');
   const [cycleDays, setCycleDays] = useState<number>(30);
@@ -336,7 +335,7 @@ export function EvaluationSettings({
             <Button
               variant="outline"
               onClick={handleRunEvaluation}
-              disabled={runningEvaluation || isProduction}
+              disabled={runningEvaluation}
               className="gap-2"
             >
               {runningEvaluation ? (
@@ -346,12 +345,6 @@ export function EvaluationSettings({
               )}
               今すぐ評価を実行
             </Button>
-          )}
-
-          {isProduction && (
-            <p className="text-xs text-muted-foreground">
-              本番環境では安全のため手動実行を無効化しています。
-            </p>
           )}
         </div>
       </div>
