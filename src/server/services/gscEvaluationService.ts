@@ -36,6 +36,8 @@ type EvaluationRow = {
 interface RunEvaluationOptions {
   /** true の場合、評価期限チェックをスキップして全評価対象を処理（手動実行用） */
   force?: boolean;
+  /** 特定の記事のみ手動評価する場合に指定 */
+  contentAnnotationId?: string;
 }
 
 export class GscEvaluationService {
@@ -45,7 +47,9 @@ export class GscEvaluationService {
     userId: string,
     options: RunEvaluationOptions = {}
   ): Promise<EvaluationResultSummary> {
-    const { force = false } = options;
+    const { force = false, contentAnnotationId } = options as RunEvaluationOptions & {
+      contentAnnotationId?: string;
+    };
     const today = this.todayISO();
 
     const summary: EvaluationResultSummary = {
@@ -62,7 +66,8 @@ export class GscEvaluationService {
       .from('gsc_article_evaluations')
       .select('*')
       .eq('user_id', userId)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .match(contentAnnotationId ? { content_annotation_id: contentAnnotationId } : {});
 
     if (evalError) {
       throw new Error(evalError.message || '評価対象の取得に失敗しました');

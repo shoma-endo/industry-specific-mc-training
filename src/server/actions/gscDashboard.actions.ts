@@ -535,7 +535,7 @@ export async function fetchQueryAnalysis(
  * 1. cycle_days 日分のデータをインポート
  * 2. 評価を実行（順位比較 + 改善提案生成）
  */
-export async function runEvaluationNow() {
+export async function runEvaluationNow(contentAnnotationId: string) {
   try {
     const { userId, error } = await getAuthUserId();
     if (error || !userId) {
@@ -546,7 +546,10 @@ export async function runEvaluationNow() {
     const { gscEvaluationService } = await import('@/server/services/gscEvaluationService');
 
     // 手動実行なので force: true で評価期限をスキップ
-    const summary = await gscEvaluationService.runDueEvaluationsForUser(userId, { force: true });
+    const summary = await gscEvaluationService.runDueEvaluationsForUser(userId, {
+      force: true,
+      contentAnnotationId,
+    });
 
     revalidatePath('/gsc-dashboard');
     revalidatePath('/analytics');
