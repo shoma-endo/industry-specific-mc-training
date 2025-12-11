@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { ChevronRight, Loader2, CheckCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -25,6 +25,15 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
   const [history, setHistory] = useState(initialHistory);
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // 親からの最新履歴に同期
+  useEffect(() => {
+    setHistory(initialHistory);
+    // 選択中の履歴がなくなった場合に閉じる
+    if (selectedHistory && !initialHistory?.some(item => item.id === selectedHistory.id)) {
+      setSelectedHistory(null);
+    }
+  }, [initialHistory, selectedHistory]);
 
   const handleMarkAsRead = (historyId: string) => {
     startTransition(async () => {
