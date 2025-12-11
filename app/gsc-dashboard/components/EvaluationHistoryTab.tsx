@@ -50,7 +50,6 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
           setSelectedHistory(prev => (prev ? { ...prev, is_read: true } : null));
         }
         onHistoryRead?.(historyId);
-        toast.success('既読にしました');
       } else {
         toast.error(result.error || '既読処理に失敗しました');
       }
