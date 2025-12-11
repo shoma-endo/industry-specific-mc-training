@@ -20,9 +20,10 @@ import { formatDateTime } from '@/lib/utils';
 
 interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
+  onHistoryRead?: (historyId: string) => void;
 }
 
-export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHistoryTabProps) {
+export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }: EvaluationHistoryTabProps) {
   const [history, setHistory] = useState(initialHistory);
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -48,6 +49,7 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
         if (selectedHistory?.id === historyId) {
           setSelectedHistory(prev => (prev ? { ...prev, is_read: true } : null));
         }
+        onHistoryRead?.(historyId);
         toast.success('既読にしました');
       } else {
         toast.error(result.error || '既読処理に失敗しました');
