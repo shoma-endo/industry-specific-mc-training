@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { GSC_EVALUATION_OUTCOME_CONFIG } from '@/types/gsc';
 import { markSuggestionAsRead } from '@/server/actions/gscNotification.actions';
 import type { GscEvaluationHistoryItem } from '../types';
+import { formatDateTime } from '@/lib/utils';
 
 interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
@@ -74,7 +75,7 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
                       <span className="flex h-2 w-2 rounded-full bg-amber-500" title="未読" />
                     )}
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{item.evaluation_date}</p>
+                      <p className="text-sm font-medium text-gray-900">{formatDateTime(item.created_at)}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-500">判定:</span>
                         <span
@@ -121,7 +122,7 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">評価日</p>
-                  <p className="text-sm font-medium">{selectedHistory.evaluation_date}</p>
+                  <p className="text-sm font-medium">{formatDateTime(selectedHistory.created_at)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">判定</p>
