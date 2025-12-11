@@ -27,6 +27,7 @@ export type GscDetailResponse = {
       outcome: GscEvaluationOutcome;
       suggestion_summary: string | null;
       is_read: boolean;
+      created_at: string;
     }>;
     evaluation: {
       id: string;

@@ -21,6 +21,22 @@ interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
 }
 
+/**
+ * ISO8601形式の日時文字列を「2025年12月11日 12:34」形式にフォーマット
+ */
+function formatDateTime(isoString: string): string {
+  const date = new Date(isoString);
+  const formatter = new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  });
+  return formatter.format(date);
+}
+
 export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHistoryTabProps) {
   const [history, setHistory] = useState(initialHistory);
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
@@ -74,7 +90,7 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
                       <span className="flex h-2 w-2 rounded-full bg-amber-500" title="未読" />
                     )}
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{item.evaluation_date}</p>
+                      <p className="text-sm font-medium text-gray-900">{formatDateTime(item.created_at)}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-500">判定:</span>
                         <span
@@ -121,7 +137,7 @@ export function EvaluationHistoryTab({ history: initialHistory }: EvaluationHist
               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">評価日</p>
-                  <p className="text-sm font-medium">{selectedHistory.evaluation_date}</p>
+                  <p className="text-sm font-medium">{formatDateTime(selectedHistory.created_at)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">判定</p>
