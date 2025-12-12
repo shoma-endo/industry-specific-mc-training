@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { ChevronRight, Loader2, CheckCheck } from 'lucide-react';
+import { ChevronRight, Loader2, CheckCheck, Target, PenLine, FileText } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -17,6 +18,28 @@ import { GSC_EVALUATION_OUTCOME_CONFIG } from '@/types/gsc';
 import { markSuggestionAsRead } from '@/server/actions/gscNotification.actions';
 import type { GscEvaluationHistoryItem } from '../types';
 import { formatDateTime } from '@/lib/utils';
+
+// 各セクションのスタイル定義
+const SUGGESTION_SECTION_STYLES: Record<
+  string,
+  { badgeClass: string; sectionClass: string; icon: LucideIcon }
+> = {
+  '広告タイトル・説明文の提案': {
+    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
+    sectionClass: 'bg-blue-50 border-blue-200',
+    icon: Target,
+  },
+  '書き出し案の提案': {
+    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
+    sectionClass: 'bg-blue-50 border-blue-200',
+    icon: PenLine,
+  },
+  '本文の提案': {
+    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
+    sectionClass: 'bg-blue-50 border-blue-200',
+    icon: FileText,
+  },
+};
 
 interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
@@ -154,10 +177,39 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
               <div>
                 <p className="text-sm font-semibold mb-2">改善提案</p>
                 {selectedHistory.suggestion_summary ? (
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h1:text-xl prose-h1:border-b prose-h1:border-slate-300 prose-h1:pb-2 prose-h1:mb-4 prose-h2:text-lg prose-h2:mt-6 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1 prose-hr:my-6 prose-hr:border-slate-300">
-                      <ReactMarkdown>{selectedHistory.suggestion_summary}</ReactMarkdown>
-                    </div>
+                  <div className="space-y-4">
+                    {selectedHistory.suggestion_summary.split('\n\n---\n\n').map((section, index) => {
+                      // 見出し（# で始まる行）を抽出
+                      const headingMatch = section.match(/^#\s+(.+)$/m);
+                      const heading = headingMatch ? headingMatch[1].trim() : null;
+                      const content = heading
+                        ? section.replace(/^#\s+.+$/m, '').trim()
+                        : section.trim();
+
+                      // 見出しに対応するスタイルを取得
+                      const style = heading ? SUGGESTION_SECTION_STYLES[heading] : null;
+
+                      return (
+                        <div
+                          key={index}
+                          className={`p-4 rounded-lg border ${style?.sectionClass || 'bg-slate-50 border-slate-200'}`}
+                        >
+                          {heading && style && (
+                            <div className="mb-3 flex items-center gap-2">
+                              <style.icon className="w-5 h-5 text-blue-600" />
+                              <span
+                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold border ${style.badgeClass}`}
+                              >
+                                {heading}
+                              </span>
+                            </div>
+                          )}
+                          <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1">
+                            <ReactMarkdown>{content}</ReactMarkdown>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500 italic">提案なし</p>
