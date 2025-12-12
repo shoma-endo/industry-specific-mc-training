@@ -92,102 +92,138 @@ export class GscEvaluationService {
       }
     });
 
-    for (const evaluation of evaluationRows) {
-      // cycle_days 日分のデータをインポート
-      const cycleDays = evaluation.cycle_days || 30;
-      const startDate = this.addDaysISO(today, -cycleDays);
-      
-      try {
-        await gscImportService.importMetrics(userId, {
-          startDate,
-          endDate: today,
-          searchType: 'web',
-          maxRows: 5000,
-        });
-        console.log(`[gscEvaluationService] Imported ${cycleDays} days of data for evaluation ${evaluation.id}`);
-      } catch (importError) {
-        console.error(`[gscEvaluationService] Failed to import data for evaluation ${evaluation.id}:`, importError);
-        summary.skippedImportFailed += 1;
-        continue; // 最新データが取得できない場合は評価をスキップ
-      }
+    // 全ての評価を並列実行
+    const results = await Promise.allSettled(
+      evaluationRows.map((evaluation) => this.processEvaluation(userId, evaluation, today))
+    );
 
-      const metric = await this.fetchLatestMetric(userId, evaluation);
-
-      if (!metric) {
-        summary.skippedNoMetrics += 1;
-        continue;
-      }
-
-      const lastSeen = this.toNumberOrNull(evaluation.last_seen_position);
-      const currentPos = this.toNumberOrNull(metric.position);
-
-      if (currentPos === null) {
-        summary.skippedNoMetrics += 1;
-        continue;
-      }
-
-      const outcome = this.judgeOutcome(lastSeen, currentPos);
-
-      // 更新: evaluations
-      // base_evaluation_date は更新しない（固定された評価基準日として保持）
-      const { error: updateError } = await this.supabaseService
-        .getClient()
-        .from('gsc_article_evaluations')
-        .update({
-          last_seen_position: currentPos,
-          last_evaluated_on: today,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', evaluation.id)
-        .eq('user_id', userId);
-
-      if (updateError) {
-        throw new Error(updateError.message || '評価レコード更新に失敗しました');
-      }
-
-      // 挿入: history
-      const { data: historyRow, error: historyError } = await this.supabaseService
-        .getClient()
-        .from('gsc_article_evaluation_history')
-        .insert({
-          user_id: userId,
-          content_annotation_id: evaluation.content_annotation_id,
-          evaluation_date: metric.date ?? today,
-          previous_position: lastSeen,
-          current_position: currentPos,
-          outcome,
-          suggestion_applied: false,
-          created_at: new Date().toISOString(),
-        })
-        .select('id')
-        .maybeSingle();
-
-      if (historyError) {
-        throw new Error(historyError.message || '評価履歴の保存に失敗しました');
-      }
-
-      // 改善提案: 改善していない場合のみ実行
-      if (outcome !== 'improved' && historyRow?.id) {
-        await gscSuggestionService.generate({
-          userId,
-          contentAnnotationId: evaluation.content_annotation_id,
-          evaluationId: evaluation.id,
-          evaluationHistoryId: historyRow.id,
-          outcome,
-          currentPosition: currentPos,
-          previousPosition: lastSeen,
-        });
-      }
-
-      summary.processed += 1;
-      if (outcome === 'improved') {
-        summary.improved += 1;
+    // 結果を集約
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        const evalResult = result.value;
+        if (evalResult.status === 'skipped_import_failed') {
+          summary.skippedImportFailed += 1;
+        } else if (evalResult.status === 'skipped_no_metrics') {
+          summary.skippedNoMetrics += 1;
+        } else if (evalResult.status === 'success') {
+          summary.processed += 1;
+          if (evalResult.outcome === 'improved') {
+            summary.improved += 1;
+          } else {
+            summary.advanced += 1;
+          }
+        }
       } else {
-        summary.advanced += 1; // 停滞/悪化はステージを進めた扱い
+        // Promise が reject された場合（想定外のエラー）
+        console.error('[gscEvaluationService] Evaluation failed:', result.reason);
+        summary.skippedImportFailed += 1;
       }
     }
 
     return summary;
+  }
+
+  /**
+   * 単一の評価を処理（並列実行用）
+   */
+  private async processEvaluation(
+    userId: string,
+    evaluation: EvaluationRow,
+    today: string
+  ): Promise<
+    | { status: 'success'; outcome: GscEvaluationOutcome }
+    | { status: 'skipped_import_failed' }
+    | { status: 'skipped_no_metrics' }
+  > {
+    // cycle_days 日分のデータをインポート
+    const cycleDays = evaluation.cycle_days || 30;
+    const startDate = this.addDaysISO(today, -cycleDays);
+
+    try {
+      await gscImportService.importMetrics(userId, {
+        startDate,
+        endDate: today,
+        searchType: 'web',
+        maxRows: 5000,
+      });
+      console.log(
+        `[gscEvaluationService] Imported ${cycleDays} days of data for evaluation ${evaluation.id}`
+      );
+    } catch (importError) {
+      console.error(
+        `[gscEvaluationService] Failed to import data for evaluation ${evaluation.id}:`,
+        importError
+      );
+      return { status: 'skipped_import_failed' };
+    }
+
+    const metric = await this.fetchLatestMetric(userId, evaluation);
+
+    if (!metric) {
+      return { status: 'skipped_no_metrics' };
+    }
+
+    const lastSeen = this.toNumberOrNull(evaluation.last_seen_position);
+    const currentPos = this.toNumberOrNull(metric.position);
+
+    if (currentPos === null) {
+      return { status: 'skipped_no_metrics' };
+    }
+
+    const outcome = this.judgeOutcome(lastSeen, currentPos);
+
+    // 更新: evaluations
+    // base_evaluation_date は更新しない（固定された評価基準日として保持）
+    const { error: updateError } = await this.supabaseService
+      .getClient()
+      .from('gsc_article_evaluations')
+      .update({
+        last_seen_position: currentPos,
+        last_evaluated_on: today,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', evaluation.id)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      throw new Error(updateError.message || '評価レコード更新に失敗しました');
+    }
+
+    // 挿入: history
+    const { data: historyRow, error: historyError } = await this.supabaseService
+      .getClient()
+      .from('gsc_article_evaluation_history')
+      .insert({
+        user_id: userId,
+        content_annotation_id: evaluation.content_annotation_id,
+        evaluation_date: metric.date ?? today,
+        previous_position: lastSeen,
+        current_position: currentPos,
+        outcome,
+        suggestion_applied: false,
+        created_at: new Date().toISOString(),
+      })
+      .select('id')
+      .maybeSingle();
+
+    if (historyError) {
+      throw new Error(historyError.message || '評価履歴の保存に失敗しました');
+    }
+
+    // 改善提案: 改善していない場合のみ実行（Claude API 呼び出し）
+    if (outcome !== 'improved' && historyRow?.id) {
+      await gscSuggestionService.generate({
+        userId,
+        contentAnnotationId: evaluation.content_annotation_id,
+        evaluationId: evaluation.id,
+        evaluationHistoryId: historyRow.id,
+        outcome,
+        currentPosition: currentPos,
+        previousPosition: lastSeen,
+      });
+    }
+
+    return { status: 'success', outcome };
   }
 
   /** 最新の日次メトリクスを取得（content_annotation_id で直接紐付け） */
