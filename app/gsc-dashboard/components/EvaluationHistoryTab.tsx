@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { ChevronRight, Loader2, CheckCheck, Target, PenLine, FileText } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ChevronRight, Loader2, CheckCheck, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -22,22 +21,19 @@ import { formatDateTime } from '@/lib/utils';
 // 各セクションのスタイル定義
 const SUGGESTION_SECTION_STYLES: Record<
   string,
-  { badgeClass: string; sectionClass: string; icon: LucideIcon }
+  { badgeClass: string; sectionClass: string }
 > = {
   '広告タイトル・説明文の提案': {
     badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
     sectionClass: 'bg-blue-50 border-blue-200',
-    icon: Target,
   },
   '書き出し案の提案': {
     badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
     sectionClass: 'bg-blue-50 border-blue-200',
-    icon: PenLine,
   },
   '本文の提案': {
     badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
     sectionClass: 'bg-blue-50 border-blue-200',
-    icon: FileText,
   },
 };
 
@@ -196,7 +192,7 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                         >
                           {heading && style && (
                             <div className="mb-3 flex items-center gap-2">
-                              <style.icon className="w-5 h-5 text-blue-600" />
+                              <MessageSquare className="w-5 h-5 text-blue-600" />
                               <span
                                 className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold border ${style.badgeClass}`}
                               >
