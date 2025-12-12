@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Trash2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SessionListItem, SessionListContentProps } from '@/types/components';
+import { formatRelativeDate } from '@/lib/date-formatter';
 
 const SessionListContent = memo(function SessionListContent({
   sessions,
@@ -18,19 +19,6 @@ const SessionListContent = memo(function SessionListContent({
   onToggleSidebar,
   showToggleButton = false,
 }: SessionListContentProps) {
-  const formatDate = (date: Date) => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return '今日';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return '昨日';
-    } else {
-      return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
-    }
-  };
 
   return (
     <div className="h-full flex flex-col">
@@ -81,7 +69,7 @@ const SessionListContent = memo(function SessionListContent({
                     <div className="flex flex-col">
                       <span className="truncate text-sm">{session.title}</span>
                       <span className="text-xs text-gray-500 mt-1">
-                        {formatDate(session.updatedAt)}
+                        {formatRelativeDate(session.updatedAt)}
                       </span>
                     </div>
                   </button>

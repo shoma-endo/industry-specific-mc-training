@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,84 +14,44 @@ import {
 } from '@/components/ui/select';
 import type { GscConnectionStatus, GscSiteEntry } from '@/types/gsc';
 import {
-  AlertCircle,
-  AlertTriangle,
   ArrowLeft,
-  CheckCircle2,
   Plug,
   RefreshCw,
   ShieldCheck,
   ShieldOff,
   Unplug,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   disconnectGsc,
-  fetchGscProperties,
-  fetchGscStatus,
   saveGscProperty,
 } from '@/server/actions/gscSetup.actions';
+import { formatDate } from '@/lib/date-formatter';
+import { GscStatusBadge } from '@/components/ui/GscStatusBadge';
+import { useGscSetup } from '@/hooks/useGscSetup';
 
 interface GscSetupClientProps {
   initialStatus: GscConnectionStatus;
   isOauthConfigured: boolean;
 }
 
-/** トークン期限切れ/取り消しエラーかどうかを判定 */
-const isTokenExpiredError = (message: string): boolean => {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes('invalid_grant') ||
-    lower.includes('token has been expired') ||
-    lower.includes('token has been revoked') ||
-    lower.includes('トークンリフレッシュに失敗')
-  );
-};
-
 const OAUTH_START_PATH = '/api/gsc/oauth/start';
 
-const formatDate = (value?: string | null): string | null => {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('ja-JP', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-};
-
-const statusBadge = (connected: boolean, needsReauth: boolean) => {
-  // 再認証が必要な場合は「要再認証」バッジを表示
-  if (needsReauth) {
-    return (
-      <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200">
-        <AlertTriangle className="mr-1 h-4 w-4" />
-        要再認証
-      </Badge>
-    );
-  }
-  if (connected) {
-    return (
-      <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
-        <CheckCircle2 className="mr-1 h-4 w-4" />
-        接続済み
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="secondary" className="text-gray-700">
-      <AlertCircle className="mr-1 h-4 w-4" />
-      未設定
-    </Badge>
-  );
-};
-
 export default function GscSetupClient({ initialStatus, isOauthConfigured }: GscSetupClientProps) {
-  const [status, setStatus] = useState<GscConnectionStatus>(initialStatus);
-  const [properties, setProperties] = useState<GscSiteEntry[]>([]);
-  const [alertMessage, setAlertMessage] = useState<string | null>(null);
-  const [needsReauth, setNeedsReauth] = useState(false);
-  const [isSyncingStatus, setIsSyncingStatus] = useState(false);
-  const [isLoadingProperties, setIsLoadingProperties] = useState(false);
+  const {
+    status,
+    properties,
+    needsReauth,
+    isSyncingStatus,
+    isLoadingProperties,
+    alertMessage,
+    setStatus,
+    setProperties,
+    setAlertMessage,
+    refreshStatus,
+    refetchProperties,
+  } = useGscSetup(initialStatus);
+
   const [isUpdatingProperty, setIsUpdatingProperty] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
@@ -101,68 +61,6 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
   }, [status.propertyUri, properties]);
 
   const selectValueProps: { value?: string } = status.propertyUri ? { value: status.propertyUri } : {};
-
-  const refreshStatus = useCallback(async () => {
-    setIsSyncingStatus(true);
-    setAlertMessage(null);
-    try {
-      const result = await fetchGscStatus();
-      if (result.success && result.data) {
-        setStatus(result.data as GscConnectionStatus);
-      } else {
-        throw new Error(result.error || 'ステータスの取得に失敗しました');
-      }
-    } catch (error) {
-      console.error(error);
-      setAlertMessage(
-        error instanceof Error ? error.message : 'Google Search Consoleの状態取得に失敗しました'
-      );
-    } finally {
-      setIsSyncingStatus(false);
-    }
-  }, []);
-
-  const fetchProperties = useCallback(async () => {
-    if (!status.connected) return;
-    setIsLoadingProperties(true);
-    setAlertMessage(null);
-    setNeedsReauth(false);
-    try {
-      const result = await fetchGscProperties();
-      if (result.success && Array.isArray(result.data)) {
-        setProperties(result.data as GscSiteEntry[]);
-      } else {
-        // Server Actionから再認証フラグが返された場合
-        if ('needsReauth' in result && result.needsReauth) {
-          setNeedsReauth(true);
-          setAlertMessage(result.error || 'Googleアカウントの認証が期限切れまたは取り消されています');
-        } else {
-          setAlertMessage(result.error || 'プロパティ一覧の取得に失敗しました');
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      const errorMessage = error instanceof Error ? error.message : 'プロパティ一覧の取得に失敗しました';
-      
-      // トークン期限切れ/取り消しエラーの場合は再認証を促す
-      if (isTokenExpiredError(errorMessage)) {
-        setNeedsReauth(true);
-        setAlertMessage('Googleアカウントの認証が期限切れまたは取り消されています。再認証してください。');
-      } else {
-        setAlertMessage(errorMessage);
-      }
-    } finally {
-      setIsLoadingProperties(false);
-    }
-  }, [status.connected]);
-
-  useEffect(() => {
-    if (status.connected) {
-      fetchProperties();
-    } else {
-      setProperties([]);
-    }
-  }, [status.connected, fetchProperties]);
 
   const handlePropertyChange = async (value: string) => {
     setIsUpdatingProperty(true);
@@ -291,7 +189,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-sm text-gray-500">現在の状態</span>
-              {statusBadge(status.connected, needsReauth)}
+              <GscStatusBadge connected={status.connected} needsReauth={needsReauth} />
             </div>
             {isOauthConfigured ? (
               needsReauth ? (
@@ -413,7 +311,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
               <Button
                 type="button"
                 variant="outline"
-                onClick={fetchProperties}
+                onClick={refetchProperties}
                 disabled={isLoadingProperties}
                 className="flex items-center gap-2"
               >
