@@ -17,91 +17,43 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
-import { fetchGscStatus, fetchGscProperties } from '@/server/actions/gscSetup.actions';
-
-interface WordPressStatus {
-  connected: boolean;
-  status: 'connected' | 'error' | 'not_configured';
-  message: string;
-  wpType?: 'wordpress_com' | 'self_hosted';
-  lastUpdated?: string;
-}
+import { refetchGscStatusWithValidation } from '@/server/actions/gscSetup.actions';
+import {
+  fetchWordPressStatusAction,
+  type WordPressConnectionStatus,
+} from '@/server/actions/wordpress.actions';
+import { useServerAction } from '@/hooks/useServerAction';
 
 export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDashboardProps) {
-  const [wpStatus, setWpStatus] = useState<WordPressStatus | null>(null);
-  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+  const [wpStatus, setWpStatus] = useState<WordPressConnectionStatus | null>(null);
   const [gscConnection, setGscConnection] = useState(gscStatus);
   const [gscNeedsReauth, setGscNeedsReauth] = useState(false);
   const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(false);
 
+  const { execute: fetchWpStatus, isLoading: isLoadingStatus } = useServerAction<WordPressConnectionStatus>();
+
   // WordPress接続ステータスを取得
   useEffect(() => {
-    const fetchWordPressStatus = async () => {
-      if (!wordpressSettings.hasSettings) {
-        setWpStatus({
-          connected: false,
-          status: 'not_configured',
-          message: 'WordPress設定が未完了です',
-        });
-        return;
-      }
-
-      setIsLoadingStatus(true);
-      try {
-        const response = await fetch('/api/wordpress/status', {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          setWpStatus(result.data);
-        } else {
-          setWpStatus({
-            connected: false,
-            status: 'error',
-            message: result.error || 'ステータス取得に失敗しました',
-          });
-        }
-      } catch (error) {
-        console.error('WordPressステータス取得エラー:', error);
-        setWpStatus({
-          connected: false,
-          status: 'error',
-          message: 'WordPressステータス取得エラーが発生しました',
-        });
-      } finally {
-        setIsLoadingStatus(false);
-      }
-    };
-
-    fetchWordPressStatus();
-  }, [wordpressSettings.hasSettings]);
+    fetchWpStatus(fetchWordPressStatusAction, {
+      onSuccess: setWpStatus,
+      defaultErrorMessage: 'ステータス取得に失敗しました',
+    });
+  }, [wordpressSettings.hasSettings, fetchWpStatus]);
 
   useEffect(() => {
     setGscConnection(gscStatus);
   }, [gscStatus]);
 
   const refetchGscStatus = useCallback(async () => {
-    setIsLoadingGscStatus(true);
     setGscNeedsReauth(false);
+    setIsLoadingGscStatus(true);
     try {
-      const result = await fetchGscStatus();
-      if (result.success && result.data) {
+      const result = await refetchGscStatusWithValidation();
+      if (result.success) {
         setGscConnection(result.data);
-
-        // 接続済みの場合、プロパティ取得を試みてトークンの有効性をチェック
-        if (result.data.connected) {
-          const propertiesResult = await fetchGscProperties();
-          if (
-            !propertiesResult.success &&
-            'needsReauth' in propertiesResult &&
-            propertiesResult.needsReauth
-          ) {
-            setGscNeedsReauth(true);
-          }
-        }
+        setGscNeedsReauth(result.needsReauth);
+      } else {
+        console.error('GSCステータス取得エラー:', result.error);
       }
     } catch (error) {
       console.error('GSCステータス取得エラー:', error);

@@ -1157,3 +1157,83 @@ export async function ensureAnnotationChatSession(
     return { success: true as const, sessionId };
   });
 }
+
+/**
+ * WordPress接続ステータスを取得
+ * SetupDashboard で使用
+ */
+export interface WordPressConnectionStatus {
+  connected: boolean;
+  status: 'connected' | 'error' | 'not_configured';
+  message: string;
+  wpType?: 'wordpress_com' | 'self_hosted';
+  lastUpdated?: string | null;
+}
+
+export async function fetchWordPressStatusAction(): Promise<
+  { success: true; data: WordPressConnectionStatus } | { success: false; error: string }
+> {
+  return withAuth(async ({ userId, cookieStore }) => {
+    const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
+
+    // 設定が未完了の場合
+    if (!wpSettings) {
+      return {
+        success: true,
+        data: {
+          connected: false,
+          status: 'not_configured' as const,
+          message: 'WordPress設定が未完了です',
+        },
+      };
+    }
+
+    // WordPress コンテキストを解決
+    const getCookie = (name: string) => cookieStore.get(name)?.value;
+    const context = await resolveWordPressContext(getCookie);
+
+    if (!context.success) {
+      if (context.reason === 'wordpress_auth_missing' && context.wpSettings) {
+        return {
+          success: true,
+          data: {
+            connected: false,
+            status: 'error' as const,
+            message: context.message,
+            wpType: context.wpSettings.wpType,
+            lastUpdated: context.wpSettings.updatedAt ?? null,
+          },
+        };
+      }
+
+      return { success: false, error: context.message };
+    }
+
+    // 接続テスト
+    const testResult = await context.service.testConnection();
+
+    if (!testResult.success) {
+      return {
+        success: true,
+        data: {
+          connected: false,
+          status: 'error' as const,
+          message: testResult.error || 'WordPress接続に失敗しました',
+          wpType: context.wpSettings.wpType,
+          lastUpdated: context.wpSettings.updatedAt ?? null,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        connected: true,
+        status: 'connected' as const,
+        message: `WordPress (${context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'}) に接続済み`,
+        wpType: context.wpSettings.wpType,
+        lastUpdated: context.wpSettings.updatedAt ?? null,
+      },
+    };
+  });
+}

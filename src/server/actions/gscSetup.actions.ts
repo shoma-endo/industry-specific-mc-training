@@ -5,9 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { GscService } from '@/server/services/gscService';
-import type { GscCredential } from '@/types/gsc';
+import type { GscCredential, GscConnectionStatus, GscSiteEntry } from '@/types/gsc';
 import { toGscConnectionStatus } from '@/server/lib/gsc-status';
-import type { GscSiteEntry } from '@/types/gsc';
 import { formatGscPropertyDisplayName } from '@/server/services/gscService';
 import { propertyTypeFromUri } from '@/server/lib/gsc-status';
 
@@ -166,5 +165,45 @@ export async function disconnectGsc() {
   } catch (error) {
     console.error('[GSC Setup] disconnect failed', error);
     return { success: false, error: '連携解除に失敗しました' };
+  }
+}
+
+/**
+ * GSCステータスを取得し、トークンの有効性もチェック
+ * SetupDashboard で使用
+ */
+export async function refetchGscStatusWithValidation(): Promise<
+  | { success: true; data: GscConnectionStatus; needsReauth: boolean }
+  | { success: false; error: string; needsReauth?: boolean }
+> {
+  try {
+    // ステータスを取得
+    const statusResult = await fetchGscStatus();
+    if (!statusResult.success || !statusResult.data) {
+      return { success: false, error: statusResult.error || 'ステータスの取得に失敗しました' };
+    }
+
+    const status = statusResult.data as GscConnectionStatus;
+
+    // 接続済みの場合、プロパティ取得を試みてトークンの有効性をチェック
+    if (status.connected) {
+      const propertiesResult = await fetchGscProperties();
+      if (!propertiesResult.success && 'needsReauth' in propertiesResult && propertiesResult.needsReauth) {
+        return {
+          success: true,
+          data: status,
+          needsReauth: true,
+        };
+      }
+    }
+
+    return {
+      success: true,
+      data: status,
+      needsReauth: false,
+    };
+  } catch (error) {
+    console.error('GSCステータス取得エラー:', error);
+    return { success: false, error: 'GSCステータス取得エラーが発生しました' };
   }
 }
