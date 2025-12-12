@@ -5,9 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { GscService } from '@/server/services/gscService';
-import type { GscCredential } from '@/types/gsc';
+import type { GscCredential, GscConnectionStatus, GscSiteEntry } from '@/types/gsc';
 import { toGscConnectionStatus } from '@/server/lib/gsc-status';
-import type { GscSiteEntry } from '@/types/gsc';
 import { formatGscPropertyDisplayName } from '@/server/services/gscService';
 import { propertyTypeFromUri } from '@/server/lib/gsc-status';
 
