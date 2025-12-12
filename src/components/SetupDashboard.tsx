@@ -28,9 +28,9 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
   const [wpStatus, setWpStatus] = useState<WordPressConnectionStatus | null>(null);
   const [gscConnection, setGscConnection] = useState(gscStatus);
   const [gscNeedsReauth, setGscNeedsReauth] = useState(false);
+  const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(false);
 
   const { execute: fetchWpStatus, isLoading: isLoadingStatus } = useServerAction<WordPressConnectionStatus>();
-  const { execute: fetchGsc, isLoading: isLoadingGscStatus } = useServerAction<{ data: typeof gscStatus; needsReauth: boolean }>();
 
   // WordPress接続ステータスを取得
   useEffect(() => {
@@ -46,15 +46,21 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
 
   const refetchGscStatus = useCallback(async () => {
     setGscNeedsReauth(false);
-    await fetchGsc(refetchGscStatusWithValidation, {
-      onSuccess: (result) => {
+    setIsLoadingGscStatus(true);
+    try {
+      const result = await refetchGscStatusWithValidation();
+      if (result.success) {
         setGscConnection(result.data);
         setGscNeedsReauth(result.needsReauth);
-      },
-      defaultErrorMessage: 'GSCステータス取得に失敗しました',
-      logErrors: true,
-    });
-  }, [fetchGsc]);
+      } else {
+        console.error('GSCステータス取得エラー:', result.error);
+      }
+    } catch (error) {
+      console.error('GSCステータス取得エラー:', error);
+    } finally {
+      setIsLoadingGscStatus(false);
+    }
+  }, []);
 
   useEffect(() => {
     refetchGscStatus();
