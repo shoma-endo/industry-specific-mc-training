@@ -29,6 +29,7 @@ import {
 import { formatDate } from '@/lib/date-formatter';
 import { GscStatusBadge } from '@/components/ui/GscStatusBadge';
 import { useGscSetup } from '@/hooks/useGscSetup';
+import { handleAsyncAction } from '@/lib/async-handler';
 
 interface GscSetupClientProps {
   initialStatus: GscConnectionStatus;
@@ -63,46 +64,38 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
   const selectValueProps: { value?: string } = status.propertyUri ? { value: status.propertyUri } : {};
 
   const handlePropertyChange = async (value: string) => {
-    setIsUpdatingProperty(true);
-    setAlertMessage(null);
-    try {
-      const selected = properties.find(property => property.siteUrl === value);
-      const result = await saveGscProperty({
+    const selected = properties.find(property => property.siteUrl === value);
+    await handleAsyncAction(
+      () => saveGscProperty({
         propertyUri: value,
         permissionLevel: selected?.permissionLevel ?? null,
-      });
-      if (!result.success) {
-        throw new Error(result.error || 'プロパティの保存に失敗しました');
+      }),
+      {
+        onSuccess: (data) => {
+          setStatus(data as GscConnectionStatus);
+          setAlertMessage('プロパティを保存しました');
+        },
+        setLoading: setIsUpdatingProperty,
+        setMessage: setAlertMessage,
+        defaultErrorMessage: 'プロパティの保存に失敗しました',
       }
-      setStatus(result.data as GscConnectionStatus);
-      setAlertMessage('プロパティを保存しました');
-    } catch (error) {
-      console.error(error);
-      setAlertMessage(
-        error instanceof Error ? error.message : 'プロパティの保存に失敗しました'
-      );
-    } finally {
-      setIsUpdatingProperty(false);
-    }
+    );
   };
 
   const handleDisconnect = async () => {
-    setIsDisconnecting(true);
-    setAlertMessage(null);
-    try {
-      const result = await disconnectGsc();
-      if (!result.success) {
-        throw new Error(result.error || '連携解除に失敗しました');
+    await handleAsyncAction(
+      disconnectGsc,
+      {
+        onSuccess: () => {
+          setStatus({ connected: false });
+          setProperties([]);
+          setAlertMessage('Google Search Consoleとの連携を解除しました');
+        },
+        setLoading: setIsDisconnecting,
+        setMessage: setAlertMessage,
+        defaultErrorMessage: '連携解除に失敗しました',
       }
-      setStatus({ connected: false });
-      setProperties([]);
-      setAlertMessage('Google Search Consoleとの連携を解除しました');
-    } catch (error) {
-      console.error(error);
-      setAlertMessage(error instanceof Error ? error.message : '連携解除に失敗しました');
-    } finally {
-      setIsDisconnecting(false);
-    }
+    );
   };
 
   return (

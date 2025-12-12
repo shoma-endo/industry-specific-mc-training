@@ -5,6 +5,7 @@ import {
   fetchGscStatus,
 } from '@/server/actions/gscSetup.actions';
 import { isTokenExpiredError } from '@/domain/errors/gsc-error-handlers';
+import { handleAsyncAction } from '@/lib/async-handler';
 
 interface UseGscSetupResult {
   status: GscConnectionStatus;
@@ -34,57 +35,40 @@ export function useGscSetup(initialStatus: GscConnectionStatus): UseGscSetupResu
   const [isLoadingProperties, setIsLoadingProperties] = useState(false);
 
   const refreshStatus = useCallback(async () => {
-    setIsSyncingStatus(true);
-    setAlertMessage(null);
-    try {
-      const result = await fetchGscStatus();
-      if (result.success && result.data) {
-        setStatus(result.data as GscConnectionStatus);
-      } else {
-        throw new Error(result.error || 'ステータスの取得に失敗しました');
-      }
-    } catch (error) {
-      console.error(error);
-      setAlertMessage(
-        error instanceof Error ? error.message : 'Google Search Consoleの状態取得に失敗しました'
-      );
-    } finally {
-      setIsSyncingStatus(false);
-    }
+    await handleAsyncAction(fetchGscStatus, {
+      onSuccess: (data) => setStatus(data as GscConnectionStatus),
+      setLoading: setIsSyncingStatus,
+      setMessage: setAlertMessage,
+      defaultErrorMessage: 'ステータスの取得に失敗しました',
+    });
   }, []);
 
   const refetchProperties = useCallback(async () => {
     if (!status.connected) return;
-    setIsLoadingProperties(true);
-    setAlertMessage(null);
-    setNeedsReauth(false);
-    try {
-      const result = await fetchGscProperties();
-      if (result.success && Array.isArray(result.data)) {
-        setProperties(result.data as GscSiteEntry[]);
-      } else {
-        // Server Actionから再認証フラグが返された場合
-        if ('needsReauth' in result && result.needsReauth) {
-          setNeedsReauth(true);
-          setAlertMessage(result.error || 'Googleアカウントの認証が期限切れまたは取り消されています');
-        } else {
-          setAlertMessage(result.error || 'プロパティ一覧の取得に失敗しました');
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      const errorMessage = error instanceof Error ? error.message : 'プロパティ一覧の取得に失敗しました';
 
-      // トークン期限切れ/取り消しエラーの場合は再認証を促す
-      if (isTokenExpiredError(errorMessage)) {
-        setNeedsReauth(true);
-        setAlertMessage('Googleアカウントの認証が期限切れまたは取り消されています。再認証してください。');
-      } else {
-        setAlertMessage(errorMessage);
-      }
-    } finally {
-      setIsLoadingProperties(false);
-    }
+    setNeedsReauth(false);
+    await handleAsyncAction(fetchGscProperties, {
+      onSuccess: (data) => {
+        if (Array.isArray(data)) {
+          setProperties(data as GscSiteEntry[]);
+        }
+      },
+      onError: (error) => {
+        const errorMessage = error.message;
+        // トークン期限切れ/取り消しエラーの場合は再認証を促す
+        if (isTokenExpiredError(errorMessage)) {
+          setNeedsReauth(true);
+          setAlertMessage('Googleアカウントの認証が期限切れまたは取り消されています。再認証してください。');
+        }
+      },
+      setLoading: setIsLoadingProperties,
+      setMessage: (message) => {
+        // Server Actionから再認証フラグが返された場合
+        // (handleAsyncActionが処理する前にチェック)
+        setAlertMessage(message);
+      },
+      defaultErrorMessage: 'プロパティ一覧の取得に失敗しました',
+    });
   }, [status.connected]);
 
   useEffect(() => {

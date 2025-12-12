@@ -22,63 +22,39 @@ import {
   fetchWordPressStatusAction,
   type WordPressConnectionStatus,
 } from '@/server/actions/wordpress.actions';
+import { useServerAction } from '@/hooks/useServerAction';
 
 export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDashboardProps) {
   const [wpStatus, setWpStatus] = useState<WordPressConnectionStatus | null>(null);
-  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [gscConnection, setGscConnection] = useState(gscStatus);
   const [gscNeedsReauth, setGscNeedsReauth] = useState(false);
-  const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(false);
+
+  const { execute: fetchWpStatus, isLoading: isLoadingStatus } = useServerAction<WordPressConnectionStatus>();
+  const { execute: fetchGsc, isLoading: isLoadingGscStatus } = useServerAction<{ data: typeof gscStatus; needsReauth: boolean }>();
 
   // WordPress接続ステータスを取得
   useEffect(() => {
-    const fetchStatus = async () => {
-      setIsLoadingStatus(true);
-      try {
-        const result = await fetchWordPressStatusAction();
-        if (result.success) {
-          setWpStatus(result.data);
-        } else {
-          setWpStatus({
-            connected: false,
-            status: 'error',
-            message: result.error || 'ステータス取得に失敗しました',
-          });
-        }
-      } catch (error) {
-        console.error('WordPressステータス取得エラー:', error);
-        setWpStatus({
-          connected: false,
-          status: 'error',
-          message: 'WordPressステータス取得エラーが発生しました',
-        });
-      } finally {
-        setIsLoadingStatus(false);
-      }
-    };
-
-    fetchStatus();
-  }, [wordpressSettings.hasSettings]);
+    fetchWpStatus(fetchWordPressStatusAction, {
+      onSuccess: setWpStatus,
+      defaultErrorMessage: 'ステータス取得に失敗しました',
+    });
+  }, [wordpressSettings.hasSettings, fetchWpStatus]);
 
   useEffect(() => {
     setGscConnection(gscStatus);
   }, [gscStatus]);
 
   const refetchGscStatus = useCallback(async () => {
-    setIsLoadingGscStatus(true);
     setGscNeedsReauth(false);
-    try {
-      const result = await refetchGscStatusWithValidation();
-      if (result.success) {
+    await fetchGsc(refetchGscStatusWithValidation, {
+      onSuccess: (result) => {
         setGscConnection(result.data);
         setGscNeedsReauth(result.needsReauth);
-      }
-    } catch (error) {
-      console.error('GSCステータス取得エラー:', error);
-    } finally {
-      setIsLoadingGscStatus(false);
-    }
-  }, []);
+      },
+      defaultErrorMessage: 'GSCステータス取得に失敗しました',
+      logErrors: true,
+    });
+  }, [fetchGsc]);
 
   useEffect(() => {
     refetchGscStatus();
