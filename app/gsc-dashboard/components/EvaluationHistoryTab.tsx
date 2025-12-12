@@ -21,18 +21,9 @@ import { MODEL_CONFIGS } from '@/lib/constants';
 
 // 改善提案セクションの共通スタイル
 const SUGGESTION_STYLE = {
-  badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
-  sectionClass: 'bg-blue-50 border-blue-200',
+  badgeClass: 'bg-blue-100 text-blue-800',
+  sectionClass: 'bg-white border-gray-200',
 };
-
-// 改善提案の固定見出し（constants.tsから取得）
-const SUGGESTION_HEADINGS = new Set(
-  [
-    MODEL_CONFIGS.gsc_insight_ctr_boost?.label,
-    MODEL_CONFIGS.gsc_insight_intro_refresh?.label,
-    MODEL_CONFIGS.gsc_insight_body_rewrite?.label,
-  ].filter((label): label is string => Boolean(label))
-);
 
 interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
@@ -171,37 +162,74 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                 <p className="text-sm font-semibold mb-2">改善提案</p>
                 {selectedHistory.suggestion_summary ? (
                   <div className="space-y-4">
-                    {selectedHistory.suggestion_summary.split('\n\n---\n\n').map((section, index) => {
-                      // 見出し（セクション最初の行が # で始まる場合のみ）を抽出
-                      const headingMatch = section.match(/^#\s+(.+)$/);
-                      const heading = headingMatch ? headingMatch[1].trim() : null;
-                      // 固定見出しのいずれかと完全一致する場合のみ有効
-                      const isValidHeading = heading && SUGGESTION_HEADINGS.has(heading);
-                      const content = heading
-                        ? section.replace(/^#\s+.+$/m, '').trim()
-                        : section.trim();
+                    {(() => {
+                      // セクション分割
+                      const sections = selectedHistory.suggestion_summary.split('\n\n---\n\n');
 
-                      return (
-                        <div
-                          key={index}
-                          className={`p-4 rounded-lg border ${isValidHeading ? SUGGESTION_STYLE.sectionClass : 'bg-slate-50 border-slate-200'}`}
-                        >
-                          {isValidHeading && (
+                      // 各セクションを処理
+                      const processedSections = sections
+                        .map(section => {
+                          // 見出しを抽出
+                          const headingMatch = section.match(/^#\s+(.+)$/m);
+                          const heading = headingMatch ? headingMatch[1].trim() : null;
+
+                          // 見出しから templateName を特定
+                          let templateName: string | null = null;
+                          if (heading) {
+                            for (const [name, config] of Object.entries(MODEL_CONFIGS)) {
+                              if (config.label === heading) {
+                                templateName = name;
+                                break;
+                              }
+                            }
+                          }
+
+                          // 見出しを除いたコンテンツ
+                          const content = heading
+                            ? section.replace(/^#\s+.+$/m, '').trim()
+                            : section.trim();
+
+                          return { templateName, heading, content };
+                        })
+                        .filter(s => s.templateName !== null && s.content.length > 0);
+
+                      // 順序を保証（CTR改善 → 導入文 → 本文）
+                      const order = [
+                        'gsc_insight_ctr_boost',
+                        'gsc_insight_intro_refresh',
+                        'gsc_insight_body_rewrite',
+                      ];
+                      processedSections.sort((a, b) => {
+                        const aIndex = order.indexOf(a.templateName!);
+                        const bIndex = order.indexOf(b.templateName!);
+                        return aIndex - bIndex;
+                      });
+
+                      // レンダリング
+                      return processedSections.map((section, index) => {
+                        const config = MODEL_CONFIGS[section.templateName!];
+                        if (!config) return null;
+
+                        return (
+                          <div
+                            key={index}
+                            className={`p-4 rounded-lg border ${SUGGESTION_STYLE.sectionClass}`}
+                          >
                             <div className="mb-3 flex items-center gap-2">
                               <MessageSquare className="w-5 h-5 text-blue-600" />
                               <span
-                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold border ${SUGGESTION_STYLE.badgeClass}`}
+                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold ${SUGGESTION_STYLE.badgeClass}`}
                               >
-                                {heading}
+                                {config.label}
                               </span>
                             </div>
-                          )}
-                          <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1">
-                            <ReactMarkdown>{content}</ReactMarkdown>
+                            <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h1:text-lg prose-h1:normal-case prose-h2:text-base prose-h2:mt-4 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1">
+                              <ReactMarkdown>{section.content}</ReactMarkdown>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500 italic">提案なし</p>
