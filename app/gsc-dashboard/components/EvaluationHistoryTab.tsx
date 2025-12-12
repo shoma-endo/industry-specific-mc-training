@@ -34,6 +34,9 @@ const SUGGESTION_HEADINGS = new Set(
   ].filter((label): label is string => Boolean(label))
 );
 
+// デバッグ用
+console.log('[DEBUG] SUGGESTION_HEADINGS:', Array.from(SUGGESTION_HEADINGS));
+
 interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
   onHistoryRead?: (historyId: string) => void;
@@ -180,6 +183,13 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                       const content = heading
                         ? section.replace(/^#\s+.+$/m, '').trim()
                         : section.trim();
+
+                      // デバッグ用
+                      console.log(`[DEBUG] Section ${index}:`, {
+                        heading,
+                        isValidHeading,
+                        sectionPreview: section.substring(0, 100),
+                      });
 
                       return (
                         <div
