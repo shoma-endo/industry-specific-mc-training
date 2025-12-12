@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { ChevronRight, Loader2, CheckCheck } from 'lucide-react';
+import { ChevronRight, Loader2, CheckCheck, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -17,6 +17,22 @@ import { GSC_EVALUATION_OUTCOME_CONFIG } from '@/types/gsc';
 import { markSuggestionAsRead } from '@/server/actions/gscNotification.actions';
 import type { GscEvaluationHistoryItem } from '../types';
 import { formatDateTime } from '@/lib/utils';
+import { MODEL_CONFIGS } from '@/lib/constants';
+
+// 改善提案セクションの共通スタイル
+const SUGGESTION_STYLE = {
+  badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
+  sectionClass: 'bg-blue-50 border-blue-200',
+};
+
+// 改善提案の固定見出し（constants.tsから取得）
+const SUGGESTION_HEADINGS = new Set(
+  [
+    MODEL_CONFIGS.gsc_insight_ctr_boost?.label,
+    MODEL_CONFIGS.gsc_insight_intro_refresh?.label,
+    MODEL_CONFIGS.gsc_insight_body_rewrite?.label,
+  ].filter((label): label is string => Boolean(label))
+);
 
 interface EvaluationHistoryTabProps {
   history: GscEvaluationHistoryItem[] | undefined;
@@ -154,10 +170,38 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
               <div>
                 <p className="text-sm font-semibold mb-2">改善提案</p>
                 {selectedHistory.suggestion_summary ? (
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h1:text-xl prose-h1:border-b prose-h1:border-slate-300 prose-h1:pb-2 prose-h1:mb-4 prose-h2:text-lg prose-h2:mt-6 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1 prose-hr:my-6 prose-hr:border-slate-300">
-                      <ReactMarkdown>{selectedHistory.suggestion_summary}</ReactMarkdown>
-                    </div>
+                  <div className="space-y-4">
+                    {selectedHistory.suggestion_summary.split('\n\n---\n\n').map((section, index) => {
+                      // 見出し（セクション最初の行が # で始まる場合のみ）を抽出
+                      const headingMatch = section.match(/^#\s+(.+)$/);
+                      const heading = headingMatch ? headingMatch[1].trim() : null;
+                      // 固定見出しのいずれかと完全一致する場合のみ有効
+                      const isValidHeading = heading && SUGGESTION_HEADINGS.has(heading);
+                      const content = heading
+                        ? section.replace(/^#\s+.+$/m, '').trim()
+                        : section.trim();
+
+                      return (
+                        <div
+                          key={index}
+                          className={`p-4 rounded-lg border ${isValidHeading ? SUGGESTION_STYLE.sectionClass : 'bg-slate-50 border-slate-200'}`}
+                        >
+                          {isValidHeading && (
+                            <div className="mb-3 flex items-center gap-2">
+                              <MessageSquare className="w-5 h-5 text-blue-600" />
+                              <span
+                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold border ${SUGGESTION_STYLE.badgeClass}`}
+                              >
+                                {heading}
+                              </span>
+                            </div>
+                          )}
+                          <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1">
+                            <ReactMarkdown>{content}</ReactMarkdown>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500 italic">提案なし</p>
