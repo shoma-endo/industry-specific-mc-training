@@ -18,23 +18,10 @@ import { markSuggestionAsRead } from '@/server/actions/gscNotification.actions';
 import type { GscEvaluationHistoryItem } from '../types';
 import { formatDateTime } from '@/lib/utils';
 
-// 各セクションのスタイル定義
-const SUGGESTION_SECTION_STYLES: Record<
-  string,
-  { badgeClass: string; sectionClass: string }
-> = {
-  '広告タイトル・説明文の提案': {
-    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
-    sectionClass: 'bg-blue-50 border-blue-200',
-  },
-  '書き出し案の提案': {
-    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
-    sectionClass: 'bg-blue-50 border-blue-200',
-  },
-  '本文の提案': {
-    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
-    sectionClass: 'bg-blue-50 border-blue-200',
-  },
+// 改善提案セクションの共通スタイル
+const SUGGESTION_STYLE = {
+  badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
+  sectionClass: 'bg-blue-50 border-blue-200',
 };
 
 interface EvaluationHistoryTabProps {
@@ -182,19 +169,16 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                         ? section.replace(/^#\s+.+$/m, '').trim()
                         : section.trim();
 
-                      // 見出しに対応するスタイルを取得
-                      const style = heading ? SUGGESTION_SECTION_STYLES[heading] : null;
-
                       return (
                         <div
                           key={index}
-                          className={`p-4 rounded-lg border ${style?.sectionClass || 'bg-slate-50 border-slate-200'}`}
+                          className={`p-4 rounded-lg border ${heading ? SUGGESTION_STYLE.sectionClass : 'bg-slate-50 border-slate-200'}`}
                         >
-                          {heading && style && (
+                          {heading && (
                             <div className="mb-3 flex items-center gap-2">
                               <MessageSquare className="w-5 h-5 text-blue-600" />
                               <span
-                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold border ${style.badgeClass}`}
+                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold border ${SUGGESTION_STYLE.badgeClass}`}
                               >
                                 {heading}
                               </span>
