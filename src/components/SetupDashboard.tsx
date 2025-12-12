@@ -17,18 +17,14 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
-import { fetchGscStatus, fetchGscProperties } from '@/server/actions/gscSetup.actions';
-
-interface WordPressStatus {
-  connected: boolean;
-  status: 'connected' | 'error' | 'not_configured';
-  message: string;
-  wpType?: 'wordpress_com' | 'self_hosted';
-  lastUpdated?: string;
-}
+import { refetchGscStatusWithValidation } from '@/server/actions/gscSetup.actions';
+import {
+  fetchWordPressStatusAction,
+  type WordPressConnectionStatus,
+} from '@/server/actions/wordpress.actions';
 
 export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDashboardProps) {
-  const [wpStatus, setWpStatus] = useState<WordPressStatus | null>(null);
+  const [wpStatus, setWpStatus] = useState<WordPressConnectionStatus | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [gscConnection, setGscConnection] = useState(gscStatus);
   const [gscNeedsReauth, setGscNeedsReauth] = useState(false);
@@ -36,25 +32,10 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
 
   // WordPress接続ステータスを取得
   useEffect(() => {
-    const fetchWordPressStatus = async () => {
-      if (!wordpressSettings.hasSettings) {
-        setWpStatus({
-          connected: false,
-          status: 'not_configured',
-          message: 'WordPress設定が未完了です',
-        });
-        return;
-      }
-
+    const fetchStatus = async () => {
       setIsLoadingStatus(true);
       try {
-        const response = await fetch('/api/wordpress/status', {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        const result = await response.json();
-
+        const result = await fetchWordPressStatusAction();
         if (result.success) {
           setWpStatus(result.data);
         } else {
@@ -76,7 +57,7 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
       }
     };
 
-    fetchWordPressStatus();
+    fetchStatus();
   }, [wordpressSettings.hasSettings]);
 
   useEffect(() => {
@@ -87,21 +68,10 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
     setIsLoadingGscStatus(true);
     setGscNeedsReauth(false);
     try {
-      const result = await fetchGscStatus();
-      if (result.success && result.data) {
+      const result = await refetchGscStatusWithValidation();
+      if (result.success) {
         setGscConnection(result.data);
-
-        // 接続済みの場合、プロパティ取得を試みてトークンの有効性をチェック
-        if (result.data.connected) {
-          const propertiesResult = await fetchGscProperties();
-          if (
-            !propertiesResult.success &&
-            'needsReauth' in propertiesResult &&
-            propertiesResult.needsReauth
-          ) {
-            setGscNeedsReauth(true);
-          }
-        }
+        setGscNeedsReauth(result.needsReauth);
       }
     } catch (error) {
       console.error('GSCステータス取得エラー:', error);

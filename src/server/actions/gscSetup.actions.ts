@@ -168,3 +168,43 @@ export async function disconnectGsc() {
     return { success: false, error: '連携解除に失敗しました' };
   }
 }
+
+/**
+ * GSCステータスを取得し、トークンの有効性もチェック
+ * SetupDashboard で使用
+ */
+export async function refetchGscStatusWithValidation(): Promise<
+  | { success: true; data: GscConnectionStatus; needsReauth: boolean }
+  | { success: false; error: string; needsReauth?: boolean }
+> {
+  try {
+    // ステータスを取得
+    const statusResult = await fetchGscStatus();
+    if (!statusResult.success || !statusResult.data) {
+      return { success: false, error: statusResult.error || 'ステータスの取得に失敗しました' };
+    }
+
+    const status = statusResult.data as GscConnectionStatus;
+
+    // 接続済みの場合、プロパティ取得を試みてトークンの有効性をチェック
+    if (status.connected) {
+      const propertiesResult = await fetchGscProperties();
+      if (!propertiesResult.success && 'needsReauth' in propertiesResult && propertiesResult.needsReauth) {
+        return {
+          success: true,
+          data: status,
+          needsReauth: true,
+        };
+      }
+    }
+
+    return {
+      success: true,
+      data: status,
+      needsReauth: false,
+    };
+  } catch (error) {
+    console.error('GSCステータス取得エラー:', error);
+    return { success: false, error: 'GSCステータス取得エラーが発生しました' };
+  }
+}
