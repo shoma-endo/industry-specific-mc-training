@@ -1173,7 +1173,7 @@ export interface WordPressConnectionStatus {
 export async function fetchWordPressStatusAction(): Promise<
   { success: true; data: WordPressConnectionStatus } | { success: false; error: string }
 > {
-  return withAuth(async ({ userId, getCookie }) => {
+  return withAuth(async ({ userId, cookieStore }) => {
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
 
     // 設定が未完了の場合
@@ -1189,6 +1189,7 @@ export async function fetchWordPressStatusAction(): Promise<
     }
 
     // WordPress コンテキストを解決
+    const getCookie = (name: string) => cookieStore.get(name)?.value;
     const context = await resolveWordPressContext(getCookie);
 
     if (!context.success) {
