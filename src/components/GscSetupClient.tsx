@@ -30,6 +30,7 @@ import { formatDate } from '@/lib/date-formatter';
 import { GscStatusBadge } from '@/components/ui/GscStatusBadge';
 import { useGscSetup } from '@/hooks/useGscSetup';
 import { handleAsyncAction } from '@/lib/async-handler';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
 interface GscSetupClientProps {
   initialStatus: GscConnectionStatus;
@@ -150,9 +151,9 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
             </div>
           </div>
           {isOauthConfigured && (
-            <Button asChild className="bg-orange-600 hover:bg-orange-700">
-              <a href={OAUTH_START_PATH}>再認証する</a>
-            </Button>
+            <GoogleSignInButton asChild>
+              <a href={OAUTH_START_PATH}>Googleでログイン</a>
+            </GoogleSignInButton>
           )}
         </div>
       )}
@@ -179,30 +180,20 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="text-sm text-gray-500">現在の状態</span>
-              <GscStatusBadge connected={status.connected} needsReauth={needsReauth} />
-            </div>
-            {isOauthConfigured ? (
-              needsReauth ? (
-                <Button asChild className="bg-orange-600 hover:bg-orange-700">
-                  <a href={OAUTH_START_PATH}>再認証する</a>
-                </Button>
-              ) : status.connected ? (
-                <Button asChild variant="outline">
-                  <a href={OAUTH_START_PATH}>再認証</a>
-                </Button>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <span className="text-sm text-gray-500">現在の状態</span>
+                <GscStatusBadge connected={status.connected} needsReauth={needsReauth} />
+              </div>
+              {isOauthConfigured ? (
+                <GoogleSignInButton asChild>
+                  <a href={OAUTH_START_PATH}>Googleでログイン</a>
+                </GoogleSignInButton>
               ) : (
-                <Button asChild>
-                  <a href={OAUTH_START_PATH}>Googleアカウントで認証</a>
+                <Button disabled variant="outline">
+                  OAuth設定が無効です
                 </Button>
-              )
-            ) : (
-              <Button disabled variant="outline">
-                OAuth設定が無効です
-              </Button>
-            )}
+              )}
           </div>
 
           {status.connected && (
@@ -332,7 +323,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
           <CardContent className="space-y-4 text-sm text-gray-700">
             <ol className="list-decimal list-inside space-y-2">
               <li>Search Consoleで対象サイトを登録し、所有者ステータスを確認します。</li>
-              <li>上部の「Googleアカウントで認証」ボタンを押してOAuth認可を完了します。</li>
+              <li>上部の「Googleでログイン」ボタンを押してOAuth認可を完了します。</li>
               <li>権限が確認でき次第、利用可能なプロパティが自動的に表示されます。</li>
             </ol>
             <p className="text-xs text-gray-500">
@@ -354,7 +345,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
               <h4 className="font-medium mb-2">連携手順</h4>
               <ol className="list-decimal list-inside space-y-1 ml-4">
                 <li>Search Consoleで対象サイトを登録し、所有者ステータスを確認</li>
-                <li>上部の「Googleアカウントで認証」ボタンでOAuth認可を完了</li>
+                <li>上部の「Googleでログイン」ボタンでOAuth認可を完了</li>
                 <li>権限が確認でき次第、利用可能なプロパティが自動表示されます</li>
                 <li>プロパティを選択して保存</li>
               </ol>
