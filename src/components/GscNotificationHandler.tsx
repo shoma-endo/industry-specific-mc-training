@@ -18,6 +18,9 @@ export function GscNotificationHandler() {
   const toastIdRef = useRef<string | number | null>(null);
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
 
+  // 一般ユーザー向けページでは通知を表示しない
+  const isPublicPage = pathname === '/home' || pathname === '/privacy';
+
   const showToast = useCallback(
     (count: number) => {
       // 0件なら既存トーストを閉じる
@@ -86,7 +89,7 @@ export function GscNotificationHandler() {
   );
 
   const fetchUnread = useCallback(async () => {
-    if (!isLoggedIn || isLoading) return;
+    if (!isLoggedIn || isLoading || isPublicPage) return;
 
       try {
       const result = await getUnreadSuggestionsCount();
@@ -103,22 +106,22 @@ export function GscNotificationHandler() {
     } catch (error) {
       console.error('Failed to fetch unread suggestions', error);
     }
-  }, [isLoggedIn, isLoading, showToast]);
+  }, [isLoggedIn, isLoading, isPublicPage, showToast]);
 
   // 初回マウント時と画面遷移時に再取得
   useEffect(() => {
     fetchUnread();
   }, [fetchUnread, pathname]);
 
-  // ログアウト時にリセット
+  // ログアウト時またはパブリックページ遷移時にリセット
   useEffect(() => {
-    if (!isLoggedIn && !isLoading) {
+    if ((!isLoggedIn && !isLoading) || isPublicPage) {
       toastShownRef.current = false;
       sessionStorage.removeItem(TOAST_SESSION_KEY);
       setUnreadCount(null);
       showToast(0);
     }
-  }, [isLoggedIn, isLoading, showToast]);
+  }, [isLoggedIn, isLoading, isPublicPage, showToast]);
 
   // 履歴タブなどで既読にされた際の通知を受けてカウント更新
   useEffect(() => {

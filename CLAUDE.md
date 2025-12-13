@@ -133,6 +133,7 @@ AI運用5原則
 - WordPress 連携は WordPress.com / Self-hosted の両方を考慮し、URL 正規化とエラーハンドリングを追加する。
 - Stripe を扱う処理では `env.STRIPE_ENABLED` を必ずチェックし、無効時の例外を投げるパターンを踏襲。
 - Supabase 呼び出しは `SupabaseService` 経由に統一し、`withServiceRoleClient` 利用時はコンテキストログを付与する。
+- **一般ユーザー向けページ（`/home`, `/privacy`）ではログインユーザー情報（通知トースト、ユーザー名、認証状態など）を一切表示しない。** これらは非認証ユーザーも閲覧可能なパブリックページです。
 
 ## テストと検証
 
