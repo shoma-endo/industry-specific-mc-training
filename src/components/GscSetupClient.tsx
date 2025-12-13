@@ -43,7 +43,6 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
   const {
     status,
     properties,
-    needsReauth,
     isSyncingStatus,
     isLoadingProperties,
     alertMessage,
@@ -53,6 +52,8 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     refreshStatus,
     refetchProperties,
   } = useGscSetup(initialStatus);
+
+  const needsReauth = status.needsReauth ?? false;
 
   const [isUpdatingProperty, setIsUpdatingProperty] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
