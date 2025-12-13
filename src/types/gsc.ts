@@ -20,6 +20,7 @@ export interface GscCredential {
 
 export interface GscConnectionStatus {
   connected: boolean;
+  needsReauth?: boolean;
   googleAccountEmail?: string | null;
   propertyUri?: string | null;
   propertyDisplayName?: string | null;

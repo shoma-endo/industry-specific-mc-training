@@ -10,7 +10,6 @@ import { handleAsyncAction } from '@/lib/async-handler';
 interface UseGscSetupResult {
   status: GscConnectionStatus;
   properties: GscSiteEntry[];
-  needsReauth: boolean;
   isSyncingStatus: boolean;
   isLoadingProperties: boolean;
   alertMessage: string | null;
@@ -30,7 +29,6 @@ export function useGscSetup(initialStatus: GscConnectionStatus): UseGscSetupResu
   const [status, setStatus] = useState<GscConnectionStatus>(initialStatus);
   const [properties, setProperties] = useState<GscSiteEntry[]>([]);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
-  const [needsReauth, setNeedsReauth] = useState(false);
   const [isSyncingStatus, setIsSyncingStatus] = useState(false);
   const [isLoadingProperties, setIsLoadingProperties] = useState(false);
 
@@ -46,7 +44,6 @@ export function useGscSetup(initialStatus: GscConnectionStatus): UseGscSetupResu
   const refetchProperties = useCallback(async () => {
     if (!status.connected) return;
 
-    setNeedsReauth(false);
     await handleAsyncAction(fetchGscProperties, {
       onSuccess: (data) => {
         if (Array.isArray(data)) {
@@ -57,19 +54,16 @@ export function useGscSetup(initialStatus: GscConnectionStatus): UseGscSetupResu
         const errorMessage = error.message;
         // トークン期限切れ/取り消しエラーの場合は再認証を促す
         if (isTokenExpiredError(errorMessage)) {
-          setNeedsReauth(true);
+          // ステータスを再取得して needsReauth を更新
+          refreshStatus();
           setAlertMessage('Googleアカウントの認証が期限切れまたは取り消されています。再認証してください。');
         }
       },
       setLoading: setIsLoadingProperties,
-      setMessage: (message) => {
-        // Server Actionから再認証フラグが返された場合
-        // (handleAsyncActionが処理する前にチェック)
-        setAlertMessage(message);
-      },
+      setMessage: setAlertMessage,
       defaultErrorMessage: 'プロパティ一覧の取得に失敗しました',
     });
-  }, [status.connected]);
+  }, [status.connected, refreshStatus]);
 
   useEffect(() => {
     if (status.connected) {
@@ -82,7 +76,6 @@ export function useGscSetup(initialStatus: GscConnectionStatus): UseGscSetupResu
   return {
     status,
     properties,
-    needsReauth,
     isSyncingStatus,
     isLoadingProperties,
     alertMessage,
