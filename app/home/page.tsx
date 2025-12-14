@@ -185,9 +185,6 @@ export default function LandingPage() {
                   <li>3. 許可後、ダッシュボードで検索データを参照</li>
                   <li>4. データをもとに AI が改善案を提示</li>
                 </ul>
-                <div className="mt-4 text-xs text-gray-500">
-                  OAuth 画面・スコープ詳細のデモ動画は現在撮影中です（公開予定: 2025年Q4）。
-                </div>
               </div>
               <div className="p-8 bg-white rounded-2xl shadow-md border border-blue-100">
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">データ使用と保護</h3>
@@ -234,9 +231,6 @@ export default function LandingPage() {
                       <Link href="/privacy" className="hover:underline">
                         プライバシーポリシー（Googleユーザーデータの扱い）
                       </Link>
-                    </li>
-                    <li>
-                      <span className="text-gray-500">デモ動画（公開準備中 / 2025年Q4予定）</span>
                     </li>
                     <li>
                       <span className="text-gray-500">
