@@ -213,32 +213,20 @@ export default function LandingPage() {
             </div>
 
             <div className="bg-white rounded-2xl border border-blue-100 p-8 md:p-12 shadow-md">
-              <div className="grid md:grid-cols-2 gap-8">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    想定UIと提供タイミング
-                  </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    Search Console 連携後は、`GSC
-                    インサイト`（開発中）画面で検索クエリ、クリック数、表示回数、平均掲載順位を一覧表示し、AI
-                    チャットへ引き渡します。画面設計・スクリーンショットは申請時の付録資料およびデモ動画に含めます。
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">関連ドキュメント</h3>
-                  <ul className="space-y-2 text-sm text-blue-700">
-                    <li>
-                      <Link href="/privacy" className="hover:underline">
-                        プライバシーポリシー（Googleユーザーデータの扱い）
-                      </Link>
-                    </li>
-                    <li>
-                      <span className="text-gray-500">
-                        テストアカウント情報は審査担当者と個別共有します
-                      </span>
-                    </li>
-                  </ul>
-                </div>
+              <div className="max-w-2xl mx-auto">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">関連ドキュメント</h3>
+                <ul className="space-y-2 text-sm text-blue-700">
+                  <li>
+                    <Link href="/privacy" className="hover:underline">
+                      プライバシーポリシー（Googleユーザーデータの扱い）
+                    </Link>
+                  </li>
+                  <li>
+                    <span className="text-gray-500">
+                      テストアカウント情報は審査担当者と個別共有します
+                    </span>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
@@ -335,12 +323,6 @@ export default function LandingPage() {
                   <Link href="/privacy" className="hover:text-white transition-colors">
                     プライバシーポリシー
                   </Link>
-                </li>
-                <li>
-                  <span className="text-gray-500">特定商取引法に基づく表記（準備中）</span>
-                </li>
-                <li>
-                  <span className="text-gray-500">利用規約（準備中）</span>
                 </li>
               </ul>
             </div>
