@@ -185,9 +185,6 @@ export default function LandingPage() {
                   <li>3. 許可後、ダッシュボードで検索データを参照</li>
                   <li>4. データをもとに AI が改善案を提示</li>
                 </ul>
-                <div className="mt-4 text-xs text-gray-500">
-                  OAuth 画面・スコープ詳細のデモ動画は現在撮影中です（公開予定: 2025年Q4）。
-                </div>
               </div>
               <div className="p-8 bg-white rounded-2xl shadow-md border border-blue-100">
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">データ使用と保護</h3>
@@ -212,39 +209,6 @@ export default function LandingPage() {
                   <li>メール: support@dreamplanner.co.jp</li>
                 </ul>
                 <p className="text-xs text-gray-500 mt-4">受付時間: 平日 10:00-17:00（祝日除く）</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-blue-100 p-8 md:p-12 shadow-md">
-              <div className="grid md:grid-cols-2 gap-8">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    想定UIと提供タイミング
-                  </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    Search Console 連携後は、`GSC
-                    インサイト`（開発中）画面で検索クエリ、クリック数、表示回数、平均掲載順位を一覧表示し、AI
-                    チャットへ引き渡します。画面設計・スクリーンショットは申請時の付録資料およびデモ動画に含めます。
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">関連ドキュメント</h3>
-                  <ul className="space-y-2 text-sm text-blue-700">
-                    <li>
-                      <Link href="/privacy" className="hover:underline">
-                        プライバシーポリシー（Googleユーザーデータの扱い）
-                      </Link>
-                    </li>
-                    <li>
-                      <span className="text-gray-500">デモ動画（公開準備中 / 2025年Q4予定）</span>
-                    </li>
-                    <li>
-                      <span className="text-gray-500">
-                        テストアカウント情報は審査担当者と個別共有します
-                      </span>
-                    </li>
-                  </ul>
-                </div>
               </div>
             </div>
           </div>
@@ -341,12 +305,6 @@ export default function LandingPage() {
                   <Link href="/privacy" className="hover:text-white transition-colors">
                     プライバシーポリシー
                   </Link>
-                </li>
-                <li>
-                  <span className="text-gray-500">特定商取引法に基づく表記（準備中）</span>
-                </li>
-                <li>
-                  <span className="text-gray-500">利用規約（準備中）</span>
                 </li>
               </ul>
             </div>
