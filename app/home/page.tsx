@@ -211,24 +211,6 @@ export default function LandingPage() {
                 <p className="text-xs text-gray-500 mt-4">受付時間: 平日 10:00-17:00（祝日除く）</p>
               </div>
             </div>
-
-            <div className="bg-white rounded-2xl border border-blue-100 p-8 md:p-12 shadow-md">
-              <div className="max-w-2xl mx-auto">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">関連ドキュメント</h3>
-                <ul className="space-y-2 text-sm text-blue-700">
-                  <li>
-                    <Link href="/privacy" className="hover:underline">
-                      プライバシーポリシー（Googleユーザーデータの扱い）
-                    </Link>
-                  </li>
-                  <li>
-                    <span className="text-gray-500">
-                      テストアカウント情報は審査担当者と個別共有します
-                    </span>
-                  </li>
-                </ul>
-              </div>
-            </div>
           </div>
         </section>
 
