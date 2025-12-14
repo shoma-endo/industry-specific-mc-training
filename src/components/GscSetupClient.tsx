@@ -150,12 +150,10 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
                 <li>Googleアカウントのパスワードを変更した</li>
               </ul>
             </div>
+            <p className="text-sm text-orange-700">
+              「連携ステータス」カード内の「Googleでログイン」ボタンから再認証してください。
+            </p>
           </div>
-          {isOauthConfigured && (
-            <GoogleSignInButton asChild>
-              <a href={OAUTH_START_PATH}>Googleでログイン</a>
-            </GoogleSignInButton>
-          )}
         </div>
       )}
 
