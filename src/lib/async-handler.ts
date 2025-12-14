@@ -85,8 +85,10 @@ export async function handleAsyncAction<T>(
   try {
     const result = await action();
 
-    if (result.success && result.data !== undefined) {
-      onSuccess?.(result.data);
+    if (result.success) {
+      // 成功時はdataの有無に関わらずonSuccessを呼び出す
+      // DELETE操作など、返すデータがない場合もある
+      onSuccess?.(result.data as T);
     } else {
       const errorMessage = result.error || defaultErrorMessage;
       const error = new Error(errorMessage);

@@ -155,15 +155,23 @@ export async function saveGscProperty(params: { propertyUri: string; permissionL
 export async function disconnectGsc() {
   try {
     const { userId, error } = await getAuthUserId();
+
     if (error || !userId) {
+      console.error('[GSC Setup] disconnectGsc: ユーザー認証失敗', { error });
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
     }
+
     await supabaseService.deleteGscCredential(userId);
+
     revalidatePath('/setup');
     revalidatePath('/gsc-setup');
     return { success: true };
   } catch (error) {
-    console.error('[GSC Setup] disconnect failed', error);
+    console.error('[GSC Setup] disconnect failed', {
+      error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return { success: false, error: '連携解除に失敗しました' };
   }
 }
