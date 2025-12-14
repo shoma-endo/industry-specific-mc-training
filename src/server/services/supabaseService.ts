@@ -953,10 +953,20 @@ export class SupabaseService {
    * Google Search Console 資格情報を削除
    */
   async deleteGscCredential(userId: string): Promise<void> {
-    const { error } = await this.supabase.from('gsc_credentials').delete().eq('user_id', userId);
+    const { error } = await this.supabase
+      .from('gsc_credentials')
+      .delete()
+      .eq('user_id', userId);
 
     if (error) {
-      console.error('Error deleting GSC credential:', error);
+      console.error('[SupabaseService] deleteGscCredential: エラー詳細', {
+        userId,
+        errorCode: error.code,
+        errorMessage: error.message,
+        errorDetails: error.details,
+        errorHint: error.hint,
+        fullError: error,
+      });
       throw new Error(`Google Search Console資格情報の削除に失敗しました: ${error.message}`);
     }
   }
