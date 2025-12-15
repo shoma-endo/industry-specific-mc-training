@@ -128,9 +128,11 @@ export interface GscArticleEvaluation {
   userId: string;
   contentAnnotationId: string;
   propertyUri: string;
-  currentStage: GscEvaluationStage;
+  currentSuggestionStage: number; // 1-4
   lastEvaluatedOn?: string | null; // ISO date
-  nextEvaluationOn: string; // ISO date
+  baseEvaluationDate: string; // ISO date
+  cycleDays: number;
+  evaluationHour: number;
   lastSeenPosition?: number | null;
   status: GscEvaluationStatus;
   createdAt: string;
@@ -142,12 +144,12 @@ export interface GscArticleEvaluationHistory {
   userId: string;
   contentAnnotationId: string;
   evaluationDate: string; // ISO date
-  stage: GscEvaluationStage;
   previousPosition?: number | null;
   currentPosition: number;
   outcome: GscEvaluationOutcome;
   suggestionApplied: boolean;
   suggestionSummary?: string | null;
+  isRead?: boolean;
   createdAt: string;
 }
 

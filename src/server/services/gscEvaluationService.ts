@@ -25,6 +25,7 @@ type EvaluationRow = {
   user_id: string;
   content_annotation_id: string;
   property_uri: string;
+  current_suggestion_stage?: number | null;
   last_evaluated_on?: string | null;
   base_evaluation_date: string;
   cycle_days: number;
@@ -172,6 +173,17 @@ export class GscEvaluationService {
 
     const outcome = this.judgeOutcome(lastSeen, currentPos);
 
+    // ステージ進行判定
+    let nextStage = evaluation.current_suggestion_stage || 1;
+
+    if (outcome === 'improved') {
+      // 改善された → ステージをリセット
+      nextStage = 1;
+    } else {
+      // 改善されなかった（no_change or worse）→ ステージを進める（最大4で固定）
+      nextStage = Math.min((evaluation.current_suggestion_stage || 1) + 1, 4);
+    }
+
     // 更新: evaluations
     // base_evaluation_date は更新しない（固定された評価基準日として保持）
     const { error: updateError } = await this.supabaseService
@@ -180,6 +192,7 @@ export class GscEvaluationService {
       .update({
         last_seen_position: currentPos,
         last_evaluated_on: today,
+        current_suggestion_stage: nextStage,
         updated_at: new Date().toISOString(),
       })
       .eq('id', evaluation.id)
@@ -220,6 +233,7 @@ export class GscEvaluationService {
         outcome,
         currentPosition: currentPos,
         previousPosition: lastSeen,
+        currentSuggestionStage: nextStage, // 更新後のステージを渡す
       });
     }
 
