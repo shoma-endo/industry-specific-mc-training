@@ -193,11 +193,12 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                         })
                         .filter(s => s.templateName !== null && s.content.length > 0);
 
-                      // 順序を保証（CTR改善 → 導入文 → 本文）
+                      // 順序を保証（CTR改善 → 導入文 → 本文 → ペルソナ再構築）
                       const order = [
                         'gsc_insight_ctr_boost',
                         'gsc_insight_intro_refresh',
                         'gsc_insight_body_rewrite',
+                        'gsc_insight_persona_rebuild',
                       ];
                       processedSections.sort((a, b) => {
                         const aIndex = order.indexOf(a.templateName!);
