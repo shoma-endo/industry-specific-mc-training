@@ -1,11 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { AlertCircle, ExternalLink, Loader2 } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import { ensureAnnotationChatSession } from '@/server/actions/wordpress.actions';
 
 interface SuggestionDataReadinessProps {
   annotation: {
@@ -31,32 +27,6 @@ interface DataRequirement {
 }
 
 export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessProps) {
-  const router = useRouter();
-  const [isLaunching, setIsLaunching] = useState(false);
-
-  const handleLaunchChat = async () => {
-    setIsLaunching(true);
-    try {
-      const result = await ensureAnnotationChatSession({
-        annotationId: annotation.id,
-        sessionId: null,
-        wpPostId: null,
-        wpPostTitle: null,
-        canonicalUrl: null,
-        fallbackTitle: null,
-      });
-      if (result.success) {
-        router.push(`/chat?session=${result.sessionId}`);
-      } else {
-        console.error('チャットセッション作成失敗:', result.error);
-        setIsLaunching(false);
-      }
-    } catch (error) {
-      console.error('チャット起動エラー:', error);
-      setIsLaunching(false);
-    }
-  };
-
   // 各ステージのデータ要件
   const requirements: DataRequirement[] = [
     {
@@ -145,27 +115,6 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
                 );
               })}
             </ul>
-            <div className="pt-1">
-              <Button
-                variant="link"
-                size="sm"
-                onClick={handleLaunchChat}
-                disabled={isLaunching}
-                className="h-auto p-0 text-sm font-medium text-amber-900 hover:text-amber-700 underline underline-offset-4"
-              >
-                {isLaunching ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    起動中...
-                  </>
-                ) : (
-                  <>
-                    <ExternalLink className="w-4 h-4 mr-1.5" />
-                    チャットから登録する
-                  </>
-                )}
-              </Button>
-            </div>
           </AlertDescription>
         </div>
       </div>
