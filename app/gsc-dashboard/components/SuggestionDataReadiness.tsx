@@ -31,7 +31,7 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
   const requirements: DataRequirement[] = [
     {
       stage: 1,
-      label: 'CTR改善（広告スニペット）',
+      label: '広告タイトル / 広告説明文',
       fields: [
         { name: 'ads_headline', displayName: '広告タイトル', value: annotation.ads_headline },
         { name: 'ads_description', displayName: '広告説明文', value: annotation.ads_description },
@@ -40,7 +40,7 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
     },
     {
       stage: 2,
-      label: '導入文改善',
+      label: '書き出し案',
       fields: [
         { name: 'opening_proposal', displayName: '書き出し案', value: annotation.opening_proposal },
       ],
@@ -48,17 +48,17 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
     },
     {
       stage: 3,
-      label: '本文リライト',
+      label: '記事本文',
       fields: [
-        { name: 'wp_content_text', displayName: '本文テキスト', value: annotation.wp_content_text },
+        { name: 'wp_content_text', displayName: '記事本文', value: annotation.wp_content_text },
       ],
       requiresAll: true,
     },
     {
       stage: 4,
-      label: 'ペルソナから全て変更',
+      label: 'デモグラ・ペルソナ / ニーズ',
       fields: [
-        { name: 'persona', displayName: 'ペルソナ', value: annotation.persona },
+        { name: 'persona', displayName: 'デモグラ・ペルソナ', value: annotation.persona },
         { name: 'needs', displayName: 'ニーズ', value: annotation.needs },
       ],
       requiresAll: false, // どちらか1つでもあればOK
@@ -98,16 +98,16 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
             );
             return (
               <div key={req.stage} className="flex items-start gap-2 text-sm">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-200 text-amber-900 text-xs font-bold flex-shrink-0 mt-0.5">
-                  {req.stage}
-                </span>
+                <span className="text-amber-600 mt-0.5">•</span>
                 <div className="flex-1">
                   <span className="font-medium">{req.label}</span>
-                  <span className="text-amber-700 ml-2">
-                    {req.requiresAll
-                      ? `（${missingFields.map(f => f.displayName).join('、')}）`
-                      : `（${missingFields.map(f => f.displayName).join(' または ')}）`}
-                  </span>
+                  {missingFields.length > 0 && (
+                    <span className="text-amber-700 ml-2">
+                      {req.requiresAll
+                        ? `（${missingFields.map(f => f.displayName).join('、')}が必要）`
+                        : `（${missingFields.map(f => f.displayName).join(' または ')}のいずれか）`}
+                    </span>
+                  )}
                 </div>
               </div>
             );
