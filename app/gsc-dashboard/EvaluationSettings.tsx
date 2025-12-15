@@ -35,6 +35,7 @@ interface EvaluationSettingsProps {
     last_evaluated_on: string | null;
     cycle_days: number;
     evaluation_hour: number;
+    status: string;
   } | null;
   onRegister: (date: string, cycleDays: number, evaluationHour: number) => Promise<void>;
   onUpdate: (date: string, cycleDays: number, evaluationHour: number) => Promise<void>;
@@ -166,9 +167,19 @@ export function EvaluationSettings({
         <div>
           <h3 className="text-lg font-semibold flex items-center gap-2">
             評価サイクル設定
-            {currentEvaluation && (
+            {currentEvaluation?.status === 'active' && (
               <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
                 稼働中
+              </span>
+            )}
+            {currentEvaluation?.status === 'paused' && (
+              <span className="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-600/20">
+                一時停止中
+              </span>
+            )}
+            {currentEvaluation?.status === 'completed' && (
+              <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-600/20">
+                完了
               </span>
             )}
           </h3>
