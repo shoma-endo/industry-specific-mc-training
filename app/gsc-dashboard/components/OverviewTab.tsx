@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { EvaluationSettings } from '../EvaluationSettings';
 import { MetricsSummaryCards } from './MetricsSummaryCards';
 import { TrendLineChart } from './TrendLineChart';
+import { SuggestionDataReadiness } from './SuggestionDataReadiness';
 import type {
   GscDashboardDetailResponse,
   GscMetricsSummary,
@@ -73,6 +74,9 @@ export function OverviewTab({
             </p>
           </div>
         </div>
+
+        {/* データ準備状況 */}
+        <SuggestionDataReadiness annotation={detail.annotation} />
 
         {/* メトリクスカード */}
         {metricsSummary && (

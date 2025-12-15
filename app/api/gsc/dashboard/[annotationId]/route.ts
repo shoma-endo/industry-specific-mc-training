@@ -27,11 +27,11 @@ export async function GET(
     const userId = authResult.userId;
     const { annotationId } = await context.params;
 
-    // 確認: 注釈がユーザーに属するか
+    // 確認: 注釈がユーザーに属するか（改善提案に必要なデータも含めて取得）
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id, wp_post_title, canonical_url')
+      .select('id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs')
       .eq('user_id', userId)
       .eq('id', annotationId)
       .maybeSingle();
