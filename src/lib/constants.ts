@@ -77,6 +77,11 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     maxTokens: 12000,
     label: '本文の提案',
   },
+  gsc_insight_persona_rebuild: {
+    ...ANTHROPIC_BASE,
+    maxTokens: 16000,
+    label: 'ペルソナから全て変更',
+  },
 };
 
 // =============================================================================

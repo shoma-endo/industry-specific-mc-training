@@ -8,6 +8,12 @@ export interface GscDashboardDetailResponse {
     id: string;
     wp_post_title: string | null;
     canonical_url: string | null;
+    ads_headline: string | null;
+    ads_description: string | null;
+    opening_proposal: string | null;
+    wp_content_text: string | null;
+    persona: string | null;
+    needs: string | null;
   };
   metrics: GscDailyMetric[];
   history: GscEvaluationHistoryItem[];
