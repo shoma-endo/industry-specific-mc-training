@@ -164,7 +164,7 @@ export class GscSuggestionService {
     for (const suggestion of orderedSuggestions) {
       if (suggestion.task) {
         const result = results[resultIndex++];
-        if (result.status === 'fulfilled' && result.value) {
+        if (result && result.status === 'fulfilled' && result.value) {
           sections.push(`# ${suggestion.label}\n\n${result.value.text}`);
         }
       } else if (suggestion.skipMessage) {
