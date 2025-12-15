@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
+import { AlertCircle, ExternalLink, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -113,58 +113,62 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
 
   return (
     <Alert className="bg-amber-50 border-amber-200">
-      <AlertCircle className="h-4 w-4 text-amber-600" />
-      <AlertTitle className="text-amber-900 font-semibold">
-        改善提案に必要なデータが不足しています
-      </AlertTitle>
-      <AlertDescription className="text-amber-800 space-y-3 mt-2">
-        <p className="text-sm">
-          以下のデータが未登録のため、該当の改善提案がスキップされます。評価を実行する前にデータを登録してください。
-        </p>
-        <div className="space-y-2">
-          {missingRequirements.map(req => {
-            const missingFields = req.fields.filter(
-              field => !field.value || field.value.trim().length === 0
-            );
-            return (
-              <div key={req.stage} className="flex items-start gap-2 text-sm">
-                <span className="text-amber-600 mt-0.5">•</span>
-                <div className="flex-1">
-                  <span className="font-medium">{req.label}</span>
-                  {missingFields.length > 0 && (
-                    <span className="text-amber-700 ml-2">
-                      {req.requiresAll
-                        ? `（${missingFields.map(f => f.displayName).join('、')}が必要）`
-                        : `（${missingFields.map(f => f.displayName).join(' または ')}のいずれか）`}
+      <div className="flex gap-3">
+        <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+        <div className="flex-1 space-y-3">
+          <AlertTitle className="text-amber-900 font-semibold text-base">
+            改善提案に必要なデータが不足しています
+          </AlertTitle>
+          <AlertDescription className="text-amber-800 space-y-3">
+            <p className="text-sm">
+              以下のデータが未登録のため、該当の改善提案がスキップされます。評価を実行する前にデータを登録してください。
+            </p>
+            <ul className="space-y-2 list-none">
+              {missingRequirements.map(req => {
+                const missingFields = req.fields.filter(
+                  field => !field.value || field.value.trim().length === 0
+                );
+                return (
+                  <li key={req.stage} className="flex items-start gap-2 text-sm">
+                    <span className="text-amber-600 mt-0.5 flex-shrink-0">•</span>
+                    <span>
+                      <span className="font-medium">{req.label}</span>
+                      {missingFields.length > 0 && (
+                        <span className="text-amber-700 ml-2">
+                          {req.requiresAll
+                            ? `（${missingFields.map(f => f.displayName).join('、')}が必要）`
+                            : `（${missingFields.map(f => f.displayName).join(' または ')}のいずれか）`}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="pt-1">
+              <Button
+                variant="link"
+                size="sm"
+                onClick={handleLaunchChat}
+                disabled={isLaunching}
+                className="h-auto p-0 text-sm font-medium text-amber-900 hover:text-amber-700 underline underline-offset-4"
+              >
+                {isLaunching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    起動中...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-1.5" />
+                    チャットから登録する
+                  </>
+                )}
+              </Button>
+            </div>
+          </AlertDescription>
         </div>
-        <div className="pt-2">
-          <Button
-            variant="link"
-            size="sm"
-            onClick={handleLaunchChat}
-            disabled={isLaunching}
-            className="h-auto p-0 text-sm font-medium text-amber-900 hover:text-amber-700 underline underline-offset-4"
-          >
-            {isLaunching ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                起動中...
-              </>
-            ) : (
-              <>
-                <ExternalLink className="w-4 h-4 mr-1.5" />
-                チャットから登録する
-              </>
-            )}
-          </Button>
-        </div>
-      </AlertDescription>
+      </div>
     </Alert>
   );
 }
