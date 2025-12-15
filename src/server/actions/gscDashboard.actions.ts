@@ -11,7 +11,17 @@ const supabaseService = new SupabaseService();
 export type GscDetailResponse = {
   success: boolean;
   data?: {
-    annotation: { id: string; wp_post_title: string | null; canonical_url: string | null };
+    annotation: {
+      id: string;
+      wp_post_title: string | null;
+      canonical_url: string | null;
+      ads_headline: string | null;
+      ads_description: string | null;
+      opening_proposal: string | null;
+      wp_content_text: string | null;
+      persona: string | null;
+      needs: string | null;
+    };
     metrics: Array<{
       date: string;
       position: number | null;
@@ -81,7 +91,7 @@ export async function fetchGscDetail(
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id, wp_post_title, canonical_url')
+      .select('id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs')
       .eq('user_id', userId)
       .eq('id', annotationId)
       .maybeSingle();
