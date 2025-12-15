@@ -29,6 +29,13 @@ interface GenerateParams {
 export class GscSuggestionService {
   private supabase = new SupabaseService();
 
+  /**
+   * 文字列が空白のみでないかチェック（UIと同じロジック）
+   */
+  private hasContent(value: string | null | undefined): boolean {
+    return Boolean(value && value.trim().length > 0);
+  }
+
   async generate(params: GenerateParams): Promise<void> {
     // outcome improved の場合は呼ばれない想定
     const annotation = await this.loadAnnotation(params.userId, params.contentAnnotationId);
@@ -55,7 +62,7 @@ export class GscSuggestionService {
 
     // ステージ1: CTR改善（広告スニペット）
     if (stagesToRun.includes(1)) {
-      if (annotation.ads_headline || annotation.ads_description) {
+      if (this.hasContent(annotation.ads_headline) || this.hasContent(annotation.ads_description)) {
         orderedSuggestions.push({
           stage: 1,
           templateName: 'gsc_insight_ctr_boost',
@@ -80,7 +87,7 @@ export class GscSuggestionService {
 
     // ステージ2: 導入文改善
     if (stagesToRun.includes(2)) {
-      if (annotation.opening_proposal) {
+      if (this.hasContent(annotation.opening_proposal)) {
         orderedSuggestions.push({
           stage: 2,
           templateName: 'gsc_insight_intro_refresh',
@@ -104,7 +111,7 @@ export class GscSuggestionService {
 
     // ステージ3: 本文リライト
     if (stagesToRun.includes(3)) {
-      if (wpContent) {
+      if (this.hasContent(wpContent)) {
         orderedSuggestions.push({
           stage: 3,
           templateName: 'gsc_insight_body_rewrite',
@@ -112,7 +119,7 @@ export class GscSuggestionService {
           task: this.runOne({
             templateName: 'gsc_insight_body_rewrite',
             variables: {
-              wpContent,
+              wpContent: wpContent!, // hasContent チェック済みなので null ではない
             },
           }),
         });
@@ -128,7 +135,7 @@ export class GscSuggestionService {
 
     // ステージ4: ペルソナから全て変更
     if (stagesToRun.includes(4)) {
-      if (annotation.persona || annotation.needs) {
+      if (this.hasContent(annotation.persona) || this.hasContent(annotation.needs)) {
         orderedSuggestions.push({
           stage: 4,
           templateName: 'gsc_insight_persona_rebuild',
