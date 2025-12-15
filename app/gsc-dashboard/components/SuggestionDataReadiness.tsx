@@ -85,11 +85,11 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
     <Alert className="bg-amber-50 border-amber-200">
       <AlertCircle className="h-4 w-4 text-amber-600" />
       <AlertTitle className="text-amber-900 font-semibold">
-        改善提案をより充実させるために
+        改善提案に必要なデータが不足しています
       </AlertTitle>
       <AlertDescription className="text-amber-800 space-y-3 mt-2">
         <p className="text-sm">
-          以下のデータが未設定です。データを充実させることで、より具体的な改善提案を受け取ることができます。
+          以下のデータが未登録のため、該当ステージの改善提案がスキップされます。評価を実行する前にデータを登録してください。
         </p>
         <div className="space-y-2">
           {missingRequirements.map(req => {
