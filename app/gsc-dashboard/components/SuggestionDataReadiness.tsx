@@ -89,7 +89,7 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
       </AlertTitle>
       <AlertDescription className="text-amber-800 space-y-3 mt-2">
         <p className="text-sm">
-          以下のデータが未登録のため、該当ステージの改善提案がスキップされます。評価を実行する前にデータを登録してください。
+          以下のデータが未登録のため、該当の改善提案がスキップされます。評価を実行する前にデータを登録してください。
         </p>
         <div className="space-y-2">
           {missingRequirements.map(req => {
@@ -119,7 +119,7 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
             className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-900 hover:text-amber-700 underline underline-offset-4 transition-colors"
           >
             <ExternalLink className="w-4 h-4" />
-            コンテンツ一覧でデータを設定する
+            チャットから登録する
           </Link>
         </div>
       </AlertDescription>
