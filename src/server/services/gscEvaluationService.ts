@@ -173,15 +173,17 @@ export class GscEvaluationService {
 
     const outcome = this.judgeOutcome(lastSeen, currentPos);
 
-    // ステージ進行判定
-    let nextStage = evaluation.current_suggestion_stage || 1;
+    // 現在のステージを保存（提案生成に使用）
+    const currentStage = evaluation.current_suggestion_stage || 1;
 
+    // 次回のステージを計算
+    let nextStage: number;
     if (outcome === 'improved') {
       // 改善された → ステージをリセット
       nextStage = 1;
     } else {
       // 改善されなかった（no_change or worse）→ ステージを進める（最大4で固定）
-      nextStage = Math.min((evaluation.current_suggestion_stage || 1) + 1, 4);
+      nextStage = Math.min(currentStage + 1, 4);
     }
 
     // 更新: evaluations
@@ -224,6 +226,7 @@ export class GscEvaluationService {
     }
 
     // 改善提案: 改善していない場合のみ実行（Claude API 呼び出し）
+    // 現在のステージで提案を生成（次回のステージではない）
     if (outcome !== 'improved' && historyRow?.id) {
       await gscSuggestionService.generate({
         userId,
@@ -233,7 +236,7 @@ export class GscEvaluationService {
         outcome,
         currentPosition: currentPos,
         previousPosition: lastSeen,
-        currentSuggestionStage: nextStage, // 更新後のステージを渡す
+        currentSuggestionStage: currentStage, // 現在のステージを渡す
       });
     }
 
