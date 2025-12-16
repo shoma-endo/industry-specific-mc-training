@@ -41,24 +41,23 @@ export function EvaluationHistoryTab({
 
   // 親からの最新履歴に同期（ローカルで既読にした状態を保持）
   useEffect(() => {
-    if (!initialHistory) {
-      setHistory(initialHistory);
-      return;
-    }
+    setHistory(initialHistory);
 
-    // ローカルで既読にしたアイテムの is_read 状態を保持
-    setHistory(prev => {
-      if (!prev) return initialHistory;
+    if (initialHistory) {
+      // ローカルで既読にしたアイテムの is_read 状態を保持
+      setHistory(prev => {
+        if (!prev) return initialHistory;
 
-      return initialHistory.map(item => {
-        const localItem = prev.find(p => p.id === item.id);
-        // ローカルで既読にしている場合は、その状態を保持
-        if (localItem && localItem.is_read && !item.is_read) {
-          return { ...item, is_read: true };
-        }
-        return item;
+        return initialHistory.map(item => {
+          const localItem = prev.find(p => p.id === item.id);
+          // ローカルで既読にしている場合は、その状態を保持
+          if (localItem && localItem.is_read && !item.is_read) {
+            return { ...item, is_read: true };
+          }
+          return item;
+        });
       });
-    });
+    }
 
     // 選択中の履歴がなくなった場合に閉じる
     if (selectedHistory && !initialHistory?.some(item => item.id === selectedHistory.id)) {
