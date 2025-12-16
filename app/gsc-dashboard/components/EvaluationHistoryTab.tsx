@@ -31,7 +31,10 @@ interface EvaluationHistoryTabProps {
   onHistoryRead?: (historyId: string) => void;
 }
 
-export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }: EvaluationHistoryTabProps) {
+export function EvaluationHistoryTab({
+  history: initialHistory,
+  onHistoryRead,
+}: EvaluationHistoryTabProps) {
   const [history, setHistory] = useState(initialHistory);
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -100,7 +103,8 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
           <div className="space-y-3">
             {history.map(item => {
               const isError = item.outcomeType === 'error';
-              const showUnreadBadge = !isError && !item.is_read && item.outcome !== null && item.outcome !== 'improved';
+              const showUnreadBadge =
+                !isError && !item.is_read && item.outcome !== null && item.outcome !== 'improved';
 
               return (
                 <div
@@ -113,14 +117,14 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                   onClick={() => setSelectedHistory(item)}
                 >
                   <div className="flex items-center gap-3">
-                    {isError && (
-                      <AlertCircle className="w-5 h-5 text-red-500" />
-                    )}
+                    {isError && <AlertCircle className="w-5 h-5 text-red-500" />}
                     {showUnreadBadge && (
                       <span className="flex h-2 w-2 rounded-full bg-amber-500" title="未読" />
                     )}
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{formatDateTime(item.created_at)}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatDateTime(item.created_at)}
+                      </p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-500">
                           {isError ? 'エラー:' : '判定:'}
@@ -160,11 +164,13 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                         </div>
                       </div>
                     )}
-                    <ChevronRight className={`w-5 h-5 transition-all duration-200 ${
-                      isError
-                        ? 'text-red-400 group-hover:text-red-600'
-                        : 'text-gray-400 group-hover:text-blue-600'
-                    } group-hover:translate-x-1`} />
+                    <ChevronRight
+                      className={`w-5 h-5 transition-all duration-200 ${
+                        isError
+                          ? 'text-red-400 group-hover:text-red-600'
+                          : 'text-gray-400 group-hover:text-blue-600'
+                      } group-hover:translate-x-1`}
+                    />
                   </div>
                 </div>
               );
@@ -187,37 +193,44 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
               {selectedHistory.outcomeType === 'error' ? (
                 // エラー時の表示
                 <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>評価実行エラー</AlertTitle>
-                  <AlertDescription>
-                    <div className="space-y-2 mt-2">
-                      <p className="text-sm">
-                        <span className="font-medium">エラー種別: </span>
-                        {selectedHistory.errorCode === 'import_failed'
-                          ? 'GSCデータ取得失敗'
-                          : 'メトリクスデータなし'}
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium">詳細: </span>
-                        {selectedHistory.errorMessage}
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium">発生日時: </span>
-                        {formatDateTime(selectedHistory.created_at)}
-                      </p>
+                  <div className="flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 space-y-3">
+                      <AlertTitle className="text-red-900 font-semibold text-base">
+                        評価実行エラー
+                      </AlertTitle>
+                      <AlertDescription className="text-red-800 space-y-2">
+                        <p className="text-sm">
+                          <span className="font-medium">エラー種別: </span>
+                          {selectedHistory.errorCode === 'import_failed'
+                            ? 'GSCデータ取得失敗'
+                            : 'メトリクスデータなし'}
+                        </p>
+                        <p className="text-sm">
+                          <span className="font-medium">詳細: </span>
+                          {selectedHistory.errorMessage}
+                        </p>
+                        <p className="text-sm">
+                          <span className="font-medium">発生日時: </span>
+                          {formatDateTime(selectedHistory.created_at)}
+                        </p>
+                      </AlertDescription>
                     </div>
-                  </AlertDescription>
+                  </div>
                 </Alert>
               ) : (
                 // 成功時の表示（既存）
                 <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">評価日</p>
-                    <p className="text-sm font-medium">{formatDateTime(selectedHistory.created_at)}</p>
+                    <p className="text-sm font-medium">
+                      {formatDateTime(selectedHistory.created_at)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">判定</p>
-                    {selectedHistory.outcome && GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome] ? (
+                    {selectedHistory.outcome &&
+                    GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome] ? (
                       <span
                         className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].className}`}
                       >
@@ -231,7 +244,9 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">前回順位</p>
-                    <p className="text-sm font-medium">{selectedHistory.previous_position ?? '—'}</p>
+                    <p className="text-sm font-medium">
+                      {selectedHistory.previous_position ?? '—'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">現在順位</p>
@@ -246,77 +261,77 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                 <div>
                   <p className="text-sm font-semibold mb-2">改善提案</p>
                   {selectedHistory.suggestion_summary ? (
-                  <div className="space-y-4">
-                    {(() => {
-                      // セクション分割
-                      const sections = selectedHistory.suggestion_summary.split('\n\n---\n\n');
+                    <div className="space-y-4">
+                      {(() => {
+                        // セクション分割
+                        const sections = selectedHistory.suggestion_summary.split('\n\n---\n\n');
 
-                      // 各セクションを処理
-                      const processedSections = sections
-                        .map(section => {
-                          // 見出しを抽出
-                          const headingMatch = section.match(/^#\s+(.+)$/m);
-                          const heading = headingMatch ? headingMatch[1].trim() : null;
+                        // 各セクションを処理
+                        const processedSections = sections
+                          .map(section => {
+                            // 見出しを抽出
+                            const headingMatch = section.match(/^#\s+(.+)$/m);
+                            const heading = headingMatch ? headingMatch[1].trim() : null;
 
-                          // 見出しから templateName を特定
-                          let templateName: string | null = null;
-                          if (heading) {
-                            for (const [name, config] of Object.entries(MODEL_CONFIGS)) {
-                              if (config.label === heading) {
-                                templateName = name;
-                                break;
+                            // 見出しから templateName を特定
+                            let templateName: string | null = null;
+                            if (heading) {
+                              for (const [name, config] of Object.entries(MODEL_CONFIGS)) {
+                                if (config.label === heading) {
+                                  templateName = name;
+                                  break;
+                                }
                               }
                             }
-                          }
 
-                          // 見出しを除いたコンテンツ
-                          const content = heading
-                            ? section.replace(/^#\s+.+$/m, '').trim()
-                            : section.trim();
+                            // 見出しを除いたコンテンツ
+                            const content = heading
+                              ? section.replace(/^#\s+.+$/m, '').trim()
+                              : section.trim();
 
-                          return { templateName, heading, content };
-                        })
-                        .filter(s => s.templateName !== null && s.content.length > 0);
+                            return { templateName, heading, content };
+                          })
+                          .filter(s => s.templateName !== null && s.content.length > 0);
 
-                      // 順序を保証（CTR改善 → 導入文 → 本文 → ペルソナ再構築）
-                      const order = [
-                        'gsc_insight_ctr_boost',
-                        'gsc_insight_intro_refresh',
-                        'gsc_insight_body_rewrite',
-                        'gsc_insight_persona_rebuild',
-                      ];
-                      processedSections.sort((a, b) => {
-                        const aIndex = order.indexOf(a.templateName!);
-                        const bIndex = order.indexOf(b.templateName!);
-                        return aIndex - bIndex;
-                      });
+                        // 順序を保証（CTR改善 → 導入文 → 本文 → ペルソナ再構築）
+                        const order = [
+                          'gsc_insight_ctr_boost',
+                          'gsc_insight_intro_refresh',
+                          'gsc_insight_body_rewrite',
+                          'gsc_insight_persona_rebuild',
+                        ];
+                        processedSections.sort((a, b) => {
+                          const aIndex = order.indexOf(a.templateName!);
+                          const bIndex = order.indexOf(b.templateName!);
+                          return aIndex - bIndex;
+                        });
 
-                      // レンダリング
-                      return processedSections.map((section, index) => {
-                        const config = MODEL_CONFIGS[section.templateName!];
-                        if (!config) return null;
+                        // レンダリング
+                        return processedSections.map((section, index) => {
+                          const config = MODEL_CONFIGS[section.templateName!];
+                          if (!config) return null;
 
-                        return (
-                          <div
-                            key={index}
-                            className={`p-4 rounded-lg border ${SUGGESTION_STYLE.sectionClass}`}
-                          >
-                            <div className="mb-3 flex items-center gap-2">
-                              <MessageSquare className="w-5 h-5 text-blue-600" />
-                              <span
-                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold ${SUGGESTION_STYLE.badgeClass}`}
-                              >
-                                {config.label}
-                              </span>
+                          return (
+                            <div
+                              key={index}
+                              className={`p-4 rounded-lg border ${SUGGESTION_STYLE.sectionClass}`}
+                            >
+                              <div className="mb-3 flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-blue-600" />
+                                <span
+                                  className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold ${SUGGESTION_STYLE.badgeClass}`}
+                                >
+                                  {config.label}
+                                </span>
+                              </div>
+                              <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h1:text-lg prose-h1:normal-case prose-h2:text-base prose-h2:mt-4 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1">
+                                <ReactMarkdown>{section.content}</ReactMarkdown>
+                              </div>
                             </div>
-                            <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h1:text-lg prose-h1:normal-case prose-h2:text-base prose-h2:mt-4 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1">
-                              <ReactMarkdown>{section.content}</ReactMarkdown>
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
+                          );
+                        });
+                      })()}
+                    </div>
                   ) : (
                     <p className="text-sm text-gray-500 italic">提案なし</p>
                   )}
