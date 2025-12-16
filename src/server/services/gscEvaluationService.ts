@@ -39,6 +39,10 @@ interface RunEvaluationOptions {
   force?: boolean;
   /** 特定の記事のみ手動評価する場合に指定 */
   contentAnnotationId?: string;
+  /** すでに取得済みの評価レコードを渡す場合に使用（再フェッチを避ける） */
+  evaluations?: EvaluationRow[];
+  /** 既に取得した現在のJST日時を渡す場合に使用（バッチと同じ基準時刻で判定するため） */
+  nowJst?: Date;
 }
 
 export class GscEvaluationService {
@@ -48,10 +52,12 @@ export class GscEvaluationService {
     userId: string,
     options: RunEvaluationOptions = {}
   ): Promise<EvaluationResultSummary> {
-    const { force = false, contentAnnotationId } = options as RunEvaluationOptions & {
+    const { force = false, contentAnnotationId, evaluations, nowJst } = options as RunEvaluationOptions & {
       contentAnnotationId?: string;
     };
-    const today = this.todayISO();
+    const currentJst = nowJst ?? this.getNowJst();
+    const todayJst = this.formatDateISO(currentJst);
+    const currentHourJst = currentJst.getHours();
 
     const summary: EvaluationResultSummary = {
       processed: 0,
@@ -61,41 +67,37 @@ export class GscEvaluationService {
       skippedImportFailed: 0,
     };
 
-    // 全てのアクティブな評価対象を取得
-    const { data: evaluations, error: evalError } = await this.supabaseService
-      .getClient()
-      .from('gsc_article_evaluations')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .match(contentAnnotationId ? { content_annotation_id: contentAnnotationId } : {});
+    // 取得済みがあればそれを利用。なければDBからフェッチ
+    let allEvaluations: EvaluationRow[];
+    if (evaluations) {
+      allEvaluations = contentAnnotationId
+        ? evaluations.filter(e => e.content_annotation_id === contentAnnotationId)
+        : evaluations;
+    } else {
+      const { data: fetchedEvaluations, error: evalError } = await this.supabaseService
+        .getClient()
+        .from('gsc_article_evaluations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .match(contentAnnotationId ? { content_annotation_id: contentAnnotationId } : {});
 
-    if (evalError) {
-      throw new Error(evalError.message || '評価対象の取得に失敗しました');
+      if (evalError) {
+        throw new Error(evalError.message || '評価対象の取得に失敗しました');
+      }
+
+      allEvaluations = (fetchedEvaluations ?? []) as EvaluationRow[];
     }
-
-    const allEvaluations = (evaluations ?? []) as EvaluationRow[];
 
     // force: true の場合はフィルタリングをスキップ（手動実行用）
     // それ以外は評価期限が来ているものをフィルタリング
     const evaluationRows = force
       ? allEvaluations
-      : allEvaluations.filter((evaluation) => {
-          const cycleDays = evaluation.cycle_days || 30;
-      if (!evaluation.last_evaluated_on) {
-        // 初回評価: base_evaluation_date + cycleDays <= today
-        const firstEvaluationDate = this.addDaysISO(evaluation.base_evaluation_date, cycleDays);
-        return firstEvaluationDate <= today;
-      } else {
-        // 2回目以降: last_evaluated_on + cycleDays <= today
-        const nextEvaluationDate = this.addDaysISO(evaluation.last_evaluated_on, cycleDays);
-        return nextEvaluationDate <= today;
-      }
-    });
+      : allEvaluations.filter((evaluation) => this.isDue(evaluation, todayJst, currentHourJst));
 
     // 全ての評価を並列実行
     const results = await Promise.allSettled(
-      evaluationRows.map((evaluation) => this.processEvaluation(userId, evaluation, today))
+      evaluationRows.map((evaluation) => this.processEvaluation(userId, evaluation, todayJst))
     );
 
     // 結果を集約
@@ -418,7 +420,10 @@ export class GscEvaluationService {
       try {
         console.log(`[gscEvaluationService] Processing user ${userId} with ${userEvaluations.length} evaluations`);
 
-        const result = await this.runDueEvaluationsForUser(userId);
+        const result = await this.runDueEvaluationsForUser(userId, {
+          evaluations: userEvaluations,
+          nowJst,
+        });
 
         summary.usersProcessed += 1;
         summary.totalEvaluations += result.processed;
