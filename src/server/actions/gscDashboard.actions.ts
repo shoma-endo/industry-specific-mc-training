@@ -33,8 +33,11 @@ export type GscDetailResponse = {
       id: string;
       evaluation_date: string;
       previous_position: number | null;
-      current_position: number;
-      outcome: GscEvaluationOutcome;
+      current_position: number | null; // nullable for errors
+      outcome: GscEvaluationOutcome | null; // nullable for errors
+      outcomeType: 'success' | 'error';
+      errorCode?: 'import_failed' | 'no_metrics' | null;
+      errorMessage?: string | null;
       suggestion_summary: string | null;
       is_read: boolean;
       created_at: string;
@@ -148,7 +151,13 @@ export async function fetchGscDetail(
       data: {
         annotation,
         metrics: metrics ?? [],
-        history: history ?? [],
+        history:
+          history?.map(item => ({
+            ...item,
+            outcomeType: item.outcome_type,
+            errorCode: item.error_code,
+            errorMessage: item.error_message,
+          })) ?? [],
         evaluation: evaluation ?? null,
         next_evaluation_run_utc: evaluation ? computeNextRunAtJst(evaluation) : null,
         credential: credential ? { propertyUri: credential.propertyUri ?? null } : null,

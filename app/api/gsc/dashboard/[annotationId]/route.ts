@@ -97,7 +97,13 @@ export async function GET(
       data: {
         annotation,
         metrics: metrics ?? [],
-        history: history ?? [],
+        history:
+          history?.map(item => ({
+            ...item,
+            outcomeType: item.outcome_type,
+            errorCode: item.error_code,
+            errorMessage: item.error_message,
+          })) ?? [],
         evaluation: evaluation ?? null,
         credential: credential ? { propertyUri: credential.propertyUri } : null,
       },
