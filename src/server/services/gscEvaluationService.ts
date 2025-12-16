@@ -25,6 +25,7 @@ type EvaluationRow = {
   user_id: string;
   content_annotation_id: string;
   property_uri: string;
+  current_suggestion_stage?: number | null;
   last_evaluated_on?: string | null;
   base_evaluation_date: string;
   cycle_days: number;
@@ -38,6 +39,10 @@ interface RunEvaluationOptions {
   force?: boolean;
   /** 特定の記事のみ手動評価する場合に指定 */
   contentAnnotationId?: string;
+  /** すでに取得済みの評価レコードを渡す場合に使用（再フェッチを避ける） */
+  evaluations?: EvaluationRow[];
+  /** 既に取得した現在のJST日時を渡す場合に使用（バッチと同じ基準時刻で判定するため） */
+  nowJst?: Date;
 }
 
 export class GscEvaluationService {
@@ -47,10 +52,12 @@ export class GscEvaluationService {
     userId: string,
     options: RunEvaluationOptions = {}
   ): Promise<EvaluationResultSummary> {
-    const { force = false, contentAnnotationId } = options as RunEvaluationOptions & {
+    const { force = false, contentAnnotationId, evaluations, nowJst } = options as RunEvaluationOptions & {
       contentAnnotationId?: string;
     };
-    const today = this.todayISO();
+    const currentJst = nowJst ?? this.getNowJst();
+    const todayJst = this.formatDateISO(currentJst);
+    const currentHourJst = currentJst.getHours();
 
     const summary: EvaluationResultSummary = {
       processed: 0,
@@ -60,41 +67,37 @@ export class GscEvaluationService {
       skippedImportFailed: 0,
     };
 
-    // 全てのアクティブな評価対象を取得
-    const { data: evaluations, error: evalError } = await this.supabaseService
-      .getClient()
-      .from('gsc_article_evaluations')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .match(contentAnnotationId ? { content_annotation_id: contentAnnotationId } : {});
+    // 取得済みがあればそれを利用。なければDBからフェッチ
+    let allEvaluations: EvaluationRow[];
+    if (evaluations) {
+      allEvaluations = contentAnnotationId
+        ? evaluations.filter(e => e.content_annotation_id === contentAnnotationId)
+        : evaluations;
+    } else {
+      const { data: fetchedEvaluations, error: evalError } = await this.supabaseService
+        .getClient()
+        .from('gsc_article_evaluations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .match(contentAnnotationId ? { content_annotation_id: contentAnnotationId } : {});
 
-    if (evalError) {
-      throw new Error(evalError.message || '評価対象の取得に失敗しました');
+      if (evalError) {
+        throw new Error(evalError.message || '評価対象の取得に失敗しました');
+      }
+
+      allEvaluations = (fetchedEvaluations ?? []) as EvaluationRow[];
     }
-
-    const allEvaluations = (evaluations ?? []) as EvaluationRow[];
 
     // force: true の場合はフィルタリングをスキップ（手動実行用）
     // それ以外は評価期限が来ているものをフィルタリング
     const evaluationRows = force
       ? allEvaluations
-      : allEvaluations.filter((evaluation) => {
-          const cycleDays = evaluation.cycle_days || 30;
-      if (!evaluation.last_evaluated_on) {
-        // 初回評価: base_evaluation_date + cycleDays <= today
-        const firstEvaluationDate = this.addDaysISO(evaluation.base_evaluation_date, cycleDays);
-        return firstEvaluationDate <= today;
-      } else {
-        // 2回目以降: last_evaluated_on + cycleDays <= today
-        const nextEvaluationDate = this.addDaysISO(evaluation.last_evaluated_on, cycleDays);
-        return nextEvaluationDate <= today;
-      }
-    });
+      : allEvaluations.filter((evaluation) => this.isDue(evaluation, todayJst, currentHourJst));
 
     // 全ての評価を並列実行
     const results = await Promise.allSettled(
-      evaluationRows.map((evaluation) => this.processEvaluation(userId, evaluation, today))
+      evaluationRows.map((evaluation) => this.processEvaluation(userId, evaluation, todayJst))
     );
 
     // 結果を集約
@@ -154,12 +157,57 @@ export class GscEvaluationService {
         `[gscEvaluationService] Failed to import data for evaluation ${evaluation.id}:`,
         importError
       );
+
+      // 履歴にエラーを記録
+      const { error: historyInsertError } = await this.supabaseService.getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: evaluation.content_annotation_id,
+          evaluation_date: today,
+          outcome_type: 'error',
+          error_code: 'import_failed',
+          error_message: importError instanceof Error
+            ? importError.message
+            : 'Google Search Consoleからのデータ取得に失敗しました',
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (historyInsertError) {
+        console.error(
+          `[gscEvaluationService] Failed to save error history for evaluation ${evaluation.id}:`,
+          historyInsertError
+        );
+      }
+
       return { status: 'skipped_import_failed' };
     }
 
     const metric = await this.fetchLatestMetric(userId, evaluation);
 
     if (!metric) {
+      // 履歴にエラーを記録
+      const { error: historyInsertError } = await this.supabaseService.getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: evaluation.content_annotation_id,
+          evaluation_date: today,
+          outcome_type: 'error',
+          error_code: 'no_metrics',
+          error_message: 'この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。',
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (historyInsertError) {
+        console.error(
+          `[gscEvaluationService] Failed to save error history for evaluation ${evaluation.id}:`,
+          historyInsertError
+        );
+      }
+
       return { status: 'skipped_no_metrics' };
     }
 
@@ -167,10 +215,44 @@ export class GscEvaluationService {
     const currentPos = this.toNumberOrNull(metric.position);
 
     if (currentPos === null) {
+      // 履歴にエラーを記録
+      const { error: historyInsertError } = await this.supabaseService.getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: evaluation.content_annotation_id,
+          evaluation_date: today,
+          outcome_type: 'error',
+          error_code: 'no_metrics',
+          error_message: '検索順位データ（position）が取得できませんでした。',
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (historyInsertError) {
+        console.error(
+          `[gscEvaluationService] Failed to save error history for evaluation ${evaluation.id}:`,
+          historyInsertError
+        );
+      }
+
       return { status: 'skipped_no_metrics' };
     }
 
     const outcome = this.judgeOutcome(lastSeen, currentPos);
+
+    // 現在のステージを保存（提案生成に使用）
+    const currentStage = evaluation.current_suggestion_stage || 1;
+
+    // 次回のステージを計算
+    let nextStage: number;
+    if (outcome === 'improved') {
+      // 改善された → ステージをリセット
+      nextStage = 1;
+    } else {
+      // 改善されなかった（no_change or worse）→ ステージを進める（最大4で固定）
+      nextStage = Math.min(currentStage + 1, 4);
+    }
 
     // 更新: evaluations
     // base_evaluation_date は更新しない（固定された評価基準日として保持）
@@ -180,6 +262,7 @@ export class GscEvaluationService {
       .update({
         last_seen_position: currentPos,
         last_evaluated_on: today,
+        current_suggestion_stage: nextStage,
         updated_at: new Date().toISOString(),
       })
       .eq('id', evaluation.id)
@@ -200,6 +283,7 @@ export class GscEvaluationService {
         previous_position: lastSeen,
         current_position: currentPos,
         outcome,
+        outcome_type: 'success',
         suggestion_applied: false,
         created_at: new Date().toISOString(),
       })
@@ -211,6 +295,7 @@ export class GscEvaluationService {
     }
 
     // 改善提案: 改善していない場合のみ実行（Claude API 呼び出し）
+    // 現在のステージで提案を生成（次回のステージではない）
     if (outcome !== 'improved' && historyRow?.id) {
       await gscSuggestionService.generate({
         userId,
@@ -220,6 +305,7 @@ export class GscEvaluationService {
         outcome,
         currentPosition: currentPos,
         previousPosition: lastSeen,
+        currentSuggestionStage: currentStage, // 現在のステージを渡す
       });
     }
 
@@ -334,7 +420,10 @@ export class GscEvaluationService {
       try {
         console.log(`[gscEvaluationService] Processing user ${userId} with ${userEvaluations.length} evaluations`);
 
-        const result = await this.runDueEvaluationsForUser(userId);
+        const result = await this.runDueEvaluationsForUser(userId, {
+          evaluations: userEvaluations,
+          nowJst,
+        });
 
         summary.usersProcessed += 1;
         summary.totalEvaluations += result.processed;

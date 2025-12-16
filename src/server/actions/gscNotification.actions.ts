@@ -50,6 +50,8 @@ export async function getUnreadSuggestionsCount(): Promise<{ count: number }> {
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('is_read', false)
+    .neq('outcome_type', 'error')
+    .not('outcome', 'is', null)
     .neq('outcome', 'improved');
 
   if (queryError) {
@@ -89,6 +91,8 @@ export async function getUnreadSuggestions(): Promise<UnreadSuggestionsResponse>
     `)
     .eq('user_id', userId)
     .eq('is_read', false)
+    .neq('outcome_type', 'error')
+    .not('outcome', 'is', null)
     .neq('outcome', 'improved')
     .order('evaluation_date', { ascending: false });
 
@@ -190,6 +194,8 @@ export async function getAnnotationIdsWithUnreadSuggestions(): Promise<{ annotat
     .select('content_annotation_id')
     .eq('user_id', userId)
     .eq('is_read', false)
+    .neq('outcome_type', 'error')
+    .not('outcome', 'is', null)
     .neq('outcome', 'improved');
 
   if (queryError) {

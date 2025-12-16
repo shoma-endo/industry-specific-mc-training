@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { ChevronRight, Loader2, CheckCheck, MessageSquare } from 'lucide-react';
+import { ChevronRight, Loader2, CheckCheck, MessageSquare, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -30,14 +31,31 @@ interface EvaluationHistoryTabProps {
   onHistoryRead?: (historyId: string) => void;
 }
 
-export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }: EvaluationHistoryTabProps) {
+export function EvaluationHistoryTab({
+  history: initialHistory,
+  onHistoryRead,
+}: EvaluationHistoryTabProps) {
   const [history, setHistory] = useState(initialHistory);
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // 親からの最新履歴に同期
+  // 親からの最新履歴に同期（ローカルで既読にした状態を保持）
   useEffect(() => {
-    setHistory(initialHistory);
+    setHistory(prev => {
+      if (!initialHistory) return initialHistory;
+
+      return initialHistory.map(item => {
+        const localItem = prev?.find(p => p.id === item.id);
+        // ローカルで既読にしている場合は、その状態を保持
+        if (localItem && localItem.is_read && !item.is_read) {
+          return { ...item, is_read: true };
+        }
+        return item;
+      });
+    });
+  }, [initialHistory]);
+
+  useEffect(() => {
     // 選択中の履歴がなくなった場合に閉じる
     if (selectedHistory && !initialHistory?.some(item => item.id === selectedHistory.id)) {
       setSelectedHistory(null);
@@ -80,43 +98,75 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
         <CardContent className="pt-6">
           <div className="space-y-3">
             {history.map(item => {
-              const showUnreadBadge = !item.is_read && item.outcome !== 'improved';
+              const isError = item.outcomeType === 'error';
+              const showUnreadBadge =
+                !isError && !item.is_read && item.outcome !== null && item.outcome !== 'improved';
+
               return (
                 <div
                   key={item.id}
-                  className="group p-4 rounded-lg border bg-white flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                  className={`group p-4 rounded-lg border flex items-center justify-between shadow-sm cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200 ${
+                    isError
+                      ? 'bg-red-50 border-red-200 hover:bg-red-100'
+                      : 'bg-white hover:bg-gray-50'
+                  }`}
                   onClick={() => setSelectedHistory(item)}
                 >
                   <div className="flex items-center gap-3">
+                    {isError && <AlertCircle className="w-5 h-5 text-red-500" />}
                     {showUnreadBadge && (
                       <span className="flex h-2 w-2 rounded-full bg-amber-500" title="未読" />
                     )}
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{formatDateTime(item.created_at)}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatDateTime(item.created_at)}
+                      </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500">判定:</span>
-                        <span
-                          className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].className}`}
-                        >
-                          {GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].label}
+                        <span className="text-xs text-gray-500">
+                          {isError ? 'エラー:' : '判定:'}
                         </span>
+                        {isError ? (
+                          <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-red-50 text-red-700 ring-red-600/20">
+                            評価失敗
+                          </span>
+                        ) : item.outcome && GSC_EVALUATION_OUTCOME_CONFIG[item.outcome] ? (
+                          <span
+                            className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].className}`}
+                          >
+                            {GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].label}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-gray-50 text-gray-700 ring-gray-500/10">
+                            データなし
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="flex items-baseline gap-2 justify-end">
-                        <span className="text-xs text-gray-500">
-                          前回: {item.previous_position ?? '—'}
-                        </span>
-                        <span className="text-gray-400">→</span>
-                        <span className="text-lg font-bold text-gray-900">
-                          {item.current_position}
-                        </span>
-                        <span className="text-xs text-gray-500">位</span>
+                    {!isError && (
+                      <div className="text-right">
+                        <div className="flex items-baseline gap-2 justify-end">
+                          <span className="text-xs text-gray-500">
+                            前回: {item.previous_position ?? '—'}
+                          </span>
+                          <span className="text-gray-400">→</span>
+                          <span className="text-lg font-bold text-gray-900">
+                            {item.current_position ?? '—'}
+                          </span>
+                          {item.current_position !== null && (
+                            <span className="text-xs text-gray-500">位</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200" />
+                    )}
+                    <ChevronRight
+                      className={`w-5 h-5 transition-all duration-200 ${
+                        isError
+                          ? 'text-red-400 group-hover:text-red-600'
+                          : 'text-gray-400 group-hover:text-blue-600'
+                      } group-hover:translate-x-1`}
+                    />
                   </div>
                 </div>
               );
@@ -136,110 +186,160 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
           </DialogHeader>
           {selectedHistory && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">評価日</p>
-                  <p className="text-sm font-medium">{formatDateTime(selectedHistory.created_at)}</p>
+              {selectedHistory.outcomeType === 'error' ? (
+                // エラー時の表示
+                <Alert variant="destructive">
+                  <div className="flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 space-y-3">
+                      <AlertTitle className="text-red-900 font-semibold text-base">
+                        評価実行エラー
+                      </AlertTitle>
+                      <AlertDescription className="text-red-800 space-y-2">
+                        <p className="text-sm">
+                          <span className="font-medium">エラー種別: </span>
+                          {selectedHistory.errorCode === 'import_failed'
+                            ? 'GSCデータ取得失敗'
+                            : 'メトリクスデータなし'}
+                        </p>
+                        <p className="text-sm">
+                          <span className="font-medium">詳細: </span>
+                          {selectedHistory.errorMessage}
+                        </p>
+                        <p className="text-sm">
+                          <span className="font-medium">発生日時: </span>
+                          {formatDateTime(selectedHistory.created_at)}
+                        </p>
+                      </AlertDescription>
+                    </div>
+                  </div>
+                </Alert>
+              ) : (
+                // 成功時の表示（既存）
+                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">評価日</p>
+                    <p className="text-sm font-medium">
+                      {formatDateTime(selectedHistory.created_at)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">判定</p>
+                    {selectedHistory.outcome &&
+                    GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome] ? (
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].className}`}
+                      >
+                        {GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].label}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-gray-50 text-gray-700 ring-gray-500/10">
+                        データなし
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">前回順位</p>
+                    <p className="text-sm font-medium">
+                      {selectedHistory.previous_position ?? '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">現在順位</p>
+                    <p className="text-sm font-medium">
+                      {selectedHistory.current_position ?? '—'}
+                      {selectedHistory.current_position !== null && '位'}
+                    </p>
+                  </div>
                 </div>
+              )}
+              {selectedHistory.outcomeType !== 'error' && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">判定</p>
-                  <span
-                    className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].className}`}
-                  >
-                    {GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].label}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">前回順位</p>
-                  <p className="text-sm font-medium">{selectedHistory.previous_position ?? '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">現在順位</p>
-                  <p className="text-sm font-medium">{selectedHistory.current_position}位</p>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-semibold mb-2">改善提案</p>
-                {selectedHistory.suggestion_summary ? (
-                  <div className="space-y-4">
-                    {(() => {
-                      // セクション分割
-                      const sections = selectedHistory.suggestion_summary.split('\n\n---\n\n');
+                  <p className="text-sm font-semibold mb-2">改善提案</p>
+                  {selectedHistory.suggestion_summary ? (
+                    <div className="space-y-4">
+                      {(() => {
+                        // セクション分割
+                        const sections = selectedHistory.suggestion_summary.split('\n\n---\n\n');
 
-                      // 各セクションを処理
-                      const processedSections = sections
-                        .map(section => {
-                          // 見出しを抽出
-                          const headingMatch = section.match(/^#\s+(.+)$/m);
-                          const heading = headingMatch ? headingMatch[1].trim() : null;
+                        // 各セクションを処理
+                        const processedSections = sections
+                          .map(section => {
+                            // 見出しを抽出
+                            const headingMatch = section.match(/^#\s+(.+)$/m);
+                            const heading = headingMatch ? headingMatch[1].trim() : null;
 
-                          // 見出しから templateName を特定
-                          let templateName: string | null = null;
-                          if (heading) {
-                            for (const [name, config] of Object.entries(MODEL_CONFIGS)) {
-                              if (config.label === heading) {
-                                templateName = name;
-                                break;
+                            // 見出しから templateName を特定
+                            let templateName: string | null = null;
+                            if (heading) {
+                              for (const [name, config] of Object.entries(MODEL_CONFIGS)) {
+                                if (config.label === heading) {
+                                  templateName = name;
+                                  break;
+                                }
                               }
                             }
-                          }
 
-                          // 見出しを除いたコンテンツ
-                          const content = heading
-                            ? section.replace(/^#\s+.+$/m, '').trim()
-                            : section.trim();
+                            // 見出しを除いたコンテンツ
+                            const content = heading
+                              ? section.replace(/^#\s+.+$/m, '').trim()
+                              : section.trim();
 
-                          return { templateName, heading, content };
-                        })
-                        .filter(s => s.templateName !== null && s.content.length > 0);
+                            return { templateName, heading, content };
+                          })
+                          .filter(s => s.templateName !== null && s.content.length > 0);
 
-                      // 順序を保証（CTR改善 → 導入文 → 本文）
-                      const order = [
-                        'gsc_insight_ctr_boost',
-                        'gsc_insight_intro_refresh',
-                        'gsc_insight_body_rewrite',
-                      ];
-                      processedSections.sort((a, b) => {
-                        const aIndex = order.indexOf(a.templateName!);
-                        const bIndex = order.indexOf(b.templateName!);
-                        return aIndex - bIndex;
-                      });
+                        // 順序を保証（CTR改善 → 導入文 → 本文 → ペルソナ再構築）
+                        const order = [
+                          'gsc_insight_ctr_boost',
+                          'gsc_insight_intro_refresh',
+                          'gsc_insight_body_rewrite',
+                          'gsc_insight_persona_rebuild',
+                        ];
+                        processedSections.sort((a, b) => {
+                          const aIndex = order.indexOf(a.templateName!);
+                          const bIndex = order.indexOf(b.templateName!);
+                          return aIndex - bIndex;
+                        });
 
-                      // レンダリング
-                      return processedSections.map((section, index) => {
-                        const config = MODEL_CONFIGS[section.templateName!];
-                        if (!config) return null;
+                        // レンダリング
+                        return processedSections.map((section, index) => {
+                          const config = MODEL_CONFIGS[section.templateName!];
+                          if (!config) return null;
 
-                        return (
-                          <div
-                            key={index}
-                            className={`p-4 rounded-lg border ${SUGGESTION_STYLE.sectionClass}`}
-                          >
-                            <div className="mb-3 flex items-center gap-2">
-                              <MessageSquare className="w-5 h-5 text-blue-600" />
-                              <span
-                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold ${SUGGESTION_STYLE.badgeClass}`}
-                              >
-                                {config.label}
-                              </span>
+                          return (
+                            <div
+                              key={index}
+                              className={`p-4 rounded-lg border ${SUGGESTION_STYLE.sectionClass}`}
+                            >
+                              <div className="mb-3 flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-blue-600" />
+                                <span
+                                  className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold ${SUGGESTION_STYLE.badgeClass}`}
+                                >
+                                  {config.label}
+                                </span>
+                              </div>
+                              <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h1:text-lg prose-h1:normal-case prose-h2:text-base prose-h2:mt-4 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1">
+                                <ReactMarkdown>{section.content}</ReactMarkdown>
+                              </div>
                             </div>
-                            <div className="prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-bold prose-h1:text-lg prose-h1:normal-case prose-h2:text-base prose-h2:mt-4 prose-h2:mb-3 prose-p:text-slate-700 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-1">
-                              <ReactMarkdown>{section.content}</ReactMarkdown>
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">提案なし</p>
-                )}
-              </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">提案なし</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
             {selectedHistory &&
               !selectedHistory.is_read &&
+              selectedHistory.outcomeType !== 'error' &&
+              selectedHistory.outcome !== null &&
               selectedHistory.outcome !== 'improved' && (
                 <Button
                   onClick={() => handleMarkAsRead(selectedHistory.id)}

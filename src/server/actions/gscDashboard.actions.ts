@@ -11,7 +11,17 @@ const supabaseService = new SupabaseService();
 export type GscDetailResponse = {
   success: boolean;
   data?: {
-    annotation: { id: string; wp_post_title: string | null; canonical_url: string | null };
+    annotation: {
+      id: string;
+      wp_post_title: string | null;
+      canonical_url: string | null;
+      ads_headline: string | null;
+      ads_description: string | null;
+      opening_proposal: string | null;
+      wp_content_text: string | null;
+      persona: string | null;
+      needs: string | null;
+    };
     metrics: Array<{
       date: string;
       position: number | null;
@@ -23,8 +33,11 @@ export type GscDetailResponse = {
       id: string;
       evaluation_date: string;
       previous_position: number | null;
-      current_position: number;
-      outcome: GscEvaluationOutcome;
+      current_position: number | null; // nullable for errors
+      outcome: GscEvaluationOutcome | null; // nullable for errors
+      outcomeType: 'success' | 'error';
+      errorCode?: 'import_failed' | 'no_metrics' | null;
+      errorMessage?: string | null;
       suggestion_summary: string | null;
       is_read: boolean;
       created_at: string;
@@ -81,7 +94,7 @@ export async function fetchGscDetail(
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id, wp_post_title, canonical_url')
+      .select('id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs')
       .eq('user_id', userId)
       .eq('id', annotationId)
       .maybeSingle();
@@ -112,7 +125,7 @@ export async function fetchGscDetail(
       .select('*')
       .eq('user_id', userId)
       .eq('content_annotation_id', annotationId)
-      .order('evaluation_date', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(100);
 
     if (historyError) {
@@ -138,7 +151,13 @@ export async function fetchGscDetail(
       data: {
         annotation,
         metrics: metrics ?? [],
-        history: history ?? [],
+        history:
+          history?.map(item => ({
+            ...item,
+            outcomeType: item.outcome_type,
+            errorCode: item.error_code,
+            errorMessage: item.error_message,
+          })) ?? [],
         evaluation: evaluation ?? null,
         next_evaluation_run_utc: evaluation ? computeNextRunAtJst(evaluation) : null,
         credential: credential ? { propertyUri: credential.propertyUri ?? null } : null,

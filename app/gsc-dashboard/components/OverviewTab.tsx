@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { EvaluationSettings } from '../EvaluationSettings';
 import { MetricsSummaryCards } from './MetricsSummaryCards';
 import { TrendLineChart } from './TrendLineChart';
+import { SuggestionDataReadiness } from './SuggestionDataReadiness';
 import type {
   GscDashboardDetailResponse,
   GscMetricsSummary,
@@ -19,9 +20,19 @@ interface OverviewTabProps {
   metricsSummary: GscMetricsSummary | null;
   visibleMetrics: GscVisibleMetrics;
   onToggleMetric: (key: keyof GscVisibleMetrics) => void;
-  onRegisterEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
+  onRegisterEvaluation: (
+    dateStr: string,
+    cycleDays: number,
+    evaluationHour: number
+  ) => Promise<void>;
   onUpdateEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
-  onRunEvaluation: () => Promise<{ processed: number; improved: number; advanced: number; skippedNoMetrics: number; skippedImportFailed: number }>;
+  onRunEvaluation: () => Promise<{
+    processed: number;
+    improved: number;
+    advanced: number;
+    skippedNoMetrics: number;
+    skippedImportFailed: number;
+  }>;
 }
 
 export function OverviewTab({
@@ -86,6 +97,9 @@ export function OverviewTab({
         {/* 時系列グラフ */}
         <TrendLineChart data={chartData} visibleMetrics={visibleMetrics} />
 
+        {/* データ準備状況 */}
+        <SuggestionDataReadiness annotation={detail.annotation} />
+
         {/* 評価設定 */}
         {detail.credential?.propertyUri && (
           <EvaluationSettings
@@ -99,4 +113,3 @@ export function OverviewTab({
     </Card>
   );
 }
-

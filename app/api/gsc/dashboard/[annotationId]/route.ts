@@ -27,11 +27,11 @@ export async function GET(
     const userId = authResult.userId;
     const { annotationId } = await context.params;
 
-    // 確認: 注釈がユーザーに属するか
+    // 確認: 注釈がユーザーに属するか（改善提案に必要なデータも含めて取得）
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id, wp_post_title, canonical_url')
+      .select('id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs')
       .eq('user_id', userId)
       .eq('id', annotationId)
       .maybeSingle();
@@ -69,7 +69,7 @@ export async function GET(
       .select('*')
       .eq('user_id', userId)
       .eq('content_annotation_id', annotationId)
-      .order('evaluation_date', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(100);
 
     if (historyError) {
@@ -97,7 +97,13 @@ export async function GET(
       data: {
         annotation,
         metrics: metrics ?? [],
-        history: history ?? [],
+        history:
+          history?.map(item => ({
+            ...item,
+            outcomeType: item.outcome_type,
+            errorCode: item.error_code,
+            errorMessage: item.error_message,
+          })) ?? [],
         evaluation: evaluation ?? null,
         credential: credential ? { propertyUri: credential.propertyUri } : null,
       },
