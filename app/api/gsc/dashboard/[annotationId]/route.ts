@@ -69,7 +69,7 @@ export async function GET(
       .select('*')
       .eq('user_id', userId)
       .eq('content_annotation_id', annotationId)
-      .order('evaluation_date', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(100);
 
     if (historyError) {
