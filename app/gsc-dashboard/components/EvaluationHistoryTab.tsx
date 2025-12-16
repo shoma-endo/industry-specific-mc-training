@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { ChevronRight, Loader2, CheckCheck, MessageSquare } from 'lucide-react';
+import { ChevronRight, Loader2, CheckCheck, MessageSquare, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -35,9 +36,27 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // 親からの最新履歴に同期
+  // 親からの最新履歴に同期（ローカルで既読にした状態を保持）
   useEffect(() => {
-    setHistory(initialHistory);
+    if (!initialHistory) {
+      setHistory(initialHistory);
+      return;
+    }
+
+    // ローカルで既読にしたアイテムの is_read 状態を保持
+    setHistory(prev => {
+      if (!prev) return initialHistory;
+
+      return initialHistory.map(item => {
+        const localItem = prev.find(p => p.id === item.id);
+        // ローカルで既読にしている場合は、その状態を保持
+        if (localItem && localItem.is_read && !item.is_read) {
+          return { ...item, is_read: true };
+        }
+        return item;
+      });
+    });
+
     // 選択中の履歴がなくなった場合に閉じる
     if (selectedHistory && !initialHistory?.some(item => item.id === selectedHistory.id)) {
       setSelectedHistory(null);
@@ -80,43 +99,72 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
         <CardContent className="pt-6">
           <div className="space-y-3">
             {history.map(item => {
-              const showUnreadBadge = !item.is_read && item.outcome !== 'improved';
+              const isError = item.outcomeType === 'error';
+              const showUnreadBadge = !isError && !item.is_read && item.outcome !== null && item.outcome !== 'improved';
+
               return (
                 <div
                   key={item.id}
-                  className="group p-4 rounded-lg border bg-white flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50 hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+                  className={`group p-4 rounded-lg border flex items-center justify-between shadow-sm cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200 ${
+                    isError
+                      ? 'bg-red-50 border-red-200 hover:bg-red-100'
+                      : 'bg-white hover:bg-gray-50'
+                  }`}
                   onClick={() => setSelectedHistory(item)}
                 >
                   <div className="flex items-center gap-3">
+                    {isError && (
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                    )}
                     {showUnreadBadge && (
                       <span className="flex h-2 w-2 rounded-full bg-amber-500" title="未読" />
                     )}
                     <div>
                       <p className="text-sm font-medium text-gray-900">{formatDateTime(item.created_at)}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500">判定:</span>
-                        <span
-                          className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].className}`}
-                        >
-                          {GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].label}
+                        <span className="text-xs text-gray-500">
+                          {isError ? 'エラー:' : '判定:'}
                         </span>
+                        {isError ? (
+                          <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-red-50 text-red-700 ring-red-600/20">
+                            評価失敗
+                          </span>
+                        ) : item.outcome && GSC_EVALUATION_OUTCOME_CONFIG[item.outcome] ? (
+                          <span
+                            className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].className}`}
+                          >
+                            {GSC_EVALUATION_OUTCOME_CONFIG[item.outcome].label}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-gray-50 text-gray-700 ring-gray-500/10">
+                            データなし
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="flex items-baseline gap-2 justify-end">
-                        <span className="text-xs text-gray-500">
-                          前回: {item.previous_position ?? '—'}
-                        </span>
-                        <span className="text-gray-400">→</span>
-                        <span className="text-lg font-bold text-gray-900">
-                          {item.current_position}
-                        </span>
-                        <span className="text-xs text-gray-500">位</span>
+                    {!isError && (
+                      <div className="text-right">
+                        <div className="flex items-baseline gap-2 justify-end">
+                          <span className="text-xs text-gray-500">
+                            前回: {item.previous_position ?? '—'}
+                          </span>
+                          <span className="text-gray-400">→</span>
+                          <span className="text-lg font-bold text-gray-900">
+                            {item.current_position ?? '—'}
+                          </span>
+                          {item.current_position !== null && (
+                            <span className="text-xs text-gray-500">位</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200" />
+                    )}
+                    <ChevronRight className={`w-5 h-5 transition-all duration-200 ${
+                      isError
+                        ? 'text-red-400 group-hover:text-red-600'
+                        : 'text-gray-400 group-hover:text-blue-600'
+                    } group-hover:translate-x-1`} />
                   </div>
                 </div>
               );
@@ -136,31 +184,68 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
           </DialogHeader>
           {selectedHistory && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">評価日</p>
-                  <p className="text-sm font-medium">{formatDateTime(selectedHistory.created_at)}</p>
+              {selectedHistory.outcomeType === 'error' ? (
+                // エラー時の表示
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>評価実行エラー</AlertTitle>
+                  <AlertDescription>
+                    <div className="space-y-2 mt-2">
+                      <p className="text-sm">
+                        <span className="font-medium">エラー種別: </span>
+                        {selectedHistory.errorCode === 'import_failed'
+                          ? 'GSCデータ取得失敗'
+                          : 'メトリクスデータなし'}
+                      </p>
+                      <p className="text-sm">
+                        <span className="font-medium">詳細: </span>
+                        {selectedHistory.errorMessage}
+                      </p>
+                      <p className="text-sm">
+                        <span className="font-medium">発生日時: </span>
+                        {formatDateTime(selectedHistory.created_at)}
+                      </p>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                // 成功時の表示（既存）
+                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">評価日</p>
+                    <p className="text-sm font-medium">{formatDateTime(selectedHistory.created_at)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">判定</p>
+                    {selectedHistory.outcome && GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome] ? (
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].className}`}
+                      >
+                        {GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].label}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-gray-50 text-gray-700 ring-gray-500/10">
+                        データなし
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">前回順位</p>
+                    <p className="text-sm font-medium">{selectedHistory.previous_position ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">現在順位</p>
+                    <p className="text-sm font-medium">
+                      {selectedHistory.current_position ?? '—'}
+                      {selectedHistory.current_position !== null && '位'}
+                    </p>
+                  </div>
                 </div>
+              )}
+              {selectedHistory.outcomeType !== 'error' && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">判定</p>
-                  <span
-                    className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].className}`}
-                  >
-                    {GSC_EVALUATION_OUTCOME_CONFIG[selectedHistory.outcome].label}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">前回順位</p>
-                  <p className="text-sm font-medium">{selectedHistory.previous_position ?? '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">現在順位</p>
-                  <p className="text-sm font-medium">{selectedHistory.current_position}位</p>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-semibold mb-2">改善提案</p>
-                {selectedHistory.suggestion_summary ? (
+                  <p className="text-sm font-semibold mb-2">改善提案</p>
+                  {selectedHistory.suggestion_summary ? (
                   <div className="space-y-4">
                     {(() => {
                       // セクション分割
@@ -232,15 +317,18 @@ export function EvaluationHistoryTab({ history: initialHistory, onHistoryRead }:
                       });
                     })()}
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">提案なし</p>
-                )}
-              </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">提案なし</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
             {selectedHistory &&
               !selectedHistory.is_read &&
+              selectedHistory.outcomeType !== 'error' &&
+              selectedHistory.outcome !== null &&
               selectedHistory.outcome !== 'improved' && (
                 <Button
                   onClick={() => handleMarkAsRead(selectedHistory.id)}

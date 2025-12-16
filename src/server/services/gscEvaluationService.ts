@@ -155,12 +155,57 @@ export class GscEvaluationService {
         `[gscEvaluationService] Failed to import data for evaluation ${evaluation.id}:`,
         importError
       );
+
+      // 履歴にエラーを記録
+      const { error: historyInsertError } = await this.supabaseService.getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: evaluation.content_annotation_id,
+          evaluation_date: today,
+          outcome_type: 'error',
+          error_code: 'import_failed',
+          error_message: importError instanceof Error
+            ? importError.message
+            : 'Google Search Consoleからのデータ取得に失敗しました',
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (historyInsertError) {
+        console.error(
+          `[gscEvaluationService] Failed to save error history for evaluation ${evaluation.id}:`,
+          historyInsertError
+        );
+      }
+
       return { status: 'skipped_import_failed' };
     }
 
     const metric = await this.fetchLatestMetric(userId, evaluation);
 
     if (!metric) {
+      // 履歴にエラーを記録
+      const { error: historyInsertError } = await this.supabaseService.getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: evaluation.content_annotation_id,
+          evaluation_date: today,
+          outcome_type: 'error',
+          error_code: 'no_metrics',
+          error_message: 'この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。',
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (historyInsertError) {
+        console.error(
+          `[gscEvaluationService] Failed to save error history for evaluation ${evaluation.id}:`,
+          historyInsertError
+        );
+      }
+
       return { status: 'skipped_no_metrics' };
     }
 
@@ -168,6 +213,27 @@ export class GscEvaluationService {
     const currentPos = this.toNumberOrNull(metric.position);
 
     if (currentPos === null) {
+      // 履歴にエラーを記録
+      const { error: historyInsertError } = await this.supabaseService.getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: evaluation.content_annotation_id,
+          evaluation_date: today,
+          outcome_type: 'error',
+          error_code: 'no_metrics',
+          error_message: '検索順位データ（position）が取得できませんでした。',
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (historyInsertError) {
+        console.error(
+          `[gscEvaluationService] Failed to save error history for evaluation ${evaluation.id}:`,
+          historyInsertError
+        );
+      }
+
       return { status: 'skipped_no_metrics' };
     }
 
@@ -215,6 +281,7 @@ export class GscEvaluationService {
         previous_position: lastSeen,
         current_position: currentPos,
         outcome,
+        outcome_type: 'success',
         suggestion_applied: false,
         created_at: new Date().toISOString(),
       })

@@ -42,8 +42,11 @@ export interface GscEvaluationHistoryItem {
   id: string;
   evaluation_date: string;
   previous_position: number | null;
-  current_position: number;
-  outcome: GscEvaluationOutcome;
+  current_position: number | null; // nullable for errors
+  outcome: GscEvaluationOutcome | null; // nullable for errors
+  outcomeType: 'success' | 'error';
+  errorCode?: 'import_failed' | 'no_metrics' | null;
+  errorMessage?: string | null;
   suggestion_summary: string | null;
   is_read: boolean;
   created_at: string;

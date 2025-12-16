@@ -80,6 +80,8 @@ export interface GscQueryMetric {
 export type GscEvaluationStage = 1 | 2 | 3 | 4;
 export type GscEvaluationStatus = 'active' | 'paused' | 'completed';
 export type GscEvaluationOutcome = 'improved' | 'no_change' | 'worse';
+export type GscEvaluationOutcomeType = 'success' | 'error';
+export type GscEvaluationErrorCode = 'import_failed' | 'no_metrics';
 
 export type GscImportResult = {
   totalFetched: number;
@@ -145,8 +147,11 @@ export interface GscArticleEvaluationHistory {
   contentAnnotationId: string;
   evaluationDate: string; // ISO date
   previousPosition?: number | null;
-  currentPosition: number;
-  outcome: GscEvaluationOutcome;
+  currentPosition?: number | null; // nullable for errors
+  outcome?: GscEvaluationOutcome | null; // nullable for errors
+  outcomeType: GscEvaluationOutcomeType; // 'success' or 'error'
+  errorCode?: GscEvaluationErrorCode | null;
+  errorMessage?: string | null;
   suggestionApplied: boolean;
   suggestionSummary?: string | null;
   isRead?: boolean;
