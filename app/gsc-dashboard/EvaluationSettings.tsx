@@ -121,7 +121,7 @@ export function EvaluationSettings({
         setIsOpen(false);
         return isUpdateMode ? '評価基準日を更新しました' : '評価を開始しました';
       },
-      error: (err) => {
+      error: err => {
         return err instanceof Error ? err.message : 'エラーが発生しました';
       },
     });
