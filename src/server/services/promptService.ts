@@ -13,7 +13,6 @@ import type { AnnotationRecord } from '@/types/annotation';
  * React Cacheを活用した高速取得とバックグラウンド更新機能を提供
  */
 export class PromptService extends SupabaseService {
-
   /**
    * 指定ユーザーの canonical_url 一覧を取得（重複排除・更新日時降順）
    */
@@ -38,21 +37,20 @@ export class PromptService extends SupabaseService {
           throw error;
         }
 
-        const entries = (data || []).reduce<Array<{ canonical_url: string; wp_post_title: string }>>(
-          (acc, row: Pick<AnnotationRecord, 'canonical_url' | 'wp_post_title'>) => {
-            const canonical = row.canonical_url ? row.canonical_url.trim() : '';
-            if (!canonical) return acc;
-            if (acc.some(entry => entry.canonical_url === canonical)) {
-              return acc;
-            }
-            acc.push({
-              canonical_url: canonical,
-              wp_post_title: (row.wp_post_title || '').trim(),
-            });
+        const entries = (data || []).reduce<
+          Array<{ canonical_url: string; wp_post_title: string }>
+        >((acc, row: Pick<AnnotationRecord, 'canonical_url' | 'wp_post_title'>) => {
+          const canonical = row.canonical_url ? row.canonical_url.trim() : '';
+          if (!canonical) return acc;
+          if (acc.some(entry => entry.canonical_url === canonical)) {
             return acc;
-          },
-          []
-        );
+          }
+          acc.push({
+            canonical_url: canonical,
+            wp_post_title: (row.wp_post_title || '').trim(),
+          });
+          return acc;
+        }, []);
 
         return entries;
       },
@@ -66,7 +64,9 @@ export class PromptService extends SupabaseService {
   /**
    * ユーザー最新の content_annotations を1件取得
    */
-  static async getLatestContentAnnotationByUserId(userId: string): Promise<AnnotationRecord | null> {
+  static async getLatestContentAnnotationByUserId(
+    userId: string
+  ): Promise<AnnotationRecord | null> {
     return this.withServiceRoleClient(
       async client => {
         const { data, error } = await client
