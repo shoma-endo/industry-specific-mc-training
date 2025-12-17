@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Bell, FileText } from 'lucide-react';
+import { Loader2, Bell, FileText, Edit } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ANNOTATION_FIELD_KEYS, type AnnotationFieldKey } from '@/types/annotation';
@@ -284,6 +284,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                         >
                           <DialogTrigger asChild>
                             <Button variant="outline" size="sm" className="flex items-center gap-2">
+                              <Edit className="h-4 w-4" />
                               編集
                             </Button>
                           </DialogTrigger>
