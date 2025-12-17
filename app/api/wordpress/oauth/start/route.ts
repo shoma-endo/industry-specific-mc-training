@@ -37,6 +37,13 @@ export async function GET() {
     );
   }
 
+  if (authResult.userDetails?.role !== 'admin') {
+    return NextResponse.json(
+      { error: 'WordPress.com 連携は管理者のみ利用できます' },
+      { status: 403 }
+    );
+  }
+
   const { state } = generateOAuthState(authResult.userId, cookieSecret);
 
   const params = new URLSearchParams({

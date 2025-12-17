@@ -92,6 +92,12 @@ export async function GET(request: NextRequest) {
       if (!authResult.error && authResult.userId) {
         cookieUserId = authResult.userId;
         targetUserId = authResult.userId;
+        if (authResult.userDetails?.role !== 'admin') {
+          return NextResponse.json(
+            { error: 'WordPress.com 連携は管理者のみ利用できます' },
+            { status: 403 }
+          );
+        }
       }
     }
 
@@ -107,6 +113,17 @@ export async function GET(request: NextRequest) {
 
     if (!targetUserId) {
       targetUserId = stateUserId;
+    }
+
+    // state に含まれる userId でもロールを確認（バックアップ）
+    if (!cookieUserId && targetUserId) {
+      const userResult = await supabaseService.getUserById(targetUserId);
+      if (userResult.success && userResult.data?.role !== 'admin') {
+        return NextResponse.json(
+          { error: 'WordPress.com 連携は管理者のみ利用できます' },
+          { status: 403 }
+        );
+      }
     }
 
     if (!targetUserId) {

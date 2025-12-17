@@ -36,10 +36,20 @@ export async function POST(request: NextRequest) {
 
     const authResult = await authMiddleware(liffToken, refreshToken);
     
-    if (authResult.error || !authResult.userId) {
+    if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return NextResponse.json(
         { success: false, error: 'Authentication failed' },
         { status: 401 }
+      );
+    }
+
+    const isAdmin = authResult.userDetails.role === 'admin';
+
+    // 管理者以外はWordPress.comを禁止
+    if (!isAdmin && wpType !== 'self_hosted') {
+      return NextResponse.json(
+        { success: false, error: 'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で設定してください。' },
+        { status: 403 }
       );
     }
 

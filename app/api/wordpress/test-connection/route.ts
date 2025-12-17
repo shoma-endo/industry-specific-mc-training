@@ -1,10 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveWordPressContext } from '@/server/services/wordpressContext';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { SupabaseService } from '@/server/services/supabaseService';
+
+const supabaseService = new SupabaseService();
 
 // WordPress接続状態をGETメソッドで確認（WordPress.comとセルフホスト両対応）
 export async function GET(request: NextRequest) {
   try {
+    const liffToken = request.cookies.get('line_access_token')?.value;
+    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const authResult = await authMiddleware(liffToken, refreshToken);
+
+    if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
+      return NextResponse.json({ success: false, connected: false, message: 'ユーザー認証に失敗しました' }, { status: 401 });
+    }
+
+    const isAdmin = authResult.userDetails.role === 'admin';
+    const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
+
+    if (!wpSettings) {
+      return NextResponse.json({
+        success: false,
+        connected: false,
+        message: ERROR_MESSAGES.WORDPRESS.SETTINGS_INCOMPLETE,
+        wpType: 'self_hosted',
+      });
+    }
+
+    if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
+      return NextResponse.json(
+        {
+          success: false,
+          connected: false,
+          message: 'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で再設定してください。',
+          wpType: wpSettings.wpType,
+        },
+        { status: 403 }
+      );
+    }
+
     const context = await resolveWordPressContext(name => request.cookies.get(name)?.value);
 
     if (!context.success) {
@@ -65,6 +101,37 @@ export async function GET(request: NextRequest) {
 // POSTメソッドも統合接続テストに対応
 export async function POST(request: NextRequest) {
   try {
+    const liffToken = request.cookies.get('line_access_token')?.value;
+    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const authResult = await authMiddleware(liffToken, refreshToken);
+
+    if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
+      return NextResponse.json(
+        { success: false, error: 'ユーザー認証に失敗しました' },
+        { status: 401 }
+      );
+    }
+
+    const isAdmin = authResult.userDetails.role === 'admin';
+    const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
+
+    if (!wpSettings) {
+      return NextResponse.json(
+        { success: false, error: ERROR_MESSAGES.WORDPRESS.SETTINGS_INCOMPLETE },
+        { status: 400 }
+      );
+    }
+
+    if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で再設定してください。',
+        },
+        { status: 403 }
+      );
+    }
+
     const context = await resolveWordPressContext(name => request.cookies.get(name)?.value);
 
     if (!context.success) {

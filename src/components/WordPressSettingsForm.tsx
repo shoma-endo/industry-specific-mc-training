@@ -97,6 +97,7 @@ interface TestConnectionActionResult {
 
 export default function WordPressSettingsForm({
   existingSettings,
+  role,
 }: WordPressSettingsFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -106,13 +107,19 @@ export default function WordPressSettingsForm({
   const [expandedPanel, setExpandedPanel] = useState<'save' | 'connection' | null>(null);
 
   // フォームの状態
-  const [wpType, setWpType] = useState<WordPressType>(existingSettings?.wpType || 'wordpress_com');
+  const isAdmin = role === 'admin';
+  const [wpType, setWpType] = useState<WordPressType>(() => {
+    if (!isAdmin) {
+      return 'self_hosted';
+    }
+    return existingSettings?.wpType || 'wordpress_com';
+  });
   const [contentTypesInput, setContentTypesInput] = useState(
     (existingSettings?.wpContentTypes ?? []).join(', ')
   );
 
   // WordPress.com用
-  const [wpSiteId, setWpSiteId] = useState(existingSettings?.wpSiteId || '');
+  const [wpSiteId, setWpSiteId] = useState(isAdmin ? existingSettings?.wpSiteId || '' : '');
 
   // セルフホスト用
   const [wpSiteUrl, setWpSiteUrl] = useState(existingSettings?.wpSiteUrl || '');
@@ -126,6 +133,15 @@ export default function WordPressSettingsForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isAdmin && wpType !== 'self_hosted') {
+      setSaveStatus({
+        success: false,
+        primary: 'WordPress.com 連携は管理者のみ利用できます。セルフホスト版を選択してください。',
+      });
+      setExpandedPanel(prev => (prev === 'save' ? null : prev));
+      return;
+    }
 
     // バリデーション
     if (wpType === 'wordpress_com' && !wpSiteId) {
@@ -206,6 +222,15 @@ export default function WordPressSettingsForm({
   };
 
   const handleTestConnection = async () => {
+    if (!isAdmin && wpType !== 'self_hosted') {
+      setConnectionStatus({
+        success: false,
+        primary: 'WordPress.com 連携は管理者のみ利用できます。セルフホスト版を選択してください。',
+      });
+      setExpandedPanel(prev => (prev === 'connection' ? null : prev));
+      return;
+    }
+
     // バリデーション
     if (wpType === 'wordpress_com' && !wpSiteId) {
       setConnectionStatus({ success: false, primary: 'WordPress.comのサイトIDが必要です' });
@@ -279,7 +304,7 @@ export default function WordPressSettingsForm({
           <h1 className="text-3xl font-bold">WordPress 設定</h1>
         </div>
         <p className="text-gray-600">
-          ランディングページの公開先となるWordPressサイトの設定を行います。
+          ブログ記事やLPの公開先となる WordPress サイトの設定を行います。
         </p>
       </div>
 
@@ -295,14 +320,18 @@ export default function WordPressSettingsForm({
               <label className="block text-sm font-medium">
                 WordPress種別 <span className="text-red-500">*</span>
               </label>
-              <Select value={wpType} onValueChange={(value: WordPressType) => setWpType(value)}>
+              <Select
+                value={wpType}
+                onValueChange={(value: WordPressType) => setWpType(value)}
+                disabled={!isAdmin}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="WordPress種別を選択" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="wordpress_com">WordPress.com</SelectItem>
-                  <SelectItem value="self_hosted">セルフホスト版WordPress</SelectItem>
-                </SelectContent>
+              <SelectContent>
+                {isAdmin && <SelectItem value="wordpress_com">WordPress.com</SelectItem>}
+                <SelectItem value="self_hosted">セルフホスト版WordPress</SelectItem>
+              </SelectContent>
               </Select>
             </div>
 
@@ -321,7 +350,7 @@ export default function WordPressSettingsForm({
             </div>
 
             {/* WordPress.com用設定 */}
-            {wpType === 'wordpress_com' && (
+            {isAdmin && wpType === 'wordpress_com' && (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium">
@@ -478,15 +507,17 @@ export default function WordPressSettingsForm({
         <CardContent>
           <div className="space-y-6 text-sm text-gray-700">
             {/* WordPress.com設定ガイド */}
-            <div>
-              <h4 className="font-medium mb-2 text-blue-700">WordPress.com の場合</h4>
-              <ol className="list-decimal list-inside space-y-1 ml-4">
-                <li>WordPress.com にログイン</li>
-                <li>「サイト管理」→「設定」→「一般」でサイトIDを確認</li>
-                <li>上記フォームにサイトIDを入力</li>
-                <li>OAuth認証ボタンをクリックして認証完了</li>
-              </ol>
-            </div>
+            {isAdmin && (
+              <div>
+                <h4 className="font-medium mb-2 text-blue-700">WordPress.com の場合</h4>
+                <ol className="list-decimal list-inside space-y-1 ml-4">
+                  <li>WordPress.com にログイン</li>
+                  <li>「サイト管理」→「設定」→「一般」でサイトIDを確認</li>
+                  <li>上記フォームにサイトIDを入力</li>
+                  <li>OAuth認証ボタンをクリックして認証完了</li>
+                </ol>
+              </div>
+            )}
 
             {/* セルフホスト設定ガイド */}
             <div>

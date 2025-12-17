@@ -2,6 +2,7 @@
  * コンポーネント専用の型定義
  */
 import type { WordPressType } from './wordpress';
+import type { UserRole } from './user';
 import type { GscConnectionStatus } from './gsc';
 
 /**
@@ -35,6 +36,7 @@ export interface LiffProviderProps {
  */
 export interface WordPressSettingsFormProps {
   existingSettings: ExistingWordPressSettings | null;
+  role: UserRole;
 }
 
 export interface ExistingWordPressSettings {
