@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { withAuth } from '@/server/middleware/withAuth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { isAdmin as isAdminRole } from '@/authUtils';
 import {
   WordPressSettings,
   WordPressRestPost,
