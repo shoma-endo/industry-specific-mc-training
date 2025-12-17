@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { generateOAuthState } from '@/server/lib/oauth-state';
+import { isAdmin as isAdminRole } from '@/authUtils';
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -37,7 +38,7 @@ export async function GET() {
     );
   }
 
-  if (authResult.userDetails?.role !== 'admin') {
+  if (!isAdminRole(authResult.userDetails?.role ?? null)) {
     return NextResponse.json(
       { error: 'WordPress.com 連携は管理者のみ利用できます' },
       { status: 403 }

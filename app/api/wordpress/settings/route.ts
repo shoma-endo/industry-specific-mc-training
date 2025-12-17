@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { isAdmin as isAdminRole } from '@/authUtils';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isAdmin = authResult.userDetails.role === 'admin';
+    const isAdmin = isAdminRole(authResult.userDetails.role);
 
     // 管理者以外はWordPress.comを禁止
     if (!isAdmin && wpType !== 'self_hosted') {

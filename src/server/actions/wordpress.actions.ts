@@ -712,7 +712,7 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
       return { success: false as const, error: 'Authentication failed' };
     }
 
-    const isAdmin = authResult.userDetails.role === 'admin';
+    const isAdmin = isAdminRole(authResult.userDetails.role);
 
     if (!isAdmin && wpType !== 'self_hosted') {
       return { success: false as const, error: 'WordPress.com 連携は管理者のみ利用できます' };
@@ -768,7 +768,7 @@ export async function testWordPressConnectionAction() {
       return { success: false as const, error: 'ユーザー認証に失敗しました' };
     }
 
-    const isAdmin = authResult.userDetails.role === 'admin';
+    const isAdmin = isAdminRole(authResult.userDetails.role);
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
 
     if (!wpSettings) {
@@ -1199,7 +1199,7 @@ export async function fetchWordPressStatusAction(): Promise<
 > {
   return withAuth(async ({ userId, cookieStore, userDetails }) => {
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
-    const isAdmin = userDetails?.role === 'admin';
+    const isAdmin = isAdminRole(userDetails?.role ?? null);
 
     // 設定が未完了の場合
     if (!wpSettings) {

@@ -16,6 +16,7 @@ import { ArrowLeft, Plug, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { WordPressType } from '@/types/wordpress';
 import type { WordPressSettingsFormProps } from '@/types/components';
+import { isAdmin as isAdminRole } from '@/authUtils';
 import {
   saveWordPressSettingsAction,
   testWordPressConnectionAction,
@@ -107,7 +108,7 @@ export default function WordPressSettingsForm({
   const [expandedPanel, setExpandedPanel] = useState<'save' | 'connection' | null>(null);
 
   // フォームの状態
-  const isAdmin = role === 'admin';
+  const isAdmin = isAdminRole(role);
   const [wpType, setWpType] = useState<WordPressType>(() => {
     if (!isAdmin) {
       return 'self_hosted';

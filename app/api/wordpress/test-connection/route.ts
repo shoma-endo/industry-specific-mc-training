@@ -3,6 +3,7 @@ import { resolveWordPressContext } from '@/server/services/wordpressContext';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { isAdmin as isAdminRole } from '@/authUtils';
 
 const supabaseService = new SupabaseService();
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, connected: false, message: 'ユーザー認証に失敗しました' }, { status: 401 });
     }
 
-    const isAdmin = authResult.userDetails.role === 'admin';
+    const isAdmin = isAdminRole(authResult.userDetails.role);
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
 
     if (!wpSettings) {
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isAdmin = authResult.userDetails.role === 'admin';
+    const isAdmin = isAdminRole(authResult.userDetails.role);
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
 
     if (!wpSettings) {
