@@ -82,6 +82,13 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [formError, setFormError] = React.useState('');
   const [wpPostTitle, setWpPostTitle] = React.useState('');
   const [isPendingEdit, startEditTransition] = React.useTransition();
+  const [opsWidth, setOpsWidth] = React.useState<number>(() => {
+    if (typeof window === 'undefined') return 200;
+    const saved = localStorage.getItem('analytics.opsWidth');
+    const num = saved ? Number(saved) : NaN;
+    if (Number.isFinite(num)) return Math.min(320, Math.max(160, num));
+    return 200;
+  });
   const columnLabelMap = React.useMemo(
     () =>
       ANALYTICS_COLUMNS.reduce<Record<string, string>>((acc, col) => {
@@ -133,6 +140,33 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     },
     [pendingRowKey, router]
   );
+
+  // 操作列リサイズ: マウスドラッグで幅を更新（最小140px 最大260px）
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('analytics.opsWidth', String(opsWidth));
+  }, [opsWidth]);
+
+  const startResize = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = opsWidth;
+
+    const onMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const next = Math.min(320, Math.max(160, startWidth + delta));
+      setOpsWidth(next);
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp, { once: true });
+  }, [opsWidth]);
 
   const openEdit = React.useCallback((item: AnalyticsContentItem) => {
     const annotation = item.annotation;
@@ -209,8 +243,18 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
           <table className="min-w-[2200px] divide-y divide-gray-200">
             <thead className="bg-gray-50 analytics-head">
               <tr>
-                <th className="analytics-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[100px]">
+                <th
+                  className="analytics-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap relative"
+                  style={{ width: `${opsWidth}px`, minWidth: `${opsWidth}px`, maxWidth: `${opsWidth}px` }}
+                >
                   操作
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    className="absolute right-0 top-0 h-full w-2 cursor-col-resize select-none"
+                    onMouseDown={startResize}
+                    title="ドラッグして操作列の幅を変更"
+                  />
                 </th>
                 {orderedIds
                   .filter(id => visibleSet.has(id))
@@ -251,8 +295,11 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
 
                 return (
                   <tr key={item.rowKey} className="analytics-row group">
-                    <td className="analytics-ops-cell px-6 py-4 whitespace-nowrap text-sm text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td
+                      className="analytics-ops-cell pl-1 pr-2 py-4 whitespace-nowrap text-sm text-right relative"
+                      style={{ width: `${opsWidth}px`, minWidth: `${opsWidth}px`, maxWidth: `${opsWidth}px` }}
+                    >
+                      <div className="flex items-center justify-end gap-1">
                         <LaunchChatButton
                           label="チャット"
                           isPending={pendingRowKey === item.rowKey}
