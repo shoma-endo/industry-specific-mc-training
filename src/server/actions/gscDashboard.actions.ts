@@ -13,6 +13,7 @@ export type GscDetailResponse = {
   data?: {
     annotation: {
       id: string;
+      wp_post_id: number | null;
       wp_post_title: string | null;
       canonical_url: string | null;
       ads_headline: string | null;
@@ -94,7 +95,9 @@ export async function fetchGscDetail(
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs')
+      .select(
+        'id, wp_post_id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs'
+      )
       .eq('user_id', userId)
       .eq('id', annotationId)
       .maybeSingle();
