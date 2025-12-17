@@ -33,6 +33,7 @@ interface OverviewTabProps {
     skippedNoMetrics: number;
     skippedImportFailed: number;
   }>;
+  onRefreshDetail?: (annotationId: string) => Promise<void>;
 }
 
 export function OverviewTab({
@@ -45,6 +46,7 @@ export function OverviewTab({
   onRegisterEvaluation,
   onUpdateEvaluation,
   onRunEvaluation,
+  onRefreshDetail,
 }: OverviewTabProps) {
   if (detailLoading) {
     return (
@@ -98,7 +100,7 @@ export function OverviewTab({
         <TrendLineChart data={chartData} visibleMetrics={visibleMetrics} />
 
         {/* データ準備状況 */}
-        <SuggestionDataReadiness annotation={detail.annotation} />
+        <SuggestionDataReadiness annotation={detail.annotation} onUpdate={onRefreshDetail} />
 
         {/* 評価設定 */}
         {detail.credential?.propertyUri && (
