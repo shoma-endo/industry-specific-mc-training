@@ -121,15 +121,19 @@ export function useGscDashboard({
     const totalClicks = detail.metrics.reduce((sum, m) => sum + (m.clicks || 0), 0);
     const totalImpressions = detail.metrics.reduce((sum, m) => sum + (m.impressions || 0), 0);
 
-    const validCtrs = detail.metrics.filter(m => m.ctr != null);
-    const avgCtr = validCtrs.length
-      ? validCtrs.reduce((sum, m) => sum + (m.ctr || 0), 0) / validCtrs.length
-      : 0;
+    // CTRは総クリック/総表示（GSCと同等）
+    const avgCtr = totalImpressions > 0 ? totalClicks / totalImpressions : 0;
 
-    const validPositions = detail.metrics.filter(m => m.position != null);
-    const avgPosition = validPositions.length
-      ? validPositions.reduce((sum, m) => sum + (m.position || 0), 0) / validPositions.length
-      : 0;
+    // 平均順位はインプレッション加重平均（GSCと同等）
+    const validPositions = detail.metrics.filter(
+      m => m.position != null && m.impressions != null && m.impressions > 0
+    );
+    const positionNumerator = validPositions.reduce(
+      (sum, m) => sum + (m.position || 0) * (m.impressions || 0),
+      0
+    );
+    const positionDenominator = validPositions.reduce((sum, m) => sum + (m.impressions || 0), 0);
+    const avgPosition = positionDenominator > 0 ? positionNumerator / positionDenominator : 0;
 
     return {
       clicks: totalClicks,

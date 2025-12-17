@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 interface SuggestionDataReadinessProps {
   annotation: {
     id: string;
+    wp_post_id: number | null;
     ads_headline: string | null;
     ads_description: string | null;
     opening_proposal: string | null;
@@ -50,9 +51,18 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
       stage: 3,
       label: '記事本文',
       fields: [
-        { name: 'wp_content_text', displayName: '記事本文', value: annotation.wp_content_text },
+        {
+          name: 'wp_content_text',
+          displayName: '記事本文（キャッシュ）',
+          value: annotation.wp_content_text,
+        },
+        {
+          name: 'wp_post_id',
+          displayName: 'WordPress投稿ID',
+          value: annotation.wp_post_id ? String(annotation.wp_post_id) : null,
+        },
       ],
-      requiresAll: true,
+      requiresAll: false, // キャッシュ本文 or WP投稿ID のいずれかで満たす
     },
     {
       stage: 4,

@@ -6,6 +6,7 @@ import type { GscEvaluationOutcome } from '@/types/gsc';
 export interface GscDashboardDetailResponse {
   annotation: {
     id: string;
+    wp_post_id: number | null;
     wp_post_title: string | null;
     canonical_url: string | null;
     ads_headline: string | null;
@@ -166,4 +167,3 @@ export interface GscQueryAnalysisResponse {
     comparisonEnd?: string;
   };
 }
-

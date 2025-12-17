@@ -23,11 +23,15 @@ export default function GscDashboardClient({
   const dashboard = useGscDashboard({ initialSelectedId, initialDetail });
   const [readHistoryIds, setReadHistoryIds] = useState<Set<string>>(new Set());
 
-  // 未読の改善提案があるか判定（improved以外で is_read が false のもの）
+  // 未読の改善提案があるか判定（improved以外で outcome_type が error でないもの）
   const hasUnreadSuggestions = useMemo(() => {
     if (!dashboard.detail?.history) return false;
     return dashboard.detail.history.some(
-      item => !item.is_read && item.outcome !== 'improved' && !readHistoryIds.has(item.id)
+      item =>
+        !item.is_read &&
+        item.outcomeType !== 'error' &&
+        item.outcome !== 'improved' &&
+        !readHistoryIds.has(item.id)
     );
   }, [dashboard.detail?.history, readHistoryIds]);
 

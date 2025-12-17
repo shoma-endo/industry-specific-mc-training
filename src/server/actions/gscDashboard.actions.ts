@@ -13,6 +13,7 @@ export type GscDetailResponse = {
   data?: {
     annotation: {
       id: string;
+      wp_post_id: number | null;
       wp_post_title: string | null;
       canonical_url: string | null;
       ads_headline: string | null;
@@ -94,7 +95,9 @@ export async function fetchGscDetail(
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs')
+      .select(
+        'id, wp_post_id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs'
+      )
       .eq('user_id', userId)
       .eq('id', annotationId)
       .maybeSingle();
@@ -106,7 +109,9 @@ export async function fetchGscDetail(
       return { success: false, error: '対象が見つかりません' };
     }
 
-    const { data: metrics, error: metricError } = await supabaseService
+    const credential = await supabaseService.getGscCredentialByUserId(userId);
+
+    let metricsQuery = supabaseService
       .getClient()
       .from('gsc_page_metrics')
       .select('date, position, ctr, clicks, impressions')
@@ -114,6 +119,12 @@ export async function fetchGscDetail(
       .eq('content_annotation_id', annotationId)
       .gte('date', startIso)
       .order('date', { ascending: true });
+
+    if (credential?.propertyUri) {
+      metricsQuery = metricsQuery.eq('property_uri', credential.propertyUri);
+    }
+
+    const { data: metrics, error: metricError } = await metricsQuery;
 
     if (metricError) {
       throw new Error(metricError.message);
@@ -143,8 +154,6 @@ export async function fetchGscDetail(
     if (evaluationError) {
       throw new Error(evaluationError.message);
     }
-
-    const credential = await supabaseService.getGscCredentialByUserId(userId);
 
     return {
       success: true,
@@ -519,8 +528,11 @@ export async function fetchQueryAnalysis(
     // 現状はフィルタ後の件数表示などにqueriesが必要なためこのまま。
     const totalClicks = queries.reduce((sum, q) => sum + q.clicks, 0);
     const totalImpressions = queries.reduce((sum, q) => sum + q.impressions, 0);
-    const avgPosition =
-      queries.length > 0 ? queries.reduce((sum, q) => sum + q.position, 0) / queries.length : 0;
+    const positionNumerator = queries.reduce(
+      (sum, q) => sum + q.position * q.impressions,
+      0
+    );
+    const avgPosition = totalImpressions > 0 ? positionNumerator / totalImpressions : 0;
 
     return {
       success: true,
