@@ -183,14 +183,9 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                     {columnLabelMap.wp_post_title}
                   </th>
                 )}
-                {visibleSet.has('ads_headline') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[280px]">
-                    {columnLabelMap.ads_headline}
-                  </th>
-                )}
-                {visibleSet.has('ads_description') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[320px]">
-                    {columnLabelMap.ads_description}
+                {visibleSet.has('wp_excerpt') && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[360px]">
+                    {columnLabelMap.wp_excerpt}
                   </th>
                 )}
                 {visibleSet.has('url') && (
@@ -370,19 +365,10 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                         {annotation?.wp_post_title || '—'}
                       </td>
                     )}
-                    {visibleSet.has('ads_headline') && (
+                    {visibleSet.has('wp_excerpt') && (
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.ads_headline ? (
-                          <TruncatedText text={annotation.ads_headline} lines={2} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('ads_description') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.ads_description ? (
-                          <TruncatedText text={annotation.ads_description} lines={3} />
+                        {annotation?.wp_excerpt ? (
+                          <TruncatedText text={annotation.wp_excerpt} lines={3} />
                         ) : (
                           '—'
                         )}

@@ -31,7 +31,7 @@ export async function GET(
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs')
+      .select('id, wp_post_title, canonical_url, opening_proposal, wp_content_text, wp_excerpt, persona, needs')
       .eq('user_id', userId)
       .eq('id', annotationId)
       .maybeSingle();

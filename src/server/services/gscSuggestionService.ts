@@ -44,10 +44,11 @@ export class GscSuggestionService {
     // ステージに応じた提案を決定（1→[1], 2→[1,2], 3→[1,2,3], 4→[1,2,3,4]）
     const stagesToRun = this.getStagesToRun(params.currentSuggestionStage);
 
-    // 取得系
-    const wpContent = await this.fetchWpContent(
+    // 取得系（WordPress本文・タイトル・抜粋）
+    const wpPost = await this.fetchWpPostData(
       annotation.wp_post_id,
       annotation.wp_content_text,
+      annotation.wp_excerpt,
       params.userId
     );
 
@@ -60,9 +61,12 @@ export class GscSuggestionService {
       skipMessage?: string;
     }> = [];
 
-    // ステージ1: CTR改善（広告スニペット）
+    // ステージ1: スニペット改善（タイトル/説明文）
     if (stagesToRun.includes(1)) {
-      if (this.hasContent(annotation.ads_headline) || this.hasContent(annotation.ads_description)) {
+      const wpTitle = annotation.wp_post_title || wpPost?.title || null;
+      const wpDescription = wpPost?.excerpt || null;
+
+      if (this.hasContent(wpTitle) || this.hasContent(wpDescription)) {
         orderedSuggestions.push({
           stage: 1,
           templateName: 'gsc_insight_ctr_boost',
@@ -70,8 +74,9 @@ export class GscSuggestionService {
           task: this.runOne({
             templateName: 'gsc_insight_ctr_boost',
             variables: {
-              adsHeadline: annotation.ads_headline || '',
-              adsDescription: annotation.ads_description || '',
+              // テンプレートの変数名は広告用だが、実体はWordPressのタイトル/説明を渡す
+              adsHeadline: wpTitle || '',
+              adsDescription: wpDescription || '',
             },
           }),
         });
@@ -80,7 +85,7 @@ export class GscSuggestionService {
           stage: 1,
           templateName: 'gsc_insight_ctr_boost',
           label: MODEL_CONFIGS['gsc_insight_ctr_boost']?.label ?? 'gsc_insight_ctr_boost',
-          skipMessage: '広告タイトル・説明文の情報が存在しないためスキップされました',
+          skipMessage: 'WordPressタイトル・説明文の情報が存在しないためスキップされました',
         });
       }
     }
@@ -111,7 +116,7 @@ export class GscSuggestionService {
 
     // ステージ3: 本文リライト
     if (stagesToRun.includes(3)) {
-      if (this.hasContent(wpContent)) {
+      if (this.hasContent(wpPost?.contentText)) {
         orderedSuggestions.push({
           stage: 3,
           templateName: 'gsc_insight_body_rewrite',
@@ -119,7 +124,7 @@ export class GscSuggestionService {
           task: this.runOne({
             templateName: 'gsc_insight_body_rewrite',
             variables: {
-              wpContent: wpContent!, // hasContent チェック済みなので null ではない
+              wpContent: wpPost!.contentText!, // hasContent チェック済みなので null ではない
             },
           }),
         });
@@ -229,7 +234,7 @@ export class GscSuggestionService {
       .getClient()
       .from('content_annotations')
       .select(
-        'id, wp_post_id, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs'
+        'id, wp_post_id, wp_post_title, opening_proposal, wp_content_text, wp_excerpt, persona, needs'
       )
       .eq('user_id', userId)
       .eq('id', annotationId)
@@ -241,24 +246,33 @@ export class GscSuggestionService {
     return data as {
       id: string;
       wp_post_id: number | null;
-      ads_headline: string | null;
-      ads_description: string | null;
+      wp_post_title: string | null;
       opening_proposal: string | null;
       wp_content_text: string | null;
+      wp_excerpt: string | null;
       persona: string | null;
       needs: string | null;
     } | null;
   }
 
-  private async fetchWpContent(
+  private async fetchWpPostData(
     wpPostId: number | null,
     cachedContent: string | null,
+    cachedExcerpt: string | null,
     userId: string
-  ): Promise<string | null> {
-    if (cachedContent && cachedContent.trim().length > 0) {
-      return cachedContent;
+  ): Promise<{ contentText: string | null; title: string | null; excerpt: string | null } | null> {
+    const needsFetch =
+      !cachedContent ||
+      cachedContent.trim().length === 0 ||
+      !cachedExcerpt ||
+      cachedExcerpt.trim().length === 0;
+
+    if (!wpPostId) return needsFetch ? null : { contentText: cachedContent, title: null, excerpt: cachedExcerpt };
+
+    // 既に本文キャッシュがあり、抜粋も埋まっているなら再取得不要
+    if (!needsFetch) {
+      return { contentText: cachedContent, title: null, excerpt: cachedExcerpt };
     }
-    if (!wpPostId) return null;
 
     try {
       const wpSettings = await this.supabase.getWordPressSettingsByUserId(userId);
@@ -270,24 +284,22 @@ export class GscSuggestionService {
         if (!ctx.success) return null;
         const post = await ctx.service.resolveContentById(wpPostId);
         if (!post.success || !post.data) return null;
-        const rawContent = post.data.content;
-        const contentHtml =
-          typeof rawContent === 'string'
-            ? rawContent
-            : typeof (rawContent as { rendered?: unknown })?.rendered === 'string'
-              ? (rawContent as { rendered: string }).rendered
-              : '';
-        const text = stripHtml(contentHtml).trim();
+        const { contentText, title, excerpt } = this.extractPostFields(post.data);
 
-        if (text) {
+        if (contentText || excerpt || title) {
           await this.supabase
             .getClient()
             .from('content_annotations')
-            .update({ wp_content_text: text, updated_at: new Date().toISOString() })
+            .update({
+              wp_content_text: contentText,
+              wp_excerpt: excerpt ?? null,
+              ...(title ? { wp_post_title: title } : {}),
+              updated_at: new Date().toISOString(),
+            })
             .eq('user_id', userId)
             .eq('wp_post_id', wpPostId);
         }
-        return text || null;
+        return { contentText: contentText || null, title, excerpt };
       }
 
       // WordPress.com: アクセストークンを利用・期限切れならリフレッシュ
@@ -321,29 +333,54 @@ export class GscSuggestionService {
       const post = await ctx.service.resolveContentById(wpPostId);
       if (!post.success || !post.data) return null;
 
-      const rawContent = post.data.content;
-      const contentHtml =
-        typeof rawContent === 'string'
-          ? rawContent
-          : typeof (rawContent as { rendered?: unknown })?.rendered === 'string'
-            ? (rawContent as { rendered: string }).rendered
-            : '';
-      const text = stripHtml(contentHtml).trim();
+      const { contentText, title, excerpt } = this.extractPostFields(post.data);
 
-      if (text) {
+      if (contentText || excerpt || title) {
         await this.supabase
           .getClient()
           .from('content_annotations')
-          .update({ wp_content_text: text, updated_at: new Date().toISOString() })
+          .update({
+            wp_content_text: contentText,
+            wp_excerpt: excerpt ?? null,
+            ...(title ? { wp_post_title: title } : {}),
+            updated_at: new Date().toISOString(),
+          })
           .eq('user_id', userId)
           .eq('wp_post_id', wpPostId);
       }
 
-      return text || null;
+      return { contentText: contentText || null, title, excerpt };
     } catch (error) {
       console.error('[GscSuggestion] fetchWpContent error', error);
       return null;
     }
+  }
+
+  /**
+   * WordPress投稿から本文テキスト・タイトル・抜粋を抽出
+   */
+  private extractPostFields(post: {
+    title?: unknown;
+    content?: unknown;
+    excerpt?: unknown;
+  }): { contentText: string | null; title: string | null; excerpt: string | null } {
+    const resolveRendered = (raw: unknown): string | null => {
+      if (typeof raw === 'string') return raw;
+      if (raw && typeof raw === 'object' && typeof (raw as { rendered?: unknown }).rendered === 'string') {
+        return (raw as { rendered: string }).rendered;
+      }
+      return null;
+    };
+
+    const contentHtml = resolveRendered(post.content) ?? '';
+    const titleHtml = resolveRendered(post.title) ?? '';
+    const excerptHtml = resolveRendered(post.excerpt) ?? '';
+
+    return {
+      contentText: stripHtml(contentHtml).trim() || null,
+      title: stripHtml(titleHtml).trim() || null,
+      excerpt: stripHtml(excerptHtml).trim() || null,
+    };
   }
 }
 

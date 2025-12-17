@@ -9,10 +9,9 @@ export interface GscDashboardDetailResponse {
     wp_post_id: number | null;
     wp_post_title: string | null;
     canonical_url: string | null;
-    ads_headline: string | null;
-    ads_description: string | null;
     opening_proposal: string | null;
     wp_content_text: string | null;
+    wp_excerpt?: string | null;
     persona: string | null;
     needs: string | null;
   };

@@ -16,10 +16,9 @@ export type GscDetailResponse = {
       wp_post_id: number | null;
       wp_post_title: string | null;
       canonical_url: string | null;
-      ads_headline: string | null;
-      ads_description: string | null;
       opening_proposal: string | null;
       wp_content_text: string | null;
+      wp_excerpt?: string | null;
       persona: string | null;
       needs: string | null;
     };
@@ -96,7 +95,7 @@ export async function fetchGscDetail(
       .getClient()
       .from('content_annotations')
       .select(
-        'id, wp_post_id, wp_post_title, canonical_url, ads_headline, ads_description, opening_proposal, wp_content_text, persona, needs'
+        'id, wp_post_id, wp_post_title, canonical_url, opening_proposal, wp_content_text, wp_excerpt, persona, needs'
       )
       .eq('user_id', userId)
       .eq('id', annotationId)
