@@ -9,19 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { getAllUsers, updateUserRole } from '@/server/actions/admin.actions';
 import { getRoleDisplayName } from '@/authUtils';
 import type { User, UserRole } from '@/types/user';
 import { clearAuthCache } from '@/server/actions/adminUsers.actions';
+import { toast } from 'sonner';
 
 const formatDateTime = (timestamp: number | undefined) => {
   if (!timestamp) return '未ログイン';
@@ -58,17 +51,6 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{
-    open: boolean;
-    title: string;
-    message: string;
-    variant: 'success' | 'error';
-  }>({
-    open: false,
-    title: '',
-    message: '',
-    variant: 'success',
-  });
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -105,37 +87,25 @@ export default function UsersPage() {
         setEditingUserId(null);
 
         // 成功フィードバックを表示
-        setFeedback({
-          open: true,
-          title: 'ユーザー権限を更新しました',
-          message: `新しい権限: ${getRoleDisplayName(newRole)}`,
-          variant: 'success',
-        });
+        toast.success('ユーザー権限を更新しました');
 
         // キャッシュクリア通知を送信（権限変更の即座反映のため）
         await clearAuthCache();
       } else {
-        setFeedback({
-          open: true,
-          title: '権限の更新に失敗しました',
-          message: result.error || 'ユーザー権限の更新に失敗しました',
-          variant: 'error',
+        toast.error('権限の更新に失敗しました', {
+          description: result.error || 'ユーザー権限の更新に失敗しました',
         });
       }
     } catch (error) {
       console.error('ユーザー権限更新エラー:', error);
-      setFeedback({
-        open: true,
-        title: '権限の更新でエラーが発生しました',
-        message: 'ユーザー権限の更新中にエラーが発生しました',
-        variant: 'error',
+      toast.error('権限の更新でエラーが発生しました', {
+        description: 'ユーザー権限の更新中にエラーが発生しました',
       });
     } finally {
       setUpdatingUserId(null);
     }
   };
 
-  const isFeedbackSuccess = feedback.variant === 'success';
   const roleSummary = useMemo(() => {
     type RoleCount = {
       key: UserRole | 'unknown';
@@ -333,27 +303,6 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
-      <Dialog
-        open={feedback.open}
-        onOpenChange={open => setFeedback(prev => ({ ...prev, open }))}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className={isFeedbackSuccess ? 'text-green-600' : 'text-red-600'}>
-              {feedback.title}
-            </DialogTitle>
-            <DialogDescription>{feedback.message}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              onClick={() => setFeedback(prev => ({ ...prev, open: false }))}
-              variant={isFeedbackSuccess ? 'default' : 'destructive'}
-            >
-              閉じる
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

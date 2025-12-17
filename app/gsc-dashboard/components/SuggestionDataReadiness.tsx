@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { AlertCircle, Loader2, Edit, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Loader2, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import { updateContentAnnotationFields } from '@/server/actions/wordpress.actions';
 
 interface SuggestionDataReadinessProps {
@@ -53,7 +54,6 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
   });
   const [canonicalUrlError, setCanonicalUrlError] = useState('');
   const [formError, setFormError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   // Dialog を開く時に最新値を反映
   const handleOpenDialog = () => {
@@ -65,7 +65,6 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
     });
     setCanonicalUrlError('');
     setFormError('');
-    setSuccessMessage('');
     setIsDialogOpen(true);
   };
 
@@ -129,31 +128,36 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
 
     startTransition(async () => {
       setFormError('');
-      setSuccessMessage('');
-      const result = await updateContentAnnotationFields(annotation.id, {
-        ...(hasWpPostId ? {} : { canonical_url: formData.canonical_url || null }),
-        opening_proposal: formData.opening_proposal || null,
-        persona: formData.persona || null,
-        needs: formData.needs || null,
-      });
 
-      if (result.success) {
-        setSuccessMessage('データを保存しました');
-        // 少し余韻を持たせてから閉じる
-        setTimeout(() => {
+      const toastId = toast.loading('データを保存中...');
+
+      try {
+        const result = await updateContentAnnotationFields(annotation.id, {
+          ...(hasWpPostId ? {} : { canonical_url: formData.canonical_url || null }),
+          opening_proposal: formData.opening_proposal || null,
+          persona: formData.persona || null,
+          needs: formData.needs || null,
+        });
+
+        if (result.success) {
+          toast.success('データを保存しました', { id: toastId });
           setIsDialogOpen(false);
-          setSuccessMessage('');
-        }, 1200);
-        if (onUpdate && annotation.id) {
-          await onUpdate(annotation.id);
+          if (onUpdate && annotation.id) {
+            await onUpdate(annotation.id);
+          }
+        } else {
+          const errorMessage = result.error || '保存に失敗しました';
+          toast.error(errorMessage, { id: toastId });
+          setFormError(errorMessage);
+          // WordPress URL関連のエラーの場合は、エラーメッセージを表示
+          if (errorMessage.includes('URL') || errorMessage.includes('WordPress')) {
+            setCanonicalUrlError(errorMessage);
+          }
         }
-      } else {
-        const errorMessage = result.error || '保存に失敗しました';
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'エラーが発生しました';
+        toast.error(errorMessage, { id: toastId });
         setFormError(errorMessage);
-        // WordPress URL関連のエラーの場合は、エラーメッセージを表示
-        if (errorMessage.includes('URL') || errorMessage.includes('WordPress')) {
-          setCanonicalUrlError(errorMessage);
-        }
       }
     });
   };
@@ -208,18 +212,6 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
               不足しているデータを入力してください。既に登録されている項目も編集できます。
             </DialogDescription>
           </DialogHeader>
-
-          {successMessage && (
-            <Alert className="bg-green-50 border-green-200 text-green-800">
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                <div>
-                  <AlertTitle className="text-green-900 text-sm font-semibold">保存完了</AlertTitle>
-                  <AlertDescription className="text-sm">{successMessage}</AlertDescription>
-                </div>
-              </div>
-            </Alert>
-          )}
 
           {formError && (
             <Alert variant="destructive">

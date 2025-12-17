@@ -83,7 +83,6 @@ export function EvaluationSettings({
   const [loading, setLoading] = useState(false);
   const [runningEvaluation, setRunningEvaluation] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const isUpdateMode = !!currentEvaluation;
 
@@ -103,7 +102,6 @@ export function EvaluationSettings({
         setEvaluationHour(12);
       }
       setError(null);
-      setSuccess(null);
     }
   }, [isOpen, currentEvaluation]);
 
@@ -112,18 +110,24 @@ export function EvaluationSettings({
 
     setLoading(true);
     setError(null);
-    setSuccess(null);
+
+    const promise = isUpdateMode
+      ? onUpdate(dateStr, cycleDays, evaluationHour)
+      : onRegister(dateStr, cycleDays, evaluationHour);
+
+    toast.promise(promise, {
+      loading: '設定を保存中...',
+      success: () => {
+        setIsOpen(false);
+        return isUpdateMode ? '評価基準日を更新しました' : '評価を開始しました';
+      },
+      error: err => {
+        return err instanceof Error ? err.message : 'エラーが発生しました';
+      },
+    });
 
     try {
-      if (isUpdateMode) {
-        await onUpdate(dateStr, cycleDays, evaluationHour);
-        setSuccess('評価基準日を更新しました');
-      } else {
-        await onRegister(dateStr, cycleDays, evaluationHour);
-        setSuccess('評価を開始しました');
-      }
-      // 成功メッセージを見せるために少し待ってから閉じる
-      setTimeout(() => setIsOpen(false), 1500);
+      await promise;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エラーが発生しました');
     } finally {
@@ -316,20 +320,13 @@ export function EvaluationSettings({
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-
-                {success && (
-                  <Alert className="border-green-200 bg-green-50 text-green-800">
-                    <AlertTitle className="text-green-800">完了</AlertTitle>
-                    <AlertDescription>{success}</AlertDescription>
-                  </Alert>
-                )}
               </div>
 
               <DialogFooter>
                 <Button variant="ghost" onClick={() => setIsOpen(false)} disabled={loading}>
                   キャンセル
                 </Button>
-                <Button onClick={handleSubmit} disabled={loading || !dateStr || !!success}>
+                <Button onClick={handleSubmit} disabled={loading || !dateStr}>
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (

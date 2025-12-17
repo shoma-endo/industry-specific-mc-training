@@ -17,15 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PromptTemplate } from '@/types/prompt';
 import { getPromptDescription, getVariableDescription } from '@/lib/prompt-descriptions';
 import { Save, RotateCw } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { useFeedbackDialog } from '@/hooks/useFeedbackDialog';
+import { toast } from 'sonner';
 import { fetchPrompts, savePrompt } from '@/server/actions/adminPrompts.actions';
 
 type PromptCategory = 'chat' | 'gsc';
@@ -55,7 +47,6 @@ export default function PromptsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { feedback, showFeedback, closeFeedback } = useFeedbackDialog();
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -101,28 +92,20 @@ export default function PromptsPage() {
         const updatedTemplate = { ...selectedTemplate, content: editedContent };
         setSelectedTemplate(updatedTemplate);
         setError(null);
-        showFeedback({
-          variant: 'success',
-          title: 'プロンプトを保存しました',
-          message: '内容が更新されました。',
-        });
+        toast.success('プロンプトを保存しました');
       } else {
         const message = result?.error || '保存に失敗しました';
         setError(message);
-        showFeedback({
-          variant: 'error',
-          title: '保存に失敗しました',
-          message,
+        toast.error('保存に失敗しました', {
+          description: message,
         });
       }
     } catch (error) {
       console.error('保存エラー:', error);
       const message = '保存中にエラーが発生しました';
       setError(message);
-      showFeedback({
-        variant: 'error',
-        title: '保存に失敗しました',
-        message,
+      toast.error('保存に失敗しました', {
+        description: message,
       });
     } finally {
       setIsSaving(false);
@@ -140,10 +123,13 @@ export default function PromptsPage() {
   }, [loadTemplates]);
 
   const categoryCounts = useMemo(() => {
-    return PROMPT_CATEGORIES.reduce<Record<PromptCategory, number>>((acc, category) => {
-      acc[category.id] = templates.filter(category.filter).length;
-      return acc;
-    }, {} as Record<PromptCategory, number>);
+    return PROMPT_CATEGORIES.reduce<Record<PromptCategory, number>>(
+      (acc, category) => {
+        acc[category.id] = templates.filter(category.filter).length;
+        return acc;
+      },
+      {} as Record<PromptCategory, number>
+    );
   }, [templates]);
 
   const filteredTemplates = useMemo(() => {
@@ -189,12 +175,7 @@ export default function PromptsPage() {
               </div>
               <ErrorAlert error={error} />
               <div className="text-center">
-                <Button
-                  onClick={loadTemplates}
-                  size="sm"
-                  variant="outline"
-                  aria-label="再試行"
-                >
+                <Button onClick={loadTemplates} size="sm" variant="outline" aria-label="再試行">
                   <RotateCw className="h-4 w-4" />
                   再試行
                 </Button>
@@ -251,7 +232,9 @@ export default function PromptsPage() {
                     {category.label}
                     <span
                       className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                        activeCategory === category.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-800'
+                        activeCategory === category.id
+                          ? 'bg-white/20 text-white'
+                          : 'bg-gray-100 text-gray-800'
                       }`}
                     >
                       {categoryCounts[category.id] ?? 0}
@@ -270,7 +253,11 @@ export default function PromptsPage() {
             </p>
           ) : (
             <Select value={selectedTemplate?.id || ''} onValueChange={handleTemplateSelect}>
-              <SelectTrigger className="w-full" aria-label="プロンプトテンプレート選択" tabIndex={0}>
+              <SelectTrigger
+                className="w-full"
+                aria-label="プロンプトテンプレート選択"
+                tabIndex={0}
+              >
                 <SelectValue placeholder="編集するプロンプトテンプレートを選択してください" />
               </SelectTrigger>
               <SelectContent>
@@ -335,7 +322,9 @@ export default function PromptsPage() {
                 aria-label="保存"
                 tabIndex={0}
               >
-                {isSaving ? '保存中...' : (
+                {isSaving ? (
+                  '保存中...'
+                ) : (
                   <>
                     <Save className="h-4 w-4" />
                     保存
@@ -410,31 +399,6 @@ export default function PromptsPage() {
           </CardContent>
         </Card>
       )}
-      <Dialog
-        open={feedback.open}
-        onOpenChange={open => {
-          if (!open) {
-            closeFeedback();
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className={feedback.variant === 'success' ? 'text-green-600' : 'text-red-600'}>
-              {feedback.title}
-            </DialogTitle>
-            {feedback.message && <DialogDescription>{feedback.message}</DialogDescription>}
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant={feedback.variant === 'success' ? 'default' : 'destructive'}
-              onClick={closeFeedback}
-            >
-              閉じる
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

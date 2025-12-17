@@ -245,7 +245,61 @@ export class GscImportService {
       return;
     }
 
-    await this.supabaseService.upsertGscQueryMetrics(metrics);
+    const deduped = this.aggregateQueryMetrics(metrics);
+    await this.supabaseService.upsertGscQueryMetrics(deduped);
+  }
+
+  /**
+   * 同一キー (userId, propertyUri, date, normalizedUrl, queryNormalized, searchType) 内の重複行を集約し、
+   * clicks / impressions は合算、ctr は合算値から再計算、position は impressions 加重平均で代表値を決める。
+   * contentAnnotationId は非 null を優先採用する。
+   */
+  private aggregateQueryMetrics(metrics: GscQueryMetricInsert[]): GscQueryMetricInsert[] {
+    const map = new Map<string, GscQueryMetricInsert & { weightedPositionSum: number }>();
+
+    for (const metric of metrics) {
+      const key = [
+        metric.userId,
+        metric.propertyUri,
+        metric.date,
+        metric.normalizedUrl,
+        metric.queryNormalized,
+        metric.searchType,
+      ].join('|');
+
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          ...metric,
+          weightedPositionSum: metric.position * metric.impressions,
+        });
+        continue;
+      }
+
+      const clicks = existing.clicks + metric.clicks;
+      const impressions = existing.impressions + metric.impressions;
+      const weightedPositionSum = existing.weightedPositionSum + metric.position * metric.impressions;
+
+      // contentAnnotationId は非 null を優先
+      const contentAnnotationId = existing.contentAnnotationId ?? metric.contentAnnotationId ?? null;
+
+      map.set(key, {
+        ...existing,
+        clicks,
+        impressions,
+        ctr: impressions > 0 ? clicks / impressions : 0,
+        position: impressions > 0 ? weightedPositionSum / impressions : 0,
+        contentAnnotationId,
+        // importedAt / url / query は代表値として既存をそのまま使用
+        weightedPositionSum,
+      });
+    }
+
+    return Array.from(map.values()).map(value => {
+      const { weightedPositionSum, ...rest } = value;
+      void weightedPositionSum; // eslint整合: 集約用の一時値を破棄
+      return rest;
+    });
   }
 
   private async fetchQueryAnalyticsRows({
