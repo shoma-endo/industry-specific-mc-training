@@ -28,17 +28,29 @@ interface DataRequirement {
 }
 
 export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessProps) {
+  // wp_post_id があれば、ステージ1と3はWordPressから動的取得可能
+  const hasWpPostId = annotation.wp_post_id !== null && annotation.wp_post_id !== undefined;
+
   // 各ステージのデータ要件
   const requirements: DataRequirement[] = [
-    {
-      stage: 1,
-      label: 'スニペット（タイトル/説明文）',
-      fields: [
-        { name: 'wp_post_title', displayName: 'WPタイトル', value: annotation.wp_post_title },
-        { name: 'wp_excerpt', displayName: 'WP抜粋/説明文', value: annotation.wp_excerpt ?? null },
-      ],
-      requiresAll: false, // どちらか1つでもあればOK
-    },
+    // ステージ1: wp_post_id がない場合のみ、キャッシュされたタイトル/説明文をチェック
+    ...(hasWpPostId
+      ? []
+      : [
+          {
+            stage: 1,
+            label: 'スニペット（タイトル/説明文）',
+            fields: [
+              { name: 'wp_post_title', displayName: 'WPタイトル', value: annotation.wp_post_title },
+              {
+                name: 'wp_excerpt',
+                displayName: 'WP抜粋/説明文',
+                value: annotation.wp_excerpt ?? null,
+              },
+            ],
+            requiresAll: false, // どちらか1つでもあればOK
+          },
+        ]),
     {
       stage: 2,
       label: '書き出し案',
@@ -47,23 +59,23 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
       ],
       requiresAll: true,
     },
-    {
-      stage: 3,
-      label: '記事本文',
-      fields: [
-        {
-          name: 'wp_content_text',
-          displayName: '記事本文（キャッシュ）',
-          value: annotation.wp_content_text,
-        },
-        {
-          name: 'wp_post_id',
-          displayName: 'WordPress投稿ID',
-          value: annotation.wp_post_id ? String(annotation.wp_post_id) : null,
-        },
-      ],
-      requiresAll: false, // キャッシュ本文 or WP投稿ID のいずれかで満たす
-    },
+    // ステージ3: wp_post_id がない場合のみ、キャッシュされた本文をチェック
+    ...(hasWpPostId
+      ? []
+      : [
+          {
+            stage: 3,
+            label: '記事本文',
+            fields: [
+              {
+                name: 'wp_content_text',
+                displayName: '記事本文（キャッシュ）',
+                value: annotation.wp_content_text,
+              },
+            ],
+            requiresAll: true, // wp_post_id がない場合はキャッシュ本文が必須
+          },
+        ]),
     {
       stage: 4,
       label: 'デモグラ・ペルソナ / ニーズ',
@@ -113,11 +125,9 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
                     <span className="text-amber-600 mt-0.5 flex-shrink-0">•</span>
                     <span>
                       <span className="font-medium">{req.label}</span>
-                      {missingFields.length > 0 && (
+                      {missingFields.length > 0 && req.requiresAll && (
                         <span className="text-amber-700 ml-2">
-                          {req.requiresAll
-                            ? `（${missingFields.map(f => f.displayName).join('、')}が必要）`
-                            : `（${missingFields.map(f => f.displayName).join(' または ')}のいずれか）`}
+                          （{missingFields.map(f => f.displayName).join('、')}が必要）
                         </span>
                       )}
                     </span>
