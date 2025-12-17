@@ -375,55 +375,9 @@ export class PromptService extends SupabaseService {
    */
   static async invalidateAllCaches(): Promise<void> {
     // React Cacheは自動で無効化される（Next.js 15の機能）
-    // バックグラウンドで全ユーザーの事前生成プロンプトを再生成
-    setImmediate(async () => {
-      try {
-        const service = new PromptService();
-        const users = await service.getAllActiveUsers();
-        const promises = users.map(user => service.regenerateUserPrompts(user.id));
-        await Promise.allSettled(promises);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('プロンプトキャッシュ無効化完了');
-        }
-      } catch (error) {
-        console.error('キャッシュ無効化エラー:', error);
-      }
-    });
-  }
-
-  /**
-   * アクティブなユーザー一覧を取得
-   */
-  private async getAllActiveUsers(): Promise<{ id: string; line_user_id: string }[]> {
-    try {
-      const { data, error } = await this.supabase
-        .from('users')
-        .select('id, line_user_id')
-        .not('line_user_id', 'is', null);
-
-      if (error) {
-        throw new Error(`ユーザー一覧取得エラー: ${error.message}`);
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('アクティブユーザー取得エラー:', error);
-      return [];
-    }
-  }
-
-  /**
-   * ユーザーのプロンプトを再生成（将来の拡張用）
-   */
-  private async regenerateUserPrompts(userId: string): Promise<void> {
-    try {
-      // 将来的にユーザー固有のプロンプトキャッシュを再生成する処理を実装
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`ユーザー ${userId} のプロンプト再生成を開始`);
-      }
-      // ユーザー固有プロンプトキャッシュ機能は未実装
-    } catch (error) {
-      console.error(`ユーザー ${userId} のプロンプト再生成エラー:`, error);
+    // 現時点ではサーバー側の明示的なキャッシュクリア処理は不要
+    if (process.env.NODE_ENV === 'development') {
+      console.log('プロンプトキャッシュ無効化リクエストを受信（処理スキップ）');
     }
   }
 
