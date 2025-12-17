@@ -65,7 +65,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   gsc_insight_ctr_boost: {
     ...ANTHROPIC_BASE,
     maxTokens: 8000,
-    label: '広告タイトル・説明文の提案',
+    label: 'スニペットタイトル・説明文の提案',
   },
   gsc_insight_intro_refresh: {
     ...ANTHROPIC_BASE,
@@ -140,8 +140,7 @@ export const ANALYTICS_COLUMNS = [
   { id: 'categories', label: 'カテゴリ' },
   { id: 'date', label: '公開日' },
   { id: 'wp_post_title', label: 'WordPressタイトル' },
-  { id: 'ads_headline', label: '広告タイトル' },
-  { id: 'ads_description', label: '広告説明文' },
+  { id: 'wp_excerpt', label: 'WordPress説明文' },
   { id: 'url', label: 'URL' },
   { id: 'memo', label: 'メモ' },
   { id: 'rank', label: '順位' },

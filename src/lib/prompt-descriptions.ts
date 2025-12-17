@@ -27,9 +27,8 @@ export const PROMPT_DESCRIPTIONS: Record<string, PromptDescription> = {
     variables: 'canonicalLinkPairs（改行区切りの内部リンク候補「タイトル | URL」一覧）が利用可能です',
   },
   gsc_insight_ctr_boost: {
-    description: 'Google広告の見出しと説明文を差し替え、CTR改善案を出します',
-    variables:
-      '広告タイトル（ads_headline）、広告説明文（ads_description）を使用します',
+    description: 'WordPressの記事スニペット（タイトル/ディスクリプション）を改善し、CTR向上案を出します',
+    variables: 'WordPressタイトル（ads_headline相当）、WordPress説明文・抜粋（ads_description相当）を使用します',
   },
   gsc_insight_intro_refresh: {
     description: '記事の書き出し（opening_proposal）を改善し、検索意図と読了率を高める案を出します',
@@ -89,8 +88,8 @@ export const VARIABLE_TYPE_DESCRIPTIONS: Record<string, string> = {
   contentBasicStructure: '基本構成',
   contentOpeningProposal: '書き出し案',
   // GSC インサイト用
-  adsHeadline: 'Google広告の代表タイトル（content_annotations.ads_headline）',
-  adsDescription: 'Google広告の代表説明文（content_annotations.ads_description）',
+  adsHeadline: 'WordPressタイトル（content_annotations.wp_post_title など）',
+  adsDescription: 'WordPress説明文（抜粋/メタディスクリプション想定）',
   openingProposal: 'WordPress記事の書き出し（content_annotations.opening_proposal）',
   wpContent: 'WordPress本文（HTML除去後テキスト）',
   conversionGoal: 'CTA/コンバージョン目標（問い合わせ、購入、予約など）',

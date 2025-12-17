@@ -7,8 +7,8 @@ interface SuggestionDataReadinessProps {
   annotation: {
     id: string;
     wp_post_id: number | null;
-    ads_headline: string | null;
-    ads_description: string | null;
+    wp_post_title: string | null;
+    wp_excerpt?: string | null;
     opening_proposal: string | null;
     wp_content_text: string | null;
     persona: string | null;
@@ -32,10 +32,10 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
   const requirements: DataRequirement[] = [
     {
       stage: 1,
-      label: '広告タイトル / 広告説明文',
+      label: 'スニペット（タイトル/説明文）',
       fields: [
-        { name: 'ads_headline', displayName: '広告タイトル', value: annotation.ads_headline },
-        { name: 'ads_description', displayName: '広告説明文', value: annotation.ads_description },
+        { name: 'wp_post_title', displayName: 'WPタイトル', value: annotation.wp_post_title },
+        { name: 'wp_excerpt', displayName: 'WP抜粋/説明文', value: annotation.wp_excerpt ?? null },
       ],
       requiresAll: false, // どちらか1つでもあればOK
     },
