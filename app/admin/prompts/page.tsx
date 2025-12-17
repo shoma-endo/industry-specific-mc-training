@@ -216,19 +216,6 @@ export default function PromptsPage() {
     if (names.has('canonicalLinkPairs')) {
       extra.push(getVariableDescription('canonicalLinkPairs'));
     }
-    // ブログ作成ステップ用の content_annotations 由来の暗黙変数（テンプレ内に現れなくても説明に提示）
-    const contentVars = [
-      'contentNeeds',
-      'contentPersona',
-      'contentGoal',
-      'contentPrep',
-      'contentBasicStructure',
-      'contentOpeningProposal',
-    ];
-    contentVars.forEach(v => {
-      // 既にDB側variablesに定義されていない場合でも使用可能なので表示
-      extra.push(getVariableDescription(v));
-    });
     return extra.length > 0 ? extra.join(' ／ ') : null;
   })();
 

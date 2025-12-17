@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { authMiddleware } from './auth.middleware';
+import type { User } from '@/types/user';
 import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
 
 /**
@@ -8,6 +9,7 @@ import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension
 export interface AuthContext {
   userId: string;
   cookieStore: ReadonlyRequestCookies;
+  userDetails?: User | null;
 }
 
 /**
@@ -45,6 +47,7 @@ export async function withAuth<T>(
 
   return handler({
     userId: authResult.userId,
-    cookieStore
+    cookieStore,
+    userDetails: authResult.userDetails ?? null
   });
 }

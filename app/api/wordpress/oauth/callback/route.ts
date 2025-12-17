@@ -3,6 +3,7 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { WPCOM_TOKEN_COOKIE_NAME } from '@/server/services/wordpressContext';
 import { verifyOAuthState } from '@/server/lib/oauth-state';
+import { isAdmin as isAdminRole } from '@/authUtils';
 
 const supabaseService = new SupabaseService();
 
@@ -92,6 +93,12 @@ export async function GET(request: NextRequest) {
       if (!authResult.error && authResult.userId) {
         cookieUserId = authResult.userId;
         targetUserId = authResult.userId;
+        if (!isAdminRole(authResult.userDetails?.role ?? null)) {
+          return NextResponse.json(
+            { error: 'WordPress.com 連携は管理者のみ利用できます' },
+            { status: 403 }
+          );
+        }
       }
     }
 
@@ -107,6 +114,17 @@ export async function GET(request: NextRequest) {
 
     if (!targetUserId) {
       targetUserId = stateUserId;
+    }
+
+    // state に含まれる userId でもロールを確認（バックアップ）
+    if (!cookieUserId && targetUserId) {
+      const userResult = await supabaseService.getUserById(targetUserId);
+      if (userResult.success && !isAdminRole(userResult.data?.role ?? null)) {
+        return NextResponse.json(
+          { error: 'WordPress.com 連携は管理者のみ利用できます' },
+          { status: 403 }
+        );
+      }
     }
 
     if (!targetUserId) {

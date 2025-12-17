@@ -133,8 +133,7 @@ export async function runWordpressBulkImport(accessToken: string) {
     const { data: existingAnnotations, error: existingError } = await supabaseClient
       .from('content_annotations')
       .select('canonical_url, wp_post_id, wp_post_title')
-      .eq('user_id', userId)
-      .not('canonical_url', 'is', null);
+      .eq('user_id', userId);
 
     if (existingError) {
       return { success: false, error: '既存アノテーション取得エラー: ' + existingError.message };
@@ -167,6 +166,8 @@ export async function runWordpressBulkImport(accessToken: string) {
 
     const candidates: WordPressNormalizedPost[] = [];
     const skipped: WordPressNormalizedPost[] = [];
+    const batchSeenIds = new Set<number>();
+    const batchSeenCanonical = new Set<string>();
 
     normalized.forEach(post => {
       const canonical = post.canonical_url?.trim();
@@ -175,18 +176,27 @@ export async function runWordpressBulkImport(accessToken: string) {
         typeof post.id === 'number' ? post.id : Number.isFinite(Number(post.id)) ? Number(post.id) : null;
       const isDuplicateUrl = hasCanonical ? existingUrls.has(canonical) : false;
       const isDuplicateId = wpPostId !== null ? existingPostIds.has(wpPostId) : false;
+      const isBatchDuplicateId = wpPostId !== null && batchSeenIds.has(wpPostId);
+      const isBatchDuplicateUrl = hasCanonical ? batchSeenCanonical.has(canonical) : false;
 
-      if (!hasCanonical || isDuplicateUrl || isDuplicateId) {
+      if (!hasCanonical || isDuplicateUrl || isDuplicateId || isBatchDuplicateId || isBatchDuplicateUrl) {
         skipped.push(post);
         const type = normalizeContentType(post.post_type ?? 'posts');
         const stats = ensureStats(type);
         if (!hasCanonical) {
           stats.skippedWithoutCanonical += 1;
         }
-        if (isDuplicateUrl || isDuplicateId) {
+        if (isDuplicateUrl || isDuplicateId || isBatchDuplicateId || isBatchDuplicateUrl) {
           stats.duplicate += 1;
         }
         return;
+      }
+
+      if (wpPostId !== null) {
+        batchSeenIds.add(wpPostId);
+      }
+      if (canonical) {
+        batchSeenCanonical.add(canonical);
       }
 
       candidates.push(post);

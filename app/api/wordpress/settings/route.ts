@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { isAdmin as isAdminRole } from '@/authUtils';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 
@@ -36,10 +37,20 @@ export async function POST(request: NextRequest) {
 
     const authResult = await authMiddleware(liffToken, refreshToken);
     
-    if (authResult.error || !authResult.userId) {
+    if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return NextResponse.json(
         { success: false, error: 'Authentication failed' },
         { status: 401 }
+      );
+    }
+
+    const isAdmin = isAdminRole(authResult.userDetails.role);
+
+    // 管理者以外はWordPress.comを禁止
+    if (!isAdmin && wpType !== 'self_hosted') {
+      return NextResponse.json(
+        { success: false, error: 'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で設定してください。' },
+        { status: 403 }
       );
     }
 

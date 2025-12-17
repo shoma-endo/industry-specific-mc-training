@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { withAuth } from '@/server/middleware/withAuth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { isAdmin as isAdminRole } from '@/authUtils';
 import {
   WordPressSettings,
   WordPressRestPost,
@@ -708,8 +709,14 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
     }
 
     const authResult = await authMiddleware(liffToken, refreshToken);
-    if (authResult.error || !authResult.userId) {
+    if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return { success: false as const, error: 'Authentication failed' };
+    }
+
+    const isAdmin = isAdminRole(authResult.userDetails.role);
+
+    if (!isAdmin && wpType !== 'self_hosted') {
+      return { success: false as const, error: 'WordPress.com 連携は管理者のみ利用できます' };
     }
 
     if (wpType === 'self_hosted') {
@@ -754,6 +761,28 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
 export async function testWordPressConnectionAction() {
   const cookieStore = await cookies();
   try {
+    const liffToken = cookieStore.get('line_access_token')?.value;
+    const refreshToken = cookieStore.get('line_refresh_token')?.value;
+    const authResult = await authMiddleware(liffToken, refreshToken);
+
+    if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
+      return { success: false as const, error: 'ユーザー認証に失敗しました' };
+    }
+
+    const isAdmin = isAdminRole(authResult.userDetails.role);
+    const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
+
+    if (!wpSettings) {
+      return { success: false as const, error: 'WordPress設定が登録されていません' };
+    }
+
+    if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
+      return {
+        success: false as const,
+        error: '管理者以外はWordPress.com接続テストを実行できません。セルフホスト版で再設定してください。',
+      };
+    }
+
     const context = await resolveWordPressContext(
       name => cookieStore.get(name)?.value,
       { supabaseService }
@@ -1169,8 +1198,9 @@ export interface WordPressConnectionStatus {
 export async function fetchWordPressStatusAction(): Promise<
   { success: true; data: WordPressConnectionStatus } | { success: false; error: string }
 > {
-  return withAuth(async ({ userId, cookieStore }) => {
+  return withAuth(async ({ userId, cookieStore, userDetails }) => {
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
+    const isAdmin = isAdminRole(userDetails?.role ?? null);
 
     // 設定が未完了の場合
     if (!wpSettings) {
@@ -1180,6 +1210,19 @@ export async function fetchWordPressStatusAction(): Promise<
           connected: false,
           status: 'not_configured' as const,
           message: 'WordPress設定が未完了です',
+        },
+      };
+    }
+
+    if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
+      return {
+        success: true,
+        data: {
+          connected: false,
+          status: 'error' as const,
+          message: 'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で再設定してください。',
+          wpType: wpSettings.wpType,
+          lastUpdated: wpSettings.updatedAt ?? null,
         },
       };
     }
