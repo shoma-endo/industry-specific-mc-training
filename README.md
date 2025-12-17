@@ -602,7 +602,14 @@ npm run vercel:stats
 | `/api/gsc/import` | POST | GSCデータインポート | Cookie |
 | `/api/gsc/evaluate` | POST | GSC記事評価の手動実行 | Cookie |
 | `/api/gsc/evaluations` | GET | GSC評価履歴取得 | Cookie |
-| `/api/cron/gsc-evaluate` | POST | GSC記事評価の定期実行（Vercel Cron） | Vercel Cron または 認証トークン |
+| `/api/cron/gsc-evaluate` | POST | GSC記事評価の定期実行（GitHub Actions などのスケジューラ経由で Bearer 認証） | Authorization ヘッダー |
+
+### GSC 評価バッチ（GitHub Actions での実行例）
+- Vercel 環境変数: `CRON_SECRET` を設定（Cronバッチ用の共有シークレット）
+- GitHub Actions Secret: 同じ値の `CRON_SECRET` を登録
+- ワークフロー: `.github/workflows/gsc-cron.yml` の `TARGET_URL` をデプロイ先ドメインに置き換える（例: `https://your-app.vercel.app/api/cron/gsc-evaluate`）
+- 認証: GitHub Actions から `Authorization: Bearer <CRON_SECRET>` ヘッダー付きで呼び出し
+- スケジュール: デフォルト毎時0分（`0 * * * *`）、`workflow_dispatch` で手動実行も可能
 
 サーバーアクション (`src/server/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
 

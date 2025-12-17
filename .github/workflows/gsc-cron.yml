@@ -1,0 +1,28 @@
+name: GSC Evaluate Cron
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-gsc-evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call GSC evaluate endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TARGET_URL: https://industry-specific-mc-training.vercel.app/api/cron/gsc-evaluate
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not set" >&2
+            exit 1
+          fi
+          if [ -z "$TARGET_URL" ]; then
+            echo "TARGET_URL is not set" >&2
+            exit 1
+          fi
+          curl -X GET "$TARGET_URL" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Accept: application/json" \
+            --fail --show-error --silent
