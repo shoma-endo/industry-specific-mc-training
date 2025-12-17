@@ -1237,6 +1237,12 @@ export async function updateContentAnnotationFields(
     opening_proposal?: string | null;
     persona?: string | null;
     needs?: string | null;
+    main_kw?: string | null;
+    kw?: string | null;
+    impressions?: string | number | null;
+    goal?: string | null;
+    prep?: string | null;
+    basic_structure?: string | null;
   }
 ): Promise<
   | { success: true; wp_post_id?: number | null; wp_post_title?: string | null }
@@ -1302,6 +1308,29 @@ export async function updateContentAnnotationFields(
     }
     if (Object.prototype.hasOwnProperty.call(fields, 'needs')) {
       updateData.needs = fields.needs ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, 'main_kw')) {
+      updateData.main_kw = fields.main_kw ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, 'kw')) {
+      updateData.kw = fields.kw ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, 'impressions')) {
+      updateData.impressions =
+        fields.impressions === null || fields.impressions === undefined
+          ? null
+          : Number.isFinite(Number(fields.impressions))
+            ? Number(fields.impressions)
+            : fields.impressions;
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, 'goal')) {
+      updateData.goal = fields.goal ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, 'prep')) {
+      updateData.prep = fields.prep ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, 'basic_structure')) {
+      updateData.basic_structure = fields.basic_structure ?? null;
     }
 
     const { error } = await client

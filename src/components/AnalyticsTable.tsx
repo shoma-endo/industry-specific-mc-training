@@ -3,12 +3,25 @@
 import * as React from 'react';
 import FieldConfigurator from '@/components/FieldConfigurator';
 import TruncatedText from '@/components/TruncatedText';
+import AnnotationFormFields from '@/components/AnnotationFormFields';
 import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
-import { ensureAnnotationChatSession } from '@/server/actions/wordpress.actions';
+import { ensureAnnotationChatSession, updateContentAnnotationFields } from '@/server/actions/wordpress.actions';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Bell, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { ANNOTATION_FIELD_KEYS, type AnnotationFieldKey } from '@/types/annotation';
 
 interface Props {
   items: AnalyticsContentItem[];
@@ -56,6 +69,19 @@ function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) 
 export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const router = useRouter();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
+  const [editingRowKey, setEditingRowKey] = React.useState<string | null>(null);
+  const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(
+    () =>
+      ANNOTATION_FIELD_KEYS.reduce<Record<AnnotationFieldKey, string>>((acc, key) => {
+        acc[key] = '';
+        return acc;
+      }, {} as Record<AnnotationFieldKey, string>)
+  );
+  const [canonicalUrl, setCanonicalUrl] = React.useState('');
+  const [canonicalUrlError, setCanonicalUrlError] = React.useState('');
+  const [formError, setFormError] = React.useState('');
+  const [wpPostTitle, setWpPostTitle] = React.useState('');
+  const [isPendingEdit, startEditTransition] = React.useTransition();
   const columnLabelMap = React.useMemo(
     () =>
       ANALYTICS_COLUMNS.reduce<Record<string, string>>((acc, col) => {
@@ -108,6 +134,69 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     [pendingRowKey, router]
   );
 
+  const openEdit = React.useCallback((item: AnalyticsContentItem) => {
+    const annotation = item.annotation;
+    const nextForm = ANNOTATION_FIELD_KEYS.reduce<Record<AnnotationFieldKey, string>>((acc, key) => {
+      acc[key] = annotation?.[key] ? String(annotation[key] ?? '') : '';
+      return acc;
+    }, {} as Record<AnnotationFieldKey, string>);
+    setForm(nextForm);
+    setCanonicalUrl(annotation?.canonical_url ?? '');
+    setWpPostTitle(annotation?.wp_post_title ?? '');
+    setFormError('');
+    setCanonicalUrlError('');
+    setEditingRowKey(item.rowKey);
+  }, []);
+
+  const closeEdit = React.useCallback(() => {
+    setEditingRowKey(null);
+    setForm(
+      ANNOTATION_FIELD_KEYS.reduce<Record<AnnotationFieldKey, string>>((acc, key) => {
+        acc[key] = '';
+        return acc;
+      }, {} as Record<AnnotationFieldKey, string>)
+    );
+    setCanonicalUrl('');
+    setCanonicalUrlError('');
+    setFormError('');
+    setWpPostTitle('');
+  }, []);
+
+  const handleSave = React.useCallback(
+    (annotationId: string | null | undefined) => {
+      if (!annotationId) {
+        setFormError('アノテーションIDが取得できません');
+        return;
+      }
+
+      startEditTransition(async () => {
+        setFormError('');
+        const toastId = toast.loading('保存中です...');
+        try {
+          const result = await updateContentAnnotationFields(annotationId, {
+            ...form,
+            canonical_url: canonicalUrl || null,
+          });
+
+          if (result.success) {
+            toast.success('保存しました', { id: toastId });
+            closeEdit();
+            router.refresh();
+          } else {
+            const message = result.error || '保存に失敗しました';
+            toast.error(message, { id: toastId });
+            setFormError(message);
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'エラーが発生しました';
+          toast.error(message, { id: toastId });
+          setFormError(message);
+        }
+      });
+    },
+    [canonicalUrl, closeEdit, form, router]
+  );
+
   return (
     <FieldConfigurator
       storageKey="analytics.visibleColumns"
@@ -134,7 +223,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                         id === 'wp_post_title' || id === 'wp_excerpt' ? 'min-w-[360px]' : ''
                       } ${id === 'url' ? 'min-w-[300px]' : ''} ${
                         ['main_kw', 'kw'].includes(id) ? 'min-w-[180px]' : ''
-                      } ${['needs', 'persona', 'goal', 'prep', 'basic_structure', 'opening_proposal', 'memo'].includes(id) ? 'min-w-[220px]' : ''} ${
+                      } ${['needs', 'persona', 'goal', 'prep', 'basic_structure', 'opening_proposal'].includes(id) ? 'min-w-[220px]' : ''} ${
                         id === 'date' ? 'min-w-[120px]' : ''
                       }`}
                     >
@@ -152,7 +241,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                     : null;
                 const fallbackTitle =
                   annotation?.wp_post_title || annotation?.main_kw || 'コンテンツチャット';
-                const canonicalUrl = annotation?.canonical_url ?? null;
+                const rowCanonicalUrl = annotation?.canonical_url ?? null;
                 const updatedAt = annotation?.updated_at
                   ? new Date(annotation.updated_at).toLocaleDateString('ja-JP')
                   : null;
@@ -177,12 +266,74 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                               annotationId: annotation?.id ?? null,
                               wpPostId,
                               wpPostTitle: annotation?.wp_post_title ?? null,
-                              canonicalUrl,
+                              canonicalUrl: rowCanonicalUrl,
                               fallbackTitle,
                               initialStep: hasExistingBlog ? 'step7' : null,
                             });
                           }}
                         />
+                        <Dialog
+                          open={editingRowKey === item.rowKey}
+                          onOpenChange={open => {
+                            if (open) {
+                              openEdit(item);
+                            } else {
+                              closeEdit();
+                            }
+                          }}
+                        >
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="flex items-center gap-2">
+                              編集
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>コンテンツ情報を編集</DialogTitle>
+                              <DialogDescription>
+                                テーブルの各フィールドを直接編集し、保存できます。
+                              </DialogDescription>
+                            </DialogHeader>
+
+                            {formError ? (
+                              <Alert variant="destructive" className="mb-4">
+                                <AlertTitle className="text-sm font-semibold">保存に失敗しました</AlertTitle>
+                                <AlertDescription className="text-sm">{formError}</AlertDescription>
+                              </Alert>
+                            ) : null}
+
+                            <AnnotationFormFields
+                              form={form}
+                              onFormChange={(key, value) => setForm(prev => ({ ...prev, [key]: value }))}
+                              canonicalUrl={canonicalUrl}
+                              onCanonicalUrlChange={value => {
+                                setCanonicalUrl(value);
+                                if (canonicalUrlError) setCanonicalUrlError('');
+                              }}
+                              canonicalUrlError={canonicalUrlError}
+                              wpPostTitle={wpPostTitle}
+                            />
+
+                            <DialogFooter>
+                              <Button variant="ghost" onClick={closeEdit} disabled={isPendingEdit}>
+                                キャンセル
+                              </Button>
+                              <Button
+                                onClick={() => handleSave(annotation?.id)}
+                                disabled={isPendingEdit}
+                              >
+                                {isPendingEdit ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    保存中...
+                                  </>
+                                ) : (
+                                  '保存'
+                                )}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
                         {annotation?.id ? (
                           <Button
                             variant="outline"
@@ -339,25 +490,15 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                           case 'url':
                             return (
                               <td key={id} className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                                {canonicalUrl ? (
+                                {rowCanonicalUrl ? (
                                   <a
-                                    href={canonicalUrl}
+                                    href={rowCanonicalUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="underline"
                                   >
-                                    {canonicalUrl}
+                                    {rowCanonicalUrl}
                                   </a>
-                                ) : (
-                                  '—'
-                                )}
-                              </td>
-                            );
-                          case 'memo':
-                            return (
-                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                {annotation?.memo ? (
-                                  <TruncatedText text={annotation.memo} lines={3} />
                                 ) : (
                                   '—'
                                 )}

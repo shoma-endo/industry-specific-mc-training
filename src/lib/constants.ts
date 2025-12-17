@@ -142,7 +142,6 @@ export const ANALYTICS_COLUMNS = [
   { id: 'wp_post_title', label: 'WordPressタイトル' },
   { id: 'wp_excerpt', label: 'WordPress説明文' },
   { id: 'url', label: 'URL' },
-  { id: 'memo', label: 'メモ' },
   { id: 'rank', label: '順位' },
 ];
 
