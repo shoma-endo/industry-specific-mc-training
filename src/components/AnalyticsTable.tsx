@@ -115,7 +115,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       hideTrigger
       triggerId="analytics-field-config-trigger"
     >
-      {visibleSet => (
+      {({ visibleSet, orderedIds }) => (
         <div className="w-full overflow-x-auto">
           <table className="min-w-[2200px] divide-y divide-gray-200">
             <thead className="bg-gray-50 analytics-head">
@@ -123,86 +123,24 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                 <th className="analytics-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[100px]">
                   操作
                 </th>
-                {visibleSet.has('main_kw') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[180px]">
-                    {columnLabelMap.main_kw}
-                  </th>
-                )}
-                {visibleSet.has('kw') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[180px]">
-                    {columnLabelMap.kw}
-                  </th>
-                )}
-                {visibleSet.has('impressions') && (
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[120px]">
-                    {columnLabelMap.impressions}
-                  </th>
-                )}
-                {visibleSet.has('needs') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
-                    {columnLabelMap.needs}
-                  </th>
-                )}
-                {visibleSet.has('persona') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
-                    {columnLabelMap.persona}
-                  </th>
-                )}
-                {visibleSet.has('goal') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
-                    {columnLabelMap.goal}
-                  </th>
-                )}
-                {visibleSet.has('prep') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
-                    {columnLabelMap.prep}
-                  </th>
-                )}
-                {visibleSet.has('basic_structure') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
-                    {columnLabelMap.basic_structure}
-                  </th>
-                )}
-                {visibleSet.has('opening_proposal') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
-                    {columnLabelMap.opening_proposal}
-                  </th>
-                )}
-                {visibleSet.has('categories') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[200px]">
-                    {columnLabelMap.categories}
-                  </th>
-                )}
-                {visibleSet.has('date') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[120px]">
-                    {columnLabelMap.date}
-                  </th>
-                )}
-                {visibleSet.has('wp_post_title') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[360px]">
-                    {columnLabelMap.wp_post_title}
-                  </th>
-                )}
-                {visibleSet.has('wp_excerpt') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[360px]">
-                    {columnLabelMap.wp_excerpt}
-                  </th>
-                )}
-                {visibleSet.has('url') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[300px]">
-                    {columnLabelMap.url}
-                  </th>
-                )}
-                {visibleSet.has('memo') && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[220px]">
-                    {columnLabelMap.memo}
-                  </th>
-                )}
-                {visibleSet.has('rank') && (
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap min-w-[100px]">
-                    {columnLabelMap.rank}
-                  </th>
-                )}
+                {orderedIds
+                  .filter(id => visibleSet.has(id))
+                  .map(id => (
+                    <th
+                      key={id}
+                      className={`px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap ${
+                        id === 'impressions' || id === 'rank' ? 'text-right min-w-[120px]' : ''
+                      } ${id === 'categories' ? 'min-w-[200px]' : ''} ${
+                        id === 'wp_post_title' || id === 'wp_excerpt' ? 'min-w-[360px]' : ''
+                      } ${id === 'url' ? 'min-w-[300px]' : ''} ${
+                        ['main_kw', 'kw'].includes(id) ? 'min-w-[180px]' : ''
+                      } ${['needs', 'persona', 'goal', 'prep', 'basic_structure', 'opening_proposal', 'memo'].includes(id) ? 'min-w-[220px]' : ''} ${
+                        id === 'date' ? 'min-w-[120px]' : ''
+                      }`}
+                    >
+                      {columnLabelMap[id]}
+                    </th>
+                  ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -277,133 +215,167 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                         ) : null}
                       </div>
                     </td>
-                    {visibleSet.has('main_kw') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.main_kw ? (
-                          <TruncatedText text={annotation.main_kw} lines={2} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('kw') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.kw ? <TruncatedText text={annotation.kw} lines={2} /> : '—'}
-                      </td>
-                    )}
-                    {visibleSet.has('impressions') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {annotation?.impressions ?? '—'}
-                      </td>
-                    )}
-                    {visibleSet.has('needs') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.needs ? (
-                          <TruncatedText text={annotation.needs} lines={3} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('persona') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.persona ? (
-                          <TruncatedText text={annotation.persona} lines={3} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('goal') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.goal ? (
-                          <TruncatedText text={annotation.goal} lines={3} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('prep') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.prep ? (
-                          <TruncatedText text={annotation.prep} lines={3} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('basic_structure') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.basic_structure ? (
-                          <TruncatedText text={annotation.basic_structure} lines={3} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('opening_proposal') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.opening_proposal ? (
-                          <TruncatedText text={annotation.opening_proposal} lines={3} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('categories') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {annotation?.wp_post_type ?? '—'}
-                      </td>
-                    )}
-                    {visibleSet.has('date') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {updatedAt ?? '—'}
-                      </td>
-                    )}
-                    {visibleSet.has('wp_post_title') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {annotation?.wp_post_title || '—'}
-                      </td>
-                    )}
-                    {visibleSet.has('wp_excerpt') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.wp_excerpt ? (
-                          <TruncatedText text={annotation.wp_excerpt} lines={3} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('url') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                        {canonicalUrl ? (
-                          <a
-                            href={canonicalUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline"
-                          >
-                            {canonicalUrl}
-                          </a>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('memo') && (
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {annotation?.memo ? (
-                          <TruncatedText text={annotation.memo} lines={3} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    )}
-                    {visibleSet.has('rank') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        —
-                      </td>
-                    )}
+                    {orderedIds
+                      .filter(id => visibleSet.has(id))
+                      .map(id => {
+                        switch (id) {
+                          case 'main_kw':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.main_kw ? (
+                                  <TruncatedText text={annotation.main_kw} lines={2} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'kw':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.kw ? (
+                                  <TruncatedText text={annotation.kw} lines={2} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'impressions':
+                            return (
+                              <td
+                                key={id}
+                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right"
+                              >
+                                {annotation?.impressions ?? '—'}
+                              </td>
+                            );
+                          case 'needs':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.needs ? (
+                                  <TruncatedText text={annotation.needs} lines={3} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'persona':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.persona ? (
+                                  <TruncatedText text={annotation.persona} lines={3} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'goal':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.goal ? (
+                                  <TruncatedText text={annotation.goal} lines={3} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'prep':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.prep ? (
+                                  <TruncatedText text={annotation.prep} lines={3} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'basic_structure':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.basic_structure ? (
+                                  <TruncatedText text={annotation.basic_structure} lines={3} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'opening_proposal':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.opening_proposal ? (
+                                  <TruncatedText text={annotation.opening_proposal} lines={3} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'categories':
+                            return (
+                              <td key={id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {annotation?.wp_post_type ?? '—'}
+                              </td>
+                            );
+                          case 'date':
+                            return (
+                              <td key={id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {updatedAt ?? '—'}
+                              </td>
+                            );
+                          case 'wp_post_title':
+                            return (
+                              <td key={id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {annotation?.wp_post_title || '—'}
+                              </td>
+                            );
+                          case 'wp_excerpt':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.wp_excerpt ? (
+                                  <TruncatedText text={annotation.wp_excerpt} lines={3} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'url':
+                            return (
+                              <td key={id} className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                                {canonicalUrl ? (
+                                  <a
+                                    href={canonicalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline"
+                                  >
+                                    {canonicalUrl}
+                                  </a>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'memo':
+                            return (
+                              <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                {annotation?.memo ? (
+                                  <TruncatedText text={annotation.memo} lines={3} />
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            );
+                          case 'rank':
+                            return (
+                              <td
+                                key={id}
+                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
+                              >
+                                —
+                              </td>
+                            );
+                          default:
+                            return null;
+                        }
+                      })}
                   </tr>
                 );
               })}

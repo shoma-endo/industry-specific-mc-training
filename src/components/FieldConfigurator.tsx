@@ -18,11 +18,23 @@ interface ColumnOption {
   defaultVisible?: boolean;
 }
 
+interface FieldConfigRenderProps {
+  visibleSet: Set<string>;
+  orderedIds: string[];
+}
+
+type StoredConfig =
+  | string[]
+  | {
+      visible?: string[];
+      order?: string[];
+    };
+
 interface FieldConfiguratorProps {
   columns: ColumnOption[];
   storageKey: string;
-  onChange?: (visibleIds: string[]) => void;
-  children: (visibleSet: Set<string>) => React.ReactNode;
+  onChange?: (visibleIds: string[], orderedIds: string[]) => void;
+  children: (config: FieldConfigRenderProps) => React.ReactNode;
   hideTrigger?: boolean;
   triggerId?: string;
 }
@@ -39,30 +51,73 @@ export default function FieldConfigurator({
     () => columns.filter(c => c.defaultVisible !== false).map(c => c.id),
     [columns]
   );
+  const defaultOrder = React.useMemo(() => columns.map(c => c.id), [columns]);
 
   const [open, setOpen] = React.useState(false);
   const [visibleIds, setVisibleIds] = React.useState<string[]>(defaultVisibleIds);
+  const [orderedIds, setOrderedIds] = React.useState<string[]>(defaultOrder);
+
+  const normalizeOrder = React.useCallback(
+    (order: string[]) => {
+      const knownIds = columns.map(c => c.id);
+      const filtered = order.filter(id => knownIds.includes(id));
+      const missing = knownIds.filter(id => !filtered.includes(id));
+      return [...filtered, ...missing];
+    },
+    [columns]
+  );
+
+  const persistConfig = React.useCallback(
+    (nextVisible: string[], nextOrder: string[]) => {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({ visible: nextVisible, order: nextOrder })
+      );
+    },
+    [storageKey]
+  );
+
+  const applyConfig = React.useCallback(
+    (nextVisible: string[], nextOrder: string[], shouldPersist = false) => {
+      const normalizedVisible = nextVisible.filter(id => columns.some(c => c.id === id));
+      const normalizedOrder = normalizeOrder(nextOrder);
+      setVisibleIds(normalizedVisible);
+      setOrderedIds(normalizedOrder);
+      onChange?.(normalizedVisible, normalizedOrder);
+      if (shouldPersist) {
+        persistConfig(normalizedVisible, normalizedOrder);
+      }
+    },
+    [columns, normalizeOrder, onChange, persistConfig]
+  );
 
   React.useEffect(() => {
     try {
       const raw = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
       if (raw) {
-        const saved = JSON.parse(raw) as string[];
-        // フィールド定義変更時の整合性確保（未知IDは除外）
-        const normalized = saved.filter(id => columns.some(c => c.id === id));
-        if (normalized.length > 0) {
-          setVisibleIds(normalized);
-          onChange?.(normalized);
+        const parsed = JSON.parse(raw) as StoredConfig;
+
+        // 旧フォーマット（string配列）との互換性維持
+        if (Array.isArray(parsed)) {
+          const normalizedVisible = parsed.filter(id => columns.some(c => c.id === id));
+          if (normalizedVisible.length > 0) {
+            applyConfig(normalizedVisible, defaultOrder, true);
+            return;
+          }
+        }
+
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const visible = Array.isArray(parsed.visible) ? parsed.visible : defaultVisibleIds;
+          const order = Array.isArray(parsed.order) ? parsed.order : defaultOrder;
+          applyConfig(visible, order, true);
           return;
         }
       }
-      setVisibleIds(defaultVisibleIds);
-      onChange?.(defaultVisibleIds);
+      applyConfig(defaultVisibleIds, defaultOrder, true);
     } catch {
-      setVisibleIds(defaultVisibleIds);
-      onChange?.(defaultVisibleIds);
+      applyConfig(defaultVisibleIds, defaultOrder, true);
     }
-  }, [columns, defaultVisibleIds, onChange, storageKey]);
+  }, [applyConfig, columns, defaultOrder, defaultVisibleIds, storageKey]);
 
   const visibleSet = React.useMemo(() => new Set(visibleIds), [visibleIds]);
 
@@ -85,22 +140,40 @@ export default function FieldConfigurator({
   const toggle = (id: string) => {
     setVisibleIds(prev => {
       const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      onChange?.(next);
+      persistConfig(next, orderedIds);
+      onChange?.(next, orderedIds);
       return next;
     });
   };
 
   const selectAll = () => {
-    localStorage.setItem(storageKey, JSON.stringify(defaultVisibleIds));
+    persistConfig(defaultVisibleIds, orderedIds);
     setVisibleIds(defaultVisibleIds);
-    onChange?.(defaultVisibleIds);
+    onChange?.(defaultVisibleIds, orderedIds);
   };
 
   const clearAll = () => {
-    localStorage.setItem(storageKey, JSON.stringify([]));
+    persistConfig([], orderedIds);
     setVisibleIds([]);
-    onChange?.([]);
+    onChange?.([], orderedIds);
+  };
+
+  const move = (id: string, direction: 'up' | 'down') => {
+    setOrderedIds(prev => {
+      const index = prev.indexOf(id);
+      if (index === -1) return prev;
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const current = prev[index];
+      const targetValue = prev[target];
+      if (current === undefined || targetValue === undefined) return prev;
+      const next = [...prev];
+      next[index] = targetValue;
+      next[target] = current;
+      persistConfig(visibleIds, next);
+      onChange?.(visibleIds, next);
+      return next;
+    });
   };
 
   return (
@@ -134,16 +207,49 @@ export default function FieldConfigurator({
               </Button>
             </div>
             <div className="max-h-[50vh] overflow-auto space-y-2 pr-1">
-              {columns.map(col => (
-                <label key={col.id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={visibleSet.has(col.id)}
-                    onCheckedChange={() => toggle(col.id)}
-                    aria-label={col.label}
-                  />
-                  <span>{col.label}</span>
-                </label>
-              ))}
+              {orderedIds.map((id, index) => {
+                const col = columns.find(c => c.id === id);
+                if (!col) return null;
+                const isFirst = index === 0;
+                const isLast = index === orderedIds.length - 1;
+                return (
+                  <div
+                    key={col.id}
+                    className="flex items-center justify-between gap-2 rounded border border-gray-200 px-3 py-2"
+                  >
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={visibleSet.has(col.id)}
+                        onCheckedChange={() => toggle(col.id)}
+                        aria-label={col.label}
+                      />
+                      <span>{col.label}</span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => move(col.id, 'up')}
+                        disabled={isFirst}
+                        aria-label={`${col.label}を上に移動`}
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => move(col.id, 'down')}
+                        disabled={isLast}
+                        aria-label={`${col.label}を下に移動`}
+                      >
+                        ↓
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="mt-3 flex justify-end">
               <Button onClick={() => setOpen(false)}>閉じる</Button>
@@ -151,7 +257,7 @@ export default function FieldConfigurator({
           </DialogContent>
         </Dialog>
       </div>
-      <div>{children(visibleSet)}</div>
+      <div>{children({ visibleSet, orderedIds })}</div>
     </div>
   );
 }
