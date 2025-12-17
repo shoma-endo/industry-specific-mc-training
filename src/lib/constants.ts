@@ -65,7 +65,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   gsc_insight_ctr_boost: {
     ...ANTHROPIC_BASE,
     maxTokens: 8000,
-    label: 'スニペットタイトル・説明文の提案',
+    label: 'タイトル・説明文の提案',
   },
   gsc_insight_intro_refresh: {
     ...ANTHROPIC_BASE,

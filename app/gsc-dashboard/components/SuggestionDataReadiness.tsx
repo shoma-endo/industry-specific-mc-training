@@ -39,7 +39,7 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
       : [
           {
             stage: 1,
-            label: 'スニペット（タイトル/説明文）',
+            label: 'タイトル・説明文',
             fields: [
               { name: 'wp_post_title', displayName: 'WPタイトル', value: annotation.wp_post_title },
               {
@@ -116,24 +116,12 @@ export function SuggestionDataReadiness({ annotation }: SuggestionDataReadinessP
               以下のデータが未登録のため、該当の改善提案がスキップされます。評価を実行する前にデータを登録してください。
             </p>
             <ul className="space-y-2 list-none">
-              {missingRequirements.map(req => {
-                const missingFields = req.fields.filter(
-                  field => !field.value || field.value.trim().length === 0
-                );
-                return (
-                  <li key={req.stage} className="flex items-start gap-2 text-sm">
-                    <span className="text-amber-600 mt-0.5 flex-shrink-0">•</span>
-                    <span>
-                      <span className="font-medium">{req.label}</span>
-                      {missingFields.length > 0 && req.requiresAll && (
-                        <span className="text-amber-700 ml-2">
-                          （{missingFields.map(f => f.displayName).join('、')}が必要）
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
+              {missingRequirements.map(req => (
+                <li key={req.stage} className="flex items-start gap-2 text-sm">
+                  <span className="text-amber-600 mt-0.5 flex-shrink-0">•</span>
+                  <span className="font-medium">{req.label}</span>
+                </li>
+              ))}
             </ul>
           </AlertDescription>
         </div>
