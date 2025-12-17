@@ -196,7 +196,7 @@ export default function FieldConfigurator({
             </DialogHeader>
             <p className="text-sm text-gray-600 mb-3">
               チェックを付けたフィールドのみテーブルに表示されます。<br />
-              設定はブラウザに保存され、次回以降も反映されます。
+              上下矢印のボタンで表示順を変更できます。
             </p>
             <div className="flex items-center gap-2 mb-3">
               <Button size="sm" variant="secondary" onClick={selectAll}>
