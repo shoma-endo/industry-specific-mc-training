@@ -1230,6 +1230,7 @@ export interface WordPressConnectionStatus {
 export async function updateContentAnnotationFields(
   annotationId: string,
   fields: {
+    canonical_url?: string | null;
     wp_post_title?: string | null;
     wp_excerpt?: string | null;
     wp_content_text?: string | null;
@@ -1237,21 +1238,53 @@ export async function updateContentAnnotationFields(
     persona?: string | null;
     needs?: string | null;
   }
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<
+  | { success: true; wp_post_id?: number | null; wp_post_title?: string | null }
+  | { success: false; error: string }
+> {
   // annotationId のバリデーション
   if (!annotationId || typeof annotationId !== 'string' || annotationId.trim().length === 0) {
     return { success: false as const, error: 'アノテーションIDが無効です' };
   }
 
-  return withAuth(async ({ userId }) => {
+  return withAuth(async ({ userId, cookieStore }) => {
     const supabaseServiceLocal = new SupabaseService();
     const client = supabaseServiceLocal.getClient();
+
+    let resolvedCanonicalUrl: string | null | undefined = undefined;
+    let resolvedWpId: number | null | undefined = undefined;
+    let resolvedWpTitle: string | null | undefined = undefined;
+
+    // canonical_url が指定されている場合、WordPress投稿IDを解決
+    if (Object.prototype.hasOwnProperty.call(fields, 'canonical_url')) {
+      const resolution = await resolveCanonicalAndWpPostId({
+        canonicalUrl: fields.canonical_url,
+        supabaseService: supabaseServiceLocal,
+        userId,
+        cookieStore,
+      });
+      if (!resolution.success) {
+        return { success: false as const, error: resolution.error };
+      }
+      resolvedCanonicalUrl = resolution.canonicalUrl;
+      resolvedWpId = resolution.wpPostId;
+      resolvedWpTitle = resolution.wpPostTitle;
+    }
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
     // フィールドが指定されている場合のみ更新
+    if (Object.prototype.hasOwnProperty.call(fields, 'canonical_url')) {
+      updateData.canonical_url = resolvedCanonicalUrl ?? null;
+      if (resolvedWpId !== undefined) {
+        updateData.wp_post_id = resolvedWpId ?? null;
+      }
+      if (resolvedWpTitle !== undefined && resolvedWpTitle !== null) {
+        updateData.wp_post_title = resolvedWpTitle;
+      }
+    }
     if (Object.prototype.hasOwnProperty.call(fields, 'wp_post_title')) {
       updateData.wp_post_title = fields.wp_post_title ?? null;
     }
@@ -1281,7 +1314,11 @@ export async function updateContentAnnotationFields(
       return { success: false as const, error: error.message };
     }
 
-    return { success: true as const };
+    return {
+      success: true as const,
+      ...(resolvedWpId !== undefined ? { wp_post_id: resolvedWpId ?? null } : {}),
+      ...(resolvedWpTitle !== undefined ? { wp_post_title: resolvedWpTitle ?? null } : {}),
+    };
   });
 }
 

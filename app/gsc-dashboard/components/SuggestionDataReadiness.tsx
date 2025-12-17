@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { updateContentAnnotationFields } from '@/server/actions/wordpress.actions';
 
@@ -26,6 +27,7 @@ interface SuggestionDataReadinessProps {
     wp_content_text: string | null;
     persona: string | null;
     needs: string | null;
+    canonical_url: string | null;
   };
   onUpdate?: (annotationId: string) => Promise<void> | void;
 }
@@ -45,24 +47,22 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [formData, setFormData] = useState({
-    wp_post_title: annotation.wp_post_title ?? '',
-    wp_excerpt: annotation.wp_excerpt ?? '',
+    canonical_url: annotation.canonical_url ?? '',
     opening_proposal: annotation.opening_proposal ?? '',
-    wp_content_text: annotation.wp_content_text ?? '',
     persona: annotation.persona ?? '',
     needs: annotation.needs ?? '',
   });
+  const [canonicalUrlError, setCanonicalUrlError] = useState('');
 
   // Dialog を開く時に最新値を反映
   const handleOpenDialog = () => {
     setFormData({
-      wp_post_title: annotation.wp_post_title ?? '',
-      wp_excerpt: annotation.wp_excerpt ?? '',
+      canonical_url: annotation.canonical_url ?? '',
       opening_proposal: annotation.opening_proposal ?? '',
-      wp_content_text: annotation.wp_content_text ?? '',
       persona: annotation.persona ?? '',
       needs: annotation.needs ?? '',
     });
+    setCanonicalUrlError('');
     setIsDialogOpen(true);
   };
 
@@ -71,22 +71,21 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
 
   // 各ステージのデータ要件
   const requirements: DataRequirement[] = [
-    // ステージ1: wp_post_id がない場合のみ、キャッシュされたタイトル/説明文をチェック
+    // ステージ1: wp_post_id がない場合は、WordPress投稿URLの登録が必要
     ...(hasWpPostId
       ? []
       : [
           {
             stage: 1,
-            label: 'タイトル・説明文',
+            label: 'WordPress連携',
             fields: [
-              { name: 'wp_post_title', displayName: 'WPタイトル', value: annotation.wp_post_title },
               {
-                name: 'wp_excerpt',
-                displayName: 'WP抜粋/説明文',
-                value: annotation.wp_excerpt ?? null,
+                name: 'canonical_url',
+                displayName: 'WordPress投稿URL',
+                value: annotation.canonical_url,
               },
             ],
-            requiresAll: false, // どちらか1つでもあればOK
+            requiresAll: true,
           },
         ]),
     {
@@ -97,23 +96,6 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
       ],
       requiresAll: true,
     },
-    // ステージ3: wp_post_id がない場合のみ、キャッシュされた本文をチェック
-    ...(hasWpPostId
-      ? []
-      : [
-          {
-            stage: 3,
-            label: '記事本文',
-            fields: [
-              {
-                name: 'wp_content_text',
-                displayName: '記事本文（キャッシュ）',
-                value: annotation.wp_content_text,
-              },
-            ],
-            requiresAll: true, // wp_post_id がない場合はキャッシュ本文が必須
-          },
-        ]),
     {
       stage: 4,
       label: 'デモグラ・ペルソナ / ニーズ',
@@ -144,10 +126,8 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
 
     startTransition(async () => {
       const result = await updateContentAnnotationFields(annotation.id, {
-        ...(hasWpPostId ? {} : { wp_post_title: formData.wp_post_title || null }),
-        ...(hasWpPostId ? {} : { wp_excerpt: formData.wp_excerpt || null }),
+        ...(hasWpPostId ? {} : { canonical_url: formData.canonical_url || null }),
         opening_proposal: formData.opening_proposal || null,
-        ...(hasWpPostId ? {} : { wp_content_text: formData.wp_content_text || null }),
         persona: formData.persona || null,
         needs: formData.needs || null,
       });
@@ -159,7 +139,12 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
           await onUpdate(annotation.id);
         }
       } else {
-        toast.error(result.error || '保存に失敗しました');
+        const errorMessage = result.error || '保存に失敗しました';
+        toast.error(errorMessage);
+        // WordPress URL関連のエラーの場合は、エラーメッセージを表示
+        if (errorMessage.includes('URL') || errorMessage.includes('WordPress')) {
+          setCanonicalUrlError(errorMessage);
+        }
       }
     });
   };
@@ -216,36 +201,37 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
           </DialogHeader>
 
           <div className="space-y-5 py-4">
-            {/* タイトル・説明文（wp_post_idがない場合のみ） */}
+            {/* WordPress投稿URL（wp_post_idがない場合のみ） */}
             {!hasWpPostId && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    WordPressタイトル
+              <div className="pb-4 border-b border-gray-200">
+                <h4 className="text-md font-semibold text-gray-800 mb-2">WordPress連携</h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  WordPressで公開されている記事URLを入力してください。カスタムパーマリンクにも対応し、
+                  URLから投稿IDを自動取得して連携します。空欄の場合は連携を解除します。
+                </p>
+                <div className="space-y-1">
+                  <label
+                    className="block text-sm font-medium text-gray-700"
+                    htmlFor="wp-canonical-url"
+                  >
+                    WordPress投稿URL（任意）
                   </label>
-                  <Textarea
+                  <Input
+                    id="wp-canonical-url"
+                    type="text"
                     className="w-full border border-gray-300 rounded-lg p-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:border-blue-500"
-                    rows={2}
-                    value={formData.wp_post_title}
-                    onChange={e =>
-                      setFormData(prev => ({ ...prev, wp_post_title: e.target.value }))
-                    }
-                    placeholder="WordPress記事のタイトルを入力"
+                    value={formData.canonical_url}
+                    onChange={e => {
+                      setFormData(prev => ({ ...prev, canonical_url: e.target.value }));
+                      if (canonicalUrlError) {
+                        setCanonicalUrlError('');
+                      }
+                    }}
+                    placeholder="例: https://example.com/article-title/"
                   />
+                  {canonicalUrlError && <p className="text-sm text-red-600">{canonicalUrlError}</p>}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    WordPress説明文
-                  </label>
-                  <Textarea
-                    className="w-full border border-gray-300 rounded-lg p-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:border-blue-500"
-                    rows={3}
-                    value={formData.wp_excerpt}
-                    onChange={e => setFormData(prev => ({ ...prev, wp_excerpt: e.target.value }))}
-                    placeholder="WordPress記事の抜粋・説明文を入力"
-                  />
-                </div>
-              </>
+              </div>
             )}
 
             {/* 書き出し案 */}
@@ -259,24 +245,6 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
                 placeholder="書き出しの方向性や冒頭で伝えたい内容"
               />
             </div>
-
-            {/* 記事本文（wp_post_idがない場合のみ） */}
-            {!hasWpPostId && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  記事本文（キャッシュ）
-                </label>
-                <Textarea
-                  className="w-full border border-gray-300 rounded-lg p-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:border-blue-500"
-                  rows={8}
-                  value={formData.wp_content_text}
-                  onChange={e =>
-                    setFormData(prev => ({ ...prev, wp_content_text: e.target.value }))
-                  }
-                  placeholder="記事本文のテキストを入力"
-                />
-              </div>
-            )}
 
             {/* デモグラ・ペルソナ */}
             <div>
