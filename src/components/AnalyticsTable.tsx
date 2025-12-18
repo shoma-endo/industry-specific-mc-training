@@ -500,7 +500,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                         <Button
                           variant="destructive"
                           size="sm"
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
                           onClick={() => handleDeleteClick(item)}
                           disabled={isDeleting && deletingRowKey === item.rowKey}
                         >
