@@ -267,7 +267,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                     <th
                       key={id}
                       className={`px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap ${
-                        id === 'impressions' || id === 'rank' ? 'text-right min-w-[120px]' : ''
+                        id === 'impressions' ? 'text-right min-w-[120px]' : ''
                       } ${id === 'categories' ? 'min-w-[200px]' : ''} ${
                         id === 'wp_post_title' || id === 'wp_excerpt' ? 'min-w-[360px]' : ''
                       } ${id === 'url' ? 'min-w-[300px]' : ''} ${
@@ -555,15 +555,6 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                                 ) : (
                                   '—'
                                 )}
-                              </td>
-                            );
-                          case 'rank':
-                            return (
-                              <td
-                                key={id}
-                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"
-                              >
-                                —
                               </td>
                             );
                           default:
