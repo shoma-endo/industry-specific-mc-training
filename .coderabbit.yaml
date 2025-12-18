@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+# UIよりこのYAMLが最優先で適用されます（ここに書いてない項目はUI設定ではなくデフォルトに戻るので注意）
+language: "ja-JP"
+early_access: false
+
+reviews:
+  # まずはノイズを抑える設定から始める（必要なら "assertive" / "strict" に上げる）
+  profile: "chill"
+
+  # 「変更要求」をワークフローに組み込むか（チームの運用次第。最初はfalse推奨）
+  request_changes_workflow: false
+
+  # PR全体サマリ（日本語で出ます）
+  high_level_summary: true
+
+  # ポエムは好みが分かれる。レビュー効率には不要なのでfalse推奨
+  poem: false
+
+  # PRのレビュー状態を表示（Pass/Needs work等）
+  review_status: true
+
+  # walkthrough（変更点の逐次解説）を折りたたむか
+  collapse_walkthrough: false
+
+  # 自動レビュー（PR作成/更新時に自動で走る）
+  auto_review:
+    enabled: true
+    drafts: false
+
+chat:
+  # PR上で @coderabbitai に質問した時に返す
+  auto_reply: true
+
+# --- 必要になったら有効化する例（最初は触らなくてOK）---
+
+# 共有設定（複数repoで共通化したい場合）
+# remote_config:
+#   url: "https://your-config-location/.coderabbit.yaml"
