@@ -25,7 +25,6 @@ export interface AnnotationRecord extends AnnotationFields {
   wp_post_type?: string | null;
   wp_content_text?: string | null;
   wp_excerpt?: string | null;
-  ads_synced_at?: string | null;
   wp_content_cache?: string | null;
   wp_content_cached_at?: string | null;
   session_id?: string | null;
