@@ -1441,10 +1441,20 @@ export async function deleteContentAnnotation(
   annotationId: string,
   liffAccessToken: string
 ): Promise<{ success: boolean; error?: string }> {
-  return authMiddleware(liffAccessToken, async context => {
-    const result = await context.supabaseService.deleteContentAnnotation(
+  const authResult = await authMiddleware(liffAccessToken);
+
+  if (authResult.error || authResult.requiresSubscription) {
+    return {
+      success: false,
+      error: authResult.error || 'サブスクリプションが必要です',
+    };
+  }
+
+  try {
+    const supabaseService = new SupabaseService();
+    const result = await supabaseService.deleteContentAnnotation(
       annotationId,
-      context.user.id
+      authResult.userId!
     );
 
     if (!result.success) {
@@ -1455,5 +1465,11 @@ export async function deleteContentAnnotation(
     }
 
     return { success: true };
-  });
+  } catch (error) {
+    console.error('Failed to delete content annotation:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'コンテンツの削除に失敗しました',
+    };
+  }
 }
