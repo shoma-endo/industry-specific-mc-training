@@ -1030,7 +1030,7 @@ export class SupabaseService {
   }
 
   /**
-   * チャットセッションとそれに紐づくすべてのメッセージを削除
+   * チャットセッションとそれに紐づくすべてのメッセージ・コンテンツを削除
    */
   async deleteChatSession(sessionId: string, userId: string): Promise<SupabaseResult<void>> {
     // トランザクション的な削除を実行
@@ -1059,7 +1059,22 @@ export class SupabaseService {
       });
     }
 
-    // 3. セッション自体を削除
+    // 3. セッションに紐づくコンテンツ注釈を削除
+    const { error: annotationsError } = await this.supabase
+      .from('content_annotations')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('user_id', userId);
+
+    if (annotationsError) {
+      return this.failure('コンテンツ注釈の削除に失敗しました', {
+        error: annotationsError,
+        developerMessage: 'Failed to delete content annotations before session deletion',
+        context: { sessionId, userId },
+      });
+    }
+
+    // 4. セッション自体を削除
     const { error: sessionError } = await this.supabase
       .from('chat_sessions')
       .delete()

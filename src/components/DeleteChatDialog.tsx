@@ -38,10 +38,10 @@ export function DeleteChatDialog({
             <br />
             <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
             <div className="mt-3 text-xs text-gray-600 space-y-1">
-              <p>・未紐付け（WordPress未公開）のメモは同時に削除されます。</p>
-              <p>
-                ・WordPressに紐付け済みのメモは削除されません（チャットとの関連のみ解除されます）。
+              <p className="text-red-600 font-medium">
+                ・このチャットに紐づくコンテンツ（content_annotations）も同時に削除されます。
               </p>
+              <p>・チャットメッセージもすべて削除されます。</p>
             </div>
           </DialogDescription>
         </DialogHeader>
