@@ -39,7 +39,7 @@ export function DeleteChatDialog({
             <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
             <div className="mt-3 text-xs text-gray-600 space-y-1">
               <p className="text-red-600 font-medium">
-                ・このチャットに紐づくコンテンツ（content_annotations）も同時に削除されます。
+                ・このチャットに紐づくコンテンツ情報も同時に削除されます。
               </p>
               <p>・チャットメッセージもすべて削除されます。</p>
             </div>
