@@ -100,4 +100,5 @@ export interface DeleteChatDialogProps {
   onConfirm: () => void;
   chatTitle: string;
   isDeleting?: boolean;
+  mode?: 'chat' | 'content';
 }

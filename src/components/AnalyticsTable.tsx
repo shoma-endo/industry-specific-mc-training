@@ -18,10 +18,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Bell, FileText, Edit } from 'lucide-react';
+import { Loader2, Bell, FileText, Edit, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ANNOTATION_FIELD_KEYS, type AnnotationFieldKey } from '@/types/annotation';
+import { DeleteChatDialog } from '@/components/DeleteChatDialog';
+import { ChatService } from '@/domain/services/chatService';
+import { useLiff } from '@/components/LiffProvider';
 
 interface Props {
   items: AnalyticsContentItem[];
@@ -68,6 +71,7 @@ function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) 
 
 export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const router = useRouter();
+  const { getAccessToken } = useLiff();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
   const [editingRowKey, setEditingRowKey] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(
@@ -82,6 +86,12 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [formError, setFormError] = React.useState('');
   const [wpPostTitle, setWpPostTitle] = React.useState('');
   const [isPendingEdit, startEditTransition] = React.useTransition();
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [deletingRowKey, setDeletingRowKey] = React.useState<string | null>(null);
+  const [deleteTargetTitle, setDeleteTargetTitle] = React.useState('');
+  const [deleteTargetSessionId, setDeleteTargetSessionId] = React.useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const chatServiceRef = React.useRef<ChatService | null>(null);
   const [opsWidth, setOpsWidth] = React.useState<number>(() => {
     if (typeof window === 'undefined') return 240;
     const saved = localStorage.getItem('analytics.opsWidth');
@@ -102,6 +112,15 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       }, {}),
     []
   );
+
+  // ChatService の初期化
+  React.useEffect(() => {
+    if (!chatServiceRef.current) {
+      const service = new ChatService();
+      service.setAccessTokenProvider(getAccessToken);
+      chatServiceRef.current = service;
+    }
+  }, [getAccessToken]);
 
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
@@ -236,14 +255,53 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     [canonicalUrl, closeEdit, form, router]
   );
 
+  const handleDeleteClick = React.useCallback((item: AnalyticsContentItem) => {
+    const annotation = item.annotation;
+    const sessionId = annotation?.session_id;
+
+    if (!sessionId) {
+      toast.error('セッションIDが見つかりません');
+      return;
+    }
+
+    const title = annotation?.wp_post_title || annotation?.main_kw || 'コンテンツ';
+    setDeleteTargetTitle(title);
+    setDeleteTargetSessionId(sessionId);
+    setDeletingRowKey(item.rowKey);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = React.useCallback(async () => {
+    if (!deleteTargetSessionId || !chatServiceRef.current) return;
+
+    setIsDeleting(true);
+    const toastId = toast.loading('削除中です...');
+
+    try {
+      await chatServiceRef.current.deleteSession(deleteTargetSessionId);
+      toast.success('削除しました', { id: toastId });
+      setDeleteDialogOpen(false);
+      setDeleteTargetSessionId(null);
+      setDeleteTargetTitle('');
+      setDeletingRowKey(null);
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '削除に失敗しました';
+      toast.error(message, { id: toastId });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteTargetSessionId, router]);
+
   return (
-    <FieldConfigurator
-      storageKey="analytics.visibleColumns"
-      columns={ANALYTICS_COLUMNS}
-      hideTrigger
-      triggerId="analytics-field-config-trigger"
-    >
-      {({ visibleSet, orderedIds }) => (
+    <>
+      <FieldConfigurator
+        storageKey="analytics.visibleColumns"
+        columns={ANALYTICS_COLUMNS}
+        hideTrigger
+        triggerId="analytics-field-config-trigger"
+      >
+        {({ visibleSet, orderedIds }) => (
         <div className="w-full overflow-x-auto">
           <table className="min-w-[2200px] divide-y divide-gray-200">
             <thead className="bg-gray-50 analytics-head">
@@ -417,6 +475,16 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                             <span>詳細</span>
                           </Button>
                         ) : null}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          onClick={() => handleDeleteClick(item)}
+                          disabled={isDeleting && deletingRowKey === item.rowKey}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          削除
+                        </Button>
                       </div>
                     </td>
                     {orderedIds
@@ -567,7 +635,16 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
             </tbody>
           </table>
         </div>
-      )}
-    </FieldConfigurator>
+        )}
+      </FieldConfigurator>
+      <DeleteChatDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        chatTitle={deleteTargetTitle}
+        isDeleting={isDeleting}
+        mode="content"
+      />
+    </>
   );
 }

@@ -19,11 +19,14 @@ export function DeleteChatDialog({
   onConfirm,
   chatTitle,
   isDeleting = false,
+  mode = 'chat',
 }: DeleteChatDialogProps) {
   const handleConfirm = () => {
     onConfirm();
     onOpenChange(false);
   };
+
+  const isContentMode = mode === 'content';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -31,17 +34,28 @@ export function DeleteChatDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trash2 className="h-5 w-5 text-red-500" />
-            チャットを削除
+            {isContentMode ? 'コンテンツを削除' : 'チャットを削除'}
           </DialogTitle>
           <DialogDescription className="text-left">
             「{chatTitle}」を削除してもよろしいですか？
             <br />
             <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
             <div className="mt-3 text-xs text-gray-600 space-y-1">
-              <p className="text-red-600 font-medium">
-                ・このチャットに紐づくコンテンツ情報も同時に削除されます。
-              </p>
-              <p>・チャットメッセージもすべて削除されます。</p>
+              {isContentMode ? (
+                <>
+                  <p className="text-red-600 font-medium">
+                    ・このコンテンツに紐づくチャットも同時に削除されます。
+                  </p>
+                  <p>・チャットメッセージもすべて削除されます。</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-red-600 font-medium">
+                    ・このチャットに紐づくコンテンツ情報も同時に削除されます。
+                  </p>
+                  <p>・チャットメッセージもすべて削除されます。</p>
+                </>
+              )}
             </div>
           </DialogDescription>
         </DialogHeader>
