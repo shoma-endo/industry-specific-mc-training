@@ -28,7 +28,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Loader2, Bell, FileText, Edit, Trash2, Settings } from 'lucide-react';
+import {
+  Loader2,
+  Bell,
+  FileText,
+  Edit,
+  Trash2,
+  Settings,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ANNOTATION_FIELD_KEYS, type AnnotationFieldKey } from '@/types/annotation';
@@ -108,14 +117,19 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [hasOrphanContent, setHasOrphanContent] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const chatServiceRef = React.useRef<ChatService | null>(null);
-  const [opsWidth, setOpsWidth] = React.useState<number>(() => {
-    if (typeof window === 'undefined') return 240;
-    const saved = localStorage.getItem('analytics.opsWidth');
-    const num = saved ? Number(saved) : NaN;
-    if (Number.isFinite(num)) return Math.min(180, Math.max(120, num)); // 幅を縮小
 
-    return 140; // デフォルト幅を縮小
+  // 操作列の展開状態（初期値は true: 展開）
+  const [isOpsExpanded, setIsOpsExpanded] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const saved = localStorage.getItem('analytics.opsExpanded');
+    return saved !== 'false'; // デフォルトは true
   });
+
+  // 操作列の幅（展開/収縮に応じて自動切り替え）
+  const opsWidth = React.useMemo(() => {
+    return isOpsExpanded ? 380 : 120;
+  }, [isOpsExpanded]);
+
   const columnLabelMap = React.useMemo(
     () =>
       ANALYTICS_COLUMNS.reduce<Record<string, string>>((acc, col) => {
@@ -177,35 +191,15 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     [pendingRowKey, router]
   );
 
-  // 操作列リサイズ: マウスドラッグで幅を更新（最小140px 最大260px）
+  // 展開状態の永続化
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('analytics.opsWidth', String(opsWidth));
-  }, [opsWidth]);
+    localStorage.setItem('analytics.opsExpanded', String(isOpsExpanded));
+  }, [isOpsExpanded]);
 
-  const startResize = React.useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const startX = e.clientX;
-      const startWidth = opsWidth;
-
-      const onMove = (moveEvent: MouseEvent) => {
-        const delta = moveEvent.clientX - startX;
-        const next = Math.min(180, Math.max(120, startWidth + delta));
-        setOpsWidth(next);
-      };
-
-      const onUp = () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
-      };
-
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp, { once: true });
-    },
-    [opsWidth]
-  );
+  const toggleOpsExpanded = React.useCallback(() => {
+    setIsOpsExpanded(prev => !prev);
+  }, []);
 
   const openEdit = React.useCallback((item: AnalyticsContentItem) => {
     const annotation = item.annotation;
@@ -344,21 +338,30 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
               <thead className="bg-gray-50 analytics-head">
                 <tr>
                   <th
-                    className="analytics-ops-cell px-6 py-3 text-center text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap relative"
+                    className="analytics-ops-cell px-2 py-3 text-center text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap relative group/th"
                     style={{
                       width: `${opsWidth}px`,
                       minWidth: `${opsWidth}px`,
                       maxWidth: `${opsWidth}px`,
+                      transition: 'width 0.2s ease-in-out',
                     }}
                   >
-                    操作
-                    <div
-                      role="separator"
-                      aria-orientation="vertical"
-                      className="absolute right-0 top-0 h-full w-2 cursor-col-resize select-none"
-                      onMouseDown={startResize}
-                      title="ドラッグして操作列の幅を変更"
-                    />
+                    <div className="flex items-center justify-center relative w-full">
+                      <span>操作</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-6 w-6 ml-2 text-gray-500 hover:text-gray-700 bg-white border-gray-300 shadow-sm"
+                        onClick={toggleOpsExpanded}
+                        title={isOpsExpanded ? '操作列を折りたたむ' : '操作列を展開する'}
+                      >
+                        {isOpsExpanded ? (
+                          <ChevronsLeft className="h-4 w-4" />
+                        ) : (
+                          <ChevronsRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </th>
                   {orderedIds
                     .filter(id => visibleSet.has(id))
@@ -428,20 +431,91 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                             }}
                           />
 
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                                <Settings className="h-4 w-4" />
-                                <span className="sr-only">メニューを開く</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEdit(item)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                編集
-                              </DropdownMenuItem>
+                          {isOpsExpanded && (
+                            <>
+                              <Dialog
+                                open={editingRowKey === item.rowKey}
+                                onOpenChange={open => {
+                                  if (open) {
+                                    openEdit(item);
+                                  } else {
+                                    closeEdit();
+                                  }
+                                }}
+                              >
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                    編集
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle>コンテンツ情報を編集</DialogTitle>
+                                    <DialogDescription>
+                                      テーブルの各フィールドを直接編集し、保存できます。
+                                    </DialogDescription>
+                                  </DialogHeader>
+
+                                  {formError ? (
+                                    <Alert variant="destructive" className="mb-4">
+                                      <AlertTitle className="text-sm font-semibold">
+                                        保存に失敗しました
+                                      </AlertTitle>
+                                      <AlertDescription className="text-sm">
+                                        {formError}
+                                      </AlertDescription>
+                                    </Alert>
+                                  ) : null}
+
+                                  <AnnotationFormFields
+                                    form={form}
+                                    onFormChange={(key, value) =>
+                                      setForm(prev => ({ ...prev, [key]: value }))
+                                    }
+                                    canonicalUrl={canonicalUrl}
+                                    onCanonicalUrlChange={value => {
+                                      setCanonicalUrl(value);
+                                      if (canonicalUrlError) setCanonicalUrlError('');
+                                    }}
+                                    canonicalUrlError={canonicalUrlError}
+                                    wpPostTitle={wpPostTitle}
+                                  />
+
+                                  <DialogFooter>
+                                    <Button
+                                      variant="ghost"
+                                      onClick={closeEdit}
+                                      disabled={isPendingEdit}
+                                    >
+                                      キャンセル
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleSave(annotation?.id)}
+                                      disabled={isPendingEdit}
+                                    >
+                                      {isPendingEdit ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                          保存中...
+                                        </>
+                                      ) : (
+                                        '保存'
+                                      )}
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+
                               {annotation?.id ? (
-                                <DropdownMenuItem
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex items-center gap-2"
                                   onClick={() => {
                                     const target = new URLSearchParams();
                                     target.set('annotationId', annotation.id ?? '');
@@ -452,91 +526,34 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                                     );
                                   }}
                                 >
-                                  {hasUnreadSuggestion ? (
-                                    <Bell className="mr-2 h-4 w-4 text-amber-600 animate-pulse" />
-                                  ) : (
-                                    <FileText className="mr-2 h-4 w-4" />
-                                  )}
-                                  詳細
-                                </DropdownMenuItem>
+                                  <span className="inline-flex h-3 w-3 items-center justify-center">
+                                    {hasUnreadSuggestion ? (
+                                      <span
+                                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-600 animate-pulse"
+                                        title="改善提案があります"
+                                      >
+                                        <Bell className="h-3.5 w-3.5" />
+                                      </span>
+                                    ) : (
+                                      <FileText className="h-3.5 w-3.5 text-gray-500" aria-hidden />
+                                    )}
+                                  </span>
+                                  <span>詳細</span>
+                                </Button>
                               ) : null}
-                              <DropdownMenuItem
-                                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                                 onClick={() => handleDeleteClick(item)}
+                                disabled={isDeleting && deletingRowKey === item.rowKey}
                               >
-                                <Trash2 className="mr-2 h-4 w-4" />
+                                <Trash2 className="h-4 w-4" />
                                 削除
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-
-                          <Dialog
-                            open={editingRowKey === item.rowKey}
-                            onOpenChange={open => {
-                              if (open) {
-                                openEdit(item);
-                              } else {
-                                closeEdit();
-                              }
-                            }}
-                          >
-                            <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>コンテンツ情報を編集</DialogTitle>
-                                <DialogDescription>
-                                  テーブルの各フィールドを直接編集し、保存できます。
-                                </DialogDescription>
-                              </DialogHeader>
-
-                              {formError ? (
-                                <Alert variant="destructive" className="mb-4">
-                                  <AlertTitle className="text-sm font-semibold">
-                                    保存に失敗しました
-                                  </AlertTitle>
-                                  <AlertDescription className="text-sm">
-                                    {formError}
-                                  </AlertDescription>
-                                </Alert>
-                              ) : null}
-
-                              <AnnotationFormFields
-                                form={form}
-                                onFormChange={(key, value) =>
-                                  setForm(prev => ({ ...prev, [key]: value }))
-                                }
-                                canonicalUrl={canonicalUrl}
-                                onCanonicalUrlChange={value => {
-                                  setCanonicalUrl(value);
-                                  if (canonicalUrlError) setCanonicalUrlError('');
-                                }}
-                                canonicalUrlError={canonicalUrlError}
-                                wpPostTitle={wpPostTitle}
-                              />
-
-                              <DialogFooter>
-                                <Button
-                                  variant="ghost"
-                                  onClick={closeEdit}
-                                  disabled={isPendingEdit}
-                                >
-                                  キャンセル
-                                </Button>
-                                <Button
-                                  onClick={() => handleSave(annotation?.id)}
-                                  disabled={isPendingEdit}
-                                >
-                                  {isPendingEdit ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                      保存中...
-                                    </>
-                                  ) : (
-                                    '保存'
-                                  )}
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </td>
                       {orderedIds
