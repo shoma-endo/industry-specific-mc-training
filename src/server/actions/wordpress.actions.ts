@@ -1433,3 +1433,43 @@ export async function fetchWordPressStatusAction(): Promise<
     };
   });
 }
+
+/**
+ * コンテンツ注釈を直接削除（孤立したコンテンツの削除用）
+ */
+export async function deleteContentAnnotation(
+  annotationId: string,
+  liffAccessToken: string
+): Promise<{ success: boolean; error?: string }> {
+  const authResult = await authMiddleware(liffAccessToken);
+
+  if (authResult.error || authResult.requiresSubscription) {
+    return {
+      success: false,
+      error: authResult.error || 'サブスクリプションが必要です',
+    };
+  }
+
+  try {
+    const supabaseService = new SupabaseService();
+    const result = await supabaseService.deleteContentAnnotation(
+      annotationId,
+      authResult.userId!
+    );
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error.userMessage || 'コンテンツの削除に失敗しました',
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to delete content annotation:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'コンテンツの削除に失敗しました',
+    };
+  }
+}

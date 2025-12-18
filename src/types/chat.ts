@@ -172,17 +172,3 @@ export interface ServerChatSession {
   last_message_at: number;
   messages?: ServerChatMessage[]; // RPC で埋め込む
 }
-
-/**
- * Google検索結果のデータベースモデル
- */
-export interface DbSearchResult {
-  id: string;
-  user_id: string;
-  session_id: string;
-  rank: number;
-  title: string;
-  snippet: string;
-  link: string;
-  created_at: number;
-}
