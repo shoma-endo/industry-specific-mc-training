@@ -83,11 +83,16 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [wpPostTitle, setWpPostTitle] = React.useState('');
   const [isPendingEdit, startEditTransition] = React.useTransition();
   const [opsWidth, setOpsWidth] = React.useState<number>(() => {
-    if (typeof window === 'undefined') return 200;
+    if (typeof window === 'undefined') return 240;
     const saved = localStorage.getItem('analytics.opsWidth');
     const num = saved ? Number(saved) : NaN;
-    if (Number.isFinite(num)) return Math.min(320, Math.max(160, num));
-    return 200;
+    if (Number.isFinite(num)) return Math.min(320, Math.max(200, num));
+
+    // ビューポート幅に応じたデフォルト幅
+    const vw = window.innerWidth;
+    if (vw < 1366) return 200;      // 13インチ級
+    if (vw < 1680) return 240;      // 14-15インチ級
+    return 280;                      // 16インチ級以上
   });
   const columnLabelMap = React.useMemo(
     () =>
@@ -155,7 +160,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
 
     const onMove = (moveEvent: MouseEvent) => {
       const delta = moveEvent.clientX - startX;
-      const next = Math.min(320, Math.max(160, startWidth + delta));
+      const next = Math.min(320, Math.max(200, startWidth + delta));
       setOpsWidth(next);
     };
 
@@ -296,10 +301,10 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                 return (
                   <tr key={item.rowKey} className="analytics-row group">
                     <td
-                      className="analytics-ops-cell pl-1 pr-2 py-4 whitespace-nowrap text-sm text-right relative"
+                      className="analytics-ops-cell pl-2 pr-3 py-4 whitespace-nowrap text-sm text-right relative"
                       style={{ width: `${opsWidth}px`, minWidth: `${opsWidth}px`, maxWidth: `${opsWidth}px` }}
                     >
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-2">
                         <LaunchChatButton
                           label="チャット"
                           isPending={pendingRowKey === item.rowKey}
