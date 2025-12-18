@@ -4,7 +4,6 @@ import {
   DbChatMessage,
   DbChatSession,
   DbChatSessionSearchRow,
-  DbSearchResult,
 } from '@/types/chat';
 import type { DbUser } from '@/types/user';
 import type { UserRole } from '@/types/user';
@@ -525,74 +524,6 @@ export class SupabaseService {
   }
 
   /**
-   * Google検索結果を一括で保存
-   */
-  async createSearchResults(results: DbSearchResult[]): Promise<SupabaseResult<void>> {
-    const { error } = await this.supabase.from('search_results').insert(results);
-
-    if (error) {
-      return this.failure('検索結果の保存に失敗しました', {
-        error,
-        developerMessage: 'Failed to create search results',
-      });
-    }
-
-    return this.success(undefined);
-  }
-
-  /**
-   * セッションに紐づく検索結果を取得
-   */
-  async getSearchResultsBySessionId(
-    sessionId: string,
-    userId: string
-  ): Promise<SupabaseResult<DbSearchResult[]>> {
-    const { data, error } = await this.supabase
-      .from('search_results')
-      .select('*')
-      .eq('session_id', sessionId)
-      .eq('user_id', userId)
-      .order('rank', { ascending: true });
-
-    if (error) {
-      return this.failure('検索結果の取得に失敗しました', {
-        error,
-        developerMessage: 'Failed to get search results by session',
-        context: { sessionId, userId },
-      });
-    }
-    return this.success(data ?? []);
-  }
-
-  /**
-   * セッションに紐づく検索結果を削除
-   */
-  async deleteSearchResultsBySessionId(
-    sessionId: string,
-    userId: string
-  ): Promise<SupabaseResult<void>> {
-    const { error } = await this.supabase
-      .from('search_results')
-      .delete()
-      .eq('session_id', sessionId)
-      .eq('user_id', userId);
-
-    if (error) {
-      // テーブルが存在しない場合は無視する（42P01: relation does not exist）
-      if (error.code === '42P01') {
-        return this.success(undefined);
-      }
-      return this.failure('検索結果の削除に失敗しました', {
-        error,
-        developerMessage: 'Failed to delete search results by session',
-        context: { sessionId, userId },
-      });
-    }
-
-    return this.success(undefined);
-  }
-
-  /**
    * wordpress_settingsテーブルからユーザーのWordPress設定を取得（セルフホスト対応版）
    */
   async getWordPressSettingsByUserId(userId: string): Promise<WordPressSettings | null> {
@@ -1049,17 +980,7 @@ export class SupabaseService {
       });
     }
 
-    // 2. セッションに紐づく検索結果を削除（存在する場合）
-    const searchResultDeletion = await this.deleteSearchResultsBySessionId(sessionId, userId);
-    if (!searchResultDeletion.success) {
-      console.warn('Failed to delete search results, but continuing with session deletion:', {
-        sessionId,
-        userId,
-        error: searchResultDeletion.error,
-      });
-    }
-
-    // 3. セッションに紐づくコンテンツ注釈を削除
+    // 2. セッションに紐づくコンテンツ注釈を削除
     const { error: annotationsError } = await this.supabase
       .from('content_annotations')
       .delete()
@@ -1074,7 +995,7 @@ export class SupabaseService {
       });
     }
 
-    // 4. セッション自体を削除
+    // 3. セッション自体を削除
     const { error: sessionError } = await this.supabase
       .from('chat_sessions')
       .delete()
