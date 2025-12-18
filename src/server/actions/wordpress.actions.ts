@@ -1433,3 +1433,27 @@ export async function fetchWordPressStatusAction(): Promise<
     };
   });
 }
+
+/**
+ * コンテンツ注釈を直接削除（孤立したコンテンツの削除用）
+ */
+export async function deleteContentAnnotation(
+  annotationId: string,
+  liffAccessToken: string
+): Promise<{ success: boolean; error?: string }> {
+  return authMiddleware(liffAccessToken, async context => {
+    const result = await context.supabaseService.deleteContentAnnotation(
+      annotationId,
+      context.user.id
+    );
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error.userMessage || 'コンテンツの削除に失敗しました',
+      };
+    }
+
+    return { success: true };
+  });
+}

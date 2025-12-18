@@ -1013,6 +1013,27 @@ export class SupabaseService {
     return this.success(undefined);
   }
 
+  /**
+   * コンテンツ注釈を直接削除（孤立したコンテンツの削除用）
+   */
+  async deleteContentAnnotation(annotationId: string, userId: string): Promise<SupabaseResult<void>> {
+    const { error } = await this.supabase
+      .from('content_annotations')
+      .delete()
+      .eq('id', annotationId)
+      .eq('user_id', userId);
+
+    if (error) {
+      return this.failure('コンテンツの削除に失敗しました', {
+        error,
+        developerMessage: 'Failed to delete content annotation',
+        context: { annotationId, userId },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
   /* === 要件定義 (briefs) ===================================== */
 
   /**

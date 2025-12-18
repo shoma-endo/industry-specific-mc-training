@@ -6,7 +6,11 @@ import TruncatedText from '@/components/TruncatedText';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
 import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
-import { ensureAnnotationChatSession, updateContentAnnotationFields } from '@/server/actions/wordpress.actions';
+import {
+  ensureAnnotationChatSession,
+  updateContentAnnotationFields,
+  deleteContentAnnotation,
+} from '@/server/actions/wordpress.actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -90,6 +94,8 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [deletingRowKey, setDeletingRowKey] = React.useState<string | null>(null);
   const [deleteTargetTitle, setDeleteTargetTitle] = React.useState('');
   const [deleteTargetSessionId, setDeleteTargetSessionId] = React.useState<string | null>(null);
+  const [deleteTargetAnnotationId, setDeleteTargetAnnotationId] = React.useState<string | null>(null);
+  const [hasOrphanContent, setHasOrphanContent] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const chatServiceRef = React.useRef<ChatService | null>(null);
   const [opsWidth, setOpsWidth] = React.useState<number>(() => {
@@ -258,31 +264,47 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const handleDeleteClick = React.useCallback((item: AnalyticsContentItem) => {
     const annotation = item.annotation;
     const sessionId = annotation?.session_id;
+    const annotationId = annotation?.id;
 
-    if (!sessionId) {
-      toast.error('セッションIDが見つかりません');
+    if (!sessionId && !annotationId) {
+      toast.error('削除対象のIDが見つかりません');
       return;
     }
 
     const title = annotation?.wp_post_title || annotation?.main_kw || 'コンテンツ';
     setDeleteTargetTitle(title);
-    setDeleteTargetSessionId(sessionId);
+    setDeleteTargetSessionId(sessionId ?? null);
+    setDeleteTargetAnnotationId(annotationId ?? null);
+    setHasOrphanContent(!sessionId);
     setDeletingRowKey(item.rowKey);
     setDeleteDialogOpen(true);
   }, []);
 
   const handleDeleteConfirm = React.useCallback(async () => {
-    if (!deleteTargetSessionId || !chatServiceRef.current) return;
-
     setIsDeleting(true);
     const toastId = toast.loading('削除中です...');
 
     try {
-      await chatServiceRef.current.deleteSession(deleteTargetSessionId);
+      if (deleteTargetSessionId && chatServiceRef.current) {
+        // session_id がある場合: チャットとコンテンツを削除
+        await chatServiceRef.current.deleteSession(deleteTargetSessionId);
+      } else if (deleteTargetAnnotationId) {
+        // session_id がない場合: コンテンツのみ削除
+        const accessToken = await getAccessToken();
+        const result = await deleteContentAnnotation(deleteTargetAnnotationId, accessToken);
+        if (!result.success) {
+          throw new Error(result.error || 'コンテンツの削除に失敗しました');
+        }
+      } else {
+        throw new Error('削除対象のIDが見つかりません');
+      }
+
       toast.success('削除しました', { id: toastId });
       setDeleteDialogOpen(false);
       setDeleteTargetSessionId(null);
+      setDeleteTargetAnnotationId(null);
       setDeleteTargetTitle('');
+      setHasOrphanContent(false);
       setDeletingRowKey(null);
       router.refresh();
     } catch (error) {
@@ -291,7 +313,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteTargetSessionId, router]);
+  }, [deleteTargetSessionId, deleteTargetAnnotationId, getAccessToken, router]);
 
   return (
     <>
@@ -644,6 +666,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         chatTitle={deleteTargetTitle}
         isDeleting={isDeleting}
         mode="content"
+        hasOrphanContent={hasOrphanContent}
       />
     </>
   );

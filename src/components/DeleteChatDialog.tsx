@@ -20,6 +20,7 @@ export function DeleteChatDialog({
   chatTitle,
   isDeleting = false,
   mode = 'chat',
+  hasOrphanContent = false,
 }: DeleteChatDialogProps) {
   const handleConfirm = () => {
     onConfirm();
@@ -42,12 +43,18 @@ export function DeleteChatDialog({
             <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
             <div className="mt-3 text-xs text-gray-600 space-y-1">
               {isContentMode ? (
-                <>
-                  <p className="text-red-600 font-medium">
-                    ・このコンテンツに紐づくチャットも同時に削除されます。
+                hasOrphanContent ? (
+                  <p className="text-amber-600 font-medium">
+                    ・紐づくチャットがないため、コンテンツのみ削除されます。
                   </p>
-                  <p>・チャットメッセージもすべて削除されます。</p>
-                </>
+                ) : (
+                  <>
+                    <p className="text-red-600 font-medium">
+                      ・このコンテンツに紐づくチャットも同時に削除されます。
+                    </p>
+                    <p>・チャットメッセージもすべて削除されます。</p>
+                  </>
+                )
               ) : (
                 <>
                   <p className="text-red-600 font-medium">

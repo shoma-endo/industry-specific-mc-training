@@ -101,4 +101,5 @@ export interface DeleteChatDialogProps {
   chatTitle: string;
   isDeleting?: boolean;
   mode?: 'chat' | 'content';
+  hasOrphanContent?: boolean;
 }
