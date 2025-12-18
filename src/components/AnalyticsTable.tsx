@@ -28,7 +28,7 @@ import { toast } from 'sonner';
 import { ANNOTATION_FIELD_KEYS, type AnnotationFieldKey } from '@/types/annotation';
 import { DeleteChatDialog } from '@/components/DeleteChatDialog';
 import { ChatService } from '@/domain/services/chatService';
-import { useLiff } from '@/components/LiffProvider';
+import { useLiffContext } from '@/components/LiffProvider';
 
 interface Props {
   items: AnalyticsContentItem[];
@@ -75,7 +75,7 @@ function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) 
 
 export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const router = useRouter();
-  const { getAccessToken } = useLiff();
+  const { getAccessToken } = useLiffContext();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
   const [editingRowKey, setEditingRowKey] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(
