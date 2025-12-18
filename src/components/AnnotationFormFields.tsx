@@ -46,6 +46,15 @@ interface Props {
   className?: string;
   canonicalUrlInputId?: string;
   wpPostTitle?: string;
+  extraFields?: Array<{
+    key: string;
+    label: string;
+    type?: 'text' | 'number' | 'textarea';
+    rows?: number;
+    placeholder?: string;
+    value: string;
+    onChange: (value: string) => void;
+  }>;
 }
 
 export default function AnnotationFormFields({
@@ -57,6 +66,7 @@ export default function AnnotationFormFields({
   className,
   canonicalUrlInputId = 'wp-canonical-url',
   wpPostTitle,
+  extraFields,
 }: Props) {
   return (
     <div className={cn('space-y-5 px-[5px]', className)}>
@@ -72,6 +82,37 @@ export default function AnnotationFormFields({
             onChange={e => onFormChange(key, e.target.value)}
             placeholder={PLACEHOLDERS[key]}
           />
+        </div>
+      ))}
+
+      {extraFields?.map(field => (
+        <div key={field.key}>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{field.label}</label>
+          {field.type === 'number' ? (
+            <input
+              type="number"
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:border-blue-500"
+              value={field.value}
+              onChange={e => field.onChange(e.target.value)}
+              placeholder={field.placeholder}
+            />
+          ) : field.type === 'textarea' || field.type === undefined ? (
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:border-blue-500"
+              rows={field.rows ?? 3}
+              value={field.value}
+              onChange={e => field.onChange(e.target.value)}
+              placeholder={field.placeholder}
+            />
+          ) : (
+            <input
+              type="text"
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white focus:border-blue-500"
+              value={field.value}
+              onChange={e => field.onChange(e.target.value)}
+              placeholder={field.placeholder}
+            />
+          )}
         </div>
       ))}
 
