@@ -22,7 +22,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Bell, FileText, Edit, Trash2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Loader2, Bell, FileText, Edit, Trash2, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ANNOTATION_FIELD_KEYS, type AnnotationFieldKey } from '@/types/annotation';
@@ -106,13 +112,9 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     if (typeof window === 'undefined') return 240;
     const saved = localStorage.getItem('analytics.opsWidth');
     const num = saved ? Number(saved) : NaN;
-    if (Number.isFinite(num)) return Math.min(320, Math.max(200, num));
+    if (Number.isFinite(num)) return Math.min(180, Math.max(120, num)); // 幅を縮小
 
-    // ビューポート幅に応じたデフォルト幅
-    const vw = window.innerWidth;
-    if (vw < 1366) return 200; // 13インチ級
-    if (vw < 1680) return 240; // 14-15インチ級
-    return 280; // 16インチ級以上
+    return 140; // デフォルト幅を縮小
   });
   const columnLabelMap = React.useMemo(
     () =>
@@ -190,7 +192,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
 
       const onMove = (moveEvent: MouseEvent) => {
         const delta = moveEvent.clientX - startX;
-        const next = Math.min(320, Math.max(200, startWidth + delta));
+        const next = Math.min(180, Math.max(120, startWidth + delta));
         setOpsWidth(next);
       };
 
@@ -342,7 +344,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
               <thead className="bg-gray-50 analytics-head">
                 <tr>
                   <th
-                    className="analytics-ops-cell px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap relative"
+                    className="analytics-ops-cell px-6 py-3 text-center text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap relative"
                     style={{
                       width: `${opsWidth}px`,
                       minWidth: `${opsWidth}px`,
@@ -398,14 +400,14 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                   return (
                     <tr key={item.rowKey} className="analytics-row group">
                       <td
-                        className="analytics-ops-cell pl-2 pr-3 py-4 whitespace-nowrap text-sm text-right relative"
+                        className="analytics-ops-cell px-2 py-4 whitespace-nowrap text-sm text-center relative"
                         style={{
                           width: `${opsWidth}px`,
                           minWidth: `${opsWidth}px`,
                           maxWidth: `${opsWidth}px`,
                         }}
                       >
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           <LaunchChatButton
                             label="チャット"
                             isPending={pendingRowKey === item.rowKey}
@@ -425,6 +427,49 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                               });
                             }}
                           />
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                                <Settings className="h-4 w-4" />
+                                <span className="sr-only">メニューを開く</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEdit(item)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                編集
+                              </DropdownMenuItem>
+                              {annotation?.id ? (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    const target = new URLSearchParams();
+                                    target.set('annotationId', annotation.id ?? '');
+                                    window.open(
+                                      `/gsc-dashboard?${target.toString()}`,
+                                      '_blank',
+                                      'noopener,noreferrer'
+                                    );
+                                  }}
+                                >
+                                  {hasUnreadSuggestion ? (
+                                    <Bell className="mr-2 h-4 w-4 text-amber-600 animate-pulse" />
+                                  ) : (
+                                    <FileText className="mr-2 h-4 w-4" />
+                                  )}
+                                  詳細
+                                </DropdownMenuItem>
+                              ) : null}
+                              <DropdownMenuItem
+                                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                onClick={() => handleDeleteClick(item)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                削除
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
                           <Dialog
                             open={editingRowKey === item.rowKey}
                             onOpenChange={open => {
@@ -435,16 +480,6 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                               }
                             }}
                           >
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex items-center gap-2"
-                              >
-                                <Edit className="h-4 w-4" />
-                                編集
-                              </Button>
-                            </DialogTrigger>
                             <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>コンテンツ情報を編集</DialogTitle>
@@ -502,46 +537,6 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                               </DialogFooter>
                             </DialogContent>
                           </Dialog>
-                          {annotation?.id ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex items-center gap-2"
-                              onClick={() => {
-                                const target = new URLSearchParams();
-                                target.set('annotationId', annotation.id ?? '');
-                                window.open(
-                                  `/gsc-dashboard?${target.toString()}`,
-                                  '_blank',
-                                  'noopener,noreferrer'
-                                );
-                              }}
-                            >
-                              <span className="inline-flex h-3 w-3 items-center justify-center">
-                                {hasUnreadSuggestion ? (
-                                  <span
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-600 animate-pulse"
-                                    title="改善提案があります"
-                                  >
-                                    <Bell className="h-3.5 w-3.5" />
-                                  </span>
-                                ) : (
-                                  <FileText className="h-3.5 w-3.5 text-gray-500" aria-hidden />
-                                )}
-                              </span>
-                              <span>詳細</span>
-                            </Button>
-                          ) : null}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                            onClick={() => handleDeleteClick(item)}
-                            disabled={isDeleting && deletingRowKey === item.rowKey}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            削除
-                          </Button>
                         </div>
                       </td>
                       {orderedIds
