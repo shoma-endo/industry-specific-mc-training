@@ -5,6 +5,7 @@ import { ChatSession, ChatSessionSearchResult } from '@/domain/interfaces/IChatS
 import { ChatSessionActions } from '@/hooks/useChatSession';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import SessionListContent from '@/components/SessionListContent';
 import { DeleteChatDialog } from '@/components/DeleteChatDialog';
 
@@ -61,8 +62,13 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
     if (!sessionToDelete) return;
 
     setIsDeletingSession(true);
+    const toastId = toast.loading('削除中です...');
     try {
       await actions.deleteSession(sessionToDelete.id);
+      toast.success('削除しました', { id: toastId });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '削除に失敗しました';
+      toast.error(message, { id: toastId });
     } finally {
       setIsDeletingSession(false);
       setSessionToDelete(null);
