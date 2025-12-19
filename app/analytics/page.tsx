@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import AnalyticsTable from '@/components/AnalyticsTable';
+import CategoryManageButton from '@/components/CategoryManageButton';
 import { Download, Settings, BarChart3 } from 'lucide-react';
 import { analyticsContentService } from '@/server/services/analyticsContentService';
 import { cn } from '@/lib/utils';
@@ -52,6 +53,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               <Settings className="w-4 h-4" aria-hidden />
               フィールド構成
             </button>
+            <CategoryManageButton
+              className={cn(
+                buttonVariants({ variant: 'outline' }),
+                'h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10'
+              )}
+            />
             <Link
               href="/wordpress-import"
               className={cn(buttonVariants(), 'h-9 inline-flex items-center gap-2')}

@@ -4,13 +4,27 @@ import * as React from 'react';
 import FieldConfigurator from '@/components/FieldConfigurator';
 import TruncatedText from '@/components/TruncatedText';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
-import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
+import CategoryFilter from '@/components/CategoryFilter';
+import {
+  ANALYTICS_COLUMNS,
+  BLOG_STEP_IDS,
+  ANALYTICS_STORAGE_KEYS,
+  loadCategoryFilterFromStorage,
+  type BlogStepId,
+} from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
+import type { ContentCategory } from '@/types/category';
 import {
   ensureAnnotationChatSession,
   updateContentAnnotationFields,
   deleteContentAnnotation,
 } from '@/server/actions/wordpress.actions';
+import {
+  getAnnotationCategories,
+  setAnnotationCategories as saveAnnotationCategories,
+  getAnnotationCategoriesBatch,
+  getContentCategories,
+} from '@/server/actions/category.actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,9 +42,12 @@ import {
   FileText,
   Edit,
   Trash2,
-  Settings,
   ChevronsLeft,
   ChevronsRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -110,10 +127,36 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [isDeleting, setIsDeleting] = React.useState(false);
   const chatServiceRef = React.useRef<ChatService | null>(null);
 
+  // カテゴリ関連の状態
+  const [annotationCategories, setAnnotationCategories] = React.useState<
+    Record<string, ContentCategory[]>
+  >({});
+  const [allCategories, setAllCategories] = React.useState<ContentCategory[]>([]);
+  const [editingCategoryIds, setEditingCategoryIds] = React.useState<string[]>([]);
+  // フィルター状態をlocalStorageから復元（1回のパースで両方の値を取得）
+  const initialFilter = React.useMemo(() => loadCategoryFilterFromStorage(), []);
+  const [categoryFilterIds, setCategoryFilterIds] = React.useState<string[]>(
+    () => initialFilter.selectedCategoryIds
+  );
+  const [includeUncategorized, setIncludeUncategorized] = React.useState<boolean>(
+    () => initialFilter.includeUncategorized
+  );
+  // カテゴリ管理ダイアログでの変更時にCategoryFilterを更新するトリガー
+  // 現状はページリロードで対応しているため、0固定
+  const categoryRefreshTrigger = 0;
+
+  // カテゴリソートの状態（'asc' | 'desc' | null）
+  const [categorySortOrder, setCategorySortOrder] = React.useState<'asc' | 'desc' | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER);
+    if (saved === 'asc' || saved === 'desc') return saved;
+    return null;
+  });
+
   // 操作列の展開状態（初期値は true: 展開）
   const [isOpsExpanded, setIsOpsExpanded] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
-    const saved = localStorage.getItem('analytics.opsExpanded');
+    const saved = localStorage.getItem(ANALYTICS_STORAGE_KEYS.OPS_EXPANDED);
     return saved !== 'false'; // デフォルトは true
   });
 
@@ -138,6 +181,152 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     }
     chatServiceRef.current.setAccessTokenProvider(getAccessToken);
   }, [getAccessToken]);
+
+  // アノテーションのカテゴリをバッチ取得
+  React.useEffect(() => {
+    const annotationIds = items
+      .map(item => item.annotation?.id)
+      .filter((id): id is string => !!id);
+
+    if (annotationIds.length === 0) return;
+
+    getAnnotationCategoriesBatch(annotationIds).then(result => {
+      if (result.success) {
+        setAnnotationCategories(result.data);
+      }
+    });
+  }, [items]);
+
+  // 全カテゴリ一覧を取得（フィルター表示用）
+  React.useEffect(() => {
+    getContentCategories().then(result => {
+      if (result.success) {
+        setAllCategories(result.data);
+      }
+    });
+  }, []);
+
+  // カテゴリフィルターの変更ハンドラ
+  const handleCategoryFilterChange = React.useCallback(
+    (selectedIds: string[], includeUncat: boolean) => {
+      setCategoryFilterIds(selectedIds);
+      setIncludeUncategorized(includeUncat);
+    },
+    []
+  );
+
+  // フィルタリングされたアイテム
+  const filteredItems = React.useMemo(() => {
+    // フィルターが何も選択されていない場合は全件表示
+    if (categoryFilterIds.length === 0 && !includeUncategorized) {
+      return items;
+    }
+
+    return items.filter(item => {
+      const annotationId = item.annotation?.id;
+      if (!annotationId) return includeUncategorized;
+
+      const itemCategories = annotationCategories[annotationId] ?? [];
+
+      // 未分類の場合
+      if (itemCategories.length === 0) {
+        return includeUncategorized;
+      }
+
+      // いずれかのカテゴリが選択されているか
+      return itemCategories.some(cat => categoryFilterIds.includes(cat.id));
+    });
+  }, [items, categoryFilterIds, includeUncategorized, annotationCategories]);
+
+  // カテゴリでソートされたアイテム
+  const sortedItems = React.useMemo(() => {
+    if (!categorySortOrder) return filteredItems;
+
+    return [...filteredItems].sort((a, b) => {
+      const aCats = a.annotation?.id ? annotationCategories[a.annotation.id] ?? [] : [];
+      const bCats = b.annotation?.id ? annotationCategories[b.annotation.id] ?? [] : [];
+
+      // 最初のカテゴリ名を取得（sort_order順で最初のもの）
+      const aFirstCat = aCats.length > 0
+        ? aCats.reduce((min, cat) => (cat.sort_order < min.sort_order ? cat : min))
+        : null;
+      const bFirstCat = bCats.length > 0
+        ? bCats.reduce((min, cat) => (cat.sort_order < min.sort_order ? cat : min))
+        : null;
+
+      // 未分類は常に最後
+      if (!aFirstCat && !bFirstCat) return 0;
+      if (!aFirstCat) return 1;
+      if (!bFirstCat) return -1;
+
+      // カテゴリ名で比較
+      const comparison = aFirstCat.name.localeCompare(bFirstCat.name, 'ja');
+      return categorySortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredItems, categorySortOrder, annotationCategories]);
+
+  // カテゴリソートのトグル
+  const toggleCategorySort = React.useCallback(() => {
+    setCategorySortOrder(prev => {
+      const next = prev === null ? 'asc' : prev === 'asc' ? 'desc' : null;
+      if (typeof window !== 'undefined') {
+        if (next) {
+          localStorage.setItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER, next);
+        } else {
+          localStorage.removeItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER);
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // localStorageにフィルター状態を保存するヘルパー
+  const saveCategoryFilterToStorage = React.useCallback(
+    (selectedIds: string[], includeUncat: boolean) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER,
+          JSON.stringify({ selectedCategoryIds: selectedIds, includeUncategorized: includeUncat })
+        );
+      }
+    },
+    []
+  );
+
+  // フィルタータグの削除ハンドラ
+  const removeCategoryFilter = React.useCallback(
+    (categoryId: string) => {
+      setCategoryFilterIds(prev => {
+        const next = prev.filter(id => id !== categoryId);
+        saveCategoryFilterToStorage(next, includeUncategorized);
+        return next;
+      });
+    },
+    [includeUncategorized, saveCategoryFilterToStorage]
+  );
+
+  // 未分類フィルターの削除ハンドラ
+  const removeUncategorizedFilter = React.useCallback(() => {
+    setIncludeUncategorized(false);
+    saveCategoryFilterToStorage(categoryFilterIds, false);
+  }, [categoryFilterIds, saveCategoryFilterToStorage]);
+
+  // 全フィルターをクリア
+  const clearAllFilters = React.useCallback(() => {
+    setCategoryFilterIds([]);
+    setIncludeUncategorized(false);
+    saveCategoryFilterToStorage([], false);
+  }, [saveCategoryFilterToStorage]);
+
+  // フィルターが適用中かどうか
+  const hasActiveFilters = categoryFilterIds.length > 0 || includeUncategorized;
+
+  // 選択中のカテゴリ情報を取得
+  const selectedCategoryInfo = React.useMemo(() => {
+    return categoryFilterIds
+      .map(id => allCategories.find(cat => cat.id === id))
+      .filter((cat): cat is ContentCategory => cat !== undefined);
+  }, [categoryFilterIds, allCategories]);
 
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
@@ -185,28 +374,39 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   // 展開状態の永続化
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('analytics.opsExpanded', String(isOpsExpanded));
+    localStorage.setItem(ANALYTICS_STORAGE_KEYS.OPS_EXPANDED, String(isOpsExpanded));
   }, [isOpsExpanded]);
 
   const toggleOpsExpanded = React.useCallback(() => {
     setIsOpsExpanded(prev => !prev);
   }, []);
 
-  const openEdit = React.useCallback((item: AnalyticsContentItem) => {
-    const annotation = item.annotation;
-    const nextForm = Object.fromEntries(
-      ANNOTATION_FIELD_KEYS.map(key => [
-        key,
-        annotation?.[key] ? String(annotation[key] ?? '') : '',
-      ])
-    ) as Record<AnnotationFieldKey, string>;
-    setForm(nextForm);
-    setCanonicalUrl(annotation?.canonical_url ?? '');
-    setWpPostTitle(annotation?.wp_post_title ?? '');
-    setFormError('');
-    setCanonicalUrlError('');
-    setEditingRowKey(item.rowKey);
-  }, []);
+  const openEdit = React.useCallback(
+    async (item: AnalyticsContentItem) => {
+      const annotation = item.annotation;
+      const nextForm = Object.fromEntries(
+        ANNOTATION_FIELD_KEYS.map(key => [
+          key,
+          annotation?.[key] ? String(annotation[key] ?? '') : '',
+        ])
+      ) as Record<AnnotationFieldKey, string>;
+      setForm(nextForm);
+      setCanonicalUrl(annotation?.canonical_url ?? '');
+      setWpPostTitle(annotation?.wp_post_title ?? '');
+      setFormError('');
+      setCanonicalUrlError('');
+      setEditingRowKey(item.rowKey);
+
+      // カテゴリを取得
+      if (annotation?.id) {
+        const existingCategories = annotationCategories[annotation.id] ?? [];
+        setEditingCategoryIds(existingCategories.map(c => c.id));
+      } else {
+        setEditingCategoryIds([]);
+      }
+    },
+    [annotationCategories]
+  );
 
   const closeEdit = React.useCallback(() => {
     setEditingRowKey(null);
@@ -215,6 +415,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     setCanonicalUrlError('');
     setFormError('');
     setWpPostTitle('');
+    setEditingCategoryIds([]);
   }, []);
 
   const handleSave = React.useCallback(
@@ -228,20 +429,39 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         setFormError('');
         const toastId = toast.loading('保存中です...');
         try {
+          // コンテンツフィールドを保存
           const result = await updateContentAnnotationFields(annotationId, {
             ...form,
             canonical_url: canonicalUrl || null,
           });
 
-          if (result.success) {
-            toast.success('保存しました', { id: toastId });
-            closeEdit();
-            router.refresh();
-          } else {
+          if (!result.success) {
             const message = result.error || '保存に失敗しました';
             toast.error(message, { id: toastId });
             setFormError(message);
+            return;
           }
+
+          // カテゴリを保存
+          const categoryResult = await saveAnnotationCategories(annotationId, editingCategoryIds);
+          if (!categoryResult.success) {
+            toast.error(categoryResult.error || 'カテゴリの保存に失敗しました', { id: toastId });
+            setFormError(categoryResult.error || 'カテゴリの保存に失敗しました');
+            return;
+          }
+
+          // カテゴリの状態を更新
+          const updatedCategories = await getAnnotationCategories(annotationId);
+          if (updatedCategories.success) {
+            setAnnotationCategories(prev => ({
+              ...prev,
+              [annotationId]: updatedCategories.data,
+            }));
+          }
+
+          toast.success('保存しました', { id: toastId });
+          closeEdit();
+          router.refresh();
         } catch (error) {
           const message = error instanceof Error ? error.message : 'エラーが発生しました';
           toast.error(message, { id: toastId });
@@ -249,7 +469,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         }
       });
     },
-    [canonicalUrl, closeEdit, form, router]
+    [canonicalUrl, closeEdit, editingCategoryIds, form, router]
   );
 
   const handleDeleteClick = React.useCallback((item: AnalyticsContentItem) => {
@@ -312,13 +532,72 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   return (
     <>
       <FieldConfigurator
-        storageKey="analytics.visibleColumns"
+        storageKey={ANALYTICS_STORAGE_KEYS.VISIBLE_COLUMNS}
         columns={ANALYTICS_COLUMNS}
         hideTrigger
         triggerId="analytics-field-config-trigger"
+        dialogExtraContent={
+          <CategoryFilter
+            onFilterChange={handleCategoryFilterChange}
+            refreshTrigger={categoryRefreshTrigger}
+          />
+        }
       >
         {({ visibleSet, orderedIds }) => (
-          <div className="w-full overflow-x-auto">
+          <div className="w-full">
+            {/* フィルター情報と件数表示 */}
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                {hasActiveFilters && (
+                  <>
+                    <span className="text-sm text-gray-500">フィルター:</span>
+                    {selectedCategoryInfo.map(cat => (
+                      <span
+                        key={cat.id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: cat.color }}
+                      >
+                        {cat.name}
+                        <button
+                          type="button"
+                          onClick={() => removeCategoryFilter(cat.id)}
+                          className="hover:bg-white/20 rounded-full p-0.5"
+                          title={`${cat.name}を解除`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                    {includeUncategorized && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-gray-700 bg-gray-200">
+                        未分類
+                        <button
+                          type="button"
+                          onClick={removeUncategorizedFilter}
+                          className="hover:bg-gray-300 rounded-full p-0.5"
+                          title="未分類を解除"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                    >
+                      クリア
+                    </button>
+                  </>
+                )}
+              </div>
+              <div className="text-sm text-gray-500">
+                {sortedItems.length}件を表示中
+                {hasActiveFilters && `（全${items.length}件）`}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
             <table className="min-w-[2200px] divide-y divide-gray-200">
               <thead className="bg-gray-50 analytics-head">
                 <tr>
@@ -363,13 +642,39 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                           id === 'date' ? 'min-w-[120px]' : ''
                         }`}
                       >
-                        {columnLabelMap[id]}
+                        {id === 'categories' ? (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 hover:text-gray-700 transition-colors"
+                            onClick={toggleCategorySort}
+                            title={
+                              categorySortOrder === null
+                                ? 'カテゴリで昇順ソート'
+                                : categorySortOrder === 'asc'
+                                  ? 'カテゴリで降順ソート'
+                                  : 'ソート解除'
+                            }
+                          >
+                            {columnLabelMap[id]}
+                            {categorySortOrder === null && (
+                              <ArrowUpDown className="h-3.5 w-3.5" />
+                            )}
+                            {categorySortOrder === 'asc' && (
+                              <ArrowUp className="h-3.5 w-3.5 text-blue-600" />
+                            )}
+                            {categorySortOrder === 'desc' && (
+                              <ArrowDown className="h-3.5 w-3.5 text-blue-600" />
+                            )}
+                          </button>
+                        ) : (
+                          columnLabelMap[id]
+                        )}
                       </th>
                     ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {items.map(item => {
+                {sortedItems.map(item => {
                   const annotation = item.annotation;
                   const wpPostId =
                     annotation?.wp_post_id != null && Number.isFinite(annotation.wp_post_id)
@@ -469,6 +774,9 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                                     }}
                                     canonicalUrlError={canonicalUrlError}
                                     wpPostTitle={wpPostTitle}
+                                    showCategorySelector
+                                    selectedCategoryIds={editingCategoryIds}
+                                    onCategoryChange={setEditingCategoryIds}
                                   />
 
                                   <DialogFooter>
@@ -634,15 +942,30 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                                   )}
                                 </td>
                               );
-                            case 'categories':
+                            case 'categories': {
+                              const itemCats = annotation?.id
+                                ? annotationCategories[annotation.id] ?? []
+                                : [];
                               return (
-                                <td
-                                  key={id}
-                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                                >
-                                  {annotation?.wp_post_type ?? '—'}
+                                <td key={id} className="px-6 py-4 text-sm">
+                                  {itemCats.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {itemCats.map(cat => (
+                                        <span
+                                          key={cat.id}
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                                          style={{ backgroundColor: cat.color }}
+                                        >
+                                          {cat.name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">未分類</span>
+                                  )}
                                 </td>
                               );
+                            }
                             case 'date':
                               return (
                                 <td
@@ -700,6 +1023,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </FieldConfigurator>
