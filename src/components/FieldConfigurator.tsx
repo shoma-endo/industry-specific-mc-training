@@ -37,6 +37,7 @@ interface FieldConfiguratorProps {
   children: (config: FieldConfigRenderProps) => React.ReactNode;
   hideTrigger?: boolean;
   triggerId?: string;
+  dialogExtraContent?: React.ReactNode;
 }
 
 export default function FieldConfigurator({
@@ -46,6 +47,7 @@ export default function FieldConfigurator({
   children,
   hideTrigger,
   triggerId,
+  dialogExtraContent,
 }: FieldConfiguratorProps) {
   const defaultVisibleIds = React.useMemo(
     () => columns.filter(c => c.defaultVisible !== false).map(c => c.id),
@@ -251,6 +253,9 @@ export default function FieldConfigurator({
                 );
               })}
             </div>
+            {dialogExtraContent && (
+              <div className="mt-4 pt-4 border-t border-gray-200">{dialogExtraContent}</div>
+            )}
             <div className="mt-3 flex justify-end">
               <Button onClick={() => setOpen(false)}>閉じる</Button>
             </div>

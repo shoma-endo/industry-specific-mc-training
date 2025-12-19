@@ -4,13 +4,20 @@ import * as React from 'react';
 import FieldConfigurator from '@/components/FieldConfigurator';
 import TruncatedText from '@/components/TruncatedText';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
+import CategoryFilter from '@/components/CategoryFilter';
 import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
+import type { ContentCategory } from '@/types/category';
 import {
   ensureAnnotationChatSession,
   updateContentAnnotationFields,
   deleteContentAnnotation,
 } from '@/server/actions/wordpress.actions';
+import {
+  getAnnotationCategories,
+  setAnnotationCategories as saveAnnotationCategories,
+  getAnnotationCategoriesBatch,
+} from '@/server/actions/category.actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,7 +35,6 @@ import {
   FileText,
   Edit,
   Trash2,
-  Settings,
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
@@ -110,6 +116,17 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [isDeleting, setIsDeleting] = React.useState(false);
   const chatServiceRef = React.useRef<ChatService | null>(null);
 
+  // カテゴリ関連の状態
+  const [annotationCategories, setAnnotationCategories] = React.useState<
+    Record<string, ContentCategory[]>
+  >({});
+  const [editingCategoryIds, setEditingCategoryIds] = React.useState<string[]>([]);
+  const [categoryFilterIds, setCategoryFilterIds] = React.useState<string[]>([]);
+  const [includeUncategorized, setIncludeUncategorized] = React.useState(true);
+  // カテゴリ管理ダイアログでの変更時にCategoryFilterを更新するトリガー
+  // 現状はページリロードで対応しているため、0固定
+  const categoryRefreshTrigger = 0;
+
   // 操作列の展開状態（初期値は true: 展開）
   const [isOpsExpanded, setIsOpsExpanded] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -138,6 +155,56 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     }
     chatServiceRef.current.setAccessTokenProvider(getAccessToken);
   }, [getAccessToken]);
+
+  // アノテーションのカテゴリをバッチ取得
+  React.useEffect(() => {
+    const annotationIds = items
+      .map(item => item.annotation?.id)
+      .filter((id): id is string => !!id);
+
+    if (annotationIds.length === 0) return;
+
+    getAnnotationCategoriesBatch(annotationIds).then(result => {
+      if (result.success) {
+        setAnnotationCategories(result.data);
+      }
+    });
+  }, [items]);
+
+  // カテゴリフィルターの変更ハンドラ
+  const handleCategoryFilterChange = React.useCallback(
+    (selectedIds: string[], includeUncat: boolean) => {
+      setCategoryFilterIds(selectedIds);
+      setIncludeUncategorized(includeUncat);
+    },
+    []
+  );
+
+  // フィルタリングされたアイテム
+  const filteredItems = React.useMemo(() => {
+    // フィルターが1つも選択されていない場合は全件表示
+    if (categoryFilterIds.length === 0 && !includeUncategorized) {
+      return items;
+    }
+    if (categoryFilterIds.length === 0 && includeUncategorized) {
+      return items;
+    }
+
+    return items.filter(item => {
+      const annotationId = item.annotation?.id;
+      if (!annotationId) return includeUncategorized;
+
+      const itemCategories = annotationCategories[annotationId] ?? [];
+
+      // 未分類の場合
+      if (itemCategories.length === 0) {
+        return includeUncategorized;
+      }
+
+      // いずれかのカテゴリが選択されているか
+      return itemCategories.some(cat => categoryFilterIds.includes(cat.id));
+    });
+  }, [items, categoryFilterIds, includeUncategorized, annotationCategories]);
 
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
@@ -192,21 +259,32 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     setIsOpsExpanded(prev => !prev);
   }, []);
 
-  const openEdit = React.useCallback((item: AnalyticsContentItem) => {
-    const annotation = item.annotation;
-    const nextForm = Object.fromEntries(
-      ANNOTATION_FIELD_KEYS.map(key => [
-        key,
-        annotation?.[key] ? String(annotation[key] ?? '') : '',
-      ])
-    ) as Record<AnnotationFieldKey, string>;
-    setForm(nextForm);
-    setCanonicalUrl(annotation?.canonical_url ?? '');
-    setWpPostTitle(annotation?.wp_post_title ?? '');
-    setFormError('');
-    setCanonicalUrlError('');
-    setEditingRowKey(item.rowKey);
-  }, []);
+  const openEdit = React.useCallback(
+    async (item: AnalyticsContentItem) => {
+      const annotation = item.annotation;
+      const nextForm = Object.fromEntries(
+        ANNOTATION_FIELD_KEYS.map(key => [
+          key,
+          annotation?.[key] ? String(annotation[key] ?? '') : '',
+        ])
+      ) as Record<AnnotationFieldKey, string>;
+      setForm(nextForm);
+      setCanonicalUrl(annotation?.canonical_url ?? '');
+      setWpPostTitle(annotation?.wp_post_title ?? '');
+      setFormError('');
+      setCanonicalUrlError('');
+      setEditingRowKey(item.rowKey);
+
+      // カテゴリを取得
+      if (annotation?.id) {
+        const existingCategories = annotationCategories[annotation.id] ?? [];
+        setEditingCategoryIds(existingCategories.map(c => c.id));
+      } else {
+        setEditingCategoryIds([]);
+      }
+    },
+    [annotationCategories]
+  );
 
   const closeEdit = React.useCallback(() => {
     setEditingRowKey(null);
@@ -215,6 +293,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     setCanonicalUrlError('');
     setFormError('');
     setWpPostTitle('');
+    setEditingCategoryIds([]);
   }, []);
 
   const handleSave = React.useCallback(
@@ -228,20 +307,39 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         setFormError('');
         const toastId = toast.loading('保存中です...');
         try {
+          // コンテンツフィールドを保存
           const result = await updateContentAnnotationFields(annotationId, {
             ...form,
             canonical_url: canonicalUrl || null,
           });
 
-          if (result.success) {
-            toast.success('保存しました', { id: toastId });
-            closeEdit();
-            router.refresh();
-          } else {
+          if (!result.success) {
             const message = result.error || '保存に失敗しました';
             toast.error(message, { id: toastId });
             setFormError(message);
+            return;
           }
+
+          // カテゴリを保存
+          const categoryResult = await saveAnnotationCategories(annotationId, editingCategoryIds);
+          if (!categoryResult.success) {
+            toast.error(categoryResult.error || 'カテゴリの保存に失敗しました', { id: toastId });
+            setFormError(categoryResult.error || 'カテゴリの保存に失敗しました');
+            return;
+          }
+
+          // カテゴリの状態を更新
+          const updatedCategories = await getAnnotationCategories(annotationId);
+          if (updatedCategories.success) {
+            setAnnotationCategories(prev => ({
+              ...prev,
+              [annotationId]: updatedCategories.data,
+            }));
+          }
+
+          toast.success('保存しました', { id: toastId });
+          closeEdit();
+          router.refresh();
         } catch (error) {
           const message = error instanceof Error ? error.message : 'エラーが発生しました';
           toast.error(message, { id: toastId });
@@ -249,7 +347,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         }
       });
     },
-    [canonicalUrl, closeEdit, form, router]
+    [canonicalUrl, closeEdit, editingCategoryIds, form, router]
   );
 
   const handleDeleteClick = React.useCallback((item: AnalyticsContentItem) => {
@@ -316,6 +414,12 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         columns={ANALYTICS_COLUMNS}
         hideTrigger
         triggerId="analytics-field-config-trigger"
+        dialogExtraContent={
+          <CategoryFilter
+            onFilterChange={handleCategoryFilterChange}
+            refreshTrigger={categoryRefreshTrigger}
+          />
+        }
       >
         {({ visibleSet, orderedIds }) => (
           <div className="w-full overflow-x-auto">
@@ -369,7 +473,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {items.map(item => {
+                {filteredItems.map(item => {
                   const annotation = item.annotation;
                   const wpPostId =
                     annotation?.wp_post_id != null && Number.isFinite(annotation.wp_post_id)
@@ -469,6 +573,9 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                                     }}
                                     canonicalUrlError={canonicalUrlError}
                                     wpPostTitle={wpPostTitle}
+                                    showCategorySelector
+                                    selectedCategoryIds={editingCategoryIds}
+                                    onCategoryChange={setEditingCategoryIds}
                                   />
 
                                   <DialogFooter>
@@ -634,15 +741,30 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                                   )}
                                 </td>
                               );
-                            case 'categories':
+                            case 'categories': {
+                              const itemCats = annotation?.id
+                                ? annotationCategories[annotation.id] ?? []
+                                : [];
                               return (
-                                <td
-                                  key={id}
-                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                                >
-                                  {annotation?.wp_post_type ?? '—'}
+                                <td key={id} className="px-6 py-4 text-sm">
+                                  {itemCats.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {itemCats.map(cat => (
+                                        <span
+                                          key={cat.id}
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                                          style={{ backgroundColor: cat.color }}
+                                        >
+                                          {cat.name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">未分類</span>
+                                  )}
                                 </td>
                               );
+                            }
                             case 'date':
                               return (
                                 <td
