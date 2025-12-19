@@ -154,3 +154,46 @@ export const STEP_TO_FIELD_MAP: Record<BlogStepId, string> = {
   step6: 'opening_proposal',
   step7: 'full', // step7は特殊（全フィールド必要）
 };
+
+// Analytics ページの localStorage キー
+export const ANALYTICS_STORAGE_KEYS = {
+  CATEGORY_FILTER: 'analytics.categoryFilter',
+  CATEGORY_SORT_ORDER: 'analytics.categorySortOrder',
+  OPS_EXPANDED: 'analytics.opsExpanded',
+  VISIBLE_COLUMNS: 'analytics.visibleColumns',
+} as const;
+
+// カテゴリフィルターの型
+export interface StoredCategoryFilter {
+  selectedCategoryIds: string[];
+  includeUncategorized: boolean;
+}
+
+// カテゴリフィルターのデフォルト値
+export const DEFAULT_CATEGORY_FILTER: StoredCategoryFilter = {
+  selectedCategoryIds: [],
+  includeUncategorized: false,
+};
+
+// localStorageからカテゴリフィルターを読み込むヘルパー
+export function loadCategoryFilterFromStorage(): StoredCategoryFilter {
+  if (typeof window === 'undefined') return DEFAULT_CATEGORY_FILTER;
+  try {
+    const stored = localStorage.getItem(ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        selectedCategoryIds: Array.isArray(parsed.selectedCategoryIds)
+          ? parsed.selectedCategoryIds
+          : [],
+        includeUncategorized:
+          typeof parsed.includeUncategorized === 'boolean'
+            ? parsed.includeUncategorized
+            : false,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_CATEGORY_FILTER;
+}

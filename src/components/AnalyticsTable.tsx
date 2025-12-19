@@ -5,7 +5,13 @@ import FieldConfigurator from '@/components/FieldConfigurator';
 import TruncatedText from '@/components/TruncatedText';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
 import CategoryFilter from '@/components/CategoryFilter';
-import { ANALYTICS_COLUMNS, BLOG_STEP_IDS, type BlogStepId } from '@/lib/constants';
+import {
+  ANALYTICS_COLUMNS,
+  BLOG_STEP_IDS,
+  ANALYTICS_STORAGE_KEYS,
+  loadCategoryFilterFromStorage,
+  type BlogStepId,
+} from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
 import type { ContentCategory } from '@/types/category';
 import {
@@ -127,37 +133,14 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   >({});
   const [allCategories, setAllCategories] = React.useState<ContentCategory[]>([]);
   const [editingCategoryIds, setEditingCategoryIds] = React.useState<string[]>([]);
-  // フィルター状態をlocalStorageから復元
-  const [categoryFilterIds, setCategoryFilterIds] = React.useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const stored = localStorage.getItem('analytics.categoryFilter');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed.selectedCategoryIds)) {
-          return parsed.selectedCategoryIds;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return [];
-  });
-  const [includeUncategorized, setIncludeUncategorized] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const stored = localStorage.getItem('analytics.categoryFilter');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (typeof parsed.includeUncategorized === 'boolean') {
-          return parsed.includeUncategorized;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return false;
-  });
+  // フィルター状態をlocalStorageから復元（1回のパースで両方の値を取得）
+  const initialFilter = React.useMemo(() => loadCategoryFilterFromStorage(), []);
+  const [categoryFilterIds, setCategoryFilterIds] = React.useState<string[]>(
+    () => initialFilter.selectedCategoryIds
+  );
+  const [includeUncategorized, setIncludeUncategorized] = React.useState<boolean>(
+    () => initialFilter.includeUncategorized
+  );
   // カテゴリ管理ダイアログでの変更時にCategoryFilterを更新するトリガー
   // 現状はページリロードで対応しているため、0固定
   const categoryRefreshTrigger = 0;
@@ -165,7 +148,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   // カテゴリソートの状態（'asc' | 'desc' | null）
   const [categorySortOrder, setCategorySortOrder] = React.useState<'asc' | 'desc' | null>(() => {
     if (typeof window === 'undefined') return null;
-    const saved = localStorage.getItem('analytics.categorySortOrder');
+    const saved = localStorage.getItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER);
     if (saved === 'asc' || saved === 'desc') return saved;
     return null;
   });
@@ -173,7 +156,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   // 操作列の展開状態（初期値は true: 展開）
   const [isOpsExpanded, setIsOpsExpanded] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
-    const saved = localStorage.getItem('analytics.opsExpanded');
+    const saved = localStorage.getItem(ANALYTICS_STORAGE_KEYS.OPS_EXPANDED);
     return saved !== 'false'; // デフォルトは true
   });
 
@@ -288,9 +271,9 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       const next = prev === null ? 'asc' : prev === 'asc' ? 'desc' : null;
       if (typeof window !== 'undefined') {
         if (next) {
-          localStorage.setItem('analytics.categorySortOrder', next);
+          localStorage.setItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER, next);
         } else {
-          localStorage.removeItem('analytics.categorySortOrder');
+          localStorage.removeItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER);
         }
       }
       return next;
@@ -302,7 +285,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     (selectedIds: string[], includeUncat: boolean) => {
       if (typeof window !== 'undefined') {
         localStorage.setItem(
-          'analytics.categoryFilter',
+          ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER,
           JSON.stringify({ selectedCategoryIds: selectedIds, includeUncategorized: includeUncat })
         );
       }
@@ -391,7 +374,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   // 展開状態の永続化
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('analytics.opsExpanded', String(isOpsExpanded));
+    localStorage.setItem(ANALYTICS_STORAGE_KEYS.OPS_EXPANDED, String(isOpsExpanded));
   }, [isOpsExpanded]);
 
   const toggleOpsExpanded = React.useCallback(() => {
@@ -549,7 +532,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   return (
     <>
       <FieldConfigurator
-        storageKey="analytics.visibleColumns"
+        storageKey={ANALYTICS_STORAGE_KEYS.VISIBLE_COLUMNS}
         columns={ANALYTICS_COLUMNS}
         hideTrigger
         triggerId="analytics-field-config-trigger"

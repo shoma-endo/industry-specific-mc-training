@@ -6,13 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import type { ContentCategory } from '@/types/category';
 import { getContentCategories } from '@/server/actions/category.actions';
-
-const STORAGE_KEY = 'analytics.categoryFilter';
-
-interface StoredFilter {
-  selectedCategoryIds: string[];
-  includeUncategorized: boolean;
-}
+import { ANALYTICS_STORAGE_KEYS, type StoredCategoryFilter } from '@/lib/constants';
 
 interface CategoryFilterProps {
   onFilterChange: (selectedCategoryIds: string[], includeUncategorized: boolean) => void;
@@ -48,9 +42,9 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER);
       if (stored) {
-        const parsed = JSON.parse(stored) as StoredFilter;
+        const parsed = JSON.parse(stored) as StoredCategoryFilter;
         if (Array.isArray(parsed.selectedCategoryIds)) {
           setSelectedIds(new Set(parsed.selectedCategoryIds));
         }
@@ -69,11 +63,11 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
     onFilterChange(ids, includeUncategorized);
 
     if (typeof window !== 'undefined') {
-      const stored: StoredFilter = {
+      const stored: StoredCategoryFilter = {
         selectedCategoryIds: ids,
         includeUncategorized,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      localStorage.setItem(ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER, JSON.stringify(stored));
     }
   }, [selectedIds, includeUncategorized, onFilterChange]);
 
