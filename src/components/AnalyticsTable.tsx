@@ -37,6 +37,9 @@ import {
   Trash2,
   ChevronsLeft,
   ChevronsRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -127,6 +130,14 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   // 現状はページリロードで対応しているため、0固定
   const categoryRefreshTrigger = 0;
 
+  // カテゴリソートの状態（'asc' | 'desc' | null）
+  const [categorySortOrder, setCategorySortOrder] = React.useState<'asc' | 'desc' | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem('analytics.categorySortOrder');
+    if (saved === 'asc' || saved === 'desc') return saved;
+    return null;
+  });
+
   // 操作列の展開状態（初期値は true: 展開）
   const [isOpsExpanded, setIsOpsExpanded] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -205,6 +216,48 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       return itemCategories.some(cat => categoryFilterIds.includes(cat.id));
     });
   }, [items, categoryFilterIds, includeUncategorized, annotationCategories]);
+
+  // カテゴリでソートされたアイテム
+  const sortedItems = React.useMemo(() => {
+    if (!categorySortOrder) return filteredItems;
+
+    return [...filteredItems].sort((a, b) => {
+      const aCats = a.annotation?.id ? annotationCategories[a.annotation.id] ?? [] : [];
+      const bCats = b.annotation?.id ? annotationCategories[b.annotation.id] ?? [] : [];
+
+      // 最初のカテゴリ名を取得（sort_order順で最初のもの）
+      const aFirstCat = aCats.length > 0
+        ? aCats.reduce((min, cat) => (cat.sort_order < min.sort_order ? cat : min))
+        : null;
+      const bFirstCat = bCats.length > 0
+        ? bCats.reduce((min, cat) => (cat.sort_order < min.sort_order ? cat : min))
+        : null;
+
+      // 未分類は常に最後
+      if (!aFirstCat && !bFirstCat) return 0;
+      if (!aFirstCat) return 1;
+      if (!bFirstCat) return -1;
+
+      // カテゴリ名で比較
+      const comparison = aFirstCat.name.localeCompare(bFirstCat.name, 'ja');
+      return categorySortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredItems, categorySortOrder, annotationCategories]);
+
+  // カテゴリソートのトグル
+  const toggleCategorySort = React.useCallback(() => {
+    setCategorySortOrder(prev => {
+      const next = prev === null ? 'asc' : prev === 'asc' ? 'desc' : null;
+      if (typeof window !== 'undefined') {
+        if (next) {
+          localStorage.setItem('analytics.categorySortOrder', next);
+        } else {
+          localStorage.removeItem('analytics.categorySortOrder');
+        }
+      }
+      return next;
+    });
+  }, []);
 
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
@@ -467,13 +520,39 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                           id === 'date' ? 'min-w-[120px]' : ''
                         }`}
                       >
-                        {columnLabelMap[id]}
+                        {id === 'categories' ? (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 hover:text-gray-700 transition-colors"
+                            onClick={toggleCategorySort}
+                            title={
+                              categorySortOrder === null
+                                ? 'カテゴリで昇順ソート'
+                                : categorySortOrder === 'asc'
+                                  ? 'カテゴリで降順ソート'
+                                  : 'ソート解除'
+                            }
+                          >
+                            {columnLabelMap[id]}
+                            {categorySortOrder === null && (
+                              <ArrowUpDown className="h-3.5 w-3.5" />
+                            )}
+                            {categorySortOrder === 'asc' && (
+                              <ArrowUp className="h-3.5 w-3.5 text-blue-600" />
+                            )}
+                            {categorySortOrder === 'desc' && (
+                              <ArrowDown className="h-3.5 w-3.5 text-blue-600" />
+                            )}
+                          </button>
+                        ) : (
+                          columnLabelMap[id]
+                        )}
                       </th>
                     ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredItems.map(item => {
+                {sortedItems.map(item => {
                   const annotation = item.annotation;
                   const wpPostId =
                     annotation?.wp_post_id != null && Number.isFinite(annotation.wp_post_id)
