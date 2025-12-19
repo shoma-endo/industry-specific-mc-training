@@ -193,11 +193,8 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
 
   // フィルタリングされたアイテム
   const filteredItems = React.useMemo(() => {
-    // フィルターが1つも選択されていない場合は全件表示
+    // フィルターが何も選択されていない場合は全件表示
     if (categoryFilterIds.length === 0 && !includeUncategorized) {
-      return items;
-    }
-    if (categoryFilterIds.length === 0 && includeUncategorized) {
       return items;
     }
 
