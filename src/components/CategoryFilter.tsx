@@ -111,10 +111,10 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
           <p className="text-xs text-gray-500">複数選択時は、いずれかに該当するコンテンツを表示</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={selectAll} className="h-7 px-2 text-xs">
+          <Button size="sm" variant="outline" onClick={selectAll} className="h-7 px-3 text-xs">
             全選択
           </Button>
-          <Button size="sm" variant="ghost" onClick={clearAll} className="h-7 px-2 text-xs">
+          <Button size="sm" variant="outline" onClick={clearAll} className="h-7 px-3 text-xs">
             全解除
           </Button>
         </div>

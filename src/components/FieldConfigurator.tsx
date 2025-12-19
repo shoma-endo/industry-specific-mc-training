@@ -193,19 +193,34 @@ export default function FieldConfigurator({
             <DialogHeader>
               <DialogTitle>フィールド構成</DialogTitle>
             </DialogHeader>
-            <p className="text-sm text-gray-600 mb-4">
-              チェックを付けたフィールドのみテーブルに表示されます。上下矢印のボタンで表示順を変更できます。
-            </p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* 左側: フィールドリスト */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="secondary" onClick={selectAll}>
-                    全選択
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={clearAll}>
-                    全解除
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">表示フィールド</span>
+                    <p className="text-xs text-gray-500">
+                      チェックを付けたフィールドのみ表示されます
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={selectAll}
+                      className="h-7 px-3 text-xs"
+                    >
+                      全選択
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={clearAll}
+                      className="h-7 px-3 text-xs"
+                    >
+                      全解除
+                    </Button>
+                  </div>
                 </div>
                 <div className="max-h-[50vh] overflow-auto space-y-2 pr-1">
                   {orderedIds.map((id, index) => {
@@ -216,7 +231,7 @@ export default function FieldConfigurator({
                     return (
                       <div
                         key={col.id}
-                        className="flex items-center justify-between gap-2 rounded-md border border-gray-200 px-3 py-2 hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 hover:border-gray-300 hover:bg-gray-50 transition-colors"
                       >
                         <label className="flex items-center gap-2 text-sm flex-1 min-w-0 cursor-pointer">
                           <Checkbox
