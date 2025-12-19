@@ -57,7 +57,7 @@ interface Props {
     onChange: (value: string) => void;
   }>;
   selectedCategoryIds?: string[];
-  onCategoryChange?: (categoryIds: string[]) => void;
+  onCategoryChange?: React.Dispatch<React.SetStateAction<string[]>>;
   showCategorySelector?: boolean;
 }
 

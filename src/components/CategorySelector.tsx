@@ -8,7 +8,7 @@ import { getContentCategories } from '@/server/actions/category.actions';
 
 interface CategorySelectorProps {
   selectedCategoryIds: string[];
-  onSelectedChange: (categoryIds: string[]) => void;
+  onSelectedChange: React.Dispatch<React.SetStateAction<string[]>>;
   refreshTrigger?: number;
 }
 
@@ -39,11 +39,9 @@ export default function CategorySelector({
   }, [loadCategories, refreshTrigger]);
 
   const toggleCategory = (categoryId: string) => {
-    if (selectedCategoryIds.includes(categoryId)) {
-      onSelectedChange(selectedCategoryIds.filter(id => id !== categoryId));
-    } else {
-      onSelectedChange([...selectedCategoryIds, categoryId]);
-    }
+    onSelectedChange(prev =>
+      prev.includes(categoryId) ? prev.filter(id => id !== categoryId) : [...prev, categoryId]
+    );
   };
 
   if (isLoading) {
