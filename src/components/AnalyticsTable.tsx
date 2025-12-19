@@ -17,6 +17,7 @@ import {
   getAnnotationCategories,
   setAnnotationCategories as saveAnnotationCategories,
   getAnnotationCategoriesBatch,
+  getContentCategories,
 } from '@/server/actions/category.actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +41,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -123,6 +125,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [annotationCategories, setAnnotationCategories] = React.useState<
     Record<string, ContentCategory[]>
   >({});
+  const [allCategories, setAllCategories] = React.useState<ContentCategory[]>([]);
   const [editingCategoryIds, setEditingCategoryIds] = React.useState<string[]>([]);
   const [categoryFilterIds, setCategoryFilterIds] = React.useState<string[]>([]);
   const [includeUncategorized, setIncludeUncategorized] = React.useState(true);
@@ -181,6 +184,15 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       }
     });
   }, [items]);
+
+  // 全カテゴリ一覧を取得（フィルター表示用）
+  React.useEffect(() => {
+    getContentCategories().then(result => {
+      if (result.success) {
+        setAllCategories(result.data);
+      }
+    });
+  }, []);
 
   // カテゴリフィルターの変更ハンドラ
   const handleCategoryFilterChange = React.useCallback(
@@ -255,6 +267,32 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       return next;
     });
   }, []);
+
+  // フィルタータグの削除ハンドラ
+  const removeCategoryFilter = React.useCallback((categoryId: string) => {
+    setCategoryFilterIds(prev => prev.filter(id => id !== categoryId));
+  }, []);
+
+  // 未分類フィルターの削除ハンドラ
+  const removeUncategorizedFilter = React.useCallback(() => {
+    setIncludeUncategorized(false);
+  }, []);
+
+  // 全フィルターをクリア
+  const clearAllFilters = React.useCallback(() => {
+    setCategoryFilterIds([]);
+    setIncludeUncategorized(false);
+  }, []);
+
+  // フィルターが適用中かどうか
+  const hasActiveFilters = categoryFilterIds.length > 0 || includeUncategorized;
+
+  // 選択中のカテゴリ情報を取得
+  const selectedCategoryInfo = React.useMemo(() => {
+    return categoryFilterIds
+      .map(id => allCategories.find(cat => cat.id === id))
+      .filter((cat): cat is ContentCategory => cat !== undefined);
+  }, [categoryFilterIds, allCategories]);
 
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
@@ -472,7 +510,60 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         }
       >
         {({ visibleSet, orderedIds }) => (
-          <div className="w-full overflow-x-auto">
+          <div className="w-full">
+            {/* フィルター情報と件数表示 */}
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                {hasActiveFilters && (
+                  <>
+                    <span className="text-sm text-gray-500">フィルター:</span>
+                    {selectedCategoryInfo.map(cat => (
+                      <span
+                        key={cat.id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: cat.color }}
+                      >
+                        {cat.name}
+                        <button
+                          type="button"
+                          onClick={() => removeCategoryFilter(cat.id)}
+                          className="hover:bg-white/20 rounded-full p-0.5"
+                          title={`${cat.name}を解除`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                    {includeUncategorized && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-gray-700 bg-gray-200">
+                        未分類
+                        <button
+                          type="button"
+                          onClick={removeUncategorizedFilter}
+                          className="hover:bg-gray-300 rounded-full p-0.5"
+                          title="未分類を解除"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                    >
+                      クリア
+                    </button>
+                  </>
+                )}
+              </div>
+              <div className="text-sm text-gray-500">
+                {sortedItems.length}件を表示中
+                {hasActiveFilters && `（全${items.length}件）`}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
             <table className="min-w-[2200px] divide-y divide-gray-200">
               <thead className="bg-gray-50 analytics-head">
                 <tr>
@@ -898,6 +989,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </FieldConfigurator>
