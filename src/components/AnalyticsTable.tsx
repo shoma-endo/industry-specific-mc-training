@@ -709,7 +709,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         onConfirm={handleDeleteConfirm}
         chatTitle={deleteTargetTitle}
         isDeleting={isDeleting}
-        mode={deleteTargetSessionId ? 'chat' : 'content'}
+        mode="content"
         hasOrphanContent={hasOrphanContent}
       />
     </>
