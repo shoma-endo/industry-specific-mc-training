@@ -591,10 +591,6 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                   </>
                 )}
               </div>
-              <div className="text-sm text-gray-500">
-                {sortedItems.length}件を表示中
-                {hasActiveFilters && `（全${items.length}件）`}
-              </div>
             </div>
 
             <div className="overflow-x-auto">

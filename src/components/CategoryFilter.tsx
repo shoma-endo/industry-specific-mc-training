@@ -126,7 +126,7 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
         </p>
       )}
 
-      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+      <div className="max-h-[200px] overflow-y-auto space-y-2">
         {categories.map(category => (
           <label
             key={category.id}
@@ -140,7 +140,7 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
               className="w-3 h-3 rounded-full flex-shrink-0"
               style={{ backgroundColor: category.color }}
             />
-            <span className="text-sm">{category.name}</span>
+            <span className="text-sm truncate">{category.name}</span>
           </label>
         ))}
 
