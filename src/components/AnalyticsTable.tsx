@@ -410,7 +410,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
                             isPending={pendingRowKey === item.rowKey}
                             onClick={() => {
                               const hasExistingBlog =
-                                (canonicalUrl && canonicalUrl.trim().length > 0) ||
+                                (rowCanonicalUrl && rowCanonicalUrl.trim().length > 0) ||
                                 (typeof wpPostId === 'number' && Number.isFinite(wpPostId));
                               handleLaunch({
                                 rowKey: item.rowKey,
