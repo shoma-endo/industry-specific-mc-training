@@ -127,8 +127,37 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   >({});
   const [allCategories, setAllCategories] = React.useState<ContentCategory[]>([]);
   const [editingCategoryIds, setEditingCategoryIds] = React.useState<string[]>([]);
-  const [categoryFilterIds, setCategoryFilterIds] = React.useState<string[]>([]);
-  const [includeUncategorized, setIncludeUncategorized] = React.useState(true);
+  // フィルター状態をlocalStorageから復元
+  const [categoryFilterIds, setCategoryFilterIds] = React.useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem('analytics.categoryFilter');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed.selectedCategoryIds)) {
+          return parsed.selectedCategoryIds;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+  const [includeUncategorized, setIncludeUncategorized] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const stored = localStorage.getItem('analytics.categoryFilter');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (typeof parsed.includeUncategorized === 'boolean') {
+          return parsed.includeUncategorized;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
   // カテゴリ管理ダイアログでの変更時にCategoryFilterを更新するトリガー
   // 現状はページリロードで対応しているため、0固定
   const categoryRefreshTrigger = 0;
