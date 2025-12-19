@@ -282,8 +282,11 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     const toastId = toast.loading('削除中です...');
 
     try {
-      if (deleteTargetSessionId && chatServiceRef.current) {
+      if (deleteTargetSessionId) {
         // session_id がある場合: チャットとコンテンツを削除
+        if (!chatServiceRef.current) {
+          throw new Error('ChatService が初期化されていません');
+        }
         await chatServiceRef.current.deleteSession(deleteTargetSessionId);
       } else if (deleteTargetAnnotationId) {
         // session_id がない場合: コンテンツのみ削除
