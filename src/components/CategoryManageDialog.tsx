@@ -10,6 +10,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Loader2, Plus, Pencil, Trash2, GripVertical, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ContentCategory } from '@/types/category';
@@ -392,37 +397,32 @@ interface ColorPickerProps {
 }
 
 function ColorPicker({ value, onChange }: ColorPickerProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
-
   return (
-    <div className="relative">
-      <button
-        type="button"
-        className="w-6 h-6 rounded-full border-2 border-white shadow-sm cursor-pointer hover:scale-110 transition-transform"
-        style={{ backgroundColor: value }}
-        onClick={() => setIsOpen(!isOpen)}
-      />
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute z-20 top-8 left-0 p-2 bg-white rounded-lg shadow-lg border grid grid-cols-5 gap-1">
-            {CATEGORY_COLORS.map(color => (
-              <button
-                key={color}
-                type="button"
-                className={`w-6 h-6 rounded-full cursor-pointer hover:scale-110 transition-transform ${
-                  value === color ? 'ring-2 ring-offset-1 ring-primary' : ''
-                }`}
-                style={{ backgroundColor: color }}
-                onClick={() => {
-                  onChange(color);
-                  setIsOpen(false);
-                }}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-6 h-6 rounded-full border-2 border-white shadow-sm cursor-pointer hover:scale-110 transition-transform"
+          style={{ backgroundColor: value }}
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-2" side="bottom" align="start">
+        <div className="grid grid-cols-5 gap-1">
+          {CATEGORY_COLORS.map(color => (
+            <button
+              key={color}
+              type="button"
+              className={`w-6 h-6 rounded-full cursor-pointer hover:scale-110 transition-transform ${
+                value === color ? 'ring-2 ring-offset-1 ring-primary' : ''
+              }`}
+              style={{ backgroundColor: color }}
+              onClick={() => {
+                onChange(color);
+              }}
+            />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
