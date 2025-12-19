@@ -28,14 +28,14 @@ AI運用5原則
 
 必ず日本語で回答してください。作業完了前にローカルで可能な検証（`npm run lint` 等）を実行し、必要に応じて `npx ccusage@latest` で Anthropic API のコストを確認してください。
 
-**主要スタック**: Next.js 15.4.7 (App Router) / React 19 / TypeScript 5.9 / Tailwind CSS v4 / Supabase / Stripe / Anthropic Claude Sonnet 4.5
+**主要スタック**: Next.js 15.5.7 (App Router) / React 19.2.1 / TypeScript 5.9.3 / Tailwind CSS v4 / Supabase / Stripe / Anthropic Claude Sonnet 4.5
 
 ---
 
 ## プロジェクト概要
 
-- LINE LIFF 認証を入口とした B2B SaaS。業界特化の広告・LP・ブログ制作を AI で支援します。
-- Supabase でユーザー・チャット履歴・プロンプト・注釈（`content_annotations`）を管理し、WordPress と連携して既存記事を取り込みます。
+- LINE LIFF 認証を入り口とした B2B SaaS。業界特化の広告・LP・ブログ制作を AI で支援します。
+- Supabase でユーザー・チャット履歴・プロンプト・注釈・カテゴリ（`content_categories`）を管理し、WordPress と連携して既存記事を取り込みます。
 - Stripe サブスクリプションとユーザーロール（`trial`/`paid`/`admin`/`unavailable`）で機能制御を行います。
 
 ## ディレクトリ速見表
