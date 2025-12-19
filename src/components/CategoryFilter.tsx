@@ -9,15 +9,20 @@ import { getContentCategories } from '@/server/actions/category.actions';
 import { ANALYTICS_STORAGE_KEYS, type StoredCategoryFilter } from '@/lib/constants';
 
 interface CategoryFilterProps {
+  selectedCategoryIds: string[];
+  includeUncategorized: boolean;
   onFilterChange: (selectedCategoryIds: string[], includeUncategorized: boolean) => void;
   refreshTrigger?: number;
 }
 
-export default function CategoryFilter({ onFilterChange, refreshTrigger }: CategoryFilterProps) {
+export default function CategoryFilter({
+  selectedCategoryIds,
+  includeUncategorized,
+  onFilterChange,
+  refreshTrigger,
+}: CategoryFilterProps) {
   const [categories, setCategories] = React.useState<ContentCategory[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [includeUncategorized, setIncludeUncategorized] = React.useState(true);
 
   const loadCategories = React.useCallback(async () => {
     setIsLoading(true);
@@ -38,59 +43,35 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
     loadCategories();
   }, [loadCategories, refreshTrigger]);
 
-  // localStorageから復元
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const stored = localStorage.getItem(ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER);
-      if (stored) {
-        const parsed = JSON.parse(stored) as StoredCategoryFilter;
-        if (Array.isArray(parsed.selectedCategoryIds)) {
-          setSelectedIds(new Set(parsed.selectedCategoryIds));
-        }
-        if (typeof parsed.includeUncategorized === 'boolean') {
-          setIncludeUncategorized(parsed.includeUncategorized);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // フィルター変更時にコールバック & 永続化
-  React.useEffect(() => {
-    const ids = Array.from(selectedIds);
-    onFilterChange(ids, includeUncategorized);
-
+  // フィルター変更時に永続化
+  const syncToStorage = React.useCallback((ids: string[], includeUncat: boolean) => {
     if (typeof window !== 'undefined') {
       const stored: StoredCategoryFilter = {
         selectedCategoryIds: ids,
-        includeUncategorized,
+        includeUncategorized: includeUncat,
       };
       localStorage.setItem(ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER, JSON.stringify(stored));
     }
-  }, [selectedIds, includeUncategorized, onFilterChange]);
+  }, []);
 
   const toggleCategory = (categoryId: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(categoryId)) {
-        next.delete(categoryId);
-      } else {
-        next.add(categoryId);
-      }
-      return next;
-    });
+    const nextIds = selectedCategoryIds.includes(categoryId)
+      ? selectedCategoryIds.filter(id => id !== categoryId)
+      : [...selectedCategoryIds, categoryId];
+    
+    onFilterChange(nextIds, includeUncategorized);
+    syncToStorage(nextIds, includeUncategorized);
   };
 
   const selectAll = () => {
-    setSelectedIds(new Set(categories.map(c => c.id)));
-    setIncludeUncategorized(true);
+    const allIds = categories.map(c => c.id);
+    onFilterChange(allIds, true);
+    syncToStorage(allIds, true);
   };
 
   const clearAll = () => {
-    setSelectedIds(new Set());
-    setIncludeUncategorized(false);
+    onFilterChange([], false);
+    syncToStorage([], false);
   };
 
   if (isLoading) {
@@ -101,7 +82,7 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
     );
   }
 
-  const hasAnySelection = selectedIds.size > 0 || includeUncategorized;
+  const hasAnySelection = selectedCategoryIds.length > 0 || includeUncategorized;
 
   return (
     <div className="space-y-3">
@@ -133,7 +114,7 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
             className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
           >
             <Checkbox
-              checked={selectedIds.has(category.id)}
+              checked={selectedCategoryIds.includes(category.id)}
               onCheckedChange={() => toggleCategory(category.id)}
             />
             <span
@@ -148,7 +129,11 @@ export default function CategoryFilter({ onFilterChange, refreshTrigger }: Categ
         <label className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded border-t pt-2 mt-2">
           <Checkbox
             checked={includeUncategorized}
-            onCheckedChange={checked => setIncludeUncategorized(!!checked)}
+            onCheckedChange={checked => {
+              const nextVal = !!checked;
+              onFilterChange(selectedCategoryIds, nextVal);
+              syncToStorage(selectedCategoryIds, nextVal);
+            }}
           />
           <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-300" />
           <span className="text-sm text-gray-600">未分類</span>

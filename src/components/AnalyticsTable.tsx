@@ -131,6 +131,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const [annotationCategories, setAnnotationCategories] = React.useState<
     Record<string, ContentCategory[]>
   >({});
+  const [isCategoriesLoading, setIsCategoriesLoading] = React.useState(true);
   const [allCategories, setAllCategories] = React.useState<ContentCategory[]>([]);
   const [editingCategoryIds, setEditingCategoryIds] = React.useState<string[]>([]);
   // フィルター状態をlocalStorageから復元（1回のパースで両方の値を取得）
@@ -190,11 +191,15 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
 
     if (annotationIds.length === 0) return;
 
-    getAnnotationCategoriesBatch(annotationIds).then(result => {
-      if (result.success) {
-        setAnnotationCategories(result.data);
-      }
-    });
+    getAnnotationCategoriesBatch(annotationIds)
+      .then(result => {
+        if (result.success) {
+          setAnnotationCategories(result.data);
+        }
+      })
+      .finally(() => {
+        setIsCategoriesLoading(false);
+      });
   }, [items]);
 
   // 全カテゴリ一覧を取得（フィルター表示用）
@@ -226,6 +231,9 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       const annotationId = item.annotation?.id;
       if (!annotationId) return includeUncategorized;
 
+      // カテゴリ取得中の場合は全件表示（誤判定防止）
+      if (isCategoriesLoading) return true;
+
       const itemCategories = annotationCategories[annotationId] ?? [];
 
       // 未分類の場合
@@ -236,7 +244,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       // いずれかのカテゴリが選択されているか
       return itemCategories.some(cat => categoryFilterIds.includes(cat.id));
     });
-  }, [items, categoryFilterIds, includeUncategorized, annotationCategories]);
+  }, [items, categoryFilterIds, includeUncategorized, annotationCategories, isCategoriesLoading]);
 
   // カテゴリでソートされたアイテム
   const sortedItems = React.useMemo(() => {
@@ -319,7 +327,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   }, [saveCategoryFilterToStorage]);
 
   // フィルターが適用中かどうか
-  const hasActiveFilters = categoryFilterIds.length > 0 || includeUncategorized;
+  const hasActiveFilters = (categoryFilterIds.length > 0 || includeUncategorized) && !isCategoriesLoading;
 
   // 選択中のカテゴリ情報を取得
   const selectedCategoryInfo = React.useMemo(() => {
@@ -538,6 +546,8 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
         triggerId="analytics-field-config-trigger"
         dialogExtraContent={
           <CategoryFilter
+            selectedCategoryIds={categoryFilterIds}
+            includeUncategorized={includeUncategorized}
             onFilterChange={handleCategoryFilterChange}
             refreshTrigger={categoryRefreshTrigger}
           />
