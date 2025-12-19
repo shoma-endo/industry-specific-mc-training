@@ -183,9 +183,9 @@ export default function FieldConfigurator({
             <Button
               id={triggerId || 'field-configurator-trigger'}
               variant="outline"
-              className="bg-black text-white hover:bg-black/90 border-transparent"
+              className="bg-black text-white hover:bg-black/90 border-transparent flex items-center gap-2"
             >
-              <Settings className="mr-2 h-4 w-4" />
+              <Settings className="h-4 w-4" />
               フィールド構成
             </Button>
           </DialogTrigger>

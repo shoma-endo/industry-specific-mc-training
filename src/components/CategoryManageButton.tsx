@@ -18,8 +18,12 @@ export default function CategoryManageButton({
 
   return (
     <>
-      <Button variant="outline" className={className} onClick={() => setDialogOpen(true)}>
-        <Tag className="w-4 h-4 mr-2" aria-hidden />
+      <Button
+        variant="outline"
+        className={`flex items-center gap-2 ${className || ''}`}
+        onClick={() => setDialogOpen(true)}
+      >
+        <Tag className="h-4 w-4" aria-hidden />
         カテゴリ管理
       </Button>
       <CategoryManageDialog
