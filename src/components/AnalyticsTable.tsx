@@ -87,14 +87,12 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const { getAccessToken } = useLiffContext();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
   const [editingRowKey, setEditingRowKey] = React.useState<string | null>(null);
-  const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(() =>
-    ANNOTATION_FIELD_KEYS.reduce<Record<AnnotationFieldKey, string>>(
-      (acc, key) => {
-        acc[key] = '';
-        return acc;
-      },
-      {} as Record<AnnotationFieldKey, string>
-    )
+  const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(
+    () =>
+      Object.fromEntries(ANNOTATION_FIELD_KEYS.map(key => [key, ''])) as Record<
+        AnnotationFieldKey,
+        string
+      >
   );
   const [canonicalUrl, setCanonicalUrl] = React.useState('');
   const [canonicalUrlError, setCanonicalUrlError] = React.useState('');
@@ -197,13 +195,12 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
 
   const openEdit = React.useCallback((item: AnalyticsContentItem) => {
     const annotation = item.annotation;
-    const nextForm = ANNOTATION_FIELD_KEYS.reduce<Record<AnnotationFieldKey, string>>(
-      (acc, key) => {
-        acc[key] = annotation?.[key] ? String(annotation[key] ?? '') : '';
-        return acc;
-      },
-      {} as Record<AnnotationFieldKey, string>
-    );
+    const nextForm = Object.fromEntries(
+      ANNOTATION_FIELD_KEYS.map(key => [
+        key,
+        annotation?.[key] ? String(annotation[key] ?? '') : '',
+      ])
+    ) as Record<AnnotationFieldKey, string>;
     setForm(nextForm);
     setCanonicalUrl(annotation?.canonical_url ?? '');
     setWpPostTitle(annotation?.wp_post_title ?? '');
@@ -215,13 +212,10 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const closeEdit = React.useCallback(() => {
     setEditingRowKey(null);
     setForm(
-      ANNOTATION_FIELD_KEYS.reduce<Record<AnnotationFieldKey, string>>(
-        (acc, key) => {
-          acc[key] = '';
-          return acc;
-        },
-        {} as Record<AnnotationFieldKey, string>
-      )
+      Object.fromEntries(ANNOTATION_FIELD_KEYS.map(key => [key, ''])) as Record<
+        AnnotationFieldKey,
+        string
+      >
     );
     setCanonicalUrl('');
     setCanonicalUrlError('');
