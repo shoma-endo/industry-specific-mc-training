@@ -268,21 +268,43 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     });
   }, []);
 
+  // localStorageにフィルター状態を保存するヘルパー
+  const saveCategoryFilterToStorage = React.useCallback(
+    (selectedIds: string[], includeUncat: boolean) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          'analytics.categoryFilter',
+          JSON.stringify({ selectedCategoryIds: selectedIds, includeUncategorized: includeUncat })
+        );
+      }
+    },
+    []
+  );
+
   // フィルタータグの削除ハンドラ
-  const removeCategoryFilter = React.useCallback((categoryId: string) => {
-    setCategoryFilterIds(prev => prev.filter(id => id !== categoryId));
-  }, []);
+  const removeCategoryFilter = React.useCallback(
+    (categoryId: string) => {
+      setCategoryFilterIds(prev => {
+        const next = prev.filter(id => id !== categoryId);
+        saveCategoryFilterToStorage(next, includeUncategorized);
+        return next;
+      });
+    },
+    [includeUncategorized, saveCategoryFilterToStorage]
+  );
 
   // 未分類フィルターの削除ハンドラ
   const removeUncategorizedFilter = React.useCallback(() => {
     setIncludeUncategorized(false);
-  }, []);
+    saveCategoryFilterToStorage(categoryFilterIds, false);
+  }, [categoryFilterIds, saveCategoryFilterToStorage]);
 
   // 全フィルターをクリア
   const clearAllFilters = React.useCallback(() => {
     setCategoryFilterIds([]);
     setIncludeUncategorized(false);
-  }, []);
+    saveCategoryFilterToStorage([], false);
+  }, [saveCategoryFilterToStorage]);
 
   // フィルターが適用中かどうか
   const hasActiveFilters = categoryFilterIds.length > 0 || includeUncategorized;
