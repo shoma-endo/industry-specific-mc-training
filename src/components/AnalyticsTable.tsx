@@ -82,18 +82,18 @@ function LaunchChatButton({ label, isPending, onClick }: LaunchChatButtonProps) 
   );
 }
 
+const createEmptyForm = (): Record<AnnotationFieldKey, string> =>
+  Object.fromEntries(ANNOTATION_FIELD_KEYS.map(key => [key, ''])) as Record<
+    AnnotationFieldKey,
+    string
+  >;
+
 export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const router = useRouter();
   const { getAccessToken } = useLiffContext();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
   const [editingRowKey, setEditingRowKey] = React.useState<string | null>(null);
-  const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(
-    () =>
-      Object.fromEntries(ANNOTATION_FIELD_KEYS.map(key => [key, ''])) as Record<
-        AnnotationFieldKey,
-        string
-      >
-  );
+  const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(createEmptyForm);
   const [canonicalUrl, setCanonicalUrl] = React.useState('');
   const [canonicalUrlError, setCanonicalUrlError] = React.useState('');
   const [formError, setFormError] = React.useState('');
@@ -134,10 +134,9 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   // ChatService の初期化
   React.useEffect(() => {
     if (!chatServiceRef.current) {
-      const service = new ChatService();
-      service.setAccessTokenProvider(getAccessToken);
-      chatServiceRef.current = service;
+      chatServiceRef.current = new ChatService();
     }
+    chatServiceRef.current.setAccessTokenProvider(getAccessToken);
   }, [getAccessToken]);
 
   const handleLaunch = React.useCallback(
@@ -211,12 +210,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
 
   const closeEdit = React.useCallback(() => {
     setEditingRowKey(null);
-    setForm(
-      Object.fromEntries(ANNOTATION_FIELD_KEYS.map(key => [key, ''])) as Record<
-        AnnotationFieldKey,
-        string
-      >
-    );
+    setForm(createEmptyForm());
     setCanonicalUrl('');
     setCanonicalUrlError('');
     setFormError('');
