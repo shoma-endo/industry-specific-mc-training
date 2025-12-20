@@ -208,7 +208,7 @@ export default function AnalyticsTable({
       .finally(() => {
         setIsCategoriesLoading(false);
       });
-  }, [items]);
+  }, [items, categoryRefreshTrigger]);
 
   // 全カテゴリ一覧を取得（フィルター表示用）
   React.useEffect(() => {
