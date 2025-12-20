@@ -163,42 +163,20 @@ export async function setAnnotationCategories(
   return withAuth(async ({ userId }) => {
     const client = supabaseService.getClient();
 
-    // アノテーションの所有者確認
-    const { data: annotation, error: annotationError } = await client
-      .from('content_annotations')
-      .select('id')
-      .eq('id', annotationId)
-      .eq('user_id', userId)
-      .single();
-
-    if (annotationError || !annotation) {
-      return { success: false as const, error: 'コンテンツが見つかりません' };
+    if (!userId) {
+      return { success: false as const, error: '認証に失敗しました' };
     }
 
-    // 既存の紐付けを削除
-    const { error: deleteError } = await client
-      .from('content_annotation_categories')
-      .delete()
-      .eq('annotation_id', annotationId);
+    const { error } = await client.rpc('set_annotation_categories', {
+      p_annotation_id: annotationId,
+      p_category_ids: categoryIds,
+    });
 
-    if (deleteError) {
-      return { success: false as const, error: deleteError.message };
-    }
-
-    // 新しい紐付けを挿入
-    if (categoryIds.length > 0) {
-      const insertData = categoryIds.map(categoryId => ({
-        annotation_id: annotationId,
-        category_id: categoryId,
-      }));
-
-      const { error: insertError } = await client
-        .from('content_annotation_categories')
-        .insert(insertData);
-
-      if (insertError) {
-        return { success: false as const, error: insertError.message };
+    if (error) {
+      if (error.message === 'Annotation not found') {
+        return { success: false as const, error: 'コンテンツが見つかりません' };
       }
+      return { success: false as const, error: error.message };
     }
 
     return { success: true as const };
@@ -313,20 +291,16 @@ export async function updateCategorySortOrder(
   return withAuth(async ({ userId }) => {
     const client = supabaseService.getClient();
 
-    // 一括更新
-    const updates = categoryIds.map((id, index) =>
-      client
-        .from('content_categories')
-        .update({ sort_order: index, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .eq('user_id', userId)
-    );
+    if (!userId) {
+      return { success: false as const, error: '認証に失敗しました' };
+    }
 
-    const results = await Promise.all(updates);
-    const hasError = results.some(r => r.error);
+    const { error } = await client.rpc('update_category_sort_orders', {
+      p_category_ids: categoryIds,
+    });
 
-    if (hasError) {
-      return { success: false as const, error: '並び順の更新に失敗しました' };
+    if (error) {
+      return { success: false as const, error: error.message };
     }
 
     return { success: true as const };
