@@ -19,16 +19,20 @@ export default function CategorySelector({
 }: CategorySelectorProps) {
   const [categories, setCategories] = React.useState<ContentCategory[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   const loadCategories = React.useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const result = await getContentCategories();
       if (result.success) {
         setCategories(result.data);
+      } else {
+        setError(result.error || 'カテゴリの読み込みに失敗しました');
       }
     } catch {
-      console.error('Failed to load categories');
+      setError('カテゴリの読み込みに失敗しました');
     } finally {
       setIsLoading(false);
     }
@@ -48,6 +52,14 @@ export default function CategorySelector({
     return (
       <div className="flex items-center justify-center py-4">
         <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">
+        {error}
       </div>
     );
   }
