@@ -72,6 +72,7 @@ export default function AnnotationPanel({
       return;
     }
 
+    // コンポーネントのアンマウント後に非同期結果を反映しないためのフラグ
     let isActive = true;
 
     const loadCategories = async () => {
@@ -82,12 +83,12 @@ export default function AnnotationPanel({
           setSelectedCategoryIds(result.data.map(category => category.id));
         } else {
           console.error('Failed to load annotation categories:', result.error);
-          setSelectedCategoryIds([]);
+          toast.error('カテゴリの読み込みに失敗しました');
         }
       } catch (error) {
         if (!isActive) return;
         console.error('Error fetching annotation categories:', error);
-        setSelectedCategoryIds([]);
+        toast.error('カテゴリの読み込みに失敗しました');
       }
     };
 
@@ -126,6 +127,7 @@ export default function AnnotationPanel({
         categoryResult.error || 'カテゴリの保存に失敗しました。コンテンツ情報は保存済みです。';
       setCategorySaveError(message);
       toast.warning(message);
+      onSaveSuccess?.();
       return;
     }
 
