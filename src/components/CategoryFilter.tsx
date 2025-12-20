@@ -4,9 +4,9 @@ import * as React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import type { ContentCategory } from '@/types/category';
+import type { ContentCategory, CategoryFilterConfig } from '@/types/category';
 import { getContentCategories } from '@/server/actions/category.actions';
-import { ANALYTICS_STORAGE_KEYS, type StoredCategoryFilter } from '@/lib/constants';
+import { ANALYTICS_STORAGE_KEYS } from '@/lib/constants';
 
 interface CategoryFilterProps {
   selectedCategoryIds: string[];
@@ -46,7 +46,7 @@ export default function CategoryFilter({
   // フィルター変更時に永続化
   const syncToStorage = React.useCallback((ids: string[], includeUncat: boolean) => {
     if (typeof window !== 'undefined') {
-      const stored: StoredCategoryFilter = {
+      const stored: CategoryFilterConfig = {
         selectedCategoryIds: ids,
         includeUncategorized: includeUncat,
       };

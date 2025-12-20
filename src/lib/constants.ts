@@ -1,3 +1,5 @@
+import type { CategoryFilterConfig } from '@/types/category';
+
 export const ERROR_MESSAGES = {
   ad_not_found: 'この検索キーワードでは広告情報が見つかりませんでした。',
   daily_chat_limit:
@@ -163,20 +165,14 @@ export const ANALYTICS_STORAGE_KEYS = {
   VISIBLE_COLUMNS: 'analytics.visibleColumns',
 } as const;
 
-// カテゴリフィルターの型
-export interface StoredCategoryFilter {
-  selectedCategoryIds: string[];
-  includeUncategorized: boolean;
-}
-
 // カテゴリフィルターのデフォルト値
-export const DEFAULT_CATEGORY_FILTER: StoredCategoryFilter = {
+export const DEFAULT_CATEGORY_FILTER: CategoryFilterConfig = {
   selectedCategoryIds: [],
   includeUncategorized: false,
 };
 
 // localStorageからカテゴリフィルターを読み込むヘルパー
-export function loadCategoryFilterFromStorage(): StoredCategoryFilter {
+export function loadCategoryFilterFromStorage(): CategoryFilterConfig {
   if (typeof window === 'undefined') return DEFAULT_CATEGORY_FILTER;
   try {
     const stored = localStorage.getItem(ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER);
