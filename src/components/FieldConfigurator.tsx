@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Settings } from 'lucide-react';
+import { Settings, GripVertical } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +58,7 @@ export default function FieldConfigurator({
   const [open, setOpen] = React.useState(false);
   const [visibleIds, setVisibleIds] = React.useState<string[]>(defaultVisibleIds);
   const [orderedIds, setOrderedIds] = React.useState<string[]>(defaultOrder);
+  const [draggedId, setDraggedId] = React.useState<string | null>(null);
 
   const normalizeOrder = React.useCallback(
     (order: string[]) => {
@@ -145,34 +146,45 @@ export default function FieldConfigurator({
     });
   };
 
-  const selectAll = () => {
-    persistConfig(defaultVisibleIds, orderedIds);
-    setVisibleIds(defaultVisibleIds);
-    onChange?.(defaultVisibleIds, orderedIds);
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
-  const clearAll = () => {
-    persistConfig([], orderedIds);
-    setVisibleIds([]);
-    onChange?.([], orderedIds);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
-  const move = (id: string, direction: 'up' | 'down') => {
-    setOrderedIds(prev => {
-      const index = prev.indexOf(id);
-      if (index === -1) return prev;
-      const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= prev.length) return prev;
-      const current = prev[index];
-      const targetValue = prev[target];
-      if (current === undefined || targetValue === undefined) return prev;
-      const next = [...prev];
-      next[index] = targetValue;
-      next[target] = current;
-      persistConfig(visibleIds, next);
-      onChange?.(visibleIds, next);
-      return next;
-    });
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      return;
+    }
+
+    const draggedIndex = orderedIds.indexOf(draggedId);
+    const targetIndex = orderedIds.indexOf(targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null);
+      return;
+    }
+
+    const nextOrder = [...orderedIds];
+    const [removed] = nextOrder.splice(draggedIndex, 1);
+    if (removed) {
+      nextOrder.splice(targetIndex, 0, removed);
+    }
+
+    setOrderedIds(nextOrder);
+    setDraggedId(null);
+    persistConfig(visibleIds, nextOrder);
+    onChange?.(visibleIds, nextOrder);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
   };
 
   return (
@@ -200,14 +212,18 @@ export default function FieldConfigurator({
                   <div>
                     <span className="text-sm font-medium text-gray-700">表示フィールド</span>
                     <p className="text-xs text-gray-500">
-                      チェックを付けたフィールドのみ表示されます
+                      チェックを付けたフィールドのみ表示されます。ドラッグ＆ドロップで並び替えできます。
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={selectAll}
+                      onClick={() => {
+                        persistConfig(defaultVisibleIds, orderedIds);
+                        setVisibleIds(defaultVisibleIds);
+                        onChange?.(defaultVisibleIds, orderedIds);
+                      }}
                       className="h-7 px-3 text-xs"
                     >
                       全選択
@@ -215,7 +231,11 @@ export default function FieldConfigurator({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={clearAll}
+                      onClick={() => {
+                        persistConfig([], orderedIds);
+                        setVisibleIds([]);
+                        onChange?.([], orderedIds);
+                      }}
                       className="h-7 px-3 text-xs"
                     >
                       全解除
@@ -223,45 +243,33 @@ export default function FieldConfigurator({
                   </div>
                 </div>
                 <div className="max-h-[50vh] overflow-auto space-y-2 pr-1">
-                  {orderedIds.map((id, index) => {
+                  {orderedIds.map(id => {
                     const col = columns.find(c => c.id === id);
                     if (!col) return null;
-                    const isFirst = index === 0;
-                    const isLast = index === orderedIds.length - 1;
                     return (
                       <div
                         key={col.id}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                        draggable
+                        onDragStart={e => handleDragStart(e, col.id)}
+                        onDragOver={handleDragOver}
+                        onDrop={e => handleDrop(e, col.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition-colors ${
+                          draggedId === col.id
+                            ? 'opacity-50 border-dashed border-primary bg-primary/5'
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                        }`}
                       >
-                        <label className="flex items-center gap-2 text-sm flex-1 min-w-0 cursor-pointer">
-                          <Checkbox
-                            checked={visibleSet.has(col.id)}
-                            onCheckedChange={() => toggle(col.id)}
-                            aria-label={col.label}
-                          />
-                          <span className="truncate">{col.label}</span>
-                        </label>
-                        <div className="flex items-center gap-0.5 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => move(col.id, 'up')}
-                            disabled={isFirst}
-                            aria-label={`${col.label}を上に移動`}
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => move(col.id, 'down')}
-                            disabled={isLast}
-                            aria-label={`${col.label}を下に移動`}
-                          >
-                            ↓
-                          </Button>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                          <label className="flex items-center gap-2 text-sm flex-1 min-w-0 cursor-pointer">
+                            <Checkbox
+                              checked={visibleSet.has(col.id)}
+                              onCheckedChange={() => toggle(col.id)}
+                              aria-label={col.label}
+                            />
+                            <span className="truncate">{col.label}</span>
+                          </label>
                         </div>
                       </div>
                     );
