@@ -56,6 +56,7 @@ export default function AnnotationPanel({
   });
   const [selectedCategoryIds, setSelectedCategoryIds] = React.useState<string[]>([]);
   const [categoryRefreshTrigger, setCategoryRefreshTrigger] = React.useState(0);
+  const [categorySaveError, setCategorySaveError] = React.useState<string | null>(null);
 
   const { width: panelWidth, isResizing, handleMouseDown } = usePersistedResizableWidth({
     storageKey: 'chat-right-panel-width',
@@ -98,6 +99,7 @@ export default function AnnotationPanel({
   }, [initialData?.id]);
 
   const handleSave = async () => {
+    setCategorySaveError(null);
     const result = await submit();
     if (!result.success) {
       return;
@@ -120,7 +122,10 @@ export default function AnnotationPanel({
 
     const categoryResult = await saveAnnotationCategories(annotationId, selectedCategoryIds);
     if (!categoryResult.success) {
-      toast.error(categoryResult.error || 'カテゴリの保存に失敗しました');
+      const message =
+        categoryResult.error || 'カテゴリの保存に失敗しました。コンテンツ情報は保存済みです。';
+      setCategorySaveError(message);
+      toast.warning(message);
       return;
     }
 
@@ -196,6 +201,11 @@ export default function AnnotationPanel({
 
           {/* アクションボタン */}
           <div className="pt-4 border-t border-gray-200">
+            {categorySaveError && (
+              <div className="mb-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                {categorySaveError}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
