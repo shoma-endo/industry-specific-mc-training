@@ -160,12 +160,8 @@ export async function setAnnotationCategories(
   annotationId: string,
   categoryIds: string[]
 ): Promise<{ success: true } | { success: false; error: string }> {
-  return withAuth(async ({ userId }) => {
+  return withAuth(async () => {
     const client = supabaseService.getClient();
-
-    if (!userId) {
-      return { success: false as const, error: '認証に失敗しました' };
-    }
 
     const { error } = await client.rpc('set_annotation_categories', {
       p_annotation_id: annotationId,
@@ -288,12 +284,8 @@ export async function getAnnotationCategoriesBatch(
 export async function updateCategorySortOrder(
   categoryIds: string[]
 ): Promise<{ success: true } | { success: false; error: string }> {
-  return withAuth(async ({ userId }) => {
+  return withAuth(async () => {
     const client = supabaseService.getClient();
-
-    if (!userId) {
-      return { success: false as const, error: '認証に失敗しました' };
-    }
 
     const { error } = await client.rpc('update_category_sort_orders', {
       p_category_ids: categoryIds,
