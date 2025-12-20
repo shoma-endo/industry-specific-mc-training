@@ -188,11 +188,15 @@ export default function AnalyticsTable({
 
   // アノテーションのカテゴリをバッチ取得
   React.useEffect(() => {
+    setIsCategoriesLoading(true);
     const annotationIds = items
       .map(item => item.annotation?.id)
       .filter((id): id is string => !!id);
 
-    if (annotationIds.length === 0) return;
+    if (annotationIds.length === 0) {
+      setIsCategoriesLoading(false);
+      return;
+    }
 
     getAnnotationCategoriesBatch(annotationIds)
       .then(result => {
