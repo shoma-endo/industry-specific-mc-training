@@ -1,4 +1,4 @@
-import AnalyticsClient from '@/app/analytics/AnalyticsClient';
+import AnalyticsClient from './AnalyticsClient';
 import { analyticsContentService } from '@/server/services/analyticsContentService';
 import { getAnnotationIdsWithUnreadSuggestions } from '@/server/actions/gscNotification.actions';
 
