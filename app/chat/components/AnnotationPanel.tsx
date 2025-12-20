@@ -128,6 +128,9 @@ export default function AnnotationPanel({
     if (refreshedCategories.success) {
       setSelectedCategoryIds(refreshedCategories.data.map(category => category.id));
       setCategoryRefreshTrigger(prev => prev + 1);
+    } else {
+      console.warn('カテゴリの再取得に失敗しました:', refreshedCategories.error);
+      toast.warning('カテゴリの再取得に失敗しました。表示が最新でない可能性があります。');
     }
 
     onSaveSuccess?.();
