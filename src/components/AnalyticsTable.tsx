@@ -229,6 +229,19 @@ export default function AnalyticsTable({
       });
   }, [categoryRefreshTrigger]);
 
+  // localStorageにフィルター状態を保存するヘルパー
+  const saveCategoryFilterToStorage = React.useCallback(
+    (selectedIds: string[], includeUncat: boolean) => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER,
+          JSON.stringify({ selectedCategoryIds: selectedIds, includeUncategorized: includeUncat })
+        );
+      }
+    },
+    []
+  );
+
   // カテゴリフィルターの変更ハンドラ
   const handleCategoryFilterChange = React.useCallback(
     (selectedIds: string[], includeUncat: boolean) => {
@@ -306,19 +319,6 @@ export default function AnalyticsTable({
       return next;
     });
   }, []);
-
-  // localStorageにフィルター状態を保存するヘルパー
-  const saveCategoryFilterToStorage = React.useCallback(
-    (selectedIds: string[], includeUncat: boolean) => {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER,
-          JSON.stringify({ selectedCategoryIds: selectedIds, includeUncategorized: includeUncat })
-        );
-      }
-    },
-    []
-  );
 
   // フィルタータグの削除ハンドラ
   const removeCategoryFilter = React.useCallback(
