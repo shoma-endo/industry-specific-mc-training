@@ -140,7 +140,6 @@ export const ANALYTICS_COLUMNS = [
   { id: 'basic_structure', label: '基本構成' },
   { id: 'opening_proposal', label: '書き出し案' },
   { id: 'categories', label: 'カテゴリ' },
-  { id: 'date', label: '公開日' },
   { id: 'wp_post_title', label: 'WordPressタイトル' },
   { id: 'wp_excerpt', label: 'WordPress説明文' },
   { id: 'url', label: 'URL' },
