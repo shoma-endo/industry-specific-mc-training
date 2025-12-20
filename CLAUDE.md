@@ -149,6 +149,7 @@ AI運用5原則
 - **Chat**: `useChatSession` + `ChatService` でセッション CRUD、`MessageArea` と `CanvasPanel` で AI 応答と編集体験を提供。サイドバー検索は `search_chat_sessions` RPC（`pg_trgm` + `tsvector`）でタイトル／正規化済み URL を横断。
 - **Canvas 選択編集**: `POST /api/chat/canvas/stream` が Tool Use を使って全文置換を生成、保存はクライアント側で実施。
 - **Annotation**: `AnnotationPanel` から `content_annotations` を upsert。ブログ生成時に `PromptService.buildContentVariables` 経由で利用。
+- **Category**: `CategoryManageDialog` から `content_categories` を CRUD。記事のカテゴリ分類とドラッグ&ドロップ並び替えに対応。
 - **WordPress**: `WordPressService` が REST API を複数候補で試行し、ステータスや投稿一覧を返す。OAuth トークンは cookie 管理。
 - **GSC**: `gscService` + `gscEvaluationService` で Google Search Console 連携、記事評価、改善提案を自動化。`/api/gsc/*` と `/api/cron/gsc-evaluate` で定期評価を実行。
 - **Stripe**: `SubscriptionService` + `stripeService` で購買／解約／ポータル遷移を行う。`authMiddleware` が `requiresSubscription` を返却。
