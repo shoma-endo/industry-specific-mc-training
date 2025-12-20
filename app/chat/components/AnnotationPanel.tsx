@@ -1,7 +1,14 @@
 'use client';
 
 import React from 'react';
-import { upsertContentAnnotationBySession } from '@/server/actions/wordpress.actions';
+import {
+  getContentAnnotationBySession,
+  upsertContentAnnotationBySession,
+} from '@/server/actions/wordpress.actions';
+import {
+  getAnnotationCategories,
+  setAnnotationCategories as saveAnnotationCategories,
+} from '@/server/actions/category.actions';
 import { Button } from '@/components/ui/button';
 import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,6 +16,7 @@ import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 import { AnnotationRecord } from '@/types/annotation';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
 import { useAnnotationForm } from '@/hooks/useAnnotationForm';
+import { toast } from 'sonner';
 
 interface Props {
   sessionId: string;
@@ -46,6 +54,9 @@ export default function AnnotationPanel({
         canonical_url: canonicalUrl,
       }),
   });
+  const [selectedCategoryIds, setSelectedCategoryIds] = React.useState<string[]>([]);
+  const [categoryRefreshTrigger, setCategoryRefreshTrigger] = React.useState(0);
+  const [categorySaveError, setCategorySaveError] = React.useState<string | null>(null);
 
   const { width: panelWidth, isResizing, handleMouseDown } = usePersistedResizableWidth({
     storageKey: 'chat-right-panel-width',
@@ -53,11 +64,83 @@ export default function AnnotationPanel({
     minWidth: 320,
     maxWidth: 1000,
   });
-  const handleSave = async () => {
-    const result = await submit();
-    if (result.success) {
-      onSaveSuccess?.();
+
+  React.useEffect(() => {
+    const annotationId = initialData?.id;
+    if (!annotationId) {
+      setSelectedCategoryIds([]);
+      return;
     }
+
+    // コンポーネントのアンマウント後に非同期結果を反映しないためのフラグ
+    let isActive = true;
+
+    const loadCategories = async () => {
+      try {
+        const result = await getAnnotationCategories(annotationId);
+        if (!isActive) return;
+        if (result.success) {
+          setSelectedCategoryIds(result.data.map(category => category.id));
+        } else {
+          console.error('Failed to load annotation categories:', result.error);
+          toast.error('カテゴリの読み込みに失敗しました');
+        }
+      } catch (error) {
+        if (!isActive) return;
+        console.error('Error fetching annotation categories:', error);
+        toast.error('カテゴリの読み込みに失敗しました');
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      isActive = false;
+    };
+  }, [initialData?.id]);
+
+  const handleSave = async () => {
+    setCategorySaveError(null);
+    const result = await submit();
+    if (!result.success) {
+      return;
+    }
+
+    let annotationId = initialData?.id ?? null;
+    if (!annotationId) {
+      const annotationResult = await getContentAnnotationBySession(sessionId);
+      if (!annotationResult.success) {
+        toast.error(annotationResult.error || 'コンテンツ情報の取得に失敗しました');
+        return;
+      }
+      annotationId = annotationResult.data?.id ?? null;
+    }
+
+    if (!annotationId) {
+      toast.error('カテゴリ保存のためのコンテンツIDが取得できません');
+      return;
+    }
+
+    const categoryResult = await saveAnnotationCategories(annotationId, selectedCategoryIds);
+    if (!categoryResult.success) {
+      const message =
+        categoryResult.error || 'カテゴリの保存に失敗しました。コンテンツ情報は保存済みです。';
+      setCategorySaveError(message);
+      toast.warning(message);
+      onSaveSuccess?.();
+      return;
+    }
+
+    const refreshedCategories = await getAnnotationCategories(annotationId);
+    if (refreshedCategories.success) {
+      setSelectedCategoryIds(refreshedCategories.data.map(category => category.id));
+      setCategoryRefreshTrigger(prev => prev + 1);
+    } else {
+      console.warn('カテゴリの再取得に失敗しました:', refreshedCategories.error);
+      toast.warning('カテゴリの再取得に失敗しました。表示が最新でない可能性があります。');
+    }
+
+    onSaveSuccess?.();
   };
   if (!isVisible) return null;
 
@@ -112,10 +195,19 @@ export default function AnnotationPanel({
             canonicalUrlError={canonicalUrlError}
             canonicalUrlInputId="panel-wp-canonical-url"
             wpPostTitle={wpPostTitle}
+            showCategorySelector
+            selectedCategoryIds={selectedCategoryIds}
+            onCategoryChange={setSelectedCategoryIds}
+            categoryRefreshTrigger={categoryRefreshTrigger}
           />
 
           {/* アクションボタン */}
           <div className="pt-4 border-t border-gray-200">
+            {categorySaveError && (
+              <div className="mb-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                {categorySaveError}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"

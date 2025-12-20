@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import BlogPreviewTile from './common/BlogPreviewTile';
 import { BLOG_STEP_LABELS } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
-import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/blog-canvas';
+import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/canvas-content';
 
 interface BlogPreviewMeta {
   step: BlogStepId;

@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { buildWordPressServiceFromSettings } from '@/server/services/wordpressContext';
-import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/blog-canvas';
+import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/canvas-content';
 import type { AnnotationRecord } from '@/types/annotation';
 import type { WordPressPostResponse } from '@/types/wordpress';
 

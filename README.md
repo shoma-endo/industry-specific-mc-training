@@ -159,11 +159,11 @@ sequenceDiagram
 ```
 
 ## 🛠️ 技術スタック
-- **フロントエンド**: Next.js 15.4.7 (App Router), React 19, TypeScript 5.9, Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react
+- **フロントエンド**: Next.js 15.5.7 (App Router), React 19.2.1, TypeScript 5.9.3, Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react
 - **エディタ**: TipTap 3.7.x + lowlight ハイライト、カスタム UI コンポーネント群
 - **バックエンド**: Next.js Route Handlers & Server Actions, Supabase JS 2.75 (PostgreSQL + RLS)
 - **AI**: Anthropic Claude Sonnet 4.5（SSE ストリーミング）, OpenAI Chat Completions（Fine-tuned モデル含む）
-- **認証**: LINE LIFF 2.25.1, Vercel Edge Cookie ストア, 独自ミドルウェアによるロール判定
+- **認証**: LINE LIFF v2.25.1, Vercel Edge Cookie ストア, 独自ミドルウェアによるロール判定
 - **決済**: Stripe 17.7（Checkout / Billing Portal / Subscription API）
 - **開発ツール**: TypeScript strict, ESLint 9, Prettier 3, tsc-watch, Husky, ngrok
 
@@ -220,6 +220,9 @@ erDiagram
         text session_id
         text canonical_url
         text wp_post_title
+        text wp_excerpt
+        text wp_content_text
+        text wp_categories
         text main_kw
         text kw
         text impressions
@@ -229,39 +232,40 @@ erDiagram
         text prep
         text basic_structure
         text opening_proposal
+        timestamptz created_at
         timestamptz updated_at
     }
 
-    wordpress_settings {
+    content_categories {
+        uuid id PK
+        text user_id
+        text name
+        text color
+        integer sort_order
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    content_annotation_categories {
+        uuid id PK
+        uuid annotation_id FK
+        uuid category_id FK
+        timestamptz created_at
+    }
+
+    gsc_article_evaluations {
         uuid id PK
         uuid user_id FK
-        text wp_type
-        text wp_client_id
-        text wp_client_secret
-        text wp_site_id
-        text wp_site_url
-        text wp_username
-        text wp_application_password
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    prompt_templates {
-        uuid id PK
-        text name UK
-        text display_name
-        text content
-        jsonb variables
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    prompt_versions {
-        uuid id PK
-        uuid template_id FK
-        integer version
-        text content
-        timestamptz created_at
+        uuid content_annotation_id FK
+        text property_uri
+        smallint current_stage
+        smallint current_suggestion_stage
+        date last_evaluated_on
+        date next_evaluation_on
+        integer evaluation_hour
+        integer cycle_days
+        numeric last_seen_position
+        text status
     }
 
     users ||--o{ chat_sessions : owns
@@ -270,6 +274,10 @@ erDiagram
     users ||--o{ content_annotations : annotates
     users ||--o| wordpress_settings : configures
     prompt_templates ||--o{ prompt_versions : captures
+    users ||--o{ content_categories : manages
+    content_annotations ||--o{ content_annotation_categories : categorized_by
+    content_categories ||--o{ content_annotation_categories : categorizes
+    content_annotations ||--o| gsc_article_evaluations : "monitored by"
 ```
 
 ## 📋 環境変数（18 項目: 必須14項目、オプション4項目）
@@ -536,6 +544,8 @@ npm run vercel:stats
 │   ├── setup/               # WordPress / GSC 等の初期セットアップ導線
 │   ├── subscription/        # サブスクリプション購入ページ
 │   ├── login/               # ログインページ
+│   ├── home/                # パブリックホームページ（非認証可）
+│   ├── privacy/             # プライバシーポリシー（非認証可）
 │   ├── unauthorized/        # 未認可ユーザー向けページ
 │   ├── unavailable/         # 利用不可ユーザー向けページ（role が unavailable の場合）
 │   ├── wordpress-import/    # WordPress 記事の一括インポートページ

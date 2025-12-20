@@ -26,9 +26,9 @@ AI運用5原則
 
 ## プロジェクト概要
 
-- LINE LIFF 認証を入り口に、業界特化のマーケティングコンテンツ（広告・LP・ブログ等）を AI で生成・管理する Next.js 15 ベースの SaaS。
-- Supabase がユーザー・セッション・注釈・プロンプトなどのデータを保持し、WordPress 連携で既存記事を取り込みます。
-- Stripe サブスクリプションとロール（`trial` / `paid` / `admin` / `unavailable`）により機能制御を行い、Anthropic Claude と OpenAI モデルを用途に応じて切替します。
+- LINE LIFF 認証を入り口に、業界特化のマーケティングコンテンツ（広告・LP・ブログ等）を AI で生成・管理する Next.js 15.5 ベースの SaaS。
+- Supabase がユーザー・セッション・注釈・プロンプト・カテゴリなどのデータを保持し、WordPress 連携で既存記事を取り込みます。
+- Stripe サブスクリプションとロール（`trial` / `paid` / `admin` / `unavailable`）により機能制御を行い、Anthropic Claude 3.5 Sonnet / 3.7 Sonnet と OpenAI モデルを用途に応じて切替します。
 - チャット履歴検索は Supabase RPC `search_chat_sessions`（`pg_trgm` + `tsvector`）を利用し、サイドバーの検索バーからタイトルや正規化済み URL を横断検索できます。
 
 ## コミュニケーションと回答スタイル
@@ -144,6 +144,7 @@ AI運用5原則
 - 既存の hooks/service クラス（`ChatService`, `SubscriptionService` 等）を流用し、重複実装を避けてください。
 - Supabase 呼び出しは `src/server/services/SupabaseService` 経由に統一し、直接 `createClient` を増やさないこと。
 - **一般ユーザー向けページ（`/home`, `/privacy`）ではログインユーザー情報（通知トースト、ユーザー名、認証状態など）を一切表示しない。** これらは非認証ユーザーも閲覧可能なパブリックページです。
+- **コーディング完了後はセルフレビューと改善を2回繰り返してから返信すること。**
 
 ## テストと検証
 

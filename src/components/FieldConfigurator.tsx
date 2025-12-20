@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Settings } from 'lucide-react';
+import { Settings, GripVertical } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { useDragReorder } from '@/hooks/useDragReorder';
 
 interface ColumnOption {
   id: string;
@@ -37,6 +38,7 @@ interface FieldConfiguratorProps {
   children: (config: FieldConfigRenderProps) => React.ReactNode;
   hideTrigger?: boolean;
   triggerId?: string;
+  dialogExtraContent?: React.ReactNode;
 }
 
 export default function FieldConfigurator({
@@ -46,6 +48,7 @@ export default function FieldConfigurator({
   children,
   hideTrigger,
   triggerId,
+  dialogExtraContent,
 }: FieldConfiguratorProps) {
   const defaultVisibleIds = React.useMemo(
     () => columns.filter(c => c.defaultVisible !== false).map(c => c.id),
@@ -69,10 +72,7 @@ export default function FieldConfigurator({
 
   const persistConfig = React.useCallback(
     (nextVisible: string[], nextOrder: string[]) => {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({ visible: nextVisible, order: nextOrder })
-      );
+      localStorage.setItem(storageKey, JSON.stringify({ visible: nextVisible, order: nextOrder }));
     },
     [storageKey]
   );
@@ -146,35 +146,16 @@ export default function FieldConfigurator({
     });
   };
 
-  const selectAll = () => {
-    persistConfig(defaultVisibleIds, orderedIds);
-    setVisibleIds(defaultVisibleIds);
-    onChange?.(defaultVisibleIds, orderedIds);
-  };
-
-  const clearAll = () => {
-    persistConfig([], orderedIds);
-    setVisibleIds([]);
-    onChange?.([], orderedIds);
-  };
-
-  const move = (id: string, direction: 'up' | 'down') => {
-    setOrderedIds(prev => {
-      const index = prev.indexOf(id);
-      if (index === -1) return prev;
-      const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= prev.length) return prev;
-      const current = prev[index];
-      const targetValue = prev[target];
-      if (current === undefined || targetValue === undefined) return prev;
-      const next = [...prev];
-      next[index] = targetValue;
-      next[target] = current;
-      persistConfig(visibleIds, next);
-      onChange?.(visibleIds, next);
-      return next;
-    });
-  };
+  // ドラッグ＆ドロップによる並び替え
+  const { draggedId, handleDragStart, handleDragOver, handleDrop, handleDragEnd } = useDragReorder({
+    items: orderedIds,
+    getId: id => id,
+    onReorder: nextOrder => {
+      setOrderedIds(nextOrder);
+      persistConfig(visibleIds, nextOrder);
+      onChange?.(visibleIds, nextOrder);
+    },
+  });
 
   return (
     <div className="w-full">
@@ -184,72 +165,94 @@ export default function FieldConfigurator({
             <Button
               id={triggerId || 'field-configurator-trigger'}
               variant="outline"
-              className="bg-black text-white hover:bg-black/90 border-transparent"
+              className="bg-black text-white hover:bg-black/90 border-transparent flex items-center gap-2"
             >
-              <Settings className="mr-2 h-4 w-4" />
+              <Settings className="h-4 w-4" />
               フィールド構成
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[480px]">
+          <DialogContent className="sm:max-w-[900px]">
             <DialogHeader>
               <DialogTitle>フィールド構成</DialogTitle>
             </DialogHeader>
-            <p className="text-sm text-gray-600 mb-3">
-              チェックを付けたフィールドのみテーブルに表示されます。<br />
-              上下矢印のボタンで表示順を変更できます。
-            </p>
-            <div className="flex items-center gap-2 mb-3">
-              <Button size="sm" variant="secondary" onClick={selectAll}>
-                全選択
-              </Button>
-              <Button size="sm" variant="secondary" onClick={clearAll}>
-                全解除
-              </Button>
-            </div>
-            <div className="max-h-[50vh] overflow-auto space-y-2 pr-1">
-              {orderedIds.map((id, index) => {
-                const col = columns.find(c => c.id === id);
-                if (!col) return null;
-                const isFirst = index === 0;
-                const isLast = index === orderedIds.length - 1;
-                return (
-                  <div
-                    key={col.id}
-                    className="flex items-center justify-between gap-2 rounded border border-gray-200 px-3 py-2"
-                  >
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={visibleSet.has(col.id)}
-                        onCheckedChange={() => toggle(col.id)}
-                        aria-label={col.label}
-                      />
-                      <span>{col.label}</span>
-                    </label>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => move(col.id, 'up')}
-                        disabled={isFirst}
-                        aria-label={`${col.label}を上に移動`}
-                      >
-                        ↑
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => move(col.id, 'down')}
-                        disabled={isLast}
-                        aria-label={`${col.label}を下に移動`}
-                      >
-                        ↓
-                      </Button>
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 左側: フィールドリスト */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">表示フィールド</span>
+                    <p className="text-xs text-gray-500">
+                      チェックを付けたフィールドのみ表示されます。ドラッグ＆ドロップで並び替えできます。
+                    </p>
                   </div>
-                );
-              })}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        persistConfig(defaultVisibleIds, orderedIds);
+                        setVisibleIds(defaultVisibleIds);
+                        onChange?.(defaultVisibleIds, orderedIds);
+                      }}
+                      className="h-7 px-3 text-xs"
+                    >
+                      全選択
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        persistConfig([], orderedIds);
+                        setVisibleIds([]);
+                        onChange?.([], orderedIds);
+                      }}
+                      className="h-7 px-3 text-xs"
+                    >
+                      全解除
+                    </Button>
+                  </div>
+                </div>
+                <div className="max-h-[50vh] overflow-auto space-y-2 pr-1">
+                  {orderedIds.map(id => {
+                    const col = columns.find(c => c.id === id);
+                    if (!col) return null;
+                    return (
+                      <div
+                        key={col.id}
+                        draggable
+                        onDragStart={e => handleDragStart(e, col.id)}
+                        onDragOver={handleDragOver}
+                        onDrop={e => handleDrop(e, col.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition-colors ${
+                          draggedId === col.id
+                            ? 'opacity-50 border-dashed border-primary bg-primary/5'
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                          <label className="flex items-center gap-2 text-sm flex-1 min-w-0 cursor-pointer">
+                            <Checkbox
+                              checked={visibleSet.has(col.id)}
+                              onCheckedChange={() => toggle(col.id)}
+                              aria-label={col.label}
+                            />
+                            <span className="truncate">{col.label}</span>
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 右側: カテゴリフィルター */}
+              {dialogExtraContent && (
+                <div className="border-l-0 lg:border-l border-gray-200 pl-0 lg:pl-6">
+                  {dialogExtraContent}
+                </div>
+              )}
             </div>
             <div className="mt-3 flex justify-end">
               <Button onClick={() => setOpen(false)}>閉じる</Button>

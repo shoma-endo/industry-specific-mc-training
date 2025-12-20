@@ -4,6 +4,7 @@ import React from 'react';
 import { ANALYTICS_COLUMNS } from '@/lib/constants';
 import { ANNOTATION_FIELD_KEYS, AnnotationFieldKey } from '@/types/annotation';
 import { cn } from '@/lib/utils';
+import CategorySelector from '@/components/CategorySelector';
 
 const COLUMN_LABELS = ANNOTATION_FIELD_KEYS.reduce<Record<AnnotationFieldKey, string>>(
   (acc, key) => {
@@ -55,6 +56,10 @@ interface Props {
     value: string;
     onChange: (value: string) => void;
   }>;
+  selectedCategoryIds?: string[];
+  onCategoryChange?: React.Dispatch<React.SetStateAction<string[]>>;
+  showCategorySelector?: boolean;
+  categoryRefreshTrigger?: number;
 }
 
 export default function AnnotationFormFields({
@@ -67,6 +72,10 @@ export default function AnnotationFormFields({
   canonicalUrlInputId = 'wp-canonical-url',
   wpPostTitle,
   extraFields,
+  selectedCategoryIds,
+  onCategoryChange,
+  showCategorySelector = false,
+  categoryRefreshTrigger,
 }: Props) {
   return (
     <div className={cn('space-y-5 px-[5px]', className)}>
@@ -115,6 +124,22 @@ export default function AnnotationFormFields({
           )}
         </div>
       ))}
+
+      {showCategorySelector && onCategoryChange && (
+        <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
+          <h4 className="text-md font-semibold text-gray-800">カテゴリ</h4>
+          <p className="text-sm text-gray-600">
+            このコンテンツに設定するカテゴリを選択してください。
+          </p>
+          <CategorySelector
+            selectedCategoryIds={selectedCategoryIds ?? []}
+            onSelectedChange={onCategoryChange}
+            {...(categoryRefreshTrigger !== undefined
+              ? { refreshTrigger: categoryRefreshTrigger }
+              : {})}
+          />
+        </div>
+      )}
 
       <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
         <h4 className="text-md font-semibold text-gray-800">WordPress連携</h4>

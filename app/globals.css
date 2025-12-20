@@ -175,6 +175,11 @@
     top: 0;
     z-index: 60;
   }
+
+  /* 任意のダイアログが開いている間は操作列の z-index を下げる */
+  body:has([data-state='open']) .analytics-ops-cell {
+    z-index: 1;
+  }
 }
 
 /* フッターメニュー用のスタイル */

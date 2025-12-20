@@ -3,6 +3,27 @@
  */
 
 /**
+ * ISO8601形式の日時文字列を「2025年12月11日 12:34」形式にフォーマット
+ * @param isoString - ISO8601形式の日時文字列
+ * @returns 日本語フォーマットの日時文字列
+ */
+export function formatDateTime(isoString: string): string {
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return '日付不明';
+  }
+  const formatter = new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  });
+  return formatter.format(date);
+}
+
+/**
  * 相対日付フォーマット（今日/昨日/日付）
  * SessionListContent で使用
  */

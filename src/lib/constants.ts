@@ -1,3 +1,5 @@
+import type { CategoryFilterConfig } from '@/types/category';
+
 export const ERROR_MESSAGES = {
   ad_not_found: 'この検索キーワードでは広告情報が見つかりませんでした。',
   daily_chat_limit:
@@ -154,3 +156,40 @@ export const STEP_TO_FIELD_MAP: Record<BlogStepId, string> = {
   step6: 'opening_proposal',
   step7: 'full', // step7は特殊（全フィールド必要）
 };
+
+// Analytics ページの localStorage キー
+export const ANALYTICS_STORAGE_KEYS = {
+  CATEGORY_FILTER: 'analytics.categoryFilter',
+  CATEGORY_SORT_ORDER: 'analytics.categorySortOrder',
+  OPS_EXPANDED: 'analytics.opsExpanded',
+  VISIBLE_COLUMNS: 'analytics.visibleColumns',
+} as const;
+
+// カテゴリフィルターのデフォルト値
+export const DEFAULT_CATEGORY_FILTER: CategoryFilterConfig = {
+  selectedCategoryIds: [],
+  includeUncategorized: false,
+};
+
+// localStorageからカテゴリフィルターを読み込むヘルパー
+export function loadCategoryFilterFromStorage(): CategoryFilterConfig {
+  if (typeof window === 'undefined') return DEFAULT_CATEGORY_FILTER;
+  try {
+    const stored = localStorage.getItem(ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        selectedCategoryIds: Array.isArray(parsed.selectedCategoryIds)
+          ? parsed.selectedCategoryIds
+          : [],
+        includeUncategorized:
+          typeof parsed.includeUncategorized === 'boolean'
+            ? parsed.includeUncategorized
+            : false,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_CATEGORY_FILTER;
+}
