@@ -15,7 +15,7 @@ import {
   findLatestAssistantBlogStep,
   normalizeCanvasContent,
   isBlogStepId,
-} from '@/lib/blog-canvas';
+} from '@/lib/canvas-content';
 import SessionSidebar from './SessionSidebar';
 import MessageArea from './MessageArea';
 import InputArea from './InputArea';

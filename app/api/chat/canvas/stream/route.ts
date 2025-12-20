@@ -4,7 +4,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { env } from '@/env';
 import { MODEL_CONFIGS } from '@/lib/constants';
-import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/blog-canvas';
+import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/canvas-content';
 import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
 import type { UserRole } from '@/types/user';
 
