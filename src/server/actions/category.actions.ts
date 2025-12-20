@@ -51,7 +51,7 @@ export async function createContentCategory(
       .eq('user_id', userId)
       .order('sort_order', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const nextSortOrder = (maxSortData?.sort_order ?? -1) + 1;
 
