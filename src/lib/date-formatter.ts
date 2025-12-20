@@ -9,6 +9,9 @@
  */
 export function formatDateTime(isoString: string): string {
   const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return '日付不明';
+  }
   const formatter = new Intl.DateTimeFormat('ja-JP', {
     year: 'numeric',
     month: 'long',
