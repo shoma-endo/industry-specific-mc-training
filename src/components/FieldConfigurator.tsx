@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { useDragReorder } from '@/hooks/useDragReorder';
 
 interface ColumnOption {
   id: string;
@@ -58,7 +59,6 @@ export default function FieldConfigurator({
   const [open, setOpen] = React.useState(false);
   const [visibleIds, setVisibleIds] = React.useState<string[]>(defaultVisibleIds);
   const [orderedIds, setOrderedIds] = React.useState<string[]>(defaultOrder);
-  const [draggedId, setDraggedId] = React.useState<string | null>(null);
 
   const normalizeOrder = React.useCallback(
     (order: string[]) => {
@@ -146,46 +146,16 @@ export default function FieldConfigurator({
     });
   };
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedId(id);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!draggedId || draggedId === targetId) {
-      setDraggedId(null);
-      return;
-    }
-
-    const draggedIndex = orderedIds.indexOf(draggedId);
-    const targetIndex = orderedIds.indexOf(targetId);
-
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedId(null);
-      return;
-    }
-
-    const nextOrder = [...orderedIds];
-    const [removed] = nextOrder.splice(draggedIndex, 1);
-    if (removed) {
-      nextOrder.splice(targetIndex, 0, removed);
-    }
-
-    setOrderedIds(nextOrder);
-    setDraggedId(null);
-    persistConfig(visibleIds, nextOrder);
-    onChange?.(visibleIds, nextOrder);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedId(null);
-  };
+  // ドラッグ＆ドロップによる並び替え
+  const { draggedId, handleDragStart, handleDragOver, handleDrop, handleDragEnd } = useDragReorder({
+    items: orderedIds,
+    getId: id => id,
+    onReorder: nextOrder => {
+      setOrderedIds(nextOrder);
+      persistConfig(visibleIds, nextOrder);
+      onChange?.(visibleIds, nextOrder);
+    },
+  });
 
   return (
     <div className="w-full">

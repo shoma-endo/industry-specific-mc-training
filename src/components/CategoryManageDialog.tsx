@@ -16,6 +16,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Loader2, Plus, Pencil, Trash2, GripVertical, Check, X } from 'lucide-react';
+import { useDragReorder } from '@/hooks/useDragReorder';
 import { toast } from 'sonner';
 import type { ContentCategory } from '@/types/category';
 import { CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from '@/types/category';
@@ -54,7 +55,6 @@ export default function CategoryManageDialog({
     name: '',
     color: DEFAULT_CATEGORY_COLOR,
   });
-  const [draggedId, setDraggedId] = React.useState<string | null>(null);
 
   const loadCategories = React.useCallback(async () => {
     setIsLoading(true);
@@ -158,55 +158,22 @@ export default function CategoryManageDialog({
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, categoryId: string) => {
-    setDraggedId(categoryId);
-    e.dataTransfer.effectAllowed = 'move';
-  };
+  // ドラッグ＆ドロップによる並び替え
+  const { draggedId, handleDragStart, handleDragOver, handleDrop, handleDragEnd } = useDragReorder({
+    items: categories,
+    getId: category => category.id,
+    onReorder: async newCategories => {
+      setCategories(newCategories);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!draggedId || draggedId === targetId) {
-      setDraggedId(null);
-      return;
-    }
-
-    const draggedIndex = categories.findIndex(c => c.id === draggedId);
-    const targetIndex = categories.findIndex(c => c.id === targetId);
-
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedId(null);
-      return;
-    }
-
-    const newCategories = [...categories];
-    const removedItems = newCategories.splice(draggedIndex, 1);
-    const draggedItem = removedItems[0];
-    if (!draggedItem) {
-      setDraggedId(null);
-      return;
-    }
-    newCategories.splice(targetIndex, 0, draggedItem);
-
-    setCategories(newCategories);
-    setDraggedId(null);
-
-    // 並び順をサーバーに保存
-    const categoryIds = newCategories.map(c => c.id);
-    const result = await updateCategorySortOrder(categoryIds);
-    if (!result.success) {
-      toast.error(result.error);
-      loadCategories();
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggedId(null);
-  };
+      // 並び順をサーバーに保存
+      const categoryIds = newCategories.map(c => c.id);
+      const result = await updateCategorySortOrder(categoryIds);
+      if (!result.success) {
+        toast.error(result.error);
+        loadCategories();
+      }
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
