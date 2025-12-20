@@ -54,10 +54,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               フィールド構成
             </button>
             <CategoryManageButton
-              className={cn(
-                buttonVariants({ variant: 'outline' }),
-                'h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10'
-              )}
+              className="h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10"
             />
             <Link
               href="/wordpress-import"
