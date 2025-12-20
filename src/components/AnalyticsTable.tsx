@@ -195,7 +195,12 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       .then(result => {
         if (result.success) {
           setAnnotationCategories(result.data);
+        } else {
+          console.error('Failed to load annotation categories:', result.error);
         }
+      })
+      .catch(error => {
+        console.error('Error fetching annotation categories:', error);
       })
       .finally(() => {
         setIsCategoriesLoading(false);
@@ -204,11 +209,17 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
 
   // 全カテゴリ一覧を取得（フィルター表示用）
   React.useEffect(() => {
-    getContentCategories().then(result => {
-      if (result.success) {
-        setAllCategories(result.data);
-      }
-    });
+    getContentCategories()
+      .then(result => {
+        if (result.success) {
+          setAllCategories(result.data);
+        } else {
+          console.error('Failed to load content categories:', result.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching content categories:', error);
+      });
   }, []);
 
   // カテゴリフィルターの変更ハンドラ
