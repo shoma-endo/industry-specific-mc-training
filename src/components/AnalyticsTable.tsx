@@ -223,7 +223,7 @@ export default function AnalyticsTable({
       .catch(error => {
         console.error('Error fetching content categories:', error);
       });
-  }, []);
+  }, [categoryRefreshTrigger]);
 
   // カテゴリフィルターの変更ハンドラ
   const handleCategoryFilterChange = React.useCallback(
