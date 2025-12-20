@@ -234,8 +234,9 @@ export default function AnalyticsTable({
     (selectedIds: string[], includeUncat: boolean) => {
       setCategoryFilterIds(selectedIds);
       setIncludeUncategorized(includeUncat);
+      saveCategoryFilterToStorage(selectedIds, includeUncat);
     },
-    []
+    [saveCategoryFilterToStorage]
   );
 
   // フィルタリングされたアイテム
