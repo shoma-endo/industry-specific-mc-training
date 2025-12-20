@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Tag } from 'lucide-react';
 import CategoryManageDialog from '@/components/CategoryManageDialog';
 
@@ -20,7 +21,7 @@ export default function CategoryManageButton({
     <>
       <Button
         variant="outline"
-        className={`flex items-center gap-2 ${className || ''}`}
+        className={cn('flex items-center gap-2', className)}
         onClick={() => setDialogOpen(true)}
       >
         <Tag className="h-4 w-4" aria-hidden />
