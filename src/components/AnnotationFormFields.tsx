@@ -59,6 +59,7 @@ interface Props {
   selectedCategoryIds?: string[];
   onCategoryChange?: React.Dispatch<React.SetStateAction<string[]>>;
   showCategorySelector?: boolean;
+  categoryRefreshTrigger?: number;
 }
 
 export default function AnnotationFormFields({
@@ -74,6 +75,7 @@ export default function AnnotationFormFields({
   selectedCategoryIds,
   onCategoryChange,
   showCategorySelector = false,
+  categoryRefreshTrigger,
 }: Props) {
   return (
     <div className={cn('space-y-5 px-[5px]', className)}>
@@ -132,6 +134,9 @@ export default function AnnotationFormFields({
           <CategorySelector
             selectedCategoryIds={selectedCategoryIds ?? []}
             onSelectedChange={onCategoryChange}
+            {...(categoryRefreshTrigger !== undefined
+              ? { refreshTrigger: categoryRefreshTrigger }
+              : {})}
           />
         </div>
       )}

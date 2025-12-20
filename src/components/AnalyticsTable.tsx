@@ -802,6 +802,7 @@ export default function AnalyticsTable({
                                     showCategorySelector
                                     selectedCategoryIds={editingCategoryIds}
                                     onCategoryChange={setEditingCategoryIds}
+                                    categoryRefreshTrigger={categoryRefreshTrigger}
                                   />
 
                                   <DialogFooter>

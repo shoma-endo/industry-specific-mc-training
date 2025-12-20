@@ -1,7 +1,14 @@
 'use client';
 
 import React from 'react';
-import { upsertContentAnnotationBySession } from '@/server/actions/wordpress.actions';
+import {
+  getContentAnnotationBySession,
+  upsertContentAnnotationBySession,
+} from '@/server/actions/wordpress.actions';
+import {
+  getAnnotationCategories,
+  setAnnotationCategories as saveAnnotationCategories,
+} from '@/server/actions/category.actions';
 import { Button } from '@/components/ui/button';
 import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,6 +16,7 @@ import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 import { AnnotationRecord } from '@/types/annotation';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
 import { useAnnotationForm } from '@/hooks/useAnnotationForm';
+import { toast } from 'sonner';
 
 interface Props {
   sessionId: string;
@@ -46,6 +54,8 @@ export default function AnnotationPanel({
         canonical_url: canonicalUrl,
       }),
   });
+  const [selectedCategoryIds, setSelectedCategoryIds] = React.useState<string[]>([]);
+  const [categoryRefreshTrigger, setCategoryRefreshTrigger] = React.useState(0);
 
   const { width: panelWidth, isResizing, handleMouseDown } = usePersistedResizableWidth({
     storageKey: 'chat-right-panel-width',
@@ -53,11 +63,74 @@ export default function AnnotationPanel({
     minWidth: 320,
     maxWidth: 1000,
   });
+
+  React.useEffect(() => {
+    const annotationId = initialData?.id;
+    if (!annotationId) {
+      setSelectedCategoryIds([]);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadCategories = async () => {
+      try {
+        const result = await getAnnotationCategories(annotationId);
+        if (!isActive) return;
+        if (result.success) {
+          setSelectedCategoryIds(result.data.map(category => category.id));
+        } else {
+          console.error('Failed to load annotation categories:', result.error);
+          setSelectedCategoryIds([]);
+        }
+      } catch (error) {
+        if (!isActive) return;
+        console.error('Error fetching annotation categories:', error);
+        setSelectedCategoryIds([]);
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      isActive = false;
+    };
+  }, [initialData?.id]);
+
   const handleSave = async () => {
     const result = await submit();
-    if (result.success) {
-      onSaveSuccess?.();
+    if (!result.success) {
+      return;
     }
+
+    let annotationId = initialData?.id ?? null;
+    if (!annotationId) {
+      const annotationResult = await getContentAnnotationBySession(sessionId);
+      if (!annotationResult.success) {
+        toast.error(annotationResult.error || 'コンテンツ情報の取得に失敗しました');
+        return;
+      }
+      annotationId = annotationResult.data?.id ?? null;
+    }
+
+    if (!annotationId) {
+      toast.error('カテゴリ保存のためのコンテンツIDが取得できません');
+      return;
+    }
+
+    const categoryResult = await saveAnnotationCategories(annotationId, selectedCategoryIds);
+    if (!categoryResult.success) {
+      toast.error(categoryResult.error || 'カテゴリの保存に失敗しました');
+      return;
+    }
+
+    const refreshedCategories = await getAnnotationCategories(annotationId);
+    if (refreshedCategories.success) {
+      setSelectedCategoryIds(refreshedCategories.data.map(category => category.id));
+      setCategoryRefreshTrigger(prev => prev + 1);
+    }
+
+    onSaveSuccess?.();
   };
   if (!isVisible) return null;
 
@@ -112,6 +185,10 @@ export default function AnnotationPanel({
             canonicalUrlError={canonicalUrlError}
             canonicalUrlInputId="panel-wp-canonical-url"
             wpPostTitle={wpPostTitle}
+            showCategorySelector
+            selectedCategoryIds={selectedCategoryIds}
+            onCategoryChange={setSelectedCategoryIds}
+            categoryRefreshTrigger={categoryRefreshTrigger}
           />
 
           {/* アクションボタン */}
