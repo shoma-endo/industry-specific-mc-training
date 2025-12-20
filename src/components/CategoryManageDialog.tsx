@@ -215,7 +215,7 @@ export default function CategoryManageDialog({
           <DialogTitle>カテゴリ管理</DialogTitle>
           <DialogDescription>
             コンテンツを分類するためのカテゴリを管理します。
-            ドラッグ＆ドロップで並び順を変更できます。
+            並び順（上にあるものほど優先）を変更することで、フィルターでの表示順や、複数カテゴリを持つ記事をソートする際の代表カテゴリをコントロールできます。
           </DialogDescription>
         </DialogHeader>
 
