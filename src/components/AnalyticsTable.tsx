@@ -59,6 +59,7 @@ import { useLiffContext } from '@/components/LiffProvider';
 interface Props {
   items: AnalyticsContentItem[];
   unreadAnnotationIds?: Set<string>;
+  categoryRefreshTrigger?: number;
 }
 
 interface LaunchPayload {
@@ -105,7 +106,11 @@ const createEmptyForm = (): Record<AnnotationFieldKey, string> =>
     string
   >;
 
-export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
+export default function AnalyticsTable({
+  items,
+  unreadAnnotationIds,
+  categoryRefreshTrigger = 0,
+}: Props) {
   const router = useRouter();
   const { getAccessToken } = useLiffContext();
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
@@ -143,8 +148,6 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     () => initialFilter.includeUncategorized
   );
   // カテゴリ管理ダイアログでの変更時にCategoryFilterを更新するトリガー
-  // 現状はページリロードで対応しているため、0固定
-  const categoryRefreshTrigger = 0;
 
   // カテゴリソートの状態（'asc' | 'desc' | null）
   const [categorySortOrder, setCategorySortOrder] = React.useState<'asc' | 'desc' | null>(() => {
