@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { getAllUsers, updateUserRole } from '@/server/actions/admin.actions';
 import { getRoleDisplayName } from '@/authUtils';
 import type { User, UserRole } from '@/types/user';
