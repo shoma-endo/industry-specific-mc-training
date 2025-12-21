@@ -332,7 +332,7 @@ export async function runWordpressBulkImport(accessToken: string) {
         row => !row.wp_post_title || row.wp_post_title.trim().length === 0
       );
       if (needBackfill && needBackfill.length > 0) {
-        const { data: updated } = await supabaseClient
+        const { data: backfilledRows } = await supabaseClient
           .from('content_annotations')
           .update({ wp_post_title: 'タイトル未設定' })
           .in(
@@ -342,7 +342,7 @@ export async function runWordpressBulkImport(accessToken: string) {
               .filter((url): url is string => Boolean(url && url.length > 0))
           )
           .select('canonical_url');
-        titlesBackfilled.push(...(updated?.map(row => row.canonical_url ?? '') ?? []));
+        titlesBackfilled.push(...(backfilledRows?.map(row => row.canonical_url ?? '') ?? []));
       }
     }
 
