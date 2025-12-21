@@ -141,7 +141,7 @@ export async function runWordpressBulkImport(accessToken: string) {
       return { success: false, error: '既存アノテーション取得エラー: ' + existingError.message };
     }
 
-    type ExistingAnnotation = {
+    interface ExistingAnnotation {
       id: string;
       canonical_url: string | null;
       wp_post_id: number | null;
@@ -150,7 +150,7 @@ export async function runWordpressBulkImport(accessToken: string) {
       wp_categories: number[] | null;
       wp_category_names: string[] | null;
       wp_post_type: string | null;
-    };
+    }
 
     const existingUrls = new Set<string>();
     const existingPostIds = new Set<number>();
