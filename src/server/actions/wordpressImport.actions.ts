@@ -348,16 +348,40 @@ export async function runWordpressBulkImport(accessToken: string) {
     }
 
     if (toUpdate.length > 0) {
-      for (const item of toUpdate) {
-        const { error: updateError } = await supabaseClient
+      const updatePromises = toUpdate.map(item =>
+        supabaseClient
           .from('content_annotations')
           .update(item.data)
           .eq('id', item.id)
-          .eq('user_id', userId);
-        if (updateError) {
-          return { success: false, error: updateError.message };
+          .eq('user_id', userId)
+      );
+
+      const updateResults = await Promise.allSettled(updatePromises);
+      const failures: string[] = [];
+
+      updateResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          const { error } = result.value;
+          if (error) {
+            failures.push(`ID ${toUpdate[index].id}: ${error.message || 'Unknown error'}`);
+          } else {
+            updated += 1;
+          }
+        } else {
+          failures.push(`ID ${toUpdate[index].id}: ${result.reason?.message || 'Promise rejected'}`);
         }
-        updated += 1;
+      });
+
+      if (failures.length > 0) {
+        console.error('[wordpress-import] Update failures:', failures);
+        // 部分的な失敗を許容し、成功した更新は反映する
+        // 全ての更新が失敗した場合のみエラーを返す
+        if (failures.length === toUpdate.length) {
+          return {
+            success: false,
+            error: `全ての更新が失敗しました: ${failures.slice(0, 3).join('; ')}${failures.length > 3 ? '...' : ''}`,
+          };
+        }
       }
     }
 
