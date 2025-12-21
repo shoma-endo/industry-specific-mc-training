@@ -360,15 +360,25 @@ export async function runWordpressBulkImport(accessToken: string) {
       const failures: string[] = [];
 
       updateResults.forEach((result, index) => {
+        const item = toUpdate[index];
+        if (!item) return;
+
         if (result.status === 'fulfilled') {
           const { error } = result.value;
           if (error) {
-            failures.push(`ID ${toUpdate[index].id}: ${error.message || 'Unknown error'}`);
+            const errorMessage = error?.message || 'Unknown error';
+            failures.push(`ID ${item.id}: ${errorMessage}`);
           } else {
             updated += 1;
           }
         } else {
-          failures.push(`ID ${toUpdate[index].id}: ${result.reason?.message || 'Promise rejected'}`);
+          const reasonMessage =
+            result.reason instanceof Error
+              ? result.reason.message
+              : typeof result.reason === 'string'
+                ? result.reason
+                : 'Promise rejected';
+          failures.push(`ID ${item.id}: ${reasonMessage}`);
         }
       });
 
