@@ -195,6 +195,8 @@ export async function runWordpressBulkImport(accessToken: string) {
       const trimmed = typeof value === 'string' ? value.trim() : '';
       return trimmed.length > 0 ? trimmed : null;
     };
+    const parseWpPostId = (id: unknown): number | null =>
+      typeof id === 'number' ? id : Number.isFinite(Number(id)) ? Number(id) : null;
     const areArraysEqual = <T,>(a: T[] | null, b: T[] | null) => {
       if (!a && !b) return true;
       if (!a || !b) return false;
@@ -205,8 +207,7 @@ export async function runWordpressBulkImport(accessToken: string) {
     normalized.forEach(post => {
       const canonical = post.canonical_url?.trim();
       const hasCanonical = canonical && canonical.length > 0;
-      const wpPostId =
-        typeof post.id === 'number' ? post.id : Number.isFinite(Number(post.id)) ? Number(post.id) : null;
+      const wpPostId = parseWpPostId(post.id);
       const isBatchDuplicateId = wpPostId !== null && batchSeenIds.has(wpPostId);
       const isBatchDuplicateUrl = hasCanonical ? batchSeenCanonical.has(canonical) : false;
 
@@ -267,15 +268,11 @@ export async function runWordpressBulkImport(accessToken: string) {
 
     const toInsert: Record<string, unknown>[] = [];
     const toUpdate: { id: string; data: Record<string, unknown> }[] = [];
+    const batchTimestamp = new Date().toISOString();
 
     candidates.forEach(post => {
       const canonical = post.canonical_url?.trim() ?? null;
-      const wpPostId =
-        typeof post.id === 'number'
-          ? post.id
-          : Number.isFinite(Number(post.id))
-            ? Number(post.id)
-            : null;
+      const wpPostId = parseWpPostId(post.id);
       const nextTitle = normalizeText(post.title);
       const nextExcerpt = normalizeText(post.excerpt);
       const nextPostType = normalizeText(post.post_type);
@@ -294,7 +291,7 @@ export async function runWordpressBulkImport(accessToken: string) {
         wp_categories: nextCategories,
         wp_category_names: nextCategoryNames,
         wp_excerpt: nextExcerpt,
-        updated_at: new Date().toISOString(),
+        updated_at: batchTimestamp,
       };
 
       if (existing) {
@@ -308,7 +305,7 @@ export async function runWordpressBulkImport(accessToken: string) {
       toInsert.push({
         user_id: userId,
         ...baseData,
-        created_at: new Date().toISOString(),
+        created_at: batchTimestamp,
       });
     });
 
