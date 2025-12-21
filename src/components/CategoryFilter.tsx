@@ -84,7 +84,6 @@ export default function CategoryFilter({
               checked={selectedCategoryNames.includes(categoryName)}
               onCheckedChange={() => toggleCategory(categoryName)}
             />
-            <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-300" />
             <span className="text-sm truncate">{categoryName}</span>
           </label>
         ))}
@@ -99,7 +98,6 @@ export default function CategoryFilter({
               syncToStorage(selectedCategoryNames, nextVal);
             }}
           />
-          <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-300" />
           <span className="text-sm text-gray-600">未分類</span>
         </label>
       </div>
