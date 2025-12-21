@@ -13,6 +13,13 @@ import type {
   WordPressNormalizedPost,
 } from '@/types/wordpress';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import {
+  areArraysEqual,
+  normalizeCategories,
+  normalizeCategoryNames,
+  normalizeText,
+  parseWpPostId,
+} from '@/lib/utils';
 
 export async function runWordpressBulkImport(accessToken: string) {
   try {
@@ -186,26 +193,6 @@ export async function runWordpressBulkImport(accessToken: string) {
     let skippedUnchanged = 0;
     let duplicateSkipped = 0;
     let skippedWithoutCanonical = 0;
-
-    const normalizeCategories = (value: number[] | undefined) =>
-      Array.isArray(value) && value.length > 0 ? value : null;
-    const normalizeCategoryNames = (value: string[] | undefined) => {
-      if (!Array.isArray(value)) return null;
-      const names = value.filter(name => typeof name === 'string' && name.trim().length > 0);
-      return names.length > 0 ? names : null;
-    };
-    const normalizeText = (value: string | undefined | null) => {
-      const trimmed = typeof value === 'string' ? value.trim() : '';
-      return trimmed.length > 0 ? trimmed : null;
-    };
-    const parseWpPostId = (id: unknown): number | null =>
-      typeof id === 'number' ? id : Number.isFinite(Number(id)) ? Number(id) : null;
-    const areArraysEqual = <T,>(a: T[] | null, b: T[] | null) => {
-      if (!a && !b) return true;
-      if (!a || !b) return false;
-      if (a.length !== b.length) return false;
-      return a.every((value, index) => value === b[index]);
-    };
 
     const toInsert: ContentAnnotationInsert[] = [];
     const toUpdate: { id: string; data: ContentAnnotationUpdate }[] = [];
