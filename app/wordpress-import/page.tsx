@@ -208,7 +208,7 @@ export default function WordPressImportPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">{result.totalPosts}</div>
                   <div className="text-sm text-gray-600">取得記事数</div>
@@ -272,7 +272,7 @@ export default function WordPressImportPage() {
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-gray-600">
                         <span>新規候補 {stats.newCandidates}</span>
-                        <span>処理済み {stats.processed}</span>
+                        <span>登録/更新 {stats.processed}</span>
                         <span>既存スキップ {stats.skippedExisting}</span>
                         <span>URL不足 {stats.skippedWithoutCanonical}</span>
                         <span>重複 {stats.duplicate}</span>
