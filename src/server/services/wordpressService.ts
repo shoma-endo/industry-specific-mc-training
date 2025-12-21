@@ -271,7 +271,7 @@ export class WordPressService {
       type: 'posts' | 'pages'
     ): Promise<WordPressApiResult<WordPressPostResponse | null>> => {
       try {
-        const endpoint = `${this.baseUrl}/${type}/${id}`;
+        const endpoint = `${this.baseUrl}/${type}/${id}?_embed=true`;
         const response = await fetch(endpoint, { headers: this.getAuthHeaders() });
 
         if (!response.ok) {
@@ -586,7 +586,9 @@ const resolveRenderedField = (field: WordPressRenderedField): string | undefined
   return field.rendered;
 };
 
-const extractCategoryNames = (terms: Array<WordPressRestTerm> | undefined): string[] => {
+export const extractCategoryNames = (
+  terms: Array<WordPressRestTerm> | undefined
+): string[] => {
   if (!terms || !Array.isArray(terms)) return [];
   return terms
     .filter((term): term is WordPressRestTerm & { name: string } => Boolean(term && term.name))

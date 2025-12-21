@@ -3,74 +3,45 @@
 import * as React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
-import type { ContentCategory, CategoryFilterConfig } from '@/types/category';
-import { getContentCategories } from '@/server/actions/category.actions';
+import type { CategoryFilterConfig } from '@/types/category';
 import { ANALYTICS_STORAGE_KEYS } from '@/lib/constants';
 
 interface CategoryFilterProps {
-  selectedCategoryIds: string[];
+  categories: string[];
+  selectedCategoryNames: string[];
   includeUncategorized: boolean;
-  onFilterChange: (selectedCategoryIds: string[], includeUncategorized: boolean) => void;
-  refreshTrigger?: number;
+  onFilterChange: (selectedCategoryNames: string[], includeUncategorized: boolean) => void;
 }
 
 export default function CategoryFilter({
-  selectedCategoryIds,
+  categories,
+  selectedCategoryNames,
   includeUncategorized,
   onFilterChange,
-  refreshTrigger,
 }: CategoryFilterProps) {
-  const [categories, setCategories] = React.useState<ContentCategory[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-
-  const loadCategories = React.useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await getContentCategories();
-      if (result.success) {
-        setCategories(result.data);
-      } else {
-        setError(result.error || 'カテゴリの読み込みに失敗しました');
-      }
-    } catch {
-      setError('カテゴリの読み込みに失敗しました');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // 初回ロード & refreshTrigger変更時
-  React.useEffect(() => {
-    loadCategories();
-  }, [loadCategories, refreshTrigger]);
-
   // フィルター変更時に永続化
-  const syncToStorage = React.useCallback((ids: string[], includeUncat: boolean) => {
+  const syncToStorage = React.useCallback((names: string[], includeUncat: boolean) => {
     if (typeof window !== 'undefined') {
       const stored: CategoryFilterConfig = {
-        selectedCategoryIds: ids,
+        selectedCategoryNames: names,
         includeUncategorized: includeUncat,
       };
       localStorage.setItem(ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER, JSON.stringify(stored));
     }
   }, []);
 
-  const toggleCategory = (categoryId: string) => {
-    const nextIds = selectedCategoryIds.includes(categoryId)
-      ? selectedCategoryIds.filter(id => id !== categoryId)
-      : [...selectedCategoryIds, categoryId];
+  const toggleCategory = (categoryName: string) => {
+    const nextNames = selectedCategoryNames.includes(categoryName)
+      ? selectedCategoryNames.filter(name => name !== categoryName)
+      : [...selectedCategoryNames, categoryName];
     
-    onFilterChange(nextIds, includeUncategorized);
-    syncToStorage(nextIds, includeUncategorized);
+    onFilterChange(nextNames, includeUncategorized);
+    syncToStorage(nextNames, includeUncategorized);
   };
 
   const selectAll = () => {
-    const allIds = categories.map(c => c.id);
-    onFilterChange(allIds, true);
-    syncToStorage(allIds, true);
+    onFilterChange(categories, true);
+    syncToStorage(categories, true);
   };
 
   const clearAll = () => {
@@ -78,23 +49,7 @@ export default function CategoryFilter({
     syncToStorage([], false);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">
-        {error}
-      </div>
-    );
-  }
-
-  const hasAnySelection = selectedCategoryIds.length > 0 || includeUncategorized;
+  const hasAnySelection = selectedCategoryNames.length > 0 || includeUncategorized;
 
   return (
     <div className="space-y-3">
@@ -120,20 +75,17 @@ export default function CategoryFilter({
       )}
 
       <div className="max-h-[200px] overflow-y-auto space-y-2">
-        {categories.map(category => (
+        {categories.map(categoryName => (
           <label
-            key={category.id}
+            key={categoryName}
             className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
           >
             <Checkbox
-              checked={selectedCategoryIds.includes(category.id)}
-              onCheckedChange={() => toggleCategory(category.id)}
+              checked={selectedCategoryNames.includes(categoryName)}
+              onCheckedChange={() => toggleCategory(categoryName)}
             />
-            <span
-              className="w-3 h-3 rounded-full flex-shrink-0"
-              style={{ backgroundColor: category.color }}
-            />
-            <span className="text-sm truncate">{category.name}</span>
+            <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-300" />
+            <span className="text-sm truncate">{categoryName}</span>
           </label>
         ))}
 
@@ -143,8 +95,8 @@ export default function CategoryFilter({
             checked={includeUncategorized}
             onCheckedChange={checked => {
               const nextVal = !!checked;
-              onFilterChange(selectedCategoryIds, nextVal);
-              syncToStorage(selectedCategoryIds, nextVal);
+              onFilterChange(selectedCategoryNames, nextVal);
+              syncToStorage(selectedCategoryNames, nextVal);
             }}
           />
           <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-300" />
@@ -154,7 +106,7 @@ export default function CategoryFilter({
 
       {categories.length === 0 && (
         <p className="text-xs text-gray-500 text-center py-2">
-          カテゴリがありません。「カテゴリ管理」から追加してください。
+          カテゴリが見つかりません。WordPressの記事を同期してください。
         </p>
       )}
     </div>

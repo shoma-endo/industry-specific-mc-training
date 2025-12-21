@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import AnalyticsTable from '@/components/AnalyticsTable';
-import CategoryManageButton from '@/components/CategoryManageButton';
 import { Download, Settings, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorAlert } from '@/components/ErrorAlert';
@@ -36,16 +35,11 @@ export default function AnalyticsClient({
   prevDisabled,
   nextDisabled,
 }: AnalyticsClientProps) {
-  const [categoryRefreshTrigger, setCategoryRefreshTrigger] = React.useState(0);
   const unreadAnnotationSet = React.useMemo(
     () => new Set(unreadAnnotationIds),
     [unreadAnnotationIds]
   );
   const shouldRenderTable = items.length > 0;
-
-  const handleCategoryChange = React.useCallback(() => {
-    setCategoryRefreshTrigger(prev => prev + 1);
-  }, []);
 
   return (
     <div className="w-full px-4 py-8">
@@ -65,10 +59,6 @@ export default function AnalyticsClient({
               <Settings className="w-4 h-4" aria-hidden />
               フィールド構成
             </button>
-            <CategoryManageButton
-              className="h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10"
-              onCategoriesChange={handleCategoryChange}
-            />
             <Link
               href="/wordpress-import"
               className={cn(buttonVariants(), 'h-9 inline-flex items-center gap-2')}
@@ -95,7 +85,6 @@ export default function AnalyticsClient({
             <AnalyticsTable
               items={items}
               unreadAnnotationIds={unreadAnnotationSet}
-              categoryRefreshTrigger={categoryRefreshTrigger}
             />
           ) : error ? null : (
             <div className="text-center py-8 text-gray-500">投稿が見つかりません</div>

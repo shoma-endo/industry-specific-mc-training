@@ -132,27 +132,40 @@ export async function runWordpressBulkImport(accessToken: string) {
 
     const { data: existingAnnotations, error: existingError } = await supabaseClient
       .from('content_annotations')
-      .select('canonical_url, wp_post_id, wp_post_title')
+      .select(
+        'id, canonical_url, wp_post_id, wp_post_title, wp_excerpt, wp_categories, wp_category_names, wp_post_type'
+      )
       .eq('user_id', userId);
 
     if (existingError) {
       return { success: false, error: '既存アノテーション取得エラー: ' + existingError.message };
     }
 
+    type ExistingAnnotation = {
+      id: string;
+      canonical_url: string | null;
+      wp_post_id: number | null;
+      wp_post_title: string | null;
+      wp_excerpt: string | null;
+      wp_categories: number[] | null;
+      wp_category_names: string[] | null;
+      wp_post_type: string | null;
+    };
+
     const existingUrls = new Set<string>();
     const existingPostIds = new Set<number>();
-    const existingTitleMap = new Map<string, boolean>();
+    const existingByCanonical = new Map<string, ExistingAnnotation>();
+    const existingByPostId = new Map<number, ExistingAnnotation>();
 
-    (existingAnnotations ?? []).forEach(annotation => {
+    (existingAnnotations as ExistingAnnotation[] | null | undefined)?.forEach(annotation => {
       const canonicalTrimmed = annotation.canonical_url?.trim();
       if (canonicalTrimmed) {
         existingUrls.add(canonicalTrimmed);
-        const hasTitle =
-          typeof annotation.wp_post_title === 'string' && annotation.wp_post_title.trim().length > 0;
-        existingTitleMap.set(canonicalTrimmed, hasTitle);
+        existingByCanonical.set(canonicalTrimmed, annotation);
       }
       if (annotation.wp_post_id !== null && annotation.wp_post_id !== undefined) {
         existingPostIds.add(annotation.wp_post_id);
+        existingByPostId.set(annotation.wp_post_id, annotation);
       }
     });
 
@@ -165,30 +178,50 @@ export async function runWordpressBulkImport(accessToken: string) {
     const normalized = allPosts.slice(0, maxAllowed);
 
     const candidates: WordPressNormalizedPost[] = [];
-    const skipped: WordPressNormalizedPost[] = [];
     const batchSeenIds = new Set<number>();
     const batchSeenCanonical = new Set<string>();
+    let skippedUnchanged = 0;
+    let duplicateSkipped = 0;
+    let skippedWithoutCanonical = 0;
+
+    const normalizeCategories = (value: number[] | undefined) =>
+      Array.isArray(value) && value.length > 0 ? value : null;
+    const normalizeCategoryNames = (value: string[] | undefined) => {
+      if (!Array.isArray(value)) return null;
+      const names = value.filter(name => typeof name === 'string' && name.trim().length > 0);
+      return names.length > 0 ? names : null;
+    };
+    const normalizeText = (value: string | undefined | null) => {
+      const trimmed = typeof value === 'string' ? value.trim() : '';
+      return trimmed.length > 0 ? trimmed : null;
+    };
+    const areArraysEqual = <T,>(a: T[] | null, b: T[] | null) => {
+      if (!a && !b) return true;
+      if (!a || !b) return false;
+      if (a.length !== b.length) return false;
+      return a.every((value, index) => value === b[index]);
+    };
 
     normalized.forEach(post => {
       const canonical = post.canonical_url?.trim();
       const hasCanonical = canonical && canonical.length > 0;
       const wpPostId =
         typeof post.id === 'number' ? post.id : Number.isFinite(Number(post.id)) ? Number(post.id) : null;
-      const isDuplicateUrl = hasCanonical ? existingUrls.has(canonical) : false;
-      const isDuplicateId = wpPostId !== null ? existingPostIds.has(wpPostId) : false;
       const isBatchDuplicateId = wpPostId !== null && batchSeenIds.has(wpPostId);
       const isBatchDuplicateUrl = hasCanonical ? batchSeenCanonical.has(canonical) : false;
 
-      if (!hasCanonical || isDuplicateUrl || isDuplicateId || isBatchDuplicateId || isBatchDuplicateUrl) {
-        skipped.push(post);
-        const type = normalizeContentType(post.post_type ?? 'posts');
-        const stats = ensureStats(type);
-        if (!hasCanonical) {
-          stats.skippedWithoutCanonical += 1;
-        }
-        if (isDuplicateUrl || isDuplicateId || isBatchDuplicateId || isBatchDuplicateUrl) {
-          stats.duplicate += 1;
-        }
+      const type = normalizeContentType(post.post_type ?? 'posts');
+      const stats = ensureStats(type);
+
+      if (!hasCanonical) {
+        stats.skippedWithoutCanonical += 1;
+        skippedWithoutCanonical += 1;
+        return;
+      }
+
+      if (isBatchDuplicateId || isBatchDuplicateUrl) {
+        stats.duplicate += 1;
+        duplicateSkipped += 1;
         return;
       }
 
@@ -200,29 +233,88 @@ export async function runWordpressBulkImport(accessToken: string) {
       }
 
       candidates.push(post);
-      const type = normalizeContentType(post.post_type ?? 'posts');
-      const stats = ensureStats(type);
-      stats.newCandidates += 1;
+      const existing =
+        (canonical ? existingByCanonical.get(canonical) : undefined) ??
+        (wpPostId !== null ? existingByPostId.get(wpPostId) : undefined);
+
+      const nextTitle = normalizeText(post.title);
+      const nextExcerpt = normalizeText(post.excerpt);
+      const nextPostType = normalizeText(post.post_type);
+      const nextCategories = normalizeCategories(post.categories);
+      const nextCategoryNames = normalizeCategoryNames(post.categoryNames);
+
+      if (existing) {
+        const hasChanges =
+          normalizeText(existing.canonical_url) !== canonical ||
+          existing.wp_post_id !== wpPostId ||
+          normalizeText(existing.wp_post_title) !== nextTitle ||
+          normalizeText(existing.wp_excerpt) !== nextExcerpt ||
+          normalizeText(existing.wp_post_type) !== nextPostType ||
+          !areArraysEqual(existing.wp_categories ?? null, nextCategories) ||
+          !areArraysEqual(existing.wp_category_names ?? null, nextCategoryNames);
+
+        if (!hasChanges) {
+          stats.skippedExisting += 1;
+          skippedUnchanged += 1;
+          return;
+        }
+      } else {
+        stats.newCandidates += 1;
+      }
+
+      candidates.push(post);
+      stats.inserted += 1;
     });
 
-    const toInsert = candidates.map(post => ({
-      user_id: userId,
-      wp_post_id:
+    const toInsert: Record<string, unknown>[] = [];
+    const toUpdate: { id: string; data: Record<string, unknown> }[] = [];
+
+    candidates.forEach(post => {
+      const canonical = post.canonical_url?.trim() ?? null;
+      const wpPostId =
         typeof post.id === 'number'
           ? post.id
           : Number.isFinite(Number(post.id))
             ? Number(post.id)
-            : null,
-      wp_post_title: post.title ?? null,
-      canonical_url: post.canonical_url?.trim() ?? null,
-      wp_post_type: post.post_type ?? null,
-      wp_categories: post.categories ?? null,
-      wp_excerpt: post.excerpt ?? null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+            : null;
+      const nextTitle = normalizeText(post.title);
+      const nextExcerpt = normalizeText(post.excerpt);
+      const nextPostType = normalizeText(post.post_type);
+      const nextCategories = normalizeCategories(post.categories);
+      const nextCategoryNames = normalizeCategoryNames(post.categoryNames);
+
+      const existing =
+        (canonical ? existingByCanonical.get(canonical) : undefined) ??
+        (wpPostId !== null ? existingByPostId.get(wpPostId) : undefined);
+
+      const baseData = {
+        wp_post_id: wpPostId,
+        wp_post_title: nextTitle,
+        canonical_url: canonical,
+        wp_post_type: nextPostType,
+        wp_categories: nextCategories,
+        wp_category_names: nextCategoryNames,
+        wp_excerpt: nextExcerpt,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existing) {
+        toUpdate.push({
+          id: existing.id,
+          data: baseData,
+        });
+        return;
+      }
+
+      toInsert.push({
+        user_id: userId,
+        ...baseData,
+        created_at: new Date().toISOString(),
+      });
+    });
 
     let inserted = 0;
+    let updated = 0;
     const titlesBackfilled: string[] = [];
 
     if (toInsert.length > 0) {
@@ -255,21 +347,19 @@ export async function runWordpressBulkImport(accessToken: string) {
       }
     }
 
-    candidates.forEach(post => {
-      const type = normalizeContentType(post.post_type ?? 'posts');
-      const stats = ensureStats(type);
-      stats.inserted += 1;
-    });
-
-    skipped.forEach(post => {
-      const type = normalizeContentType(post.post_type ?? 'posts');
-      const stats = ensureStats(type);
-      if (post.canonical_url?.trim()) {
-        stats.skippedExisting += 1;
-      } else {
-        stats.skippedWithoutCanonical += 1;
+    if (toUpdate.length > 0) {
+      for (const item of toUpdate) {
+        const { error: updateError } = await supabaseClient
+          .from('content_annotations')
+          .update(item.data)
+          .eq('id', item.id)
+          .eq('user_id', userId);
+        if (updateError) {
+          return { success: false, error: updateError.message };
+        }
+        updated += 1;
       }
-    });
+    }
 
     const statsByTypeSerialized = Array.from(statsByType.entries()).reduce<
       Record<
@@ -297,29 +387,12 @@ export async function runWordpressBulkImport(accessToken: string) {
       success: true,
       data: {
         totalPosts: allPosts.length,
-        newPosts: candidates.length,
-        skippedExistingPosts: skipped.filter(post => {
-          const canonical = post.canonical_url?.trim();
-          const wpPostId =
-            typeof post.id === 'number'
-              ? post.id
-              : Number.isFinite(Number(post.id))
-                ? Number(post.id)
-                : null;
-          return (canonical && existingUrls.has(canonical)) || (wpPostId !== null && existingPostIds.has(wpPostId));
-        }).length,
-        skippedWithoutCanonical: skipped.filter(post => !post.canonical_url?.trim()).length,
+        newPosts: toInsert.length,
+        updatedPosts: updated,
+        skippedExistingPosts: skippedUnchanged,
+        skippedWithoutCanonical,
         insertedPosts: inserted,
-        duplicatePosts: skipped.filter(post => {
-          const canonical = post.canonical_url?.trim();
-          const wpPostId =
-            typeof post.id === 'number'
-              ? post.id
-              : Number.isFinite(Number(post.id))
-                ? Number(post.id)
-                : null;
-          return (canonical && existingUrls.has(canonical)) || (wpPostId !== null && existingPostIds.has(wpPostId));
-        }).length,
+        duplicatePosts: duplicateSkipped,
         errorPosts: 0,
         existingContentTotal: existingUrls.size,
         contentTypes: contentTypes,

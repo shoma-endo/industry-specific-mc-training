@@ -148,6 +148,8 @@ export interface NormalizedPostResponse {
   id: number | null;
   link?: string;
   title?: string;
+  categories?: number[];
+  categoryNames?: string[];
 }
 
 /**

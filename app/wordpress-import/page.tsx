@@ -13,6 +13,7 @@ import { runWordpressBulkImport } from '@/server/actions/wordpressImport.actions
 interface ImportResult {
   totalPosts: number;
   newPosts: number;
+  updatedPosts: number;
   skippedExistingPosts: number;
   skippedWithoutCanonical: number;
   insertedPosts: number;
@@ -56,6 +57,7 @@ export default function WordPressImportPage() {
       return {
         totalPosts: 0,
         newPosts: 0,
+        updatedPosts: 0,
         skippedExistingPosts: 0,
         skippedWithoutCanonical: 0,
         insertedPosts: 0,
@@ -74,6 +76,7 @@ export default function WordPressImportPage() {
     return {
       totalPosts: typeof payload.totalPosts === 'number' ? payload.totalPosts : 0,
       newPosts: typeof payload.newPosts === 'number' ? payload.newPosts : 0,
+      updatedPosts: typeof payload.updatedPosts === 'number' ? payload.updatedPosts : 0,
       skippedExistingPosts:
         typeof payload.skippedExistingPosts === 'number' ? payload.skippedExistingPosts : 0,
       skippedWithoutCanonical:
@@ -219,8 +222,12 @@ export default function WordPressImportPage() {
                 <div className="text-sm text-gray-600">登録成功</div>
               </div>
               <div className="text-center">
+                <div className="text-2xl font-bold text-indigo-600">{result.updatedPosts}</div>
+                <div className="text-sm text-gray-600">更新件数</div>
+              </div>
+              <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">{result.skippedExistingPosts}</div>
-                <div className="text-sm text-gray-600">既存でスキップ</div>
+                <div className="text-sm text-gray-600">変更なしでスキップ</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-yellow-600">{result.duplicatePosts}</div>
@@ -239,10 +246,11 @@ export default function WordPressImportPage() {
                   ? result.contentTypes.map(formatTypeLabel).join(', ')
                   : '検出されませんでした'}<br/>
                 • {result.newPosts}件を新規登録対象として処理<br/>
-                • {result.insertedPosts}件を登録成功<br/>
-                • {result.skippedExistingPosts}件を既存データとしてスキップ<br/>
+                • {result.updatedPosts}件を既存更新<br/>
+                • {result.insertedPosts}件を新規登録<br/>
+                • {result.skippedExistingPosts}件を変更なしとしてスキップ<br/>
                 • {result.skippedWithoutCanonical}件をURL不足などでスキップ<br/>
-                • {result.duplicatePosts}件がDB重複で失敗<br/>
+                • {result.duplicatePosts}件が重複のためスキップ<br/>
                 • {result.errorPosts}件でエラーが発生<br/>
                 • 実行前の登録済みコンテンツ総数: {result.existingContentTotal}件
                 {typeof result.backfilledTitles === 'number' && result.backfilledTitles > 0 && (
