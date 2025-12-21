@@ -102,6 +102,30 @@ export interface WordPressNormalizedPost {
   post_type?: string;
 }
 
+export interface ContentAnnotationInsert {
+  user_id: string;
+  wp_post_id: number | null;
+  wp_post_title: string | null;
+  canonical_url: string | null;
+  wp_post_type: string | null;
+  wp_categories: number[] | null;
+  wp_category_names: string[] | null;
+  wp_excerpt: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentAnnotationUpdate {
+  wp_post_id: number | null;
+  wp_post_title: string | null;
+  canonical_url: string | null;
+  wp_post_type: string | null;
+  wp_categories: number[] | null;
+  wp_category_names: string[] | null;
+  wp_excerpt: string | null;
+  updated_at: string;
+}
+
 /**
  * REST APIリクエスト設定
  */

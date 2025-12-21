@@ -7,7 +7,11 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { buildWordPressServiceFromSettings } from '@/server/services/wordpressContext';
 import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
 import { normalizeContentTypes, normalizeContentType } from '@/server/services/wordpressContentTypes';
-import type { WordPressNormalizedPost } from '@/types/wordpress';
+import type {
+  ContentAnnotationInsert,
+  ContentAnnotationUpdate,
+  WordPressNormalizedPost,
+} from '@/types/wordpress';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export async function runWordpressBulkImport(accessToken: string) {
@@ -203,8 +207,8 @@ export async function runWordpressBulkImport(accessToken: string) {
       return a.every((value, index) => value === b[index]);
     };
 
-    const toInsert: Record<string, unknown>[] = [];
-    const toUpdate: { id: string; data: Record<string, unknown> }[] = [];
+    const toInsert: ContentAnnotationInsert[] = [];
+    const toUpdate: { id: string; data: ContentAnnotationUpdate }[] = [];
     const batchTimestamp = new Date().toISOString();
 
     normalized.forEach(post => {
