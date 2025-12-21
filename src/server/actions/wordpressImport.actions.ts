@@ -232,7 +232,6 @@ export async function runWordpressBulkImport(accessToken: string) {
         batchSeenCanonical.add(canonical);
       }
 
-      candidates.push(post);
       const existing =
         (canonical ? existingByCanonical.get(canonical) : undefined) ??
         (wpPostId !== null ? existingByPostId.get(wpPostId) : undefined);
