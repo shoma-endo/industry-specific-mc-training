@@ -291,6 +291,7 @@ export async function runWordpressBulkImport(accessToken: string) {
 
     let inserted = 0;
     let updated = 0;
+    let failedUpdates = 0;
     const titlesBackfilled: string[] = [];
 
     if (toInsert.length > 0) {
@@ -360,6 +361,7 @@ export async function runWordpressBulkImport(accessToken: string) {
 
       if (failures.length > 0) {
         console.error('[wordpress-import] Update failures:', failures);
+        failedUpdates = failures.length;
         // 部分的な失敗を許容し、成功した更新は反映する
         // 全ての更新が失敗した場合のみエラーを返す
         if (failures.length === toUpdate.length) {
@@ -399,6 +401,7 @@ export async function runWordpressBulkImport(accessToken: string) {
         totalPosts: allPosts.length,
         newPosts: toInsert.length,
         updatedPosts: updated,
+        failedUpdates: failedUpdates,
         skippedExistingPosts: skippedUnchanged,
         skippedWithoutCanonical,
         insertedPosts: inserted,
