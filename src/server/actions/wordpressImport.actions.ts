@@ -72,7 +72,7 @@ export async function runWordpressBulkImport(accessToken: string) {
         newCandidates: number;
         skippedExisting: number;
         skippedWithoutCanonical: number;
-        inserted: number;
+        processed: number;
         duplicate: number;
         error: number;
       }
@@ -87,7 +87,7 @@ export async function runWordpressBulkImport(accessToken: string) {
           newCandidates: 0,
           skippedExisting: 0,
           skippedWithoutCanonical: 0,
-          inserted: 0,
+          processed: 0,
           duplicate: 0,
           error: 0,
         });
@@ -263,7 +263,7 @@ export async function runWordpressBulkImport(accessToken: string) {
       }
 
       candidates.push(post);
-      stats.inserted += 1;
+      stats.processed += 1;
     });
 
     const toInsert: Record<string, unknown>[] = [];
@@ -404,7 +404,7 @@ export async function runWordpressBulkImport(accessToken: string) {
           newCandidates: number;
           skippedExisting: number;
           skippedWithoutCanonical: number;
-          inserted: number;
+          processed: number;
           duplicate: number;
           error: number;
         }

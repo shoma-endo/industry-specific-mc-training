@@ -29,7 +29,7 @@ interface ImportResult {
       newCandidates: number;
       skippedExisting: number;
       skippedWithoutCanonical: number;
-      inserted: number;
+      processed: number;
       duplicate: number;
       error: number;
     }
@@ -272,7 +272,7 @@ export default function WordPressImportPage() {
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-gray-600">
                         <span>新規候補 {stats.newCandidates}</span>
-                        <span>登録成功 {stats.inserted}</span>
+                        <span>処理済み {stats.processed}</span>
                         <span>既存スキップ {stats.skippedExisting}</span>
                         <span>URL不足 {stats.skippedWithoutCanonical}</span>
                         <span>重複 {stats.duplicate}</span>
