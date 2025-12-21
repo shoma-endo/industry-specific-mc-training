@@ -177,7 +177,6 @@ export async function runWordpressBulkImport(accessToken: string) {
 
     const normalized = allPosts.slice(0, maxAllowed);
 
-    const candidates: WordPressNormalizedPost[] = [];
     const batchSeenIds = new Set<number>();
     const batchSeenCanonical = new Set<string>();
     let skippedUnchanged = 0;
@@ -203,6 +202,10 @@ export async function runWordpressBulkImport(accessToken: string) {
       if (a.length !== b.length) return false;
       return a.every((value, index) => value === b[index]);
     };
+
+    const toInsert: Record<string, unknown>[] = [];
+    const toUpdate: { id: string; data: Record<string, unknown> }[] = [];
+    const batchTimestamp = new Date().toISOString();
 
     normalized.forEach(post => {
       const canonical = post.canonical_url?.trim();
@@ -233,15 +236,26 @@ export async function runWordpressBulkImport(accessToken: string) {
         batchSeenCanonical.add(canonical);
       }
 
-      const existing =
-        (canonical ? existingByCanonical.get(canonical) : undefined) ??
-        (wpPostId !== null ? existingByPostId.get(wpPostId) : undefined);
-
       const nextTitle = normalizeText(post.title);
       const nextExcerpt = normalizeText(post.excerpt);
       const nextPostType = normalizeText(post.post_type);
       const nextCategories = normalizeCategories(post.categories);
       const nextCategoryNames = normalizeCategoryNames(post.categoryNames);
+
+      const existing =
+        (canonical ? existingByCanonical.get(canonical) : undefined) ??
+        (wpPostId !== null ? existingByPostId.get(wpPostId) : undefined);
+
+      const baseData = {
+        wp_post_id: wpPostId,
+        wp_post_title: nextTitle,
+        canonical_url: canonical ?? null,
+        wp_post_type: nextPostType,
+        wp_categories: nextCategories,
+        wp_category_names: nextCategoryNames,
+        wp_excerpt: nextExcerpt,
+        updated_at: batchTimestamp,
+      };
 
       if (existing) {
         const hasChanges =
@@ -258,55 +272,21 @@ export async function runWordpressBulkImport(accessToken: string) {
           skippedUnchanged += 1;
           return;
         }
-      } else {
-        stats.newCandidates += 1;
-      }
-
-      candidates.push(post);
-      stats.processed += 1;
-    });
-
-    const toInsert: Record<string, unknown>[] = [];
-    const toUpdate: { id: string; data: Record<string, unknown> }[] = [];
-    const batchTimestamp = new Date().toISOString();
-
-    candidates.forEach(post => {
-      const canonical = post.canonical_url?.trim() ?? null;
-      const wpPostId = parseWpPostId(post.id);
-      const nextTitle = normalizeText(post.title);
-      const nextExcerpt = normalizeText(post.excerpt);
-      const nextPostType = normalizeText(post.post_type);
-      const nextCategories = normalizeCategories(post.categories);
-      const nextCategoryNames = normalizeCategoryNames(post.categoryNames);
-
-      const existing =
-        (canonical ? existingByCanonical.get(canonical) : undefined) ??
-        (wpPostId !== null ? existingByPostId.get(wpPostId) : undefined);
-
-      const baseData = {
-        wp_post_id: wpPostId,
-        wp_post_title: nextTitle,
-        canonical_url: canonical,
-        wp_post_type: nextPostType,
-        wp_categories: nextCategories,
-        wp_category_names: nextCategoryNames,
-        wp_excerpt: nextExcerpt,
-        updated_at: batchTimestamp,
-      };
-
-      if (existing) {
         toUpdate.push({
           id: existing.id,
           data: baseData,
         });
+        stats.processed += 1;
         return;
       }
 
+      stats.newCandidates += 1;
       toInsert.push({
         user_id: userId,
         ...baseData,
         created_at: batchTimestamp,
       });
+      stats.processed += 1;
     });
 
     let inserted = 0;
