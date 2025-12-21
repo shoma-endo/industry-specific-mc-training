@@ -208,7 +208,7 @@ export default function WordPressImportPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">{result.totalPosts}</div>
                   <div className="text-sm text-gray-600">取得記事数</div>
