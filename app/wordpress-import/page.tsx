@@ -20,7 +20,7 @@ const isWordPressAuthError = (errorMessage: string | undefined): boolean => {
     lowerError.includes('wordpress 認証') ||
     lowerError.includes('wordpress token') ||
     lowerError.includes('wordpress.com token') ||
-    lowerError.includes('invalid_grant') ||
+    (lowerError.includes('invalid_grant') && lowerError.includes('wordpress')) ||
     lowerError.includes('wordpress連携が設定されていません') ||
     lowerError.includes('wordpress.com oauth')
   );
