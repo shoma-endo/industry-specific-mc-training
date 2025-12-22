@@ -13,18 +13,11 @@ import {
   type BlogStepId,
 } from '@/lib/constants';
 import type { AnalyticsContentItem } from '@/types/analytics';
-import type { ContentCategory } from '@/types/category';
 import {
   ensureAnnotationChatSession,
   updateContentAnnotationFields,
   deleteContentAnnotation,
 } from '@/server/actions/wordpress.actions';
-import {
-  getAnnotationCategories,
-  setAnnotationCategories as saveAnnotationCategories,
-  getAnnotationCategoriesBatch,
-  getContentCategories,
-} from '@/server/actions/category.actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -44,9 +37,6 @@ import {
   Trash2,
   ChevronsLeft,
   ChevronsRight,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -59,7 +49,6 @@ import { useLiffContext } from '@/components/LiffProvider';
 interface Props {
   items: AnalyticsContentItem[];
   unreadAnnotationIds?: Set<string>;
-  categoryRefreshTrigger?: number;
 }
 
 interface LaunchPayload {
@@ -109,7 +98,6 @@ const createEmptyForm = (): Record<AnnotationFieldKey, string> =>
 export default function AnalyticsTable({
   items,
   unreadAnnotationIds,
-  categoryRefreshTrigger = 0,
 }: Props) {
   const router = useRouter();
   const { getAccessToken } = useLiffContext();
@@ -132,30 +120,14 @@ export default function AnalyticsTable({
   const [isDeleting, setIsDeleting] = React.useState(false);
   const chatServiceRef = React.useRef<ChatService | null>(null);
 
-  // カテゴリ関連の状態
-  const [annotationCategories, setAnnotationCategories] = React.useState<
-    Record<string, ContentCategory[]>
-  >({});
-  const [isCategoriesLoading, setIsCategoriesLoading] = React.useState(true);
-  const [allCategories, setAllCategories] = React.useState<ContentCategory[]>([]);
-  const [editingCategoryIds, setEditingCategoryIds] = React.useState<string[]>([]);
   // フィルター状態をlocalStorageから復元（1回のパースで両方の値を取得）
   const initialFilter = React.useMemo(() => loadCategoryFilterFromStorage(), []);
-  const [categoryFilterIds, setCategoryFilterIds] = React.useState<string[]>(
-    () => initialFilter.selectedCategoryIds
+  const [categoryFilterNames, setCategoryFilterNames] = React.useState<string[]>(
+    () => initialFilter.selectedCategoryNames
   );
   const [includeUncategorized, setIncludeUncategorized] = React.useState<boolean>(
     () => initialFilter.includeUncategorized
   );
-  // カテゴリ管理ダイアログでの変更時にCategoryFilterを更新するトリガー
-
-  // カテゴリソートの状態（'asc' | 'desc' | null）
-  const [categorySortOrder, setCategorySortOrder] = React.useState<'asc' | 'desc' | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const saved = localStorage.getItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER);
-    if (saved === 'asc' || saved === 'desc') return saved;
-    return null;
-  });
 
   // 操作列の展開状態（初期値は true: 展開）
   const [isOpsExpanded, setIsOpsExpanded] = React.useState<boolean>(() => {
@@ -186,56 +158,26 @@ export default function AnalyticsTable({
     chatServiceRef.current.setAccessTokenProvider(getAccessToken);
   }, [getAccessToken]);
 
-  // アノテーションのカテゴリをバッチ取得
-  React.useEffect(() => {
-    setIsCategoriesLoading(true);
-    const annotationIds = items
-      .map(item => item.annotation?.id)
-      .filter((id): id is string => !!id);
-
-    if (annotationIds.length === 0) {
-      setIsCategoriesLoading(false);
-      return;
+  const allCategories = React.useMemo(() => {
+    const names = new Set<string>();
+    for (const item of items) {
+      const itemCategories = item.annotation?.wp_category_names ?? [];
+      for (const name of itemCategories) {
+        if (typeof name === 'string' && name.trim().length > 0) {
+          names.add(name);
+        }
+      }
     }
-
-    getAnnotationCategoriesBatch(annotationIds)
-      .then(result => {
-        if (result.success) {
-          setAnnotationCategories(result.data);
-        } else {
-          console.error('Failed to load annotation categories:', result.error);
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching annotation categories:', error);
-      })
-      .finally(() => {
-        setIsCategoriesLoading(false);
-      });
-  }, [items, categoryRefreshTrigger]);
-
-  // 全カテゴリ一覧を取得（フィルター表示用）
-  React.useEffect(() => {
-    getContentCategories()
-      .then(result => {
-        if (result.success) {
-          setAllCategories(result.data);
-        } else {
-          console.error('Failed to load content categories:', result.error);
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching content categories:', error);
-      });
-  }, [categoryRefreshTrigger]);
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'ja'));
+  }, [items]);
 
   // localStorageにフィルター状態を保存するヘルパー
   const saveCategoryFilterToStorage = React.useCallback(
-    (selectedIds: string[], includeUncat: boolean) => {
+    (selectedNames: string[], includeUncat: boolean) => {
       if (typeof window !== 'undefined') {
         localStorage.setItem(
           ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER,
-          JSON.stringify({ selectedCategoryIds: selectedIds, includeUncategorized: includeUncat })
+          JSON.stringify({ selectedCategoryNames: selectedNames, includeUncategorized: includeUncat })
         );
       }
     },
@@ -244,10 +186,10 @@ export default function AnalyticsTable({
 
   // カテゴリフィルターの変更ハンドラ
   const handleCategoryFilterChange = React.useCallback(
-    (selectedIds: string[], includeUncat: boolean) => {
-      setCategoryFilterIds(selectedIds);
+    (selectedNames: string[], includeUncat: boolean) => {
+      setCategoryFilterNames(selectedNames);
       setIncludeUncategorized(includeUncat);
-      saveCategoryFilterToStorage(selectedIds, includeUncat);
+      saveCategoryFilterToStorage(selectedNames, includeUncat);
     },
     [saveCategoryFilterToStorage]
   );
@@ -255,18 +197,12 @@ export default function AnalyticsTable({
   // フィルタリングされたアイテム
   const filteredItems = React.useMemo(() => {
     // フィルターが何も選択されていない場合は全件表示
-    if (categoryFilterIds.length === 0 && !includeUncategorized) {
+    if (categoryFilterNames.length === 0 && !includeUncategorized) {
       return items;
     }
 
     return items.filter(item => {
-      const annotationId = item.annotation?.id;
-      if (!annotationId) return includeUncategorized;
-
-      // カテゴリ取得中の場合は全件表示（誤判定防止）
-      if (isCategoriesLoading) return true;
-
-      const itemCategories = annotationCategories[annotationId] ?? [];
+      const itemCategories = item.annotation?.wp_category_names ?? [];
 
       // 未分類の場合
       if (itemCategories.length === 0) {
@@ -274,57 +210,15 @@ export default function AnalyticsTable({
       }
 
       // いずれかのカテゴリが選択されているか
-      return itemCategories.some(cat => categoryFilterIds.includes(cat.id));
+      return itemCategories.some(cat => categoryFilterNames.includes(cat));
     });
-  }, [items, categoryFilterIds, includeUncategorized, annotationCategories, isCategoriesLoading]);
-
-  // カテゴリでソートされたアイテム
-  const sortedItems = React.useMemo(() => {
-    if (!categorySortOrder) return filteredItems;
-
-    return [...filteredItems].sort((a, b) => {
-      const aCats = a.annotation?.id ? annotationCategories[a.annotation.id] ?? [] : [];
-      const bCats = b.annotation?.id ? annotationCategories[b.annotation.id] ?? [] : [];
-
-      // 最初のカテゴリ名を取得（sort_order順で最初のもの）
-      const aFirstCat = aCats.length > 0
-        ? aCats.reduce((min, cat) => (cat.sort_order < min.sort_order ? cat : min))
-        : null;
-      const bFirstCat = bCats.length > 0
-        ? bCats.reduce((min, cat) => (cat.sort_order < min.sort_order ? cat : min))
-        : null;
-
-      // 未分類は常に最後
-      if (!aFirstCat && !bFirstCat) return 0;
-      if (!aFirstCat) return 1;
-      if (!bFirstCat) return -1;
-
-      // カテゴリ名で比較
-      const comparison = aFirstCat.name.localeCompare(bFirstCat.name, 'ja');
-      return categorySortOrder === 'asc' ? comparison : -comparison;
-    });
-  }, [filteredItems, categorySortOrder, annotationCategories]);
-
-  // カテゴリソートのトグル
-  const toggleCategorySort = React.useCallback(() => {
-    setCategorySortOrder(prev => {
-      const next = prev === null ? 'asc' : prev === 'asc' ? 'desc' : null;
-      if (typeof window !== 'undefined') {
-        if (next) {
-          localStorage.setItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER, next);
-        } else {
-          localStorage.removeItem(ANALYTICS_STORAGE_KEYS.CATEGORY_SORT_ORDER);
-        }
-      }
-      return next;
-    });
-  }, []);
+  }, [items, categoryFilterNames, includeUncategorized]);
 
   // フィルタータグの削除ハンドラ
   const removeCategoryFilter = React.useCallback(
-    (categoryId: string) => {
-      setCategoryFilterIds(prev => {
-        const next = prev.filter(id => id !== categoryId);
+    (categoryName: string) => {
+      setCategoryFilterNames(prev => {
+        const next = prev.filter(name => name !== categoryName);
         saveCategoryFilterToStorage(next, includeUncategorized);
         return next;
       });
@@ -335,25 +229,23 @@ export default function AnalyticsTable({
   // 未分類フィルターの削除ハンドラ
   const removeUncategorizedFilter = React.useCallback(() => {
     setIncludeUncategorized(false);
-    saveCategoryFilterToStorage(categoryFilterIds, false);
-  }, [categoryFilterIds, saveCategoryFilterToStorage]);
+    saveCategoryFilterToStorage(categoryFilterNames, false);
+  }, [categoryFilterNames, saveCategoryFilterToStorage]);
 
   // 全フィルターをクリア
   const clearAllFilters = React.useCallback(() => {
-    setCategoryFilterIds([]);
+    setCategoryFilterNames([]);
     setIncludeUncategorized(false);
     saveCategoryFilterToStorage([], false);
   }, [saveCategoryFilterToStorage]);
 
   // フィルターが適用中かどうか
-  const hasActiveFilters = (categoryFilterIds.length > 0 || includeUncategorized) && !isCategoriesLoading;
+  const hasActiveFilters = categoryFilterNames.length > 0 || includeUncategorized;
 
   // 選択中のカテゴリ情報を取得
   const selectedCategoryInfo = React.useMemo(() => {
-    return categoryFilterIds
-      .map(id => allCategories.find(cat => cat.id === id))
-      .filter((cat): cat is ContentCategory => cat !== undefined);
-  }, [categoryFilterIds, allCategories]);
+    return categoryFilterNames;
+  }, [categoryFilterNames]);
 
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
@@ -423,16 +315,8 @@ export default function AnalyticsTable({
       setFormError('');
       setCanonicalUrlError('');
       setEditingRowKey(item.rowKey);
-
-      // カテゴリを取得
-      if (annotation?.id) {
-        const existingCategories = annotationCategories[annotation.id] ?? [];
-        setEditingCategoryIds(existingCategories.map(c => c.id));
-      } else {
-        setEditingCategoryIds([]);
-      }
     },
-    [annotationCategories]
+    []
   );
 
   const closeEdit = React.useCallback(() => {
@@ -442,7 +326,6 @@ export default function AnalyticsTable({
     setCanonicalUrlError('');
     setFormError('');
     setWpPostTitle('');
-    setEditingCategoryIds([]);
   }, []);
 
   const handleSave = React.useCallback(
@@ -469,23 +352,6 @@ export default function AnalyticsTable({
             return;
           }
 
-          // カテゴリを保存
-          const categoryResult = await saveAnnotationCategories(annotationId, editingCategoryIds);
-          if (!categoryResult.success) {
-            toast.error(categoryResult.error || 'カテゴリの保存に失敗しました', { id: toastId });
-            setFormError(categoryResult.error || 'カテゴリの保存に失敗しました');
-            return;
-          }
-
-          // カテゴリの状態を更新
-          const updatedCategories = await getAnnotationCategories(annotationId);
-          if (updatedCategories.success) {
-            setAnnotationCategories(prev => ({
-              ...prev,
-              [annotationId]: updatedCategories.data,
-            }));
-          }
-
           toast.success('保存しました', { id: toastId });
           closeEdit();
           router.refresh();
@@ -496,7 +362,7 @@ export default function AnalyticsTable({
         }
       });
     },
-    [canonicalUrl, closeEdit, editingCategoryIds, form, router]
+    [canonicalUrl, closeEdit, form, router]
   );
 
   const handleDeleteClick = React.useCallback((item: AnalyticsContentItem) => {
@@ -565,10 +431,10 @@ export default function AnalyticsTable({
         triggerId="analytics-field-config-trigger"
         dialogExtraContent={
           <CategoryFilter
-            selectedCategoryIds={categoryFilterIds}
+            categories={allCategories}
+            selectedCategoryNames={categoryFilterNames}
             includeUncategorized={includeUncategorized}
             onFilterChange={handleCategoryFilterChange}
-            refreshTrigger={categoryRefreshTrigger}
           />
         }
       >
@@ -582,16 +448,15 @@ export default function AnalyticsTable({
                     <span className="text-sm text-gray-500">フィルター:</span>
                     {selectedCategoryInfo.map(cat => (
                       <span
-                        key={cat.id}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                        style={{ backgroundColor: cat.color }}
+                        key={cat}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-gray-700 bg-gray-100"
                       >
-                        {cat.name}
+                        {cat}
                         <button
                           type="button"
-                          onClick={() => removeCategoryFilter(cat.id)}
-                          className="hover:bg-white/20 rounded-full p-0.5"
-                          title={`${cat.name}を解除`}
+                          onClick={() => removeCategoryFilter(cat)}
+                          className="hover:bg-gray-200 rounded-full p-0.5"
+                          title={`${cat}を解除`}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -667,39 +532,13 @@ export default function AnalyticsTable({
                           id === 'date' ? 'min-w-[120px]' : ''
                         }`}
                       >
-                        {id === 'categories' ? (
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 hover:text-gray-700 transition-colors"
-                            onClick={toggleCategorySort}
-                            title={
-                              categorySortOrder === null
-                                ? 'カテゴリで昇順ソート'
-                                : categorySortOrder === 'asc'
-                                  ? 'カテゴリで降順ソート'
-                                  : 'ソート解除'
-                            }
-                          >
-                            {columnLabelMap[id]}
-                            {categorySortOrder === null && (
-                              <ArrowUpDown className="h-3.5 w-3.5" />
-                            )}
-                            {categorySortOrder === 'asc' && (
-                              <ArrowUp className="h-3.5 w-3.5 text-blue-600" />
-                            )}
-                            {categorySortOrder === 'desc' && (
-                              <ArrowDown className="h-3.5 w-3.5 text-blue-600" />
-                            )}
-                          </button>
-                        ) : (
-                          columnLabelMap[id]
-                        )}
+                        {columnLabelMap[id]}
                       </th>
                     ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {sortedItems.map(item => {
+                {filteredItems.map(item => {
                   const annotation = item.annotation;
                   const wpPostId =
                     annotation?.wp_post_id != null && Number.isFinite(annotation.wp_post_id)
@@ -799,10 +638,6 @@ export default function AnalyticsTable({
                                     }}
                                     canonicalUrlError={canonicalUrlError}
                                     wpPostTitle={wpPostTitle}
-                                    showCategorySelector
-                                    selectedCategoryIds={editingCategoryIds}
-                                    onCategoryChange={setEditingCategoryIds}
-                                    categoryRefreshTrigger={categoryRefreshTrigger}
                                   />
 
                                   <DialogFooter>
@@ -969,20 +804,17 @@ export default function AnalyticsTable({
                                 </td>
                               );
                             case 'categories': {
-                              const itemCats = annotation?.id
-                                ? annotationCategories[annotation.id] ?? []
-                                : [];
+                              const itemCats = annotation?.wp_category_names ?? [];
                               return (
                                 <td key={id} className="px-6 py-4 text-sm">
                                   {itemCats.length > 0 ? (
                                     <div className="flex flex-wrap gap-1">
                                       {itemCats.map(cat => (
                                         <span
-                                          key={cat.id}
-                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                                          style={{ backgroundColor: cat.color }}
+                                          key={cat}
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-gray-700 bg-gray-100"
                                         >
-                                          {cat.name}
+                                          {cat}
                                         </span>
                                       ))}
                                     </div>

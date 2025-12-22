@@ -159,14 +159,13 @@ export const STEP_TO_FIELD_MAP: Record<BlogStepId, string> = {
 // Analytics ページの localStorage キー
 export const ANALYTICS_STORAGE_KEYS = {
   CATEGORY_FILTER: 'analytics.categoryFilter',
-  CATEGORY_SORT_ORDER: 'analytics.categorySortOrder',
   OPS_EXPANDED: 'analytics.opsExpanded',
   VISIBLE_COLUMNS: 'analytics.visibleColumns',
 } as const;
 
 // カテゴリフィルターのデフォルト値
 export const DEFAULT_CATEGORY_FILTER: CategoryFilterConfig = {
-  selectedCategoryIds: [],
+  selectedCategoryNames: [],
   includeUncategorized: false,
 };
 
@@ -178,8 +177,8 @@ export function loadCategoryFilterFromStorage(): CategoryFilterConfig {
     if (stored) {
       const parsed = JSON.parse(stored);
       return {
-        selectedCategoryIds: Array.isArray(parsed.selectedCategoryIds)
-          ? parsed.selectedCategoryIds
+        selectedCategoryNames: Array.isArray(parsed.selectedCategoryNames)
+          ? parsed.selectedCategoryNames
           : [],
         includeUncategorized:
           typeof parsed.includeUncategorized === 'boolean'

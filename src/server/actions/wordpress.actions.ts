@@ -10,6 +10,7 @@ import {
   WordPressSettings,
   WordPressRestPost,
   WordPressNormalizedPost,
+  WordPressRestTerm,
   RestRequestConfig,
   FetchCandidatesResult,
   RssNormalizeResult,
@@ -23,7 +24,10 @@ import {
   buildWordPressServiceFromSettings,
   resolveWordPressContext,
 } from '@/server/services/wordpressContext';
-import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
+import {
+  normalizeWordPressRestPosts,
+  extractCategoryNames,
+} from '@/server/services/wordpressService';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
 import { stripHtml } from '@/lib/utils';
 import type {
@@ -196,6 +200,31 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
       result.title = rendered;
     }
   }
+  
+  // カテゴリーIDを取得
+  if (Array.isArray(record.categories)) {
+    const categoryIds = record.categories
+      .filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id))
+      .filter(id => id > 0);
+    if (categoryIds.length > 0) {
+      result.categories = categoryIds;
+    }
+  }
+  
+  // カテゴリー名を取得（_embedded['wp:term']から）
+  const embedded = record._embedded as
+    | { 'wp:term'?: Array<Array<WordPressRestTerm>> }
+    | undefined;
+  if (embedded?.['wp:term'] && Array.isArray(embedded['wp:term'])) {
+    const termsNested = embedded['wp:term'];
+    const firstTaxonomy =
+      Array.isArray(termsNested) && termsNested.length > 0 ? termsNested[0] : undefined;
+    const categoryNames = extractCategoryNames(firstTaxonomy);
+    if (categoryNames.length > 0) {
+      result.categoryNames = categoryNames;
+    }
+  }
+  
   return result;
 };
 
@@ -205,6 +234,8 @@ type CanonicalResolutionResult =
       canonicalUrl: string | null;
       wpPostId: number | null;
       wpPostTitle: string | null;
+      wpCategories?: number[] | null;
+      wpCategoryNames?: string[] | null;
     }
   | { success: false; error: string };
 
@@ -278,6 +309,8 @@ async function resolveCanonicalAndWpPostId(
       canonicalUrl: normalized.link ?? canonicalCandidate,
       wpPostId: normalized.id ?? directId,
       wpPostTitle: normalized.title ?? null,
+      wpCategories: normalized.categories ?? null,
+      wpCategoryNames: normalized.categoryNames ?? null,
     };
   }
 
@@ -325,6 +358,8 @@ async function resolveCanonicalAndWpPostId(
   let canonicalFromApi: string | undefined;
   let resolvedWpId: number | null = null;
   let resolvedTitle: string | null = null;
+  let resolvedCategories: number[] | null = null;
+  let resolvedCategoryNames: string[] | null = null;
 
   const postResult = await resolveByType('posts');
   if (postResult && 'error' in postResult) {
@@ -355,11 +390,23 @@ async function resolveCanonicalAndWpPostId(
     };
   }
 
+  // カテゴリー情報を取得するため、再度 resolveContentById を呼び出す（_embed=true で取得）
+  if (resolvedWpId !== null) {
+    const byIdWithEmbed = await wpService.resolveContentById(resolvedWpId);
+    if (byIdWithEmbed.success && byIdWithEmbed.data) {
+      const normalizedWithEmbed = normalizePostResponse(byIdWithEmbed.data);
+      resolvedCategories = normalizedWithEmbed.categories ?? null;
+      resolvedCategoryNames = normalizedWithEmbed.categoryNames ?? null;
+    }
+  }
+
   return {
     success: true as const,
     canonicalUrl: canonicalFromApi ?? canonicalCandidate,
     wpPostId: resolvedWpId,
     wpPostTitle: resolvedTitle ?? null,
+    wpCategories: resolvedCategories,
+    wpCategoryNames: resolvedCategoryNames,
   };
 }
 
@@ -560,6 +607,8 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
     let resolvedCanonicalUrl: string | null = payload.canonical_url ?? null;
     let resolvedWpId: number | null = payload.wp_post_id ?? null;
     let resolvedWpTitle: string | null | undefined = undefined;
+    let resolvedWpCategories: number[] | null = null;
+    let resolvedWpCategoryNames: string[] | null = null;
 
     if (canonicalProvided) {
       const resolution = await resolveCanonicalAndWpPostId({
@@ -580,6 +629,8 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
         resolvedCanonicalUrl = resolution.canonicalUrl;
         resolvedWpId = resolution.wpPostId;
         resolvedWpTitle = resolution.wpPostTitle ?? null;
+        resolvedWpCategories = resolution.wpCategories ?? null;
+        resolvedWpCategoryNames = resolution.wpCategoryNames ?? null;
       }
     }
 
@@ -663,6 +714,12 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
 
     if (canonicalProvided) {
       upsertData.wp_post_title = resolvedWpTitle ?? null;
+      if (resolvedWpCategories !== null) {
+        upsertData.wp_categories = resolvedWpCategories;
+      }
+      if (resolvedWpCategoryNames !== null) {
+        upsertData.wp_category_names = resolvedWpCategoryNames;
+      }
     }
 
     const { error } = await client
@@ -934,6 +991,8 @@ export async function upsertContentAnnotationBySession(
     let resolvedCanonicalUrl: string | null | undefined = undefined;
     let resolvedWpId: number | null | undefined = undefined;
     let resolvedWpTitle: string | null | undefined = undefined;
+    let resolvedWpCategories: number[] | null | undefined = undefined;
+    let resolvedWpCategoryNames: string[] | null | undefined = undefined;
 
     if (canonicalProvided) {
       const resolution = await resolveCanonicalAndWpPostId({
@@ -954,6 +1013,8 @@ export async function upsertContentAnnotationBySession(
         resolvedCanonicalUrl = resolution.canonicalUrl;
         resolvedWpId = resolution.wpPostId;
         resolvedWpTitle = resolution.wpPostTitle ?? null;
+        resolvedWpCategories = resolution.wpCategories ?? null;
+        resolvedWpCategoryNames = resolution.wpCategoryNames ?? null;
       }
     }
 
@@ -1006,6 +1067,12 @@ export async function upsertContentAnnotationBySession(
       upsertPayload.canonical_url = resolvedCanonicalUrl ?? null;
       upsertPayload.wp_post_id = resolvedWpId ?? null;
       upsertPayload.wp_post_title = resolvedWpTitle ?? null;
+      if (resolvedWpCategories !== undefined) {
+        upsertPayload.wp_categories = resolvedWpCategories ?? null;
+      }
+      if (resolvedWpCategoryNames !== undefined) {
+        upsertPayload.wp_category_names = resolvedWpCategoryNames ?? null;
+      }
     }
 
     const { error } = await client
