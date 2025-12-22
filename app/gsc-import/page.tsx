@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 import { runGscImport } from '@/server/actions/gscImport.actions';
+import { fetchGscStatus } from '@/server/actions/gscSetup.actions';
+import type { GscConnectionStatus } from '@/types/gsc';
 
 type ImportResponse = {
   success: boolean;
@@ -19,6 +21,12 @@ type ImportResponse = {
     unmatched: number;
     evaluated: number;
   };
+  error?: string;
+};
+
+type GscStatusResponse = {
+  success: boolean;
+  data?: GscConnectionStatus;
   error?: string;
 };
 
@@ -48,6 +56,8 @@ export default function GscImportPage() {
   const [maxRows, setMaxRows] = useState(1000);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResponse | null>(null);
+  const [gscStatus, setGscStatus] = useState<GscStatusResponse | null>(null);
+  const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(true);
 
   // 期間（日数）を計算
   const calculateDaysDiff = (start: string, end: string): number => {
@@ -58,6 +68,35 @@ export default function GscImportPage() {
 
   const daysDiff = calculateDaysDiff(startDate, endDate);
   const showWarning = daysDiff > 90 || maxRows > 2000;
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadStatus = async () => {
+      setIsLoadingGscStatus(true);
+      try {
+        const status = await fetchGscStatus();
+        if (isMounted) {
+          setGscStatus(status);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setGscStatus({
+            success: false,
+            error: error instanceof Error ? error.message : 'Google Search Consoleの設定情報を取得できませんでした',
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingGscStatus(false);
+        }
+      }
+    };
+
+    void loadStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -112,6 +151,37 @@ export default function GscImportPage() {
           <CardTitle>期間を指定してインポート</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            {isLoadingGscStatus ? (
+              <div className="flex items-center gap-2 text-gray-600">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                読み込み中...
+              </div>
+            ) : gscStatus?.success && gscStatus.data ? (
+              gscStatus.data.connected ? (
+                <div className="space-y-1">
+                  <p>
+                    プロパティ:{' '}
+                    {gscStatus.data.propertyDisplayName ?? gscStatus.data.propertyUri ?? '未選択'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    アカウント: {gscStatus.data.googleAccountEmail ?? '取得中'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p>Google Search Console が未接続です。</p>
+                  <Link href="/setup/gsc" className="text-blue-600 hover:text-blue-800">
+                    設定ページで連携する
+                  </Link>
+                </div>
+              )
+            ) : (
+              <div className="text-sm text-red-600">
+                {gscStatus?.error ?? 'Google Search Consoleの設定情報を取得できませんでした'}
+              </div>
+            )}
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="startDate" className="text-sm font-medium text-gray-700">
