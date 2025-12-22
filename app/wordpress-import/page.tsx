@@ -15,12 +15,11 @@ const isWordPressAuthError = (errorMessage: string | null): boolean => {
   if (!errorMessage) return false;
   const lowerError = errorMessage.toLowerCase();
   return (
-    lowerError.includes('oauth') ||
-    lowerError.includes('unauthorized') ||
-    lowerError.includes('401') ||
-    lowerError.includes('認証') ||
-    lowerError.includes('token') ||
-    lowerError.includes('expired') ||
+    lowerError.includes('wordpress oauth') ||
+    lowerError.includes('wordpress unauthorized') ||
+    lowerError.includes('wordpress 認証') ||
+    lowerError.includes('wordpress token') ||
+    lowerError.includes('wordpress.com token') ||
     lowerError.includes('invalid_grant') ||
     lowerError.includes('wordpress連携が設定されていません') ||
     lowerError.includes('wordpress.com oauth')
