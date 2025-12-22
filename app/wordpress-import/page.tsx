@@ -17,7 +17,7 @@ const isWordPressAuthError = (errorMessage: string | undefined): boolean => {
   return (
     lowerError.includes('wordpress oauth') ||
     lowerError.includes('wordpress unauthorized') ||
-    lowerError.includes('wordpress 認証') ||
+    lowerError.includes('wordpress認証') ||
     lowerError.includes('wordpress token') ||
     lowerError.includes('wordpress.com token') ||
     (lowerError.includes('invalid_grant') && lowerError.includes('wordpress')) ||
