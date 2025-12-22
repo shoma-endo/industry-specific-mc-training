@@ -29,6 +29,18 @@ const daysAgoISO = (days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
+// OAuth トークンエラーかどうかを判定
+const isOAuthTokenError = (errorMessage: string | undefined): boolean => {
+  if (!errorMessage) return false;
+  const lowerError = errorMessage.toLowerCase();
+  return (
+    lowerError.includes('invalid_grant') ||
+    lowerError.includes('token has been expired or revoked') ||
+    lowerError.includes('oauthトークン') ||
+    lowerError.includes('リフレッシュに失敗')
+  );
+};
+
 export default function GscImportPage() {
   const [startDate, setStartDate] = useState(daysAgoISO(30));
   const [endDate, setEndDate] = useState(todayISO());
@@ -208,6 +220,19 @@ export default function GscImportPage() {
                         <div>スキップ: {result.data.skipped}</div>
                         <div>注釈未マッチ: {result.data.unmatched}</div>
                       </>
+                    ) : isOAuthTokenError(result.error) ? (
+                      <div className="space-y-3">
+                        <p>
+                          Google Search Console との連携が切れています。
+                          <br />
+                          再度連携を行ってください。
+                        </p>
+                        <Link href="/setup">
+                          <Button variant="outline" size="sm">
+                            設定ページで再連携する
+                          </Button>
+                        </Link>
+                      </div>
                     ) : (
                       <div>{result.error ?? '不明なエラーが発生しました'}</div>
                     )}

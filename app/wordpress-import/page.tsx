@@ -10,6 +10,23 @@ import Link from 'next/link';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import { runWordpressBulkImport } from '@/server/actions/wordpressImport.actions';
 
+// WordPress OAuth/認証エラーかどうかを判定
+const isWordPressAuthError = (errorMessage: string | null): boolean => {
+  if (!errorMessage) return false;
+  const lowerError = errorMessage.toLowerCase();
+  return (
+    lowerError.includes('oauth') ||
+    lowerError.includes('unauthorized') ||
+    lowerError.includes('401') ||
+    lowerError.includes('認証') ||
+    lowerError.includes('token') ||
+    lowerError.includes('expired') ||
+    lowerError.includes('invalid_grant') ||
+    lowerError.includes('wordpress連携が設定されていません') ||
+    lowerError.includes('wordpress.com oauth')
+  );
+};
+
 interface ImportResult {
   totalPosts: number;
   newPosts: number;
@@ -188,7 +205,27 @@ export default function WordPressImportPage() {
           </CardContent>
         </Card>
 
-        {error && <ErrorAlert error={error} />}
+        {error && (
+          isWordPressAuthError(error) ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="space-y-3">
+                <p>
+                  WordPress との連携が切れているか、設定されていません。
+                  <br />
+                  再度連携を行ってください。
+                </p>
+                <Link href="/setup">
+                  <Button variant="outline" size="sm">
+                    設定ページで再連携する
+                  </Button>
+                </Link>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <ErrorAlert error={error} />
+          )
+        )}
 
         {result && (
           <Card>
