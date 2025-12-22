@@ -11,7 +11,7 @@ import { ErrorAlert } from '@/components/ErrorAlert';
 import { runWordpressBulkImport } from '@/server/actions/wordpressImport.actions';
 
 // WordPress OAuth/認証エラーかどうかを判定
-const isWordPressAuthError = (errorMessage: string | null): boolean => {
+const isWordPressAuthError = (errorMessage: string | undefined): boolean => {
   if (!errorMessage) return false;
   const lowerError = errorMessage.toLowerCase();
   return (
@@ -58,7 +58,7 @@ interface ImportResult {
 export default function WordPressImportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | undefined>(undefined);
   const { getAccessToken } = useLiffContext();
 
   const formatTypeLabel = (type: string) => {
@@ -123,7 +123,7 @@ export default function WordPressImportPage() {
 
   const handleImport = async () => {
     setIsLoading(true);
-    setError(null);
+    setError(undefined);
     setResult(null);
 
     try {
