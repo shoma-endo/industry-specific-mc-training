@@ -4,6 +4,8 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { gscImportService } from '@/server/services/gscImportService';
+import { normalizeUrl } from '@/lib/normalize-url';
 import type { GscEvaluationOutcome } from '@/types/gsc';
 
 const supabaseService = new SupabaseService();
@@ -548,6 +550,62 @@ export async function fetchQueryAnalysis(
   } catch (error) {
     console.error('[gsc-dashboard] fetch query analysis failed', error);
     const message = error instanceof Error ? error.message : 'クエリ分析の取得に失敗しました';
+    return { success: false, error: message };
+  }
+}
+
+export async function runQueryImportForAnnotation(annotationId: string, options?: { days?: number }) {
+  try {
+    const { userId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+
+    if (!annotationId) {
+      return { success: false, error: 'annotationId は必須です' };
+    }
+
+    const { data: annotation, error: annotationError } = await supabaseService
+      .getClient()
+      .from('content_annotations')
+      .select('id, canonical_url')
+      .eq('id', annotationId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (annotationError) {
+      throw new Error(annotationError.message || '記事情報の取得に失敗しました');
+    }
+    if (!annotation?.canonical_url) {
+      return { success: false, error: '記事のURLが見つかりません' };
+    }
+
+    const days = Math.min(180, Math.max(7, options?.days ?? 90));
+    const endDate = new Date();
+    endDate.setUTCDate(endDate.getUTCDate() - 2); // GSCは2日前まで
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - days + 1);
+
+    const startIso = startDate.toISOString().slice(0, 10);
+    const endIso = endDate.toISOString().slice(0, 10);
+
+    // URL変更時の整合性を守るため、インポート前に古い指標データをクリーンアップ
+    const currentNormalizedUrl = normalizeUrl(annotation.canonical_url);
+    if (currentNormalizedUrl) {
+      await supabaseService.cleanupOldGscQueryMetrics(annotationId, currentNormalizedUrl);
+    }
+
+    const summary = await gscImportService.importQueryMetricsForUrl(userId, {
+      startDate: startIso,
+      endDate: endIso,
+      pageUrl: annotation.canonical_url,
+    });
+
+    revalidatePath('/gsc-dashboard');
+    return { success: true, data: summary };
+  } catch (error) {
+    console.error('[gsc-dashboard] run query import failed', error);
+    const message = error instanceof Error ? error.message : 'クエリ指標の取得に失敗しました';
     return { success: false, error: message };
   }
 }

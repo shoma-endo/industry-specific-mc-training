@@ -961,6 +961,23 @@ export class SupabaseService {
   }
 
   /**
+   * 特定のアノテーションに関連付けられているが、現在の正規化URLとは異なるクエリ指標データを削除
+   * URL変更時のデータ不整合（二重カウント）を解消するために使用
+   */
+  async cleanupOldGscQueryMetrics(annotationId: string, currentNormalizedUrl: string): Promise<void> {
+    const { error: queryError } = await this.supabase
+      .from('gsc_query_metrics')
+      .delete()
+      .eq('content_annotation_id', annotationId)
+      .neq('normalized_url', currentNormalizedUrl);
+
+    if (queryError) {
+      console.error('[SupabaseService] cleanupOldGscQueryMetrics failed:', queryError);
+      throw new Error(`以前のURLのクエリ指標データのクリーンアップに失敗しました: ${queryError.message}`);
+    }
+  }
+
+  /**
    * チャットセッションとそれに紐づくすべてのメッセージ・コンテンツを削除
    */
   async deleteChatSession(sessionId: string, userId: string): Promise<SupabaseResult<void>> {
