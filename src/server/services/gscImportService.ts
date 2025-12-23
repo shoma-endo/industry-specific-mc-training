@@ -59,55 +59,15 @@ export class GscImportService {
       dimensions: ['date', 'page'],
     });
 
-    const metrics: GscPageMetric[] = rows
-      .map(row => this.toMetric(userId, propertyUri, searchType, row))
-      .filter((m): m is GscPageMetric => m !== null);
-
+    const metrics = this.mapSearchRowsToPageMetrics(userId, propertyUri, searchType, rows);
     const matchMap = await this.loadAnnotationUrlMap(userId);
-
-    let upserted = 0;
-    let skipped = 0;
-    let unmatched = 0;
-
-    for (const metric of metrics) {
-      const normalized = metric.normalizedUrl ?? null;
-      const annotationId = normalized ? (matchMap.get(normalized) ?? null) : null;
-
-      // 紐付けできないデータは保存しない（評価対象外のノイズを避ける）
-      if (!annotationId) {
-        skipped += 1;
-        unmatched += 1;
-        continue;
-      }
-
-      const upsertPayload = {
-        user_id: userId,
-        content_annotation_id: annotationId,
-        property_uri: metric.propertyUri,
-        search_type: metric.searchType,
-        date: metric.date,
-        url: metric.url,
-        clicks: metric.clicks,
-        impressions: metric.impressions,
-        ctr: metric.ctr,
-        position: metric.position,
-        imported_at: new Date().toISOString(),
-      };
-
-      const { error } = await this.supabaseService
-        .getClient()
-        .from('gsc_page_metrics')
-        .upsert(upsertPayload, {
-          onConflict: 'user_id,property_uri,date,normalized_url,search_type',
-        });
-
-      if (error) {
-        skipped += 1;
-        continue;
-      }
-
-      upserted += 1;
-    }
+    const { upserted, skipped, unmatched } = await this.upsertPageMetrics({
+      userId,
+      metrics,
+      resolveAnnotationId: normalized =>
+        normalized ? (matchMap.get(normalized) ?? null) : null,
+      countUnmatched: true,
+    });
 
     const querySummary = await this.importQueryMetrics({
       userId,
@@ -166,17 +126,56 @@ export class GscImportService {
       ],
     });
 
-    const metrics: GscPageMetric[] = rows
+    const metrics = this.mapSearchRowsToPageMetrics(userId, propertyUri, searchType, rows);
+    const { upserted, skipped } = await this.upsertPageMetrics({
+      userId,
+      metrics,
+      resolveAnnotationId: () => contentAnnotationId,
+      countUnmatched: false,
+    });
+
+    return { totalFetched: metrics.length, upserted, skipped };
+  }
+
+  private mapSearchRowsToPageMetrics(
+    userId: string,
+    propertyUri: string,
+    searchType: GscSearchType,
+    rows: GscSearchAnalyticsRow[]
+  ): GscPageMetric[] {
+    return rows
       .map(row => this.toMetric(userId, propertyUri, searchType, row))
       .filter((m): m is GscPageMetric => m !== null);
+  }
 
+  private async upsertPageMetrics({
+    userId,
+    metrics,
+    resolveAnnotationId,
+    countUnmatched,
+  }: {
+    userId: string;
+    metrics: GscPageMetric[];
+    resolveAnnotationId: (normalizedUrl: string | null) => string | null;
+    countUnmatched: boolean;
+  }): Promise<{ upserted: number; skipped: number; unmatched: number }> {
     let upserted = 0;
     let skipped = 0;
+    let unmatched = 0;
 
     for (const metric of metrics) {
+      const annotationId = resolveAnnotationId(metric.normalizedUrl ?? null);
+      if (!annotationId) {
+        skipped += 1;
+        if (countUnmatched) {
+          unmatched += 1;
+        }
+        continue;
+      }
+
       const upsertPayload = {
         user_id: userId,
-        content_annotation_id: contentAnnotationId,
+        content_annotation_id: annotationId,
         property_uri: metric.propertyUri,
         search_type: metric.searchType,
         date: metric.date,
@@ -203,11 +202,7 @@ export class GscImportService {
       upserted += 1;
     }
 
-    return {
-      totalFetched: metrics.length,
-      upserted,
-      skipped,
-    };
+    return { upserted, skipped, unmatched };
   }
 
   async importQueryMetricsForUrl(

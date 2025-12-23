@@ -89,6 +89,7 @@ export type GscImportResult = {
   skipped: number;
   unmatched: number;
   evaluated: number;
+  segmentCount?: number;
   querySummary?: {
     fetchedRows: number;
     keptRows: number;
