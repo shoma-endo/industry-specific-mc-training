@@ -97,7 +97,7 @@ export class GscImportService {
       upserted += 1;
     }
 
-    await this.importQueryMetrics({
+    const querySummary = await this.importQueryMetrics({
       userId,
       propertyUri,
       propertyType,
@@ -114,6 +114,7 @@ export class GscImportService {
       skipped,
       unmatched,
       evaluated: 0,
+      querySummary,
     };
   }
 
@@ -215,8 +216,19 @@ export class GscImportService {
     startDate: string;
     endDate: string;
     matchMap: Map<string, string>;
-  }): Promise<void> {
-    const rows = await this.fetchQueryAnalyticsRows({
+  }): Promise<{
+    fetchedRows: number;
+    keptRows: number;
+    dedupedRows: number;
+    skipped: {
+      missingKeys: number;
+      invalidUrl: number;
+      emptyQuery: number;
+      zeroMetrics: number;
+    };
+    hitLimit: boolean;
+  }> {
+    const { rows, hitLimit } = await this.fetchQueryAnalyticsRows({
       accessToken,
       propertyUri,
       startDate,
@@ -224,29 +236,62 @@ export class GscImportService {
       searchType,
     });
 
+    const skipped = {
+      missingKeys: 0,
+      invalidUrl: 0,
+      emptyQuery: 0,
+      zeroMetrics: 0,
+    };
+
     if (!rows.length) {
-      return;
+      return {
+        fetchedRows: 0,
+        keptRows: 0,
+        dedupedRows: 0,
+        skipped,
+        hitLimit,
+      };
     }
 
-    const metrics: GscQueryMetricInsert[] = rows
-      .map(row =>
-        this.toQueryMetric({
-          userId,
-          propertyUri,
-          propertyType,
-          searchType,
-          row,
-          matchMap,
-        })
-      )
-      .filter((metric): metric is GscQueryMetricInsert => metric !== null);
+    const metrics: GscQueryMetricInsert[] = [];
+    for (const row of rows) {
+      const result = this.toQueryMetricWithReason({
+        userId,
+        propertyUri,
+        propertyType,
+        searchType,
+        row,
+        matchMap,
+      });
+      if (!result.metric) {
+        if (result.reason === 'missing_keys') skipped.missingKeys += 1;
+        if (result.reason === 'invalid_url') skipped.invalidUrl += 1;
+        if (result.reason === 'empty_query') skipped.emptyQuery += 1;
+        if (result.reason === 'zero_metrics') skipped.zeroMetrics += 1;
+        continue;
+      }
+      metrics.push(result.metric);
+    }
 
     if (!metrics.length) {
-      return;
+      return {
+        fetchedRows: rows.length,
+        keptRows: 0,
+        dedupedRows: 0,
+        skipped,
+        hitLimit,
+      };
     }
 
     const deduped = this.aggregateQueryMetrics(metrics);
     await this.supabaseService.upsertGscQueryMetrics(deduped);
+    return {
+      fetchedRows: rows.length,
+      keptRows: metrics.length,
+      dedupedRows: deduped.length,
+      skipped,
+      hitLimit,
+    };
   }
 
   /**
@@ -314,11 +359,12 @@ export class GscImportService {
     startDate: string;
     endDate: string;
     searchType: GscSearchType;
-  }): Promise<GscSearchAnalyticsRow[]> {
+  }): Promise<{ rows: GscSearchAnalyticsRow[]; hitLimit: boolean }> {
     const rows: GscSearchAnalyticsRow[] = [];
     const maxPages = this.queryMaxPages;
     const rowLimit = this.queryRowLimit;
     const concurrency = Math.min(3, maxPages);
+    let hitLimit = false;
 
     for (let pageStart = 0; pageStart < maxPages; pageStart += concurrency) {
       const pageIndexes = Array.from({ length: concurrency }, (_, index) => pageStart + index).filter(
@@ -361,14 +407,24 @@ export class GscImportService {
       }
 
       if (shouldStop) {
+        if (pageIndexes.includes(maxPages - 1)) {
+          const lastPage = batchResults.find(result => result.pageIndex === maxPages - 1);
+          if (lastPage && lastPage.batch.length === rowLimit) {
+            hitLimit = true;
+          }
+        }
         break;
       }
     }
 
-    return rows;
+    if (!hitLimit && rows.length >= rowLimit * maxPages) {
+      hitLimit = true;
+    }
+
+    return { rows, hitLimit };
   }
 
-  private toQueryMetric({
+  private toQueryMetricWithReason({
     userId,
     propertyUri,
     propertyType,
@@ -382,32 +438,36 @@ export class GscImportService {
     searchType: GscSearchType;
     row: GscSearchAnalyticsRow;
     matchMap: Map<string, string>;
-  }): GscQueryMetricInsert | null {
+  }): {
+    metric: GscQueryMetricInsert | null;
+    reason: 'missing_keys' | 'invalid_url' | 'empty_query' | 'zero_metrics' | null;
+  } {
     const [dateKey, queryText, pageUrl] = row.keys ?? [];
     if (!dateKey || !pageUrl || !queryText) {
-      return null;
+      return { metric: null, reason: 'missing_keys' };
     }
 
     const normalizedUrl = this.normalizeUrl(pageUrl);
     if (!normalizedUrl) {
-      return null;
+      return { metric: null, reason: 'invalid_url' };
     }
 
     const queryNormalized = normalizeQuery(queryText);
     if (!queryNormalized) {
-      return null;
+      return { metric: null, reason: 'empty_query' };
     }
 
     const clicks = row.clicks ?? 0;
     const impressions = row.impressions ?? 0;
 
     if (clicks === 0 && impressions === 0) {
-      return null;
+      return { metric: null, reason: 'zero_metrics' };
     }
 
     const importedAt = new Date().toISOString();
     return {
-      userId,
+      metric: {
+        userId,
       propertyUri,
       propertyType,
       searchType,
@@ -420,8 +480,10 @@ export class GscImportService {
       impressions,
       ctr: this.calculateCtr(clicks, impressions, row.ctr),
       position: typeof row.position === 'number' ? row.position : 0,
-      contentAnnotationId: matchMap.get(normalizedUrl) ?? null,
-      importedAt,
+        contentAnnotationId: matchMap.get(normalizedUrl) ?? null,
+        importedAt,
+      },
+      reason: null,
     };
   }
 

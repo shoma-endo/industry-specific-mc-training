@@ -89,6 +89,18 @@ export type GscImportResult = {
   skipped: number;
   unmatched: number;
   evaluated: number;
+  querySummary?: {
+    fetchedRows: number;
+    keptRows: number;
+    dedupedRows: number;
+    skipped: {
+      missingKeys: number;
+      invalidUrl: number;
+      emptyQuery: number;
+      zeroMetrics: number;
+    };
+    hitLimit: boolean;
+  };
 };
 
 export interface GscImportOptions {

@@ -20,6 +20,18 @@ type ImportResponse = {
     skipped: number;
     unmatched: number;
     evaluated: number;
+    querySummary?: {
+      fetchedRows: number;
+      keptRows: number;
+      dedupedRows: number;
+      skipped: {
+        missingKeys: number;
+        invalidUrl: number;
+        emptyQuery: number;
+        zeroMetrics: number;
+      };
+      hitLimit: boolean;
+    };
   };
   error?: string;
 };
@@ -309,6 +321,28 @@ export default function GscImportPage() {
                         <div>登録/更新: {result.data.upserted}</div>
                         <div>スキップ: {result.data.skipped}</div>
                         <div>注釈未マッチ: {result.data.unmatched}</div>
+                        {result.data.querySummary && (
+                          <div className="pt-2">
+                            <div className="font-medium">クエリ指標</div>
+                            <div>取得行数: {result.data.querySummary.fetchedRows}</div>
+                            <div>保存対象: {result.data.querySummary.keptRows}</div>
+                            <div>集約後: {result.data.querySummary.dedupedRows}</div>
+                            <div className="mt-1">
+                              除外内訳:
+                              <div className="ml-3">
+                                <div>キー欠損: {result.data.querySummary.skipped.missingKeys}</div>
+                                <div>URL正規化失敗: {result.data.querySummary.skipped.invalidUrl}</div>
+                                <div>クエリ空: {result.data.querySummary.skipped.emptyQuery}</div>
+                                <div>0クリック/0表示: {result.data.querySummary.skipped.zeroMetrics}</div>
+                              </div>
+                            </div>
+                            {result.data.querySummary.hitLimit && (
+                              <div className="mt-1 text-amber-700">
+                                取得上限に到達した可能性があります。
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     ) : isOAuthTokenError(result.error) ? (
                       <div className="space-y-3">
