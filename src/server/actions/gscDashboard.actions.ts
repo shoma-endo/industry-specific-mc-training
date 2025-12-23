@@ -6,7 +6,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { gscImportService } from '@/server/services/gscImportService';
 import { normalizeUrl } from '@/lib/normalize-url';
-import { splitRangeByDays } from '@/server/lib/gsc-import-range';
+import { splitRangeByDays, aggregateImportResults } from '@/server/lib/gsc-import-utils';
 import type { GscEvaluationOutcome } from '@/types/gsc';
 
 const supabaseService = new SupabaseService();
@@ -605,20 +605,25 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
     });
 
     const ranges = splitRangeByDays(startIso, endIso, 30);
-    const aggregate = {
-      fetchedRows: 0,
-      keptRows: 0,
-      dedupedRows: 0,
-      fetchErrorPages: 0,
-      skipped: {
-        missingKeys: 0,
-        invalidUrl: 0,
-        emptyQuery: 0,
-        zeroMetrics: 0,
-      },
-      hitLimit: false,
-      segmentCount: ranges.length,
-    };
+    const results: Array<{
+      totalFetched: number;
+      upserted: number;
+      skipped: number;
+      unmatched: number;
+      querySummary: {
+        fetchedRows: number;
+        keptRows: number;
+        dedupedRows: number;
+        fetchErrorPages: number;
+        skipped: {
+          missingKeys: number;
+          invalidUrl: number;
+          emptyQuery: number;
+          zeroMetrics: number;
+        };
+        hitLimit: boolean;
+      };
+    }> = [];
 
     for (const range of ranges) {
       await gscImportService.importPageMetricsForUrl(userId, {
@@ -634,19 +639,17 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
         pageUrl: annotation.canonical_url,
       });
 
-      aggregate.fetchedRows += summary.fetchedRows;
-      aggregate.keptRows += summary.keptRows;
-      aggregate.dedupedRows += summary.dedupedRows;
-      aggregate.fetchErrorPages += summary.fetchErrorPages;
-      aggregate.skipped.missingKeys += summary.skipped.missingKeys;
-      aggregate.skipped.invalidUrl += summary.skipped.invalidUrl;
-      aggregate.skipped.emptyQuery += summary.skipped.emptyQuery;
-      aggregate.skipped.zeroMetrics += summary.skipped.zeroMetrics;
-      aggregate.hitLimit ||= summary.hitLimit;
+      results.push({
+        totalFetched: 0,
+        upserted: 0,
+        skipped: 0,
+        unmatched: 0,
+        querySummary: summary,
+      });
     }
 
     revalidatePath('/gsc-dashboard');
-    return { success: true, data: aggregate };
+    return { success: true, data: aggregateImportResults(results, ranges.length) };
   } catch (error) {
     console.error('[gsc-dashboard] run query import failed', error);
     const message = error instanceof Error ? error.message : 'クエリ指標の取得に失敗しました';

@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { gscImportService } from '@/server/services/gscImportService';
 import { gscEvaluationService } from '@/server/services/gscEvaluationService';
-import { splitRangeByDays } from '@/server/lib/gsc-import-range';
+import { splitRangeByDays, aggregateImportResults } from '@/server/lib/gsc-import-utils';
 
 export interface GscImportParams {
   startDate: string;
@@ -101,47 +101,12 @@ const importWithSplit = async (
   segmentDays: number
 ) => {
   const ranges = splitRangeByDays(startDate, endDate, segmentDays);
-  const aggregate = {
-    totalFetched: 0,
-    upserted: 0,
-    skipped: 0,
-    unmatched: 0,
-    evaluated: 0,
-    segmentCount: ranges.length,
-    querySummary: {
-      fetchedRows: 0,
-      keptRows: 0,
-      dedupedRows: 0,
-      fetchErrorPages: 0,
-      skipped: {
-        missingKeys: 0,
-        invalidUrl: 0,
-        emptyQuery: 0,
-        zeroMetrics: 0,
-      },
-      hitLimit: false,
-    },
-  };
+  const results: Awaited<ReturnType<typeof importOnce>>[] = [];
 
   for (const range of ranges) {
     const result = await importOnce(range.start, range.end);
-    aggregate.totalFetched += result.totalFetched;
-    aggregate.upserted += result.upserted;
-    aggregate.skipped += result.skipped;
-    aggregate.unmatched += result.unmatched;
-
-    if (result.querySummary) {
-      aggregate.querySummary.fetchedRows += result.querySummary.fetchedRows;
-      aggregate.querySummary.keptRows += result.querySummary.keptRows;
-      aggregate.querySummary.dedupedRows += result.querySummary.dedupedRows;
-      aggregate.querySummary.fetchErrorPages += result.querySummary.fetchErrorPages;
-      aggregate.querySummary.skipped.missingKeys += result.querySummary.skipped.missingKeys;
-      aggregate.querySummary.skipped.invalidUrl += result.querySummary.skipped.invalidUrl;
-      aggregate.querySummary.skipped.emptyQuery += result.querySummary.skipped.emptyQuery;
-      aggregate.querySummary.skipped.zeroMetrics += result.querySummary.skipped.zeroMetrics;
-      aggregate.querySummary.hitLimit ||= result.querySummary.hitLimit;
-    }
+    results.push(result);
   }
 
-  return aggregate;
+  return aggregateImportResults(results, ranges.length);
 };
