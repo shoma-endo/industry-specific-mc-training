@@ -263,7 +263,9 @@ export default function GscImportPage() {
                   <p className="font-medium mb-1">処理に時間がかかる可能性があります</p>
                   <ul className="space-y-1 text-xs">
                     {daysDiff > 90 && <li>• 期間が90日を超えています（{daysDiff}日間）。推奨: 30日以内</li>}
-                    {maxRows > 2000 && <li>• 最大取得行数が2000を超えています。推奨: 1000～2000</li>}
+                    {normalizedMaxRows > 2000 && (
+                      <li>• 最大取得行数が2000を超えています。推奨: 1000～2000</li>
+                    )}
                   </ul>
                 </div>
               </div>
