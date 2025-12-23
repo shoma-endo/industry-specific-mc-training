@@ -3,6 +3,7 @@ import { SupabaseService } from './supabaseService';
 import { getGscQueryMaxPages, getGscQueryRowLimit } from '../lib/gsc-config';
 import { normalizeQuery } from '../../lib/normalize-query';
 import { normalizeUrl } from '../../lib/normalize-url';
+import { aggregateImportResults, splitRangeByDays } from '@/server/lib/gsc-import-utils';
 import type {
   GscPageMetric,
   GscPropertyType,
@@ -242,6 +243,75 @@ export class GscImportService {
       matchMap,
       pageUrl,
     });
+  }
+
+  async importPageAndQueryForUrlWithSplit(
+    userId: string,
+    options: {
+      startDate: string;
+      endDate: string;
+      pageUrl: string;
+      contentAnnotationId: string;
+      searchType?: GscSearchType;
+      segmentDays?: number;
+    }
+  ) {
+    const {
+      startDate,
+      endDate,
+      pageUrl,
+      contentAnnotationId,
+      searchType = 'web',
+      segmentDays = 30,
+    } = options;
+
+    const ranges = splitRangeByDays(startDate, endDate, segmentDays);
+    const results: Array<{
+      totalFetched: number;
+      upserted: number;
+      skipped: number;
+      unmatched: number;
+      querySummary: {
+        fetchedRows: number;
+        keptRows: number;
+        dedupedRows: number;
+        fetchErrorPages: number;
+        skipped: {
+          missingKeys: number;
+          invalidUrl: number;
+          emptyQuery: number;
+          zeroMetrics: number;
+        };
+        hitLimit: boolean;
+      };
+    }> = [];
+
+    for (const range of ranges) {
+      await this.importPageMetricsForUrl(userId, {
+        startDate: range.start,
+        endDate: range.end,
+        pageUrl,
+        contentAnnotationId,
+        searchType,
+      });
+
+      const summary = await this.importQueryMetricsForUrl(userId, {
+        startDate: range.start,
+        endDate: range.end,
+        pageUrl,
+        searchType,
+      });
+
+      results.push({
+        totalFetched: 0,
+        upserted: 0,
+        skipped: 0,
+        unmatched: 0,
+        querySummary: summary,
+      });
+    }
+
+    return aggregateImportResults(results, ranges.length);
   }
 
   private async fetchSearchAnalytics({
