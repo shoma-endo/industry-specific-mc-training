@@ -269,6 +269,7 @@ export class GscImportService {
     startRow?: number;
     dimensions: string[];
     dimensionFilterGroups?: Array<{
+      groupType?: 'and';
       filters: Array<{
         dimension: string;
         operator: string;
