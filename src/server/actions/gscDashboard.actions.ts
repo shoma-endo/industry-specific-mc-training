@@ -591,9 +591,10 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
 
     // URL変更時の整合性を守るため、インポート前に古い指標データをクリーンアップ
     const currentNormalizedUrl = normalizeUrl(annotation.canonical_url);
-    if (currentNormalizedUrl) {
-      await supabaseService.cleanupOldGscQueryMetrics(annotationId, currentNormalizedUrl);
+    if (!currentNormalizedUrl) {
+      return { success: false, error: 'URLの正規化に失敗しました' };
     }
+    await supabaseService.cleanupOldGscQueryMetrics(annotationId, currentNormalizedUrl);
 
     await gscImportService.importPageMetricsForUrl(userId, {
       startDate: startIso,
