@@ -19,12 +19,11 @@ export class GscImportService {
   private readonly queryRowLimit = getGscQueryRowLimit();
   private readonly queryMaxPages = getGscQueryMaxPages();
 
-  async importMetrics(userId: string, options: GscImportOptions): Promise<GscImportResult> {
-    const startDate = options.startDate;
-    const endDate = options.endDate;
-    const searchType = options.searchType ?? 'web';
-    const maxRows = options.maxRows ?? 1000;
-
+  private async getAccessContext(userId: string): Promise<{
+    accessToken: string;
+    propertyUri: string;
+    propertyType: GscPropertyType;
+  }> {
     const credentials = await this.supabaseService.getGscCredentialByUserId(userId);
     if (!credentials) {
       throw new Error('GSC資格情報が見つかりません');
@@ -36,6 +35,19 @@ export class GscImportService {
     if (!propertyUri) {
       throw new Error('GSCプロパティが設定されていません');
     }
+
+    const propertyType = this.getPropertyType(propertyUri, credentials.propertyType ?? null);
+
+    return { accessToken, propertyUri, propertyType };
+  }
+
+  async importMetrics(userId: string, options: GscImportOptions): Promise<GscImportResult> {
+    const startDate = options.startDate;
+    const endDate = options.endDate;
+    const searchType = options.searchType ?? 'web';
+    const maxRows = options.maxRows ?? 1000;
+
+    const { accessToken, propertyUri, propertyType } = await this.getAccessContext(userId);
 
     const rows = await this.fetchSearchAnalytics({
       accessToken,
@@ -52,7 +64,6 @@ export class GscImportService {
       .filter((m): m is GscPageMetric => m !== null);
 
     const matchMap = await this.loadAnnotationUrlMap(userId);
-    const propertyType = this.getPropertyType(propertyUri, credentials.propertyType ?? null);
 
     let upserted = 0;
     let skipped = 0;
@@ -119,6 +130,86 @@ export class GscImportService {
     };
   }
 
+  async importPageMetricsForUrl(
+    userId: string,
+    options: {
+      startDate: string;
+      endDate: string;
+      searchType?: GscSearchType;
+      pageUrl: string;
+      contentAnnotationId: string;
+    }
+  ): Promise<{ totalFetched: number; upserted: number; skipped: number }> {
+    const { startDate, endDate, searchType = 'web', pageUrl, contentAnnotationId } = options;
+
+    const { accessToken, propertyUri } = await this.getAccessContext(userId);
+
+    const rows = await this.fetchSearchAnalytics({
+      accessToken,
+      propertyUri,
+      startDate,
+      endDate,
+      searchType,
+      rowLimit: this.queryRowLimit,
+      // dimensions 順に合わせて keys を受け取る
+      dimensions: ['date', 'page'],
+      dimensionFilterGroups: [
+        {
+          filters: [
+            {
+              dimension: 'page',
+              operator: 'equals',
+              expression: pageUrl,
+            },
+          ],
+        },
+      ],
+    });
+
+    const metrics: GscPageMetric[] = rows
+      .map(row => this.toMetric(userId, propertyUri, searchType, row))
+      .filter((m): m is GscPageMetric => m !== null);
+
+    let upserted = 0;
+    let skipped = 0;
+
+    for (const metric of metrics) {
+      const upsertPayload = {
+        user_id: userId,
+        content_annotation_id: contentAnnotationId,
+        property_uri: metric.propertyUri,
+        search_type: metric.searchType,
+        date: metric.date,
+        url: metric.url,
+        clicks: metric.clicks,
+        impressions: metric.impressions,
+        ctr: metric.ctr,
+        position: metric.position,
+        imported_at: new Date().toISOString(),
+      };
+
+      const { error } = await this.supabaseService
+        .getClient()
+        .from('gsc_page_metrics')
+        .upsert(upsertPayload, {
+          onConflict: 'user_id,property_uri,date,normalized_url,search_type',
+        });
+
+      if (error) {
+        skipped += 1;
+        continue;
+      }
+
+      upserted += 1;
+    }
+
+    return {
+      totalFetched: metrics.length,
+      upserted,
+      skipped,
+    };
+  }
+
   async importQueryMetricsForUrl(
     userId: string,
     options: {
@@ -142,20 +233,8 @@ export class GscImportService {
   }> {
     const { startDate, endDate, searchType = 'web', pageUrl } = options;
 
-    const credentials = await this.supabaseService.getGscCredentialByUserId(userId);
-    if (!credentials) {
-      throw new Error('GSC資格情報が見つかりません');
-    }
-
-    const refreshed = await this.gscService.refreshAccessToken(credentials.refreshToken);
-    const accessToken = refreshed.accessToken;
-    const propertyUri = credentials.propertyUri;
-    if (!propertyUri) {
-      throw new Error('GSCプロパティが設定されていません');
-    }
-
+    const { accessToken, propertyUri, propertyType } = await this.getAccessContext(userId);
     const matchMap = await this.loadAnnotationUrlMap(userId);
-    const propertyType = this.getPropertyType(propertyUri, credentials.propertyType ?? null);
 
     return this.importQueryMetrics({
       userId,
