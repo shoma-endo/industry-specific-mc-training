@@ -459,26 +459,20 @@ export async function fetchQueryAnalysis(
     }
     const propertyUri = credential.propertyUri;
 
-    // annotationのcanonical_urlを取得
+    // annotationのnormalized_urlを取得（DBで自動生成された正規化済みURL）
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('canonical_url')
+      .select('normalized_url')
       .eq('id', annotationId)
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (annotationError || !annotation?.canonical_url) {
+    if (annotationError || !annotation?.normalized_url) {
       return { success: false, error: '記事が見つかりません' };
     }
 
-    // URLを正規化（DB規約 public.normalize_url に準拠）
-    // プロトコル除去、www.除去、末尾スラッシュ除去、小文字化
-    const normalizedUrl = annotation.canonical_url
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .replace(/^www\./, '')
-      .replace(/\/+$/g, '');
+    const normalizedUrl = annotation.normalized_url;
 
     // RPC呼び出しでDB側で集計（パフォーマンス最適化）
     const { data: rpcData, error: rpcError } = await supabaseService

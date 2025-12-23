@@ -38,7 +38,7 @@ export const FullNameDialog = ({ open, onSave }: FullNameDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>フルネームを入力してください</DialogTitle>
           <DialogDescription>

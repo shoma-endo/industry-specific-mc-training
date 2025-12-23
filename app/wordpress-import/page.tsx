@@ -10,6 +10,22 @@ import Link from 'next/link';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import { runWordpressBulkImport } from '@/server/actions/wordpressImport.actions';
 
+// WordPress OAuth/認証エラーかどうかを判定
+const isWordPressAuthError = (errorMessage: string | undefined): boolean => {
+  if (!errorMessage) return false;
+  const lowerError = errorMessage.toLowerCase();
+  return (
+    lowerError.includes('wordpress oauth') ||
+    lowerError.includes('wordpress unauthorized') ||
+    lowerError.includes('wordpress認証') ||
+    lowerError.includes('wordpress token') ||
+    lowerError.includes('wordpress.com token') ||
+    (lowerError.includes('invalid_grant') && lowerError.includes('wordpress')) ||
+    lowerError.includes('wordpress連携が設定されていません') ||
+    lowerError.includes('wordpress.com oauth')
+  );
+};
+
 interface ImportResult {
   totalPosts: number;
   newPosts: number;
@@ -42,7 +58,7 @@ interface ImportResult {
 export default function WordPressImportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | undefined>(undefined);
   const { getAccessToken } = useLiffContext();
 
   const formatTypeLabel = (type: string) => {
@@ -107,7 +123,7 @@ export default function WordPressImportPage() {
 
   const handleImport = async () => {
     setIsLoading(true);
-    setError(null);
+    setError(undefined);
     setResult(null);
 
     try {
@@ -188,7 +204,27 @@ export default function WordPressImportPage() {
           </CardContent>
         </Card>
 
-        {error && <ErrorAlert error={error} />}
+        {error && (
+          isWordPressAuthError(error) ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="space-y-3">
+                <p>
+                  WordPress との連携が切れているか、設定されていません。
+                  <br />
+                  再度連携を行ってください。
+                </p>
+                <Link href="/setup">
+                  <Button variant="outline" size="sm">
+                    設定ページで再連携する
+                  </Button>
+                </Link>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <ErrorAlert error={error} />
+          )
+        )}
 
         {result && (
           <Card>

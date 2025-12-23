@@ -427,9 +427,10 @@ export class GscImportService {
   private normalizeUrl(url: string | undefined): string | null {
     if (!url) return null;
     try {
-      // mimic normalize_url: lowercase, remove protocol + www, trim trailing slash
+      // PostgreSQL の public.normalize_url と完全一致させる
+      // lowercase, remove protocol + www, trim trailing slash (先頭スラッシュは削除しない)
       const lowered = url.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
-      return lowered.replace(/\/+$/g, '').replace(/^\/+/, '');
+      return lowered.replace(/\/+$/g, '');
     } catch {
       return null;
     }

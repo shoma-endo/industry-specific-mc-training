@@ -171,7 +171,7 @@ export default function FieldConfigurator({
               フィールド構成
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[900px]">
+          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>フィールド構成</DialogTitle>
             </DialogHeader>
