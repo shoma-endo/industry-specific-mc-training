@@ -126,7 +126,6 @@ export function OverviewTab({
       });
     } finally {
       setIsQueryImporting(false);
-      onRefreshDetail?.(detail.annotation.id);
     }
   };
 
