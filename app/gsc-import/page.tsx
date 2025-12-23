@@ -20,6 +20,19 @@ type ImportResponse = {
     skipped: number;
     unmatched: number;
     evaluated: number;
+    querySummary?: {
+      fetchedRows: number;
+      keptRows: number;
+      dedupedRows: number;
+      fetchErrorPages: number;
+      skipped: {
+        missingKeys: number;
+        invalidUrl: number;
+        emptyQuery: number;
+        zeroMetrics: number;
+      };
+      hitLimit: boolean;
+    };
   };
   error?: string;
 };
@@ -53,7 +66,7 @@ export default function GscImportPage() {
   const [startDate, setStartDate] = useState(daysAgoISO(30));
   const [endDate, setEndDate] = useState(todayISO());
   const [searchType, setSearchType] = useState<'web' | 'image' | 'news'>('web');
-  const [maxRows, setMaxRows] = useState(1000);
+  const [maxRows, setMaxRows] = useState<number | ''>(1000);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [gscStatus, setGscStatus] = useState<GscStatusResponse | null>(null);
@@ -67,7 +80,8 @@ export default function GscImportPage() {
   };
 
   const daysDiff = calculateDaysDiff(startDate, endDate);
-  const showWarning = daysDiff > 90 || maxRows > 2000;
+  const normalizedMaxRows = maxRows === '' ? 1 : maxRows;
+  const showWarning = daysDiff > 90 || normalizedMaxRows > 2000;
 
   useEffect(() => {
     let isMounted = true;
@@ -102,11 +116,12 @@ export default function GscImportPage() {
     setIsLoading(true);
     setResult(null);
     try {
+      const resolvedMaxRows = maxRows === '' ? 1 : maxRows;
       const res = await runGscImport({
         startDate,
         endDate,
         searchType,
-        maxRows,
+        maxRows: resolvedMaxRows,
         runEvaluation: false,
       });
       setResult(res);
@@ -233,10 +248,26 @@ export default function GscImportPage() {
                 min={1}
                 max={25000}
                 value={maxRows}
-                onChange={e => setMaxRows(Math.max(1, Math.min(25000, Number(e.target.value) || 0)))}
+                onChange={e => {
+                  const nextValue = e.target.value;
+                  if (nextValue === '') {
+                    setMaxRows('');
+                    return;
+                  }
+                  const parsedValue = Number(nextValue);
+                  if (Number.isNaN(parsedValue)) {
+                    setMaxRows('');
+                    return;
+                  }
+                  setMaxRows(Math.max(1, Math.min(25000, parsedValue)));
+                }}
+                onBlur={() => {
+                  const resolvedValue = maxRows === '' ? 1 : maxRows;
+                  setMaxRows(Math.max(1, Math.min(25000, resolvedValue)));
+                }}
               />
               <p className="text-xs text-gray-500">
-                推奨: 1000～2000
+                推奨: 1000～2000（空欄の場合は1として扱います）
               </p>
             </div>
           </div>
@@ -249,7 +280,9 @@ export default function GscImportPage() {
                   <p className="font-medium mb-1">処理に時間がかかる可能性があります</p>
                   <ul className="space-y-1 text-xs">
                     {daysDiff > 90 && <li>• 期間が90日を超えています（{daysDiff}日間）。推奨: 30日以内</li>}
-                    {maxRows > 2000 && <li>• 最大取得行数が2000を超えています。推奨: 1000～2000</li>}
+                    {normalizedMaxRows > 2000 && (
+                      <li>• 最大取得行数が2000を超えています。推奨: 1000～2000</li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -289,6 +322,29 @@ export default function GscImportPage() {
                         <div>登録/更新: {result.data.upserted}</div>
                         <div>スキップ: {result.data.skipped}</div>
                         <div>注釈未マッチ: {result.data.unmatched}</div>
+                        {result.data.querySummary && (
+                          <div className="pt-2">
+                            <div className="font-medium">クエリ指標</div>
+                            <div>取得行数: {result.data.querySummary.fetchedRows}</div>
+                            <div>保存対象: {result.data.querySummary.keptRows}</div>
+                            <div>集約後: {result.data.querySummary.dedupedRows}</div>
+                            <div>取得失敗ページ: {result.data.querySummary.fetchErrorPages}</div>
+                            <div className="mt-1">
+                              除外内訳:
+                              <div className="ml-3">
+                                <div>キー欠損: {result.data.querySummary.skipped.missingKeys}</div>
+                                <div>URL正規化失敗: {result.data.querySummary.skipped.invalidUrl}</div>
+                                <div>クエリ空: {result.data.querySummary.skipped.emptyQuery}</div>
+                                <div>0クリック/0表示: {result.data.querySummary.skipped.zeroMetrics}</div>
+                              </div>
+                            </div>
+                            {result.data.querySummary.hitLimit && (
+                              <div className="mt-1 text-amber-700">
+                                取得上限に到達した可能性があります。
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     ) : isOAuthTokenError(result.error) ? (
                       <div className="space-y-3">

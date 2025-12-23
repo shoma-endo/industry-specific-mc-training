@@ -97,7 +97,7 @@ export class GscImportService {
       upserted += 1;
     }
 
-    await this.importQueryMetrics({
+    const querySummary = await this.importQueryMetrics({
       userId,
       propertyUri,
       propertyType,
@@ -114,6 +114,7 @@ export class GscImportService {
       skipped,
       unmatched,
       evaluated: 0,
+      querySummary,
     };
   }
 
@@ -215,8 +216,20 @@ export class GscImportService {
     startDate: string;
     endDate: string;
     matchMap: Map<string, string>;
-  }): Promise<void> {
-    const rows = await this.fetchQueryAnalyticsRows({
+  }): Promise<{
+    fetchedRows: number;
+    keptRows: number;
+    dedupedRows: number;
+    fetchErrorPages: number;
+    skipped: {
+      missingKeys: number;
+      invalidUrl: number;
+      emptyQuery: number;
+      zeroMetrics: number;
+    };
+    hitLimit: boolean;
+  }> {
+    const { rows, hitLimit, fetchErrorPages } = await this.fetchQueryAnalyticsRows({
       accessToken,
       propertyUri,
       startDate,
@@ -224,29 +237,77 @@ export class GscImportService {
       searchType,
     });
 
+    const skipped = {
+      missingKeys: 0,
+      invalidUrl: 0,
+      emptyQuery: 0,
+      zeroMetrics: 0,
+    };
+
     if (!rows.length) {
-      return;
+      return {
+        fetchedRows: 0,
+        keptRows: 0,
+        dedupedRows: 0,
+        fetchErrorPages,
+        skipped,
+        hitLimit,
+      };
     }
 
-    const metrics: GscQueryMetricInsert[] = rows
-      .map(row =>
-        this.toQueryMetric({
-          userId,
-          propertyUri,
-          propertyType,
-          searchType,
-          row,
-          matchMap,
-        })
-      )
-      .filter((metric): metric is GscQueryMetricInsert => metric !== null);
+    const metrics: GscQueryMetricInsert[] = [];
+    for (const row of rows) {
+      const result = this.toQueryMetricWithReason({
+        userId,
+        propertyUri,
+        propertyType,
+        searchType,
+        row,
+        matchMap,
+      });
+      if (!result.metric) {
+        switch (result.reason) {
+          case 'missing_keys':
+            skipped.missingKeys += 1;
+            break;
+          case 'invalid_url':
+            skipped.invalidUrl += 1;
+            break;
+          case 'empty_query':
+            skipped.emptyQuery += 1;
+            break;
+          case 'zero_metrics':
+            skipped.zeroMetrics += 1;
+            break;
+          default:
+            break;
+        }
+        continue;
+      }
+      metrics.push(result.metric);
+    }
 
     if (!metrics.length) {
-      return;
+      return {
+        fetchedRows: rows.length,
+        keptRows: 0,
+        dedupedRows: 0,
+        fetchErrorPages,
+        skipped,
+        hitLimit,
+      };
     }
 
     const deduped = this.aggregateQueryMetrics(metrics);
     await this.supabaseService.upsertGscQueryMetrics(deduped);
+    return {
+      fetchedRows: rows.length,
+      keptRows: metrics.length,
+      dedupedRows: deduped.length,
+      fetchErrorPages,
+      skipped,
+      hitLimit,
+    };
   }
 
   /**
@@ -314,39 +375,82 @@ export class GscImportService {
     startDate: string;
     endDate: string;
     searchType: GscSearchType;
-  }): Promise<GscSearchAnalyticsRow[]> {
+  }): Promise<{ rows: GscSearchAnalyticsRow[]; hitLimit: boolean; fetchErrorPages: number }> {
     const rows: GscSearchAnalyticsRow[] = [];
-    let startRow = 0;
-    for (let page = 0; page < this.queryMaxPages; page += 1) {
-      const batch = await this.fetchSearchAnalytics({
-        accessToken,
-        propertyUri,
-        startDate,
-        endDate,
-        searchType,
-        rowLimit: this.queryRowLimit,
-        startRow,
-        // dimensions 順に合わせて keys を受け取る
-        dimensions: ['date', 'query', 'page'],
-      });
+    const maxPages = this.queryMaxPages;
+    const rowLimit = this.queryRowLimit;
+    const concurrency = Math.min(3, maxPages);
+    let hitLimit = false;
+    let fetchErrorPages = 0;
 
-      if (!batch.length) {
-        break;
+    for (let pageStart = 0; pageStart < maxPages; pageStart += concurrency) {
+      const pageIndexes = Array.from({ length: concurrency }, (_, index) => pageStart + index).filter(
+        pageIndex => pageIndex < maxPages
+      );
+
+      const batchResults = await Promise.all(
+        pageIndexes.map(async pageIndex => {
+          const startRow = pageIndex * rowLimit;
+          try {
+            const batch = await this.fetchSearchAnalytics({
+              accessToken,
+              propertyUri,
+              startDate,
+              endDate,
+              searchType,
+              rowLimit,
+              startRow,
+              // dimensions 順に合わせて keys を受け取る
+              dimensions: ['date', 'query', 'page'],
+            });
+            return { pageIndex, batch, error: null };
+          } catch (error) {
+            console.error(`[gsc-import] query fetch failed: page=${pageIndex}`, error);
+            return { pageIndex, batch: [], error };
+          }
+        })
+      );
+
+      batchResults.sort((a, b) => a.pageIndex - b.pageIndex);
+      fetchErrorPages += batchResults.filter(result => result.error).length;
+      let shouldStop = false;
+
+      for (const result of batchResults) {
+        if (!result.batch.length && result.error) {
+          continue;
+        }
+        if (!result.batch.length) {
+          shouldStop = true;
+          break;
+        }
+
+        rows.push(...result.batch);
+
+        if (result.batch.length < rowLimit) {
+          shouldStop = true;
+          break;
+        }
       }
 
-      rows.push(...batch);
-
-      if (batch.length < this.queryRowLimit) {
+      if (shouldStop) {
+        if (pageIndexes.includes(maxPages - 1)) {
+          const lastPage = batchResults.find(result => result.pageIndex === maxPages - 1);
+          if (lastPage && lastPage.batch.length === rowLimit) {
+            hitLimit = true;
+          }
+        }
         break;
       }
-
-      startRow += this.queryRowLimit;
     }
 
-    return rows;
+    if (!hitLimit && rows.length >= rowLimit * maxPages) {
+      hitLimit = true;
+    }
+
+    return { rows, hitLimit, fetchErrorPages };
   }
 
-  private toQueryMetric({
+  private toQueryMetricWithReason({
     userId,
     propertyUri,
     propertyType,
@@ -360,46 +464,52 @@ export class GscImportService {
     searchType: GscSearchType;
     row: GscSearchAnalyticsRow;
     matchMap: Map<string, string>;
-  }): GscQueryMetricInsert | null {
+  }): {
+    metric: GscQueryMetricInsert | null;
+    reason: 'missing_keys' | 'invalid_url' | 'empty_query' | 'zero_metrics' | null;
+  } {
     const [dateKey, queryText, pageUrl] = row.keys ?? [];
     if (!dateKey || !pageUrl || !queryText) {
-      return null;
+      return { metric: null, reason: 'missing_keys' };
     }
 
     const normalizedUrl = this.normalizeUrl(pageUrl);
     if (!normalizedUrl) {
-      return null;
+      return { metric: null, reason: 'invalid_url' };
     }
 
     const queryNormalized = normalizeQuery(queryText);
     if (!queryNormalized) {
-      return null;
+      return { metric: null, reason: 'empty_query' };
     }
 
     const clicks = row.clicks ?? 0;
     const impressions = row.impressions ?? 0;
 
     if (clicks === 0 && impressions === 0) {
-      return null;
+      return { metric: null, reason: 'zero_metrics' };
     }
 
     const importedAt = new Date().toISOString();
     return {
-      userId,
-      propertyUri,
-      propertyType,
-      searchType,
-      date: dateKey,
-      url: pageUrl,
-      normalizedUrl,
-      query: queryText,
-      queryNormalized,
-      clicks,
-      impressions,
-      ctr: this.calculateCtr(clicks, impressions, row.ctr),
-      position: typeof row.position === 'number' ? row.position : 0,
-      contentAnnotationId: matchMap.get(normalizedUrl) ?? null,
-      importedAt,
+      metric: {
+        userId,
+        propertyUri,
+        propertyType,
+        searchType,
+        date: dateKey,
+        url: pageUrl,
+        normalizedUrl,
+        query: queryText,
+        queryNormalized,
+        clicks,
+        impressions,
+        ctr: this.calculateCtr(clicks, impressions, row.ctr),
+        position: typeof row.position === 'number' ? row.position : 0,
+        contentAnnotationId: matchMap.get(normalizedUrl) ?? null,
+        importedAt,
+      },
+      reason: null,
     };
   }
 
