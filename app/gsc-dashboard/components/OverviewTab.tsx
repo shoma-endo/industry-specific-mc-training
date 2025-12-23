@@ -144,9 +144,9 @@ export function OverviewTab({
               <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
                 <DialogTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    className="h-8 border-blue-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50 hover:border-blue-300"
                     disabled={isQueryImporting || !detail.annotation.canonical_url}
                   >
                     <RefreshCw
