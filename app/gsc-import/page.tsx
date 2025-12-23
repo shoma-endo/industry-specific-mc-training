@@ -24,6 +24,7 @@ type ImportResponse = {
       fetchedRows: number;
       keptRows: number;
       dedupedRows: number;
+      fetchErrorPages: number;
       skipped: {
         missingKeys: number;
         invalidUrl: number;
@@ -327,6 +328,7 @@ export default function GscImportPage() {
                             <div>取得行数: {result.data.querySummary.fetchedRows}</div>
                             <div>保存対象: {result.data.querySummary.keptRows}</div>
                             <div>集約後: {result.data.querySummary.dedupedRows}</div>
+                            <div>取得失敗ページ: {result.data.querySummary.fetchErrorPages}</div>
                             <div className="mt-1">
                               除外内訳:
                               <div className="ml-3">

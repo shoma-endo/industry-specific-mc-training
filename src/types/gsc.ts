@@ -93,6 +93,7 @@ export type GscImportResult = {
     fetchedRows: number;
     keptRows: number;
     dedupedRows: number;
+    fetchErrorPages: number;
     skipped: {
       missingKeys: number;
       invalidUrl: number;

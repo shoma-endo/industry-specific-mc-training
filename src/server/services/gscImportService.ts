@@ -220,6 +220,7 @@ export class GscImportService {
     fetchedRows: number;
     keptRows: number;
     dedupedRows: number;
+    fetchErrorPages: number;
     skipped: {
       missingKeys: number;
       invalidUrl: number;
@@ -228,7 +229,7 @@ export class GscImportService {
     };
     hitLimit: boolean;
   }> {
-    const { rows, hitLimit } = await this.fetchQueryAnalyticsRows({
+    const { rows, hitLimit, fetchErrorPages } = await this.fetchQueryAnalyticsRows({
       accessToken,
       propertyUri,
       startDate,
@@ -248,6 +249,7 @@ export class GscImportService {
         fetchedRows: 0,
         keptRows: 0,
         dedupedRows: 0,
+        fetchErrorPages,
         skipped,
         hitLimit,
       };
@@ -290,6 +292,7 @@ export class GscImportService {
         fetchedRows: rows.length,
         keptRows: 0,
         dedupedRows: 0,
+        fetchErrorPages,
         skipped,
         hitLimit,
       };
@@ -301,6 +304,7 @@ export class GscImportService {
       fetchedRows: rows.length,
       keptRows: metrics.length,
       dedupedRows: deduped.length,
+      fetchErrorPages,
       skipped,
       hitLimit,
     };
@@ -371,12 +375,13 @@ export class GscImportService {
     startDate: string;
     endDate: string;
     searchType: GscSearchType;
-  }): Promise<{ rows: GscSearchAnalyticsRow[]; hitLimit: boolean }> {
+  }): Promise<{ rows: GscSearchAnalyticsRow[]; hitLimit: boolean; fetchErrorPages: number }> {
     const rows: GscSearchAnalyticsRow[] = [];
     const maxPages = this.queryMaxPages;
     const rowLimit = this.queryRowLimit;
     const concurrency = Math.min(3, maxPages);
     let hitLimit = false;
+    let fetchErrorPages = 0;
 
     for (let pageStart = 0; pageStart < maxPages; pageStart += concurrency) {
       const pageIndexes = Array.from({ length: concurrency }, (_, index) => pageStart + index).filter(
@@ -407,6 +412,7 @@ export class GscImportService {
       );
 
       batchResults.sort((a, b) => a.pageIndex - b.pageIndex);
+      fetchErrorPages += batchResults.filter(result => result.error).length;
       let shouldStop = false;
 
       for (const result of batchResults) {
@@ -441,7 +447,7 @@ export class GscImportService {
       hitLimit = true;
     }
 
-    return { rows, hitLimit };
+    return { rows, hitLimit, fetchErrorPages };
   }
 
   private toQueryMetricWithReason({
