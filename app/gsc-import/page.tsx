@@ -242,7 +242,11 @@ export default function GscImportPage() {
                     return;
                   }
                   const parsedValue = Number(nextValue);
-                  setMaxRows(Number.isNaN(parsedValue) ? '' : Math.min(25000, parsedValue));
+                  if (Number.isNaN(parsedValue)) {
+                    setMaxRows('');
+                    return;
+                  }
+                  setMaxRows(Math.max(1, Math.min(25000, parsedValue)));
                 }}
                 onBlur={() => {
                   const resolvedValue = maxRows === '' ? 1 : maxRows;
