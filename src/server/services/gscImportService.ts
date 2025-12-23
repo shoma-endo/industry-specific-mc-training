@@ -374,18 +374,23 @@ export class GscImportService {
       const batchResults = await Promise.all(
         pageIndexes.map(async pageIndex => {
           const startRow = pageIndex * rowLimit;
-          const batch = await this.fetchSearchAnalytics({
-            accessToken,
-            propertyUri,
-            startDate,
-            endDate,
-            searchType,
-            rowLimit,
-            startRow,
-            // dimensions 順に合わせて keys を受け取る
-            dimensions: ['date', 'query', 'page'],
-          });
-          return { pageIndex, batch };
+          try {
+            const batch = await this.fetchSearchAnalytics({
+              accessToken,
+              propertyUri,
+              startDate,
+              endDate,
+              searchType,
+              rowLimit,
+              startRow,
+              // dimensions 順に合わせて keys を受け取る
+              dimensions: ['date', 'query', 'page'],
+            });
+            return { pageIndex, batch, error: null };
+          } catch (error) {
+            console.error(`[gsc-import] query fetch failed: page=${pageIndex}`, error);
+            return { pageIndex, batch: [], error };
+          }
         })
       );
 
