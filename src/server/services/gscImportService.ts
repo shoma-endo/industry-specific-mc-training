@@ -264,10 +264,22 @@ export class GscImportService {
         matchMap,
       });
       if (!result.metric) {
-        if (result.reason === 'missing_keys') skipped.missingKeys += 1;
-        if (result.reason === 'invalid_url') skipped.invalidUrl += 1;
-        if (result.reason === 'empty_query') skipped.emptyQuery += 1;
-        if (result.reason === 'zero_metrics') skipped.zeroMetrics += 1;
+        switch (result.reason) {
+          case 'missing_keys':
+            skipped.missingKeys += 1;
+            break;
+          case 'invalid_url':
+            skipped.invalidUrl += 1;
+            break;
+          case 'empty_query':
+            skipped.emptyQuery += 1;
+            break;
+          case 'zero_metrics':
+            skipped.zeroMetrics += 1;
+            break;
+          default:
+            break;
+        }
         continue;
       }
       metrics.push(result.metric);
