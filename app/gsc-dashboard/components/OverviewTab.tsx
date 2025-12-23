@@ -5,6 +5,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { getQueryImportToastMessage } from '@/lib/gsc-import';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -110,15 +111,12 @@ export function OverviewTab({
     setIsQueryImporting(true);
     const toastId = toast.loading('クエリ指標を取得中...');
     try {
-      const summary = await onRunQueryImport();
-      if (summary.fetchErrorPages > 0) {
-        toast.warning(`取得失敗ページ: ${summary.fetchErrorPages}（一部欠損の可能性）`, {
-          id: toastId,
-        });
+    const { querySummary } = await onRunQueryImport();
+    const toastMessage = getQueryImportToastMessage(querySummary);
+      if (toastMessage.type === 'warning') {
+        toast.warning(toastMessage.message, { id: toastId });
       } else {
-        toast.success(`取得完了: ${summary.dedupedRows}件（保存対象 ${summary.keptRows}件）`, {
-          id: toastId,
-        });
+        toast.success(toastMessage.message, { id: toastId });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '取得に失敗しました', {

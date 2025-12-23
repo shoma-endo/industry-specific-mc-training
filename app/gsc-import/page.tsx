@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 import { runGscImport } from '@/server/actions/gscImport.actions';
 import { fetchGscStatus } from '@/server/actions/gscSetup.actions';
+import { getQuerySummaryLabels } from '@/lib/gsc-import';
 import type { GscConnectionStatus } from '@/types/gsc';
 
 type ImportResponse = {
@@ -328,25 +329,28 @@ export default function GscImportPage() {
                         )}
                         {result.data.querySummary && (
                           <div className="pt-2">
+                            {(() => {
+                              const labels = getQuerySummaryLabels(result.data.querySummary);
+                              return (
+                                <>
                             <div className="font-medium">クエリ指標</div>
-                            <div>取得行数: {result.data.querySummary.fetchedRows}</div>
-                            <div>保存対象: {result.data.querySummary.keptRows}</div>
-                            <div>集約後: {result.data.querySummary.dedupedRows}</div>
-                            <div>取得失敗ページ: {result.data.querySummary.fetchErrorPages}</div>
+                            <div>{labels.fetched}</div>
+                            <div>{labels.kept}</div>
+                            <div>{labels.deduped}</div>
+                            <div>{labels.fetchErrorPages}</div>
                             <div className="mt-1">
                               除外内訳:
                               <div className="ml-3">
-                                <div>キー欠損: {result.data.querySummary.skipped.missingKeys}</div>
-                                <div>URL正規化失敗: {result.data.querySummary.skipped.invalidUrl}</div>
-                                <div>クエリ空: {result.data.querySummary.skipped.emptyQuery}</div>
-                                <div>0クリック/0表示: {result.data.querySummary.skipped.zeroMetrics}</div>
+                                <div>{labels.missingKeys}</div>
+                                <div>{labels.invalidUrl}</div>
+                                <div>{labels.emptyQuery}</div>
+                                <div>{labels.zeroMetrics}</div>
                               </div>
                             </div>
-                            {result.data.querySummary.hitLimit && (
-                              <div className="mt-1 text-amber-700">
-                                取得上限に到達した可能性があります。
-                              </div>
-                            )}
+                            {labels.hitLimit && <div className="mt-1 text-amber-700">{labels.hitLimit}</div>}
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
                       </>

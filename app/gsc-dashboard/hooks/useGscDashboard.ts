@@ -43,17 +43,19 @@ interface UseGscDashboardReturn {
   handleUpdateEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
   handleRunEvaluation: () => Promise<{ processed: number; improved: number; advanced: number; skippedNoMetrics: number; skippedImportFailed: number }>;
   handleRunQueryImport: () => Promise<{
-    fetchedRows: number;
-    keptRows: number;
-    dedupedRows: number;
-    fetchErrorPages: number;
-    skipped: {
-      missingKeys: number;
-      invalidUrl: number;
-      emptyQuery: number;
-      zeroMetrics: number;
+    querySummary: {
+      fetchedRows: number;
+      keptRows: number;
+      dedupedRows: number;
+      fetchErrorPages: number;
+      skipped: {
+        missingKeys: number;
+        invalidUrl: number;
+        emptyQuery: number;
+        zeroMetrics: number;
+      };
+      hitLimit: boolean;
     };
-    hitLimit: boolean;
   }>;
   refreshDetail: (annotationId: string) => Promise<void>;
 }
@@ -241,7 +243,7 @@ export function useGscDashboard({
       await refreshDetail(selectedId);
     }
 
-    return res.data!;
+    return { querySummary: res.data!.querySummary };
   }, [selectedId, refreshDetail]);
 
   const handleRunQueryImport = useCallback(async () => {
