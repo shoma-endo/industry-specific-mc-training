@@ -3,7 +3,7 @@
 
 const DEFAULT_INTERVAL_DAYS = 30;
 const DEFAULT_QUERY_ROW_LIMIT = 1000;
-const DEFAULT_QUERY_MAX_PAGES = 5;
+const DEFAULT_QUERY_MAX_PAGES = 10;
 
 /**
  * 評価間隔(日)を環境変数から取得する。
@@ -45,10 +45,5 @@ export function getGscQueryRowLimit(): number {
 }
 
 export function getGscQueryMaxPages(): number {
-  const raw = process.env.GSC_QUERY_MAX_PAGES;
-  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    return DEFAULT_QUERY_MAX_PAGES;
-  }
-  return clampNumber(parsed, 1, 20);
+  return DEFAULT_QUERY_MAX_PAGES;
 }

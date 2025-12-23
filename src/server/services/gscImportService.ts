@@ -316,31 +316,53 @@ export class GscImportService {
     searchType: GscSearchType;
   }): Promise<GscSearchAnalyticsRow[]> {
     const rows: GscSearchAnalyticsRow[] = [];
-    let startRow = 0;
-    for (let page = 0; page < this.queryMaxPages; page += 1) {
-      const batch = await this.fetchSearchAnalytics({
-        accessToken,
-        propertyUri,
-        startDate,
-        endDate,
-        searchType,
-        rowLimit: this.queryRowLimit,
-        startRow,
-        // dimensions 順に合わせて keys を受け取る
-        dimensions: ['date', 'query', 'page'],
-      });
+    const maxPages = this.queryMaxPages;
+    const rowLimit = this.queryRowLimit;
+    const concurrency = Math.min(3, maxPages);
 
-      if (!batch.length) {
-        break;
+    for (let pageStart = 0; pageStart < maxPages; pageStart += concurrency) {
+      const pageIndexes = Array.from({ length: concurrency }, (_, index) => pageStart + index).filter(
+        pageIndex => pageIndex < maxPages
+      );
+
+      const batchResults = await Promise.all(
+        pageIndexes.map(async pageIndex => {
+          const startRow = pageIndex * rowLimit;
+          const batch = await this.fetchSearchAnalytics({
+            accessToken,
+            propertyUri,
+            startDate,
+            endDate,
+            searchType,
+            rowLimit,
+            startRow,
+            // dimensions 順に合わせて keys を受け取る
+            dimensions: ['date', 'query', 'page'],
+          });
+          return { pageIndex, batch };
+        })
+      );
+
+      batchResults.sort((a, b) => a.pageIndex - b.pageIndex);
+      let shouldStop = false;
+
+      for (const result of batchResults) {
+        if (!result.batch.length) {
+          shouldStop = true;
+          break;
+        }
+
+        rows.push(...result.batch);
+
+        if (result.batch.length < rowLimit) {
+          shouldStop = true;
+          break;
+        }
       }
 
-      rows.push(...batch);
-
-      if (batch.length < this.queryRowLimit) {
+      if (shouldStop) {
         break;
       }
-
-      startRow += this.queryRowLimit;
     }
 
     return rows;
