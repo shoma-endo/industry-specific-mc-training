@@ -398,6 +398,9 @@ export class GscImportService {
       let shouldStop = false;
 
       for (const result of batchResults) {
+        if (!result.batch.length && result.error) {
+          continue;
+        }
         if (!result.batch.length) {
           shouldStop = true;
           break;
