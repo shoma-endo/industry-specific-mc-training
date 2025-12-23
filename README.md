@@ -236,23 +236,6 @@ erDiagram
         timestamptz updated_at
     }
 
-    content_categories {
-        uuid id PK
-        text user_id
-        text name
-        text color
-        integer sort_order
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    content_annotation_categories {
-        uuid id PK
-        uuid annotation_id FK
-        uuid category_id FK
-        timestamptz created_at
-    }
-
     gsc_article_evaluations {
         uuid id PK
         uuid user_id FK
@@ -274,9 +257,6 @@ erDiagram
     users ||--o{ content_annotations : annotates
     users ||--o| wordpress_settings : configures
     prompt_templates ||--o{ prompt_versions : captures
-    users ||--o{ content_categories : manages
-    content_annotations ||--o{ content_annotation_categories : categorized_by
-    content_categories ||--o{ content_annotation_categories : categorizes
     content_annotations ||--o| gsc_article_evaluations : "monitored by"
 ```
 
