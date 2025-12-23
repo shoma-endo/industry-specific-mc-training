@@ -53,7 +53,7 @@ export default function GscImportPage() {
   const [startDate, setStartDate] = useState(daysAgoISO(30));
   const [endDate, setEndDate] = useState(todayISO());
   const [searchType, setSearchType] = useState<'web' | 'image' | 'news'>('web');
-  const [maxRows, setMaxRows] = useState(1000);
+  const [maxRows, setMaxRows] = useState<number | ''>(1000);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [gscStatus, setGscStatus] = useState<GscStatusResponse | null>(null);
@@ -67,7 +67,8 @@ export default function GscImportPage() {
   };
 
   const daysDiff = calculateDaysDiff(startDate, endDate);
-  const showWarning = daysDiff > 90 || maxRows > 2000;
+  const normalizedMaxRows = maxRows === '' ? 1 : maxRows;
+  const showWarning = daysDiff > 90 || normalizedMaxRows > 2000;
 
   useEffect(() => {
     let isMounted = true;
@@ -102,11 +103,12 @@ export default function GscImportPage() {
     setIsLoading(true);
     setResult(null);
     try {
+      const resolvedMaxRows = maxRows === '' ? 1 : maxRows;
       const res = await runGscImport({
         startDate,
         endDate,
         searchType,
-        maxRows,
+        maxRows: resolvedMaxRows,
         runEvaluation: false,
       });
       setResult(res);
@@ -233,10 +235,22 @@ export default function GscImportPage() {
                 min={1}
                 max={25000}
                 value={maxRows}
-                onChange={e => setMaxRows(Math.max(1, Math.min(25000, Number(e.target.value) || 0)))}
+                onChange={e => {
+                  const nextValue = e.target.value;
+                  if (nextValue === '') {
+                    setMaxRows('');
+                    return;
+                  }
+                  const parsedValue = Number(nextValue);
+                  setMaxRows(Number.isNaN(parsedValue) ? '' : Math.min(25000, parsedValue));
+                }}
+                onBlur={() => {
+                  const resolvedValue = maxRows === '' ? 1 : maxRows;
+                  setMaxRows(Math.max(1, Math.min(25000, resolvedValue)));
+                }}
               />
               <p className="text-xs text-gray-500">
-                推奨: 1000～2000
+                推奨: 1000～2000（空欄の場合は1として扱います）
               </p>
             </div>
           </div>
