@@ -91,18 +91,6 @@ export interface ChatSessionSearchMatch {
 /**
  * アプリケーションモデルとデータベースモデル間の変換関数
  */
-export function toDbChatMessage(message: ChatMessage): DbChatMessage {
-  return {
-    id: message.id,
-    user_id: message.userId,
-    session_id: message.sessionId,
-    role: message.role,
-    content: message.content,
-    model: message.model,
-    created_at: message.createdAt,
-  };
-}
-
 export function toChatMessage(dbMessage: DbChatMessage): ChatMessage {
   return {
     id: dbMessage.id,
@@ -112,17 +100,6 @@ export function toChatMessage(dbMessage: DbChatMessage): ChatMessage {
     content: dbMessage.content,
     model: dbMessage.model,
     createdAt: dbMessage.created_at,
-  };
-}
-
-export function toDbChatSession(session: ChatSession): DbChatSession {
-  return {
-    id: session.id,
-    user_id: session.userId,
-    title: session.title,
-    system_prompt: session.systemPrompt,
-    last_message_at: session.lastMessageAt,
-    created_at: session.createdAt,
   };
 }
 
