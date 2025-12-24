@@ -4,7 +4,7 @@ import { ChatProcessorService } from './chatProcessors';
 import { MODEL_CONFIGS } from '@/lib/constants';
 import { getSystemPrompt as getSystemPromptShared } from '@/lib/prompts';
 import { ChatResponse } from '@/types/chat';
-import type { StartChatInput, ContinueChatInput } from '../chat.actions';
+import type { StartChatInput, ContinueChatInput } from '@/server/schemas/chat.schema';
 import { BriefService } from '@/server/services/briefService';
 import { PromptService } from '@/server/services/promptService';
 

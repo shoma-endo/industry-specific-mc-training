@@ -162,8 +162,3 @@ const envProxy = new Proxy({} as Env, {
 });
 
 export const env = envProxy;
-export const clientEnv = parsedClientEnv;
-export const runtimeEnv: Partial<Env> = {
-  ...parsedClientEnv,
-  ...(isServer && parsedServerEnv ? parsedServerEnv : {}),
-};

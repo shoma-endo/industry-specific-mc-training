@@ -1,5 +1,4 @@
 import { LineAuthService, LineTokenExpiredError } from './lineAuthService';
-import { StripeService } from './stripeService';
 import { SupabaseService } from './supabaseService';
 import type { SupabaseResult } from './supabaseService';
 import type { User, UserRole } from '@/types/user';
@@ -11,11 +10,6 @@ import { toDbUser, toUser, type DbUser } from '@/types/user';
 export class UserService {
   private lineAuthService: LineAuthService;
   private supabaseService: SupabaseService;
-
-  // 遅延初期化でStripeServiceのインスタンスを取得
-  private getStripeService() {
-    return new StripeService();
-  }
 
   constructor() {
     this.lineAuthService = new LineAuthService();

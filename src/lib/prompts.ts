@@ -1,7 +1,7 @@
-export const SYSTEM_PROMPT =
+const SYSTEM_PROMPT =
   'あなたは親切なアシスタントです。ユーザーの質問に丁寧に答えてください。';
 
-export const KEYWORD_CATEGORIZATION_PROMPT = `
+const KEYWORD_CATEGORIZATION_PROMPT = `
 # 役割
 Google広告リサーチのプロフェッショナル
 
@@ -76,7 +76,7 @@ Google広告リサーチのプロフェッショナル
 - ユーザーからのキーワードは必ずどちらかのカテゴリに分類する  
 `.trim();
 
-export const AD_COPY_PROMPT = `
+const AD_COPY_PROMPT = `
 # 役割
 Google広告の分析及びコピーライティングのプロフェッショナル
 
@@ -186,7 +186,7 @@ kw = キーワード
 4. 9割以上の方が30万円以上のコスト削減に成功。スピーディな対応と高い満足度をお約束します。
 `.trim();
 
-export const AD_COPY_FINISHING_PROMPT = `
+const AD_COPY_FINISHING_PROMPT = `
 # 役割
 Google広告のコピーライティングプロフェッショナル
 
@@ -283,7 +283,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
  * 事業者情報取得のキャッシュ化
  * 同一リクエスト内でのDB負荷を最大90%削減
  */
-export const getCachedBrief = cache(async (liffAccessToken: string): Promise<BriefInput | null> => {
+const getCachedBrief = cache(async (liffAccessToken: string): Promise<BriefInput | null> => {
   try {
     const result = await getBrief(liffAccessToken);
     return result.success && result.data ? result.data : null;
@@ -299,7 +299,7 @@ export const getCachedBrief = cache(async (liffAccessToken: string): Promise<Bri
  * テンプレート変数置換関数
  * {{variable}} 形式の変数を実際の値で置換
  */
-export function replaceTemplateVariables(
+function replaceTemplateVariables(
   template: string,
   businessInfo: BriefInput | null
 ): string {
@@ -320,7 +320,7 @@ export function replaceTemplateVariables(
     template
       .replace(/\{\{(\w+)\}\}/g, (match, key) => {
         // 既知の事業者情報のみを置換し、未知の変数は保持して後段の置換へ委譲
-        const value = (businessInfo as unknown as Record<string, unknown>)[key];
+        const value = key in businessInfo ? businessInfo[key as keyof BriefInput] : undefined;
 
         // 未定義・null は置換せずプレースホルダを残す
         if (value === undefined || value === null) {
@@ -354,7 +354,7 @@ export function replaceTemplateVariables(
 // テンプレート定数（事業者情報変数対応）
 // =============================================================================
 
-export const AD_COPY_PROMPT_TEMPLATE = `
+const AD_COPY_PROMPT_TEMPLATE = `
 # 役割
 Google広告の分析及びコピーライティングのプロフェッショナル
 
@@ -491,7 +491,7 @@ kw = キーワード
 4. 9割以上の方が30万円以上のコスト削減に成功。スピーディな対応と高い満足度をお約束します。
 `.trim();
 
-export const AD_COPY_FINISHING_PROMPT_TEMPLATE = `
+const AD_COPY_FINISHING_PROMPT_TEMPLATE = `
 # 役割
 Google広告のコピーライティングプロフェッショナル
 
@@ -598,7 +598,7 @@ kw = キーワード
 ・！
 `.trim();
 
-export const LP_DRAFT_PROMPT_TEMPLATE = `
+const LP_DRAFT_PROMPT_TEMPLATE = `
 # あなたは、Google広告で使用された「広告見出し」と「広告説明文」から、スマホ最適化されたLPドラフトを構成的に自動生成する専門ライターです。
 
 ## 事業者情報の活用
@@ -670,7 +670,7 @@ export const LP_DRAFT_PROMPT_TEMPLATE = `
 `.trim();
 
 // 後方互換性のため従来のプロンプトも残す
-export const LP_DRAFT_PROMPT = LP_DRAFT_PROMPT_TEMPLATE;
+const LP_DRAFT_PROMPT = LP_DRAFT_PROMPT_TEMPLATE;
 
 // =============================================================================
 // プロンプト生成関数（React Cache活用）
@@ -680,7 +680,7 @@ export const LP_DRAFT_PROMPT = LP_DRAFT_PROMPT_TEMPLATE;
  * 広告コピー作成用プロンプト生成（キャッシュ付き）
  * DBからprompt_templatesテーブルを取得するように変更
  */
-export const generateAdCopyPrompt = cache(async (liffAccessToken: string): Promise<string> => {
+const generateAdCopyPrompt = cache(async (liffAccessToken: string): Promise<string> => {
   try {
     // DBからプロンプトテンプレートを取得
     const template = await PromptService.getTemplateByName('ad_copy_creation');
@@ -710,7 +710,7 @@ export const generateAdCopyPrompt = cache(async (liffAccessToken: string): Promi
 /**
  * 広告コピー仕上げ用プロンプト生成（キャッシュ付き）
  */
-export const generateAdCopyFinishingPrompt = cache(
+const generateAdCopyFinishingPrompt = cache(
   async (liffAccessToken: string): Promise<string> => {
     try {
       // DBからプロンプトテンプレートを取得
@@ -734,7 +734,7 @@ export const generateAdCopyFinishingPrompt = cache(
  * LP下書き作成用プロンプト生成（キャッシュ付き）
  * DBからprompt_templatesテーブルを取得するように変更
  */
-export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Promise<string> => {
+const generateLpDraftPrompt = cache(async (liffAccessToken: string): Promise<string> => {
   try {
     // DBからプロンプトテンプレートを取得
     const template = await PromptService.getTemplateByName('lp_draft_creation');
@@ -765,7 +765,7 @@ export const generateLpDraftPrompt = cache(async (liffAccessToken: string): Prom
  * ブログ作成用プロンプト生成（キャッシュ付き）
  * DBテンプレート + canonicalUrls 変数埋め込み
  */
-export async function generateBlogCreationPromptByStep(
+async function generateBlogCreationPromptByStep(
   liffAccessToken: string,
   step: BlogStepId,
   sessionId?: string
@@ -871,6 +871,10 @@ export async function generateBlogCreationPromptByStep(
             templateName,
             unresolvedPlaceholders,
           });
+          if (process.env.NODE_ENV === 'development') {
+            return mergedPrompt.replace(/{{\w+}}/g, match => `[未解決: ${match}]`);
+          }
+          // TODO: エラートラッキングサービスに送信
           return mergedPrompt.replace(/{{\w+}}/g, '');
         }
 
@@ -893,6 +897,13 @@ export async function generateBlogCreationPromptByStep(
 // 共通：モデル別システムプロンプト解決
 // =============================================================================
 
+const STATIC_PROMPTS: Record<string, string> = {
+  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
+  ad_copy_creation: AD_COPY_PROMPT,
+  ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
+  lp_draft_creation: LP_DRAFT_PROMPT,
+};
+
 /**
  * モデルに応じたシステムプロンプトを取得する（LIFFトークンがあれば動的生成、なければ静的）
  */
@@ -913,24 +924,10 @@ export async function getSystemPrompt(
         return await generateAdCopyFinishingPrompt(liffAccessToken);
       case 'lp_draft_creation':
         return await generateLpDraftPrompt(liffAccessToken);
-      default: {
-        const STATIC_PROMPTS: Record<string, string> = {
-          'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-          ad_copy_creation: AD_COPY_PROMPT,
-          ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
-          lp_draft_creation: LP_DRAFT_PROMPT,
-        };
+      default:
         return STATIC_PROMPTS[model] ?? SYSTEM_PROMPT;
-      }
     }
   }
 
-  // liffAccessToken が無い場合は静的
-  const STATIC_PROMPTS: Record<string, string> = {
-    'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-    ad_copy_creation: AD_COPY_PROMPT,
-    ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
-    lp_draft_creation: LP_DRAFT_PROMPT,
-  };
   return STATIC_PROMPTS[model] ?? SYSTEM_PROMPT;
 }

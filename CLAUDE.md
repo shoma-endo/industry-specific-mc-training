@@ -129,7 +129,7 @@ AI運用5原則
 - TypeScript でオブジェクト型を定義する際は、可能な限り `interface` を使用し、`type` は `interface` で表現できない場合に限定する。
 - Server Actions（`use server`）と Route Handlers を使い分け、クライアントへの機密情報露出を防ぐ。
 - Chat/Canvas の SSE 実装ではタイムアウトや ping を既存実装に合わせる。
-- 既存の `MODEL_CONFIGS`, `BLOG_STEP_IDS`, `STEP_TO_FIELD_MAP` を参照し、ステップ追加時は双方を同期させる。
+- 既存の `MODEL_CONFIGS`, `BLOG_STEP_IDS` を参照し、ステップ追加時は双方を同期させる。
 - WordPress 連携は WordPress.com / Self-hosted の両方を考慮し、URL 正規化とエラーハンドリングを追加する。
 - Stripe を扱う処理では `env.STRIPE_ENABLED` を必ずチェックし、無効時の例外を投げるパターンを踏襲。
 - Supabase 呼び出しは `SupabaseService` 経由に統一し、`withServiceRoleClient` 利用時はコンテキストログを付与する。

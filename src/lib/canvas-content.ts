@@ -175,12 +175,10 @@ const normalizeCanvasContent = (raw: string): string => {
 };
 
 export {
-  BLOG_MODEL_PREFIX,
   extractBlogStepFromModel,
   findLatestAssistantBlogStep,
   normalizeCanvasContent,
   htmlToMarkdownForCanvas,
   sanitizeHtmlForCanvas,
-  extractCanvasStructuredContent,
   isBlogStepId,
 };
