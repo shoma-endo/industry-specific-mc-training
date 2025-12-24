@@ -9,7 +9,12 @@ export const startChatSchema = z.object({
 
 export const continueChatSchema = z.object({
   sessionId: z.string(),
-  messages: z.array(z.object({ role: z.string(), content: z.string() })),
+  messages: z.array(
+    z.object({
+      role: z.enum(['user', 'assistant', 'system']),
+      content: z.string(),
+    })
+  ),
   userMessage: z.string(),
   model: z.string(),
   liffAccessToken: z.string(),
