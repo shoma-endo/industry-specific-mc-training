@@ -145,17 +145,6 @@ export const ANALYTICS_COLUMNS = [
   { id: 'url', label: 'URL' },
 ];
 
-// ブログステップとコンテンツフィールドのマッピング
-export const STEP_TO_FIELD_MAP: Record<BlogStepId, string> = {
-  step1: 'needs',
-  step2: 'persona',
-  step3: 'goal',
-  step4: 'prep',
-  step5: 'basic_structure',
-  step6: 'opening_proposal',
-  step7: 'full', // step7は特殊（全フィールド必要）
-};
-
 // Analytics ページの localStorage キー
 export const ANALYTICS_STORAGE_KEYS = {
   CATEGORY_FILTER: 'analytics.categoryFilter',
@@ -164,7 +153,7 @@ export const ANALYTICS_STORAGE_KEYS = {
 } as const;
 
 // カテゴリフィルターのデフォルト値
-export const DEFAULT_CATEGORY_FILTER: CategoryFilterConfig = {
+const DEFAULT_CATEGORY_FILTER: CategoryFilterConfig = {
   selectedCategoryNames: [],
   includeUncategorized: false,
 };
