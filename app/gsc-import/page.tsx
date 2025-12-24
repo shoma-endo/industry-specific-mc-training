@@ -324,7 +324,8 @@ export default function GscImportPage() {
                         <div>登録/更新: {result.data.upserted}</div>
                         <div>スキップ: {result.data.skipped}</div>
                         <div>注釈未マッチ: {result.data.unmatched}</div>
-                        {result.data.segmentCount && result.data.segmentCount > 1 && (
+                        {typeof result.data.segmentCount === 'number' &&
+                          result.data.segmentCount > 1 && (
                           <div>期間分割: {result.data.segmentCount}回</div>
                         )}
                         {result.data.querySummary && (
