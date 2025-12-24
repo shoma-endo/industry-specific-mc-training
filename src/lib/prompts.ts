@@ -320,7 +320,7 @@ function replaceTemplateVariables(
     template
       .replace(/\{\{(\w+)\}\}/g, (match, key) => {
         // 既知の事業者情報のみを置換し、未知の変数は保持して後段の置換へ委譲
-        const value = (businessInfo as unknown as Record<string, unknown>)[key];
+        const value = key in businessInfo ? businessInfo[key as keyof BriefInput] : undefined;
 
         // 未定義・null は置換せずプレースホルダを残す
         if (value === undefined || value === null) {
@@ -871,6 +871,10 @@ async function generateBlogCreationPromptByStep(
             templateName,
             unresolvedPlaceholders,
           });
+          if (process.env.NODE_ENV === 'development') {
+            return mergedPrompt.replace(/{{\w+}}/g, match => `[未解決: ${match}]`);
+          }
+          // TODO: エラートラッキングサービスに送信
           return mergedPrompt.replace(/{{\w+}}/g, '');
         }
 
