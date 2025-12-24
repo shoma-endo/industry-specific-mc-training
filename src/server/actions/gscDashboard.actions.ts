@@ -594,13 +594,6 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
       await supabaseService.cleanupOldGscPageMetrics(annotationId, currentNormalizedUrl);
     }
 
-    await gscImportService.importPageMetricsForUrl(userId, {
-      startDate: startIso,
-      endDate: endIso,
-      pageUrl: annotation.canonical_url,
-      contentAnnotationId: annotation.id,
-    });
-
     const summary = await gscImportService.importPageAndQueryForUrlWithSplit(userId, {
       startDate: startIso,
       endDate: endIso,
