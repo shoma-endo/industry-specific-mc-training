@@ -287,7 +287,7 @@ export class GscImportService {
     }> = [];
 
     for (const range of ranges) {
-      await this.importPageMetricsForUrl(userId, {
+      const pageResult = await this.importPageMetricsForUrl(userId, {
         startDate: range.start,
         endDate: range.end,
         pageUrl,
@@ -303,9 +303,9 @@ export class GscImportService {
       });
 
       results.push({
-        totalFetched: 0,
-        upserted: 0,
-        skipped: 0,
+        totalFetched: pageResult.totalFetched,
+        upserted: pageResult.upserted,
+        skipped: pageResult.skipped,
         unmatched: 0,
         querySummary: summary,
       });
