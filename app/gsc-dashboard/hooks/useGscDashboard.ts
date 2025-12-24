@@ -243,7 +243,7 @@ export function useGscDashboard({
       await refreshDetail(selectedId);
     }
 
-    return { querySummary: res.data!.querySummary };
+    return res.data!;
   }, [selectedId, refreshDetail]);
 
   const handleRunQueryImport = useCallback(async () => {
@@ -257,7 +257,7 @@ export function useGscDashboard({
     }
 
     await refreshDetail(selectedId);
-    return res.data!;
+    return { querySummary: res.data!.querySummary };
   }, [selectedId, refreshDetail]);
 
   return {
