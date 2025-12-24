@@ -73,6 +73,9 @@ export default function GscImportPage() {
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [gscStatus, setGscStatus] = useState<GscStatusResponse | null>(null);
   const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(true);
+  const querySummaryLabels = result?.data?.querySummary
+    ? getQuerySummaryLabels(result.data.querySummary)
+    : null;
 
   // 期間（日数）を計算
   const calculateDaysDiff = (start: string, end: string): number => {
@@ -328,30 +331,25 @@ export default function GscImportPage() {
                           result.data.segmentCount > 1 && (
                           <div>期間分割: {result.data.segmentCount}回</div>
                         )}
-                        {result.data.querySummary && (
+                        {result.data.querySummary && querySummaryLabels && (
                           <div className="pt-2">
-                            {(() => {
-                              const labels = getQuerySummaryLabels(result.data.querySummary);
-                              return (
-                                <>
                             <div className="font-medium">クエリ指標</div>
-                            <div>{labels.fetched}</div>
-                            <div>{labels.kept}</div>
-                            <div>{labels.deduped}</div>
-                            <div>{labels.fetchErrorPages}</div>
+                            <div>{querySummaryLabels.fetched}</div>
+                            <div>{querySummaryLabels.kept}</div>
+                            <div>{querySummaryLabels.deduped}</div>
+                            <div>{querySummaryLabels.fetchErrorPages}</div>
                             <div className="mt-1">
                               除外内訳:
                               <div className="ml-3">
-                                <div>{labels.missingKeys}</div>
-                                <div>{labels.invalidUrl}</div>
-                                <div>{labels.emptyQuery}</div>
-                                <div>{labels.zeroMetrics}</div>
+                                <div>{querySummaryLabels.missingKeys}</div>
+                                <div>{querySummaryLabels.invalidUrl}</div>
+                                <div>{querySummaryLabels.emptyQuery}</div>
+                                <div>{querySummaryLabels.zeroMetrics}</div>
                               </div>
                             </div>
-                            {labels.hitLimit && <div className="mt-1 text-amber-700">{labels.hitLimit}</div>}
-                                </>
-                              );
-                            })()}
+                            {querySummaryLabels.hitLimit && (
+                              <div className="mt-1 text-amber-700">{querySummaryLabels.hitLimit}</div>
+                            )}
                           </div>
                         )}
                       </>
