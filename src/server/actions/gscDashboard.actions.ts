@@ -583,7 +583,16 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
     if (!currentNormalizedUrl) {
       return { success: false, error: 'URLの正規化に失敗しました' };
     }
-    await supabaseService.cleanupOldGscQueryMetrics(annotationId, currentNormalizedUrl);
+    const [hasOldQuery, hasOldPage] = await Promise.all([
+      supabaseService.hasOldGscQueryMetrics(annotationId, currentNormalizedUrl),
+      supabaseService.hasOldGscPageMetrics(annotationId, currentNormalizedUrl),
+    ]);
+    if (hasOldQuery) {
+      await supabaseService.cleanupOldGscQueryMetrics(annotationId, currentNormalizedUrl);
+    }
+    if (hasOldPage) {
+      await supabaseService.cleanupOldGscPageMetrics(annotationId, currentNormalizedUrl);
+    }
 
     await gscImportService.importPageMetricsForUrl(userId, {
       startDate: startIso,
