@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 import { runGscImport } from '@/server/actions/gscImport.actions';
 import { fetchGscStatus } from '@/server/actions/gscSetup.actions';
+import { getQuerySummaryLabels } from '@/lib/gsc-import';
 import type { GscConnectionStatus } from '@/types/gsc';
 
 type ImportResponse = {
@@ -20,6 +21,7 @@ type ImportResponse = {
     skipped: number;
     unmatched: number;
     evaluated: number;
+    segmentCount?: number;
     querySummary?: {
       fetchedRows: number;
       keptRows: number;
@@ -71,6 +73,9 @@ export default function GscImportPage() {
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [gscStatus, setGscStatus] = useState<GscStatusResponse | null>(null);
   const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(true);
+  const querySummaryLabels = result?.data?.querySummary
+    ? getQuerySummaryLabels(result.data.querySummary)
+    : null;
 
   // 期間（日数）を計算
   const calculateDaysDiff = (start: string, end: string): number => {
@@ -322,26 +327,28 @@ export default function GscImportPage() {
                         <div>登録/更新: {result.data.upserted}</div>
                         <div>スキップ: {result.data.skipped}</div>
                         <div>注釈未マッチ: {result.data.unmatched}</div>
-                        {result.data.querySummary && (
+                        {typeof result.data.segmentCount === 'number' &&
+                          result.data.segmentCount > 1 && (
+                          <div>期間分割: {result.data.segmentCount}回</div>
+                        )}
+                        {result.data.querySummary && querySummaryLabels && (
                           <div className="pt-2">
                             <div className="font-medium">クエリ指標</div>
-                            <div>取得行数: {result.data.querySummary.fetchedRows}</div>
-                            <div>保存対象: {result.data.querySummary.keptRows}</div>
-                            <div>集約後: {result.data.querySummary.dedupedRows}</div>
-                            <div>取得失敗ページ: {result.data.querySummary.fetchErrorPages}</div>
+                            <div>{querySummaryLabels.fetched}</div>
+                            <div>{querySummaryLabels.kept}</div>
+                            <div>{querySummaryLabels.deduped}</div>
+                            <div>{querySummaryLabels.fetchErrorPages}</div>
                             <div className="mt-1">
                               除外内訳:
                               <div className="ml-3">
-                                <div>キー欠損: {result.data.querySummary.skipped.missingKeys}</div>
-                                <div>URL正規化失敗: {result.data.querySummary.skipped.invalidUrl}</div>
-                                <div>クエリ空: {result.data.querySummary.skipped.emptyQuery}</div>
-                                <div>0クリック/0表示: {result.data.querySummary.skipped.zeroMetrics}</div>
+                                <div>{querySummaryLabels.missingKeys}</div>
+                                <div>{querySummaryLabels.invalidUrl}</div>
+                                <div>{querySummaryLabels.emptyQuery}</div>
+                                <div>{querySummaryLabels.zeroMetrics}</div>
                               </div>
                             </div>
-                            {result.data.querySummary.hitLimit && (
-                              <div className="mt-1 text-amber-700">
-                                取得上限に到達した可能性があります。
-                              </div>
+                            {querySummaryLabels.hitLimit && (
+                              <div className="mt-1 text-amber-700">{querySummaryLabels.hitLimit}</div>
                             )}
                           </div>
                         )}

@@ -961,6 +961,68 @@ export class SupabaseService {
   }
 
   /**
+   * 特定のアノテーションに関連付けられているが、現在の正規化URLとは異なるクエリ指標データを削除
+   * URL変更時のデータ不整合（二重カウント）を解消するために使用
+   */
+  async cleanupOldGscQueryMetrics(annotationId: string, currentNormalizedUrl: string): Promise<void> {
+    const { error: queryError } = await this.supabase
+      .from('gsc_query_metrics')
+      .delete()
+      .eq('content_annotation_id', annotationId)
+      .neq('normalized_url', currentNormalizedUrl);
+
+    if (queryError) {
+      console.error('[SupabaseService] cleanupOldGscQueryMetrics failed:', queryError);
+      throw new Error(`以前のURLのクエリ指標データのクリーンアップに失敗しました: ${queryError.message}`);
+    }
+  }
+
+  async hasOldGscPageMetrics(annotationId: string, currentNormalizedUrl: string): Promise<boolean> {
+    const { count, error } = await this.supabase
+      .from('gsc_page_metrics')
+      .select('id', { count: 'exact', head: true })
+      .eq('content_annotation_id', annotationId)
+      .neq('normalized_url', currentNormalizedUrl);
+
+    if (error) {
+      throw new Error(`ページ指標データの確認に失敗しました: ${error.message}`);
+    }
+
+    return (count ?? 0) > 0;
+  }
+
+  async hasOldGscQueryMetrics(annotationId: string, currentNormalizedUrl: string): Promise<boolean> {
+    const { count, error } = await this.supabase
+      .from('gsc_query_metrics')
+      .select('id', { count: 'exact', head: true })
+      .eq('content_annotation_id', annotationId)
+      .neq('normalized_url', currentNormalizedUrl);
+
+    if (error) {
+      throw new Error(`クエリ指標データの確認に失敗しました: ${error.message}`);
+    }
+
+    return (count ?? 0) > 0;
+  }
+
+  /**
+   * 特定のアノテーションに関連付けられているが、現在の正規化URLとは異なるページ指標データを削除
+   * URL変更時のデータ不整合（二重カウント）を解消するために使用
+   */
+  async cleanupOldGscPageMetrics(annotationId: string, currentNormalizedUrl: string): Promise<void> {
+    const { error: pageError } = await this.supabase
+      .from('gsc_page_metrics')
+      .delete()
+      .eq('content_annotation_id', annotationId)
+      .neq('normalized_url', currentNormalizedUrl);
+
+    if (pageError) {
+      console.error('[SupabaseService] cleanupOldGscPageMetrics failed:', pageError);
+      throw new Error(`以前のURLのページ指標データのクリーンアップに失敗しました: ${pageError.message}`);
+    }
+  }
+
+  /**
    * チャットセッションとそれに紐づくすべてのメッセージ・コンテンツを削除
    */
   async deleteChatSession(sessionId: string, userId: string): Promise<SupabaseResult<void>> {

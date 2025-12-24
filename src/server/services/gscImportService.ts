@@ -2,6 +2,8 @@ import { GscService } from './gscService';
 import { SupabaseService } from './supabaseService';
 import { getGscQueryMaxPages, getGscQueryRowLimit } from '../lib/gsc-config';
 import { normalizeQuery } from '../../lib/normalize-query';
+import { normalizeUrl } from '../../lib/normalize-url';
+import { aggregateImportResults, splitRangeByDays } from '@/server/lib/gsc-import-utils';
 import type {
   GscPageMetric,
   GscPropertyType,
@@ -18,12 +20,11 @@ export class GscImportService {
   private readonly queryRowLimit = getGscQueryRowLimit();
   private readonly queryMaxPages = getGscQueryMaxPages();
 
-  async importMetrics(userId: string, options: GscImportOptions): Promise<GscImportResult> {
-    const startDate = options.startDate;
-    const endDate = options.endDate;
-    const searchType = options.searchType ?? 'web';
-    const maxRows = options.maxRows ?? 1000;
-
+  private async getAccessContext(userId: string): Promise<{
+    accessToken: string;
+    propertyUri: string;
+    propertyType: GscPropertyType;
+  }> {
     const credentials = await this.supabaseService.getGscCredentialByUserId(userId);
     if (!credentials) {
       throw new Error('GSC資格情報が見つかりません');
@@ -36,6 +37,19 @@ export class GscImportService {
       throw new Error('GSCプロパティが設定されていません');
     }
 
+    const propertyType = this.getPropertyType(propertyUri, credentials.propertyType ?? null);
+
+    return { accessToken, propertyUri, propertyType };
+  }
+
+  async importMetrics(userId: string, options: GscImportOptions): Promise<GscImportResult> {
+    const startDate = options.startDate;
+    const endDate = options.endDate;
+    const searchType = options.searchType ?? 'web';
+    const maxRows = options.maxRows ?? 1000;
+
+    const { accessToken, propertyUri, propertyType } = await this.getAccessContext(userId);
+
     const rows = await this.fetchSearchAnalytics({
       accessToken,
       propertyUri,
@@ -46,25 +60,117 @@ export class GscImportService {
       dimensions: ['date', 'page'],
     });
 
-    const metrics: GscPageMetric[] = rows
+    const metrics = this.mapSearchRowsToPageMetrics(userId, propertyUri, searchType, rows);
+    const matchMap = await this.loadAnnotationUrlMap(userId);
+    const { upserted, skipped, unmatched } = await this.upsertPageMetrics({
+      userId,
+      metrics,
+      resolveAnnotationId: normalized =>
+        normalized ? (matchMap.get(normalized) ?? null) : null,
+      countUnmatched: true,
+    });
+
+    const querySummary = await this.importQueryMetrics({
+      userId,
+      propertyUri,
+      propertyType,
+      searchType,
+      accessToken,
+      startDate,
+      endDate,
+      matchMap,
+    });
+
+    return {
+      totalFetched: metrics.length,
+      upserted,
+      skipped,
+      unmatched,
+      evaluated: 0,
+      querySummary,
+    };
+  }
+
+  async importPageMetricsForUrl(
+    userId: string,
+    options: {
+      startDate: string;
+      endDate: string;
+      searchType?: GscSearchType;
+      pageUrl: string;
+      contentAnnotationId: string;
+    }
+  ): Promise<{ totalFetched: number; upserted: number; skipped: number }> {
+    const { startDate, endDate, searchType = 'web', pageUrl, contentAnnotationId } = options;
+
+    const { accessToken, propertyUri } = await this.getAccessContext(userId);
+
+    const rows = await this.fetchSearchAnalytics({
+      accessToken,
+      propertyUri,
+      startDate,
+      endDate,
+      searchType,
+      rowLimit: this.queryRowLimit,
+      // dimensions 順に合わせて keys を受け取る
+      dimensions: ['date', 'page'],
+      dimensionFilterGroups: [
+        {
+          filters: [
+            {
+              dimension: 'page',
+              operator: 'equals',
+              expression: pageUrl,
+            },
+          ],
+        },
+      ],
+    });
+
+    const metrics = this.mapSearchRowsToPageMetrics(userId, propertyUri, searchType, rows);
+    const { upserted, skipped } = await this.upsertPageMetrics({
+      userId,
+      metrics,
+      resolveAnnotationId: () => contentAnnotationId,
+      countUnmatched: false,
+    });
+
+    return { totalFetched: metrics.length, upserted, skipped };
+  }
+
+  private mapSearchRowsToPageMetrics(
+    userId: string,
+    propertyUri: string,
+    searchType: GscSearchType,
+    rows: GscSearchAnalyticsRow[]
+  ): GscPageMetric[] {
+    return rows
       .map(row => this.toMetric(userId, propertyUri, searchType, row))
       .filter((m): m is GscPageMetric => m !== null);
+  }
 
-    const matchMap = await this.loadAnnotationUrlMap(userId);
-    const propertyType = this.getPropertyType(propertyUri, credentials.propertyType ?? null);
-
+  private async upsertPageMetrics({
+    userId,
+    metrics,
+    resolveAnnotationId,
+    countUnmatched,
+  }: {
+    userId: string;
+    metrics: GscPageMetric[];
+    resolveAnnotationId: (normalizedUrl: string | null) => string | null;
+    countUnmatched: boolean;
+  }): Promise<{ upserted: number; skipped: number; unmatched: number }> {
     let upserted = 0;
     let skipped = 0;
     let unmatched = 0;
 
     for (const metric of metrics) {
-      const normalized = metric.normalizedUrl ?? null;
-      const annotationId = normalized ? matchMap.get(normalized) ?? null : null;
-
-      // 紐付けできないデータは保存しない（評価対象外のノイズを避ける）
+      const annotationId = resolveAnnotationId(metric.normalizedUrl ?? null);
       if (!annotationId) {
         skipped += 1;
-        unmatched += 1;
+        if (countUnmatched) {
+          unmatched += 1;
+        }
         continue;
       }
 
@@ -97,7 +203,36 @@ export class GscImportService {
       upserted += 1;
     }
 
-    const querySummary = await this.importQueryMetrics({
+    return { upserted, skipped, unmatched };
+  }
+
+  async importQueryMetricsForUrl(
+    userId: string,
+    options: {
+      startDate: string;
+      endDate: string;
+      searchType?: GscSearchType;
+      pageUrl: string;
+    }
+  ): Promise<{
+    fetchedRows: number;
+    keptRows: number;
+    dedupedRows: number;
+    fetchErrorPages: number;
+    skipped: {
+      missingKeys: number;
+      invalidUrl: number;
+      emptyQuery: number;
+      zeroMetrics: number;
+    };
+    hitLimit: boolean;
+  }> {
+    const { startDate, endDate, searchType = 'web', pageUrl } = options;
+
+    const { accessToken, propertyUri, propertyType } = await this.getAccessContext(userId);
+    const matchMap = await this.loadAnnotationUrlMap(userId);
+
+    return this.importQueryMetrics({
       userId,
       propertyUri,
       propertyType,
@@ -106,16 +241,77 @@ export class GscImportService {
       startDate,
       endDate,
       matchMap,
+      pageUrl,
     });
+  }
 
-    return {
-      totalFetched: metrics.length,
-      upserted,
-      skipped,
-      unmatched,
-      evaluated: 0,
-      querySummary,
-    };
+  async importPageAndQueryForUrlWithSplit(
+    userId: string,
+    options: {
+      startDate: string;
+      endDate: string;
+      pageUrl: string;
+      contentAnnotationId: string;
+      searchType?: GscSearchType;
+      segmentDays?: number;
+    }
+  ) {
+    const {
+      startDate,
+      endDate,
+      pageUrl,
+      contentAnnotationId,
+      searchType = 'web',
+      segmentDays = 30,
+    } = options;
+
+    const ranges = splitRangeByDays(startDate, endDate, segmentDays);
+    const results: Array<{
+      totalFetched: number;
+      upserted: number;
+      skipped: number;
+      unmatched: number;
+      querySummary: {
+        fetchedRows: number;
+        keptRows: number;
+        dedupedRows: number;
+        fetchErrorPages: number;
+        skipped: {
+          missingKeys: number;
+          invalidUrl: number;
+          emptyQuery: number;
+          zeroMetrics: number;
+        };
+        hitLimit: boolean;
+      };
+    }> = [];
+
+    for (const range of ranges) {
+      const pageResult = await this.importPageMetricsForUrl(userId, {
+        startDate: range.start,
+        endDate: range.end,
+        pageUrl,
+        contentAnnotationId,
+        searchType,
+      });
+
+      const summary = await this.importQueryMetricsForUrl(userId, {
+        startDate: range.start,
+        endDate: range.end,
+        pageUrl,
+        searchType,
+      });
+
+      results.push({
+        totalFetched: pageResult.totalFetched,
+        upserted: pageResult.upserted,
+        skipped: pageResult.skipped,
+        unmatched: 0,
+        querySummary: summary,
+      });
+    }
+
+    return aggregateImportResults(results, ranges.length);
   }
 
   private async fetchSearchAnalytics({
@@ -127,6 +323,7 @@ export class GscImportService {
     rowLimit,
     startRow,
     dimensions,
+    dimensionFilterGroups,
   }: {
     accessToken: string;
     propertyUri: string;
@@ -136,6 +333,14 @@ export class GscImportService {
     rowLimit: number;
     startRow?: number;
     dimensions: string[];
+    dimensionFilterGroups?: Array<{
+      groupType?: 'and';
+      filters: Array<{
+        dimension: string;
+        operator: string;
+        expression: string;
+      }>;
+    }>;
   }): Promise<GscSearchAnalyticsRow[]> {
     const url = `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUri)}/searchAnalytics/query`;
     const body: Record<string, unknown> = {
@@ -148,6 +353,9 @@ export class GscImportService {
 
     if (typeof startRow === 'number' && startRow > 0) {
       body.startRow = startRow;
+    }
+    if (dimensionFilterGroups && dimensionFilterGroups.length > 0) {
+      body.dimensionFilterGroups = dimensionFilterGroups;
     }
 
     const response = await fetch(url, {
@@ -181,7 +389,7 @@ export class GscImportService {
       return null;
     }
 
-    const normalized = this.normalizeUrl(pageUrl);
+    const normalized = normalizeUrl(pageUrl);
     return {
       id: crypto.randomUUID(),
       userId,
@@ -207,6 +415,7 @@ export class GscImportService {
     startDate,
     endDate,
     matchMap,
+    pageUrl,
   }: {
     userId: string;
     propertyUri: string;
@@ -216,6 +425,7 @@ export class GscImportService {
     startDate: string;
     endDate: string;
     matchMap: Map<string, string>;
+    pageUrl?: string;
   }): Promise<{
     fetchedRows: number;
     keptRows: number;
@@ -235,6 +445,7 @@ export class GscImportService {
       startDate,
       endDate,
       searchType,
+      ...(pageUrl ? { pageUrl } : {}),
     });
 
     const skipped = {
@@ -339,10 +550,12 @@ export class GscImportService {
 
       const clicks = existing.clicks + metric.clicks;
       const impressions = existing.impressions + metric.impressions;
-      const weightedPositionSum = existing.weightedPositionSum + metric.position * metric.impressions;
+      const weightedPositionSum =
+        existing.weightedPositionSum + metric.position * metric.impressions;
 
       // contentAnnotationId は非 null を優先
-      const contentAnnotationId = existing.contentAnnotationId ?? metric.contentAnnotationId ?? null;
+      const contentAnnotationId =
+        existing.contentAnnotationId ?? metric.contentAnnotationId ?? null;
 
       map.set(key, {
         ...existing,
@@ -369,12 +582,14 @@ export class GscImportService {
     startDate,
     endDate,
     searchType,
+    pageUrl,
   }: {
     accessToken: string;
     propertyUri: string;
     startDate: string;
     endDate: string;
     searchType: GscSearchType;
+    pageUrl?: string;
   }): Promise<{ rows: GscSearchAnalyticsRow[]; hitLimit: boolean; fetchErrorPages: number }> {
     const rows: GscSearchAnalyticsRow[] = [];
     const maxPages = this.queryMaxPages;
@@ -384,9 +599,10 @@ export class GscImportService {
     let fetchErrorPages = 0;
 
     for (let pageStart = 0; pageStart < maxPages; pageStart += concurrency) {
-      const pageIndexes = Array.from({ length: concurrency }, (_, index) => pageStart + index).filter(
-        pageIndex => pageIndex < maxPages
-      );
+      const pageIndexes = Array.from(
+        { length: concurrency },
+        (_, index) => pageStart + index
+      ).filter(pageIndex => pageIndex < maxPages);
 
       const batchResults = await Promise.all(
         pageIndexes.map(async pageIndex => {
@@ -402,6 +618,21 @@ export class GscImportService {
               startRow,
               // dimensions 順に合わせて keys を受け取る
               dimensions: ['date', 'query', 'page'],
+              ...(pageUrl
+                ? {
+                    dimensionFilterGroups: [
+                      {
+                        filters: [
+                          {
+                            dimension: 'page',
+                            operator: 'equals',
+                            expression: pageUrl,
+                          },
+                        ],
+                      },
+                    ],
+                  }
+                : {}),
             });
             return { pageIndex, batch, error: null };
           } catch (error) {
@@ -473,7 +704,7 @@ export class GscImportService {
       return { metric: null, reason: 'missing_keys' };
     }
 
-    const normalizedUrl = this.normalizeUrl(pageUrl);
+    const normalizedUrl = normalizeUrl(pageUrl);
     if (!normalizedUrl) {
       return { metric: null, reason: 'invalid_url' };
     }
@@ -532,18 +763,6 @@ export class GscImportService {
       }
     });
     return map;
-  }
-
-  private normalizeUrl(url: string | undefined): string | null {
-    if (!url) return null;
-    try {
-      // PostgreSQL の public.normalize_url と完全一致させる
-      // lowercase, remove protocol + www, trim trailing slash (先頭スラッシュは削除しない)
-      const lowered = url.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
-      return lowered.replace(/\/+$/g, '');
-    } catch {
-      return null;
-    }
   }
 
   private getPropertyType(propertyUri: string, fallback?: GscPropertyType | null): GscPropertyType {

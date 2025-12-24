@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { gscImportService } from '@/server/services/gscImportService';
 import { gscEvaluationService } from '@/server/services/gscEvaluationService';
+import { splitRangeByDays, aggregateImportResults } from '@/server/lib/gsc-import-utils';
 
 export interface GscImportParams {
   startDate: string;
@@ -25,7 +26,8 @@ export async function runGscImport(params: GscImportParams) {
       return { success: false, error: authResult.error || 'ユーザー認証に失敗しました' };
     }
 
-    const { startDate, endDate, searchType = 'web', maxRows = 1000, runEvaluation = true } = params;
+    const { startDate, endDate, searchType = 'web', maxRows = 1000, runEvaluation = true } =
+      params;
 
     if (!startDate || !endDate) {
       return { success: false, error: 'startDate と endDate は必須です' };
@@ -48,13 +50,15 @@ export async function runGscImport(params: GscImportParams) {
       return { success: false, error: '期間は最大365日までです' };
     }
 
-    // データインポート
-    const summary = await gscImportService.importMetrics(authResult.userId, {
-      startDate,
-      endDate,
-      searchType,
-      maxRows,
-    });
+    const importOnce = async (segmentStart: string, segmentEnd: string) =>
+      gscImportService.importMetrics(authResult.userId, {
+        startDate: segmentStart,
+        endDate: segmentEnd,
+        searchType,
+        maxRows,
+      });
+
+    const summary = await importWithSplit(importOnce, startDate, endDate, 30);
 
     // 評価実行（オプション）
     if (runEvaluation) {
@@ -70,3 +74,39 @@ export async function runGscImport(params: GscImportParams) {
     return { success: false, error: message };
   }
 }
+
+const importWithSplit = async (
+  importOnce: (start: string, end: string) => Promise<{
+    totalFetched: number;
+    upserted: number;
+    skipped: number;
+    unmatched: number;
+    evaluated: number;
+    querySummary?: {
+      fetchedRows: number;
+      keptRows: number;
+      dedupedRows: number;
+      fetchErrorPages: number;
+      skipped: {
+        missingKeys: number;
+        invalidUrl: number;
+        emptyQuery: number;
+        zeroMetrics: number;
+      };
+      hitLimit: boolean;
+    };
+  }>,
+  startDate: string,
+  endDate: string,
+  segmentDays: number
+) => {
+  const ranges = splitRangeByDays(startDate, endDate, segmentDays);
+  const results: Awaited<ReturnType<typeof importOnce>>[] = [];
+
+  for (const range of ranges) {
+    const result = await importOnce(range.start, range.end);
+    results.push(result);
+  }
+
+  return aggregateImportResults(results, ranges.length);
+};

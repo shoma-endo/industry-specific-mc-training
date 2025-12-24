@@ -1,7 +1,22 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { getQueryImportToastMessage } from '@/lib/gsc-import';
+import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { EvaluationSettings } from '../EvaluationSettings';
 import { MetricsSummaryCards } from './MetricsSummaryCards';
 import { TrendLineChart } from './TrendLineChart';
@@ -33,6 +48,19 @@ interface OverviewTabProps {
     skippedNoMetrics: number;
     skippedImportFailed: number;
   }>;
+  onRunQueryImport: () => Promise<{
+    fetchedRows: number;
+    keptRows: number;
+    dedupedRows: number;
+    fetchErrorPages: number;
+    skipped: {
+      missingKeys: number;
+      invalidUrl: number;
+      emptyQuery: number;
+      zeroMetrics: number;
+    };
+    hitLimit: boolean;
+  }>;
   onRefreshDetail?: (annotationId: string) => Promise<void>;
 }
 
@@ -46,8 +74,12 @@ export function OverviewTab({
   onRegisterEvaluation,
   onUpdateEvaluation,
   onRunEvaluation,
+  onRunQueryImport,
   onRefreshDetail,
 }: OverviewTabProps) {
+  const [isQueryImporting, setIsQueryImporting] = useState(false);
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+
   if (detailLoading) {
     return (
       <Card>
@@ -70,6 +102,31 @@ export function OverviewTab({
     );
   }
 
+  const handleSync = async () => {
+    if (!detail.annotation.canonical_url) {
+      toast.error('記事URLが未登録です');
+      return;
+    }
+    setIsSyncDialogOpen(false);
+    setIsQueryImporting(true);
+    const toastId = toast.loading('クエリ指標を取得中...');
+    try {
+    const { querySummary } = await onRunQueryImport();
+    const toastMessage = getQueryImportToastMessage(querySummary);
+      if (toastMessage.type === 'warning') {
+        toast.warning(toastMessage.message, { id: toastId });
+      } else {
+        toast.success(toastMessage.message, { id: toastId });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '取得に失敗しました', {
+        id: toastId,
+      });
+    } finally {
+      setIsQueryImporting(false);
+    }
+  };
+
   return (
     <Card>
       <CardContent className="space-y-6 pt-6">
@@ -80,7 +137,43 @@ export function OverviewTab({
             <p className="font-semibold text-lg">{detail.annotation.wp_post_title || '—'}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 mb-1">URL</p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm text-gray-500">URL</p>
+              <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 border-blue-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                    disabled={isQueryImporting || !detail.annotation.canonical_url}
+                  >
+                    <RefreshCw
+                      className={cn('w-3.5 h-3.5 mr-1.5', isQueryImporting && 'animate-spin')}
+                    />
+                    最新化
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>クエリ指標の同期</DialogTitle>
+                    <DialogDescription>
+                      Google Search Console
+                      から最新のパフォーマンスデータを取得し、統計情報を更新します。
+                      この操作により、現在の指標データは最新の内容で上書きされます。
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">キャンセル</Button>
+                    </DialogClose>
+                    <Button onClick={handleSync} disabled={isQueryImporting}>
+                      {isQueryImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      同期を実行
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
             <p className="text-sm text-blue-700 break-all bg-blue-50/50 p-2 rounded">
               {detail.annotation.canonical_url || '—'}
             </p>

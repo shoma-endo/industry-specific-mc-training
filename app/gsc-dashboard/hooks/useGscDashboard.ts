@@ -7,6 +7,7 @@ import {
   registerEvaluation,
   updateEvaluation,
   runEvaluationNow,
+  runQueryImportForAnnotation,
 } from '@/server/actions/gscDashboard.actions';
 import type {
   GscDashboardDetailResponse,
@@ -41,6 +42,21 @@ interface UseGscDashboardReturn {
   handleRegisterEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
   handleUpdateEvaluation: (dateStr: string, cycleDays: number, evaluationHour: number) => Promise<void>;
   handleRunEvaluation: () => Promise<{ processed: number; improved: number; advanced: number; skippedNoMetrics: number; skippedImportFailed: number }>;
+  handleRunQueryImport: () => Promise<{
+    querySummary: {
+      fetchedRows: number;
+      keptRows: number;
+      dedupedRows: number;
+      fetchErrorPages: number;
+      skipped: {
+        missingKeys: number;
+        invalidUrl: number;
+        emptyQuery: number;
+        zeroMetrics: number;
+      };
+      hitLimit: boolean;
+    };
+  }>;
   refreshDetail: (annotationId: string) => Promise<void>;
 }
 
@@ -230,6 +246,20 @@ export function useGscDashboard({
     return res.data!;
   }, [selectedId, refreshDetail]);
 
+  const handleRunQueryImport = useCallback(async () => {
+    if (!selectedId) {
+      throw new Error('記事が選択されていません');
+    }
+
+    const res = await runQueryImportForAnnotation(selectedId);
+    if (!res.success) {
+      throw new Error(res.error || 'クエリ指標の取得に失敗しました');
+    }
+
+    await refreshDetail(selectedId);
+    return { querySummary: res.data!.querySummary };
+  }, [selectedId, refreshDetail]);
+
   return {
     // State
     selectedId,
@@ -250,6 +280,7 @@ export function useGscDashboard({
     handleRegisterEvaluation,
     handleUpdateEvaluation,
     handleRunEvaluation,
+    handleRunQueryImport,
     refreshDetail,
   };
 }

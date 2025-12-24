@@ -101,6 +101,7 @@ export default function GscDashboardClient({
             onRegisterEvaluation={dashboard.handleRegisterEvaluation}
             onUpdateEvaluation={dashboard.handleUpdateEvaluation}
             onRunEvaluation={dashboard.handleRunEvaluation}
+            onRunQueryImport={dashboard.handleRunQueryImport}
             onRefreshDetail={async (annotationId: string) => {
               await dashboard.refreshDetail(annotationId);
             }}

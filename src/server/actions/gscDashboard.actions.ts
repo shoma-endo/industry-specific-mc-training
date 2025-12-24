@@ -4,6 +4,9 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { gscImportService } from '@/server/services/gscImportService';
+import { normalizeUrl } from '@/lib/normalize-url';
+import { buildGscDateRange } from '@/lib/date-formatter';
 import type { GscEvaluationOutcome } from '@/types/gsc';
 
 const supabaseService = new SupabaseService();
@@ -433,22 +436,16 @@ export async function fetchQueryAnalysis(
     }
 
     // 期間計算
-    const now = new Date();
     const days = dateRange === '7d' ? 7 : dateRange === '28d' ? 28 : 90;
 
-    const endDate = new Date(now);
-    endDate.setUTCDate(endDate.getUTCDate() - 2); // GSCは2日前まで
-    const startDate = new Date(endDate);
-    startDate.setUTCDate(startDate.getUTCDate() - days + 1);
+    const { startIso, endIso } = buildGscDateRange(days);
 
     // 比較期間
-    const compEndDate = new Date(startDate);
+    const compEndDate = new Date(`${startIso}T00:00:00.000Z`);
     compEndDate.setUTCDate(compEndDate.getUTCDate() - 1);
     const compStartDate = new Date(compEndDate);
     compStartDate.setUTCDate(compStartDate.getUTCDate() - days + 1);
 
-    const startIso = startDate.toISOString().slice(0, 10);
-    const endIso = endDate.toISOString().slice(0, 10);
     const compStartIso = compStartDate.toISOString().slice(0, 10);
     const compEndIso = compEndDate.toISOString().slice(0, 10);
 
@@ -548,6 +545,68 @@ export async function fetchQueryAnalysis(
   } catch (error) {
     console.error('[gsc-dashboard] fetch query analysis failed', error);
     const message = error instanceof Error ? error.message : 'クエリ分析の取得に失敗しました';
+    return { success: false, error: message };
+  }
+}
+
+export async function runQueryImportForAnnotation(annotationId: string, options?: { days?: number }) {
+  try {
+    const { userId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+
+    if (!annotationId) {
+      return { success: false, error: 'annotationId は必須です' };
+    }
+
+    const { data: annotation, error: annotationError } = await supabaseService
+      .getClient()
+      .from('content_annotations')
+      .select('id, canonical_url')
+      .eq('id', annotationId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (annotationError) {
+      throw new Error(annotationError.message || '記事情報の取得に失敗しました');
+    }
+    if (!annotation?.canonical_url) {
+      return { success: false, error: '記事のURLが見つかりません' };
+    }
+
+    const days = Math.min(180, Math.max(7, options?.days ?? 90));
+    const { startIso, endIso } = buildGscDateRange(days);
+
+    // URL変更時の整合性を守るため、インポート前に古い指標データをクリーンアップ
+    const currentNormalizedUrl = normalizeUrl(annotation.canonical_url);
+    if (!currentNormalizedUrl) {
+      return { success: false, error: 'URLの正規化に失敗しました' };
+    }
+    const [hasOldQuery, hasOldPage] = await Promise.all([
+      supabaseService.hasOldGscQueryMetrics(annotationId, currentNormalizedUrl),
+      supabaseService.hasOldGscPageMetrics(annotationId, currentNormalizedUrl),
+    ]);
+    if (hasOldQuery) {
+      await supabaseService.cleanupOldGscQueryMetrics(annotationId, currentNormalizedUrl);
+    }
+    if (hasOldPage) {
+      await supabaseService.cleanupOldGscPageMetrics(annotationId, currentNormalizedUrl);
+    }
+
+    const summary = await gscImportService.importPageAndQueryForUrlWithSplit(userId, {
+      startDate: startIso,
+      endDate: endIso,
+      pageUrl: annotation.canonical_url,
+      contentAnnotationId: annotation.id,
+      segmentDays: 30,
+    });
+
+    revalidatePath('/gsc-dashboard');
+    return { success: true, data: summary };
+  } catch (error) {
+    console.error('[gsc-dashboard] run query import failed', error);
+    const message = error instanceof Error ? error.message : 'クエリ指標の取得に失敗しました';
     return { success: false, error: message };
   }
 }
