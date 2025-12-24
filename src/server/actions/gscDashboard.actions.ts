@@ -6,6 +6,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { gscImportService } from '@/server/services/gscImportService';
 import { normalizeUrl } from '@/lib/normalize-url';
+import { buildGscDateRange } from '@/lib/date-formatter';
 import type { GscEvaluationOutcome } from '@/types/gsc';
 
 const supabaseService = new SupabaseService();
@@ -435,22 +436,16 @@ export async function fetchQueryAnalysis(
     }
 
     // 期間計算
-    const now = new Date();
     const days = dateRange === '7d' ? 7 : dateRange === '28d' ? 28 : 90;
 
-    const endDate = new Date(now);
-    endDate.setUTCDate(endDate.getUTCDate() - 2); // GSCは2日前まで
-    const startDate = new Date(endDate);
-    startDate.setUTCDate(startDate.getUTCDate() - days + 1);
+    const { startIso, endIso } = buildGscDateRange(days);
 
     // 比較期間
-    const compEndDate = new Date(startDate);
+    const compEndDate = new Date(`${startIso}T00:00:00.000Z`);
     compEndDate.setUTCDate(compEndDate.getUTCDate() - 1);
     const compStartDate = new Date(compEndDate);
     compStartDate.setUTCDate(compStartDate.getUTCDate() - days + 1);
 
-    const startIso = startDate.toISOString().slice(0, 10);
-    const endIso = endDate.toISOString().slice(0, 10);
     const compStartIso = compStartDate.toISOString().slice(0, 10);
     const compEndIso = compEndDate.toISOString().slice(0, 10);
 
@@ -581,13 +576,7 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
     }
 
     const days = Math.min(180, Math.max(7, options?.days ?? 90));
-    const endDate = new Date();
-    endDate.setUTCDate(endDate.getUTCDate() - 2); // GSCは2日前まで
-    const startDate = new Date(endDate);
-    startDate.setUTCDate(startDate.getUTCDate() - days + 1);
-
-    const startIso = startDate.toISOString().slice(0, 10);
-    const endIso = endDate.toISOString().slice(0, 10);
+    const { startIso, endIso } = buildGscDateRange(days);
 
     // URL変更時の整合性を守るため、インポート前に古い指標データをクリーンアップ
     const currentNormalizedUrl = normalizeUrl(annotation.canonical_url);

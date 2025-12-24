@@ -57,3 +57,18 @@ export function formatDate(value?: string | null): string | null {
     timeStyle: 'short',
   }).format(date);
 }
+
+/**
+ * GSCの取得レンジを算出（GSCは2日前まで）
+ */
+export function buildGscDateRange(days: number) {
+  const endDate = new Date();
+  endDate.setUTCDate(endDate.getUTCDate() - 2);
+  const startDate = new Date(endDate);
+  startDate.setUTCDate(startDate.getUTCDate() - days + 1);
+
+  return {
+    startIso: startDate.toISOString().slice(0, 10),
+    endIso: endDate.toISOString().slice(0, 10),
+  };
+}
