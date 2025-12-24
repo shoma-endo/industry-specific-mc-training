@@ -893,6 +893,13 @@ async function generateBlogCreationPromptByStep(
 // 共通：モデル別システムプロンプト解決
 // =============================================================================
 
+const STATIC_PROMPTS: Record<string, string> = {
+  'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
+  ad_copy_creation: AD_COPY_PROMPT,
+  ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
+  lp_draft_creation: LP_DRAFT_PROMPT,
+};
+
 /**
  * モデルに応じたシステムプロンプトを取得する（LIFFトークンがあれば動的生成、なければ静的）
  */
@@ -913,24 +920,10 @@ export async function getSystemPrompt(
         return await generateAdCopyFinishingPrompt(liffAccessToken);
       case 'lp_draft_creation':
         return await generateLpDraftPrompt(liffAccessToken);
-      default: {
-        const STATIC_PROMPTS: Record<string, string> = {
-          'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-          ad_copy_creation: AD_COPY_PROMPT,
-          ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
-          lp_draft_creation: LP_DRAFT_PROMPT,
-        };
+      default:
         return STATIC_PROMPTS[model] ?? SYSTEM_PROMPT;
-      }
     }
   }
 
-  // liffAccessToken が無い場合は静的
-  const STATIC_PROMPTS: Record<string, string> = {
-    'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': KEYWORD_CATEGORIZATION_PROMPT,
-    ad_copy_creation: AD_COPY_PROMPT,
-    ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
-    lp_draft_creation: LP_DRAFT_PROMPT,
-  };
   return STATIC_PROMPTS[model] ?? SYSTEM_PROMPT;
 }
