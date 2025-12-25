@@ -37,7 +37,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 ### Google Search Console 連携
 - `/setup/gsc` で OAuth 認証状態・接続アカウント・プロパティを可視化し、プロパティ選択や連携解除を実行
 - `app/api/gsc/oauth/*` が Google OAuth 2.0 の開始／コールバックに対応し、Supabase `gsc_credentials` テーブルへリフレッシュトークンを保存
-- GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupActions.ts` / `src/server/actions/gscDashboard.actions.ts` など）
+- GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupClient.tsx` / `src/server/actions/gscSetup.actions.ts` / `src/server/actions/gscDashboard.actions.ts` など）
 - Search Console 日次指標は `gsc_page_metrics`、クエリ指標は `gsc_query_metrics` に保存し、WordPress 注釈 (`content_annotations`) と 1:N で紐付け可能（normalized_url でマッチング）。
 - GSC インポートは 30 日単位で自動分割し、クエリ指標は 1,000 行 × 10 ページ = 最大 10,000 行を上限として取得。
 - 記事ごとの順位評価と改善提案ステップを `gsc_article_evaluations` / `gsc_article_evaluation_history` で管理し、デフォルト30日間隔で「タイトル→書き出し→本文→ペルソナ」の順にエスカレーション。改善が確認できたらステージをリセット。
@@ -761,6 +761,36 @@ npm run db:stats
 ```bash
 npm run vercel:stats
 ```
+
+#### 8.5 GSC 連携の手動検証（GSC 連携機能を変更した場合）
+GSC 連携機能を変更した場合は、以下の手順で動作確認を行い、PR に検証結果を記載してください：
+
+1. **OAuth 認証フローの確認**
+   - `/setup/gsc` にアクセスし、「Google Search Console と連携」ボタンをクリック
+   - Google 認証画面が表示され、適切なスコープ（`webmasters.readonly`）が要求されることを確認
+   - 認証完了後、`/api/gsc/oauth/callback` 経由でコールバックが正常に処理されることを確認
+   - Supabase `gsc_credentials` テーブルに `refresh_token` が保存されていることを確認
+
+2. **プロパティ選択の確認**
+   - 認証完了後、プロパティ一覧が表示されることを確認
+   - プロパティを選択し、`gsc_credentials` テーブルの `property_uri` が更新されることを確認
+
+3. **ダッシュボード表示の確認**
+   - `/app/gsc-dashboard` にアクセスし、GSC データが正常に表示されることを確認
+   - グラフや統計情報が適切にレンダリングされることを確認
+
+4. **データインポートの確認**
+   - `/app/gsc-import` にアクセスし、データインポート機能が正常に動作することを確認
+   - インポート後、`gsc_page_metrics` と `gsc_query_metrics` テーブルにデータが保存されることを確認
+
+5. **連携解除の確認**
+   - `/setup/gsc` から連携解除を実行し、`gsc_credentials` テーブルから該当レコードが削除されることを確認
+
+**PR への記載例:**
+- 検証日時と環境（ローカル/本番）
+- 各ステップの実行結果（成功/失敗、エラーメッセージ）
+- スクリーンショットまたは再現手順
+- Supabase テーブルの確認結果（必要に応じて）
 
 ### 9. 初期データのセットアップ
 
