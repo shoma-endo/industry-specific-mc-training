@@ -75,6 +75,8 @@ graph TB
     Analytics["Analytics Table"]
     BusinessForm["Business Info Form"]
     AdminUI["Admin Dashboards"]
+    GscSetup["GSC Setup Dashboard"]
+    GscDashboard["GSC Analytics Dashboard"]
   end
 
   subgraph Server["Next.js Route Handlers & Server Actions"]
@@ -84,6 +86,8 @@ graph TB
     WordPressAPI["/api/wordpress/*"]
     AdminAPI["/api/admin/*"]
     SubscriptionAPI["/api/refresh, /api/user/*"]
+    GscAPI["/api/gsc/*"]
+    GscCron["/api/cron/gsc-evaluate"]
     ServerActions["server/actions/*"]
   end
 
@@ -96,6 +100,11 @@ graph TB
     PromptsTable["prompt_templates"]
     VersionsTable["prompt_versions"]
     WordpressTable["wordpress_settings"]
+    GscCredentials["gsc_credentials"]
+    GscPageMetrics["gsc_page_metrics"]
+    GscQueryMetrics["gsc_query_metrics"]
+    GscEvaluations["gsc_article_evaluations"]
+    GscHistory["gsc_article_evaluation_history"]
   end
 
   subgraph External["External Services"]
@@ -104,6 +113,7 @@ graph TB
     OpenAI["OpenAI GPT-4.1 nano FT"]
     Stripe["Stripe Subscriptions"]
     WordPress["WordPress REST API"]
+    GSC["Google Search Console API"]
   end
 
   LIFFProvider --> AuthMiddleware
@@ -113,6 +123,8 @@ graph TB
   Analytics --> WordPressAPI
   BusinessForm --> ServerActions
   AdminUI --> ServerActions
+  GscSetup --> GscAPI
+  GscDashboard --> GscAPI
 
   ServerActions --> UsersTable
   ServerActions --> BriefsTable
@@ -122,6 +134,12 @@ graph TB
   WordPressAPI --> WordpressTable
   AdminAPI --> PromptsTable
   AdminAPI --> VersionsTable
+  GscAPI --> GscCredentials
+  GscAPI --> GscPageMetrics
+  GscAPI --> GscQueryMetrics
+  GscAPI --> GscEvaluations
+  GscCron --> GscEvaluations
+  GscCron --> GscHistory
 
   AuthMiddleware --> LINE
   ChatStream --> Anthropic
@@ -129,6 +147,8 @@ graph TB
   ChatStream --> OpenAI
   SubscriptionAPI --> Stripe
   WordPressAPI --> WordPress
+  GscAPI --> GSC
+  GscCron --> GSC
 ```
 
 ## 🔄 認証フロー
@@ -237,19 +257,132 @@ erDiagram
         timestamptz updated_at
     }
 
+    wordpress_settings {
+        uuid id PK
+        uuid user_id UK,FK
+        text wp_type
+        text wp_client_id
+        text wp_client_secret
+        text wp_site_id
+        text wp_site_url
+        text wp_username
+        text wp_application_password
+        text wp_access_token
+        text wp_refresh_token
+        timestamptz wp_token_expires_at
+        text[] wp_content_types
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    prompt_templates {
+        uuid id PK
+        text name
+        text description
+        text category
+        boolean is_active
+        uuid created_by FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    prompt_versions {
+        uuid id PK
+        uuid template_id FK
+        integer version_number
+        text content
+        text change_summary
+        uuid created_by FK
+        timestamptz created_at
+    }
+
+    gsc_credentials {
+        uuid id PK
+        uuid user_id UK,FK
+        text google_account_email
+        text refresh_token
+        text access_token
+        timestamptz access_token_expires_at
+        text[] scope
+        text property_uri
+        text property_type
+        text property_display_name
+        text permission_level
+        boolean verified
+        timestamptz last_synced_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    gsc_page_metrics {
+        uuid id PK
+        uuid user_id FK
+        uuid content_annotation_id FK
+        text property_uri
+        text search_type
+        date date
+        text url
+        text normalized_url
+        integer clicks
+        integer impressions
+        numeric ctr
+        numeric position
+        timestamptz imported_at
+    }
+
+    gsc_query_metrics {
+        uuid id PK
+        uuid user_id FK
+        text property_uri
+        text property_type
+        text search_type
+        date date
+        text url
+        text normalized_url
+        text query
+        text query_normalized
+        integer clicks
+        integer impressions
+        numeric ctr
+        numeric position
+        uuid content_annotation_id FK
+        timestamptz imported_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     gsc_article_evaluations {
         uuid id PK
         uuid user_id FK
         uuid content_annotation_id FK
         text property_uri
-        smallint current_stage
         smallint current_suggestion_stage
         date last_evaluated_on
-        date next_evaluation_on
-        integer evaluation_hour
+        date base_evaluation_date
         integer cycle_days
+        integer evaluation_hour
         numeric last_seen_position
         text status
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    gsc_article_evaluation_history {
+        uuid id PK
+        uuid user_id FK
+        uuid content_annotation_id FK
+        date evaluation_date
+        smallint stage
+        numeric previous_position
+        numeric current_position
+        text outcome_type
+        text outcome
+        text error_code
+        text error_message
+        boolean suggestion_applied
+        text suggestion_summary
+        boolean is_read
+        timestamptz created_at
     }
 
     users ||--o{ chat_sessions : owns
@@ -257,8 +390,18 @@ erDiagram
     users ||--|| briefs : "stores one brief"
     users ||--o{ content_annotations : annotates
     users ||--o| wordpress_settings : configures
-    prompt_templates ||--o{ prompt_versions : captures
+    users ||--o| gsc_credentials : "has GSC auth"
+    users ||--o{ gsc_page_metrics : owns
+    users ||--o{ gsc_query_metrics : owns
+    users ||--o{ gsc_article_evaluation_history : owns
+    users ||--o{ prompt_templates : creates
+    users ||--o{ prompt_versions : creates
+    prompt_templates ||--o{ prompt_versions : "has versions"
     content_annotations ||--o| gsc_article_evaluations : "monitored by"
+    content_annotations ||--o{ gsc_page_metrics : "tracked by"
+    content_annotations ||--o{ gsc_query_metrics : "tracked by"
+    content_annotations ||--o{ gsc_article_evaluation_history : "evaluated in"
+    gsc_article_evaluations ||--o{ gsc_article_evaluation_history : "has history"
 ```
 
 ## 📋 環境変数（18 項目: 必須14項目、オプション4項目）
