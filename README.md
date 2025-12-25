@@ -684,6 +684,17 @@ OAUTH_STATE_COOKIE_NAME=wp_oauth_state
 OAUTH_TOKEN_COOKIE_NAME=wp_oauth_token
 
 # ────────────────────────────────────────────────────────
+# Google Search Console OAuth 設定（任意、GSC連携利用時は必須）
+# ────────────────────────────────────────────────────────
+# 注意: 以下の値は開発環境（Google OAuth サンドボックス）用です。
+# 本番環境では異なる Client ID/Secret を使用してください。
+GOOGLE_OAUTH_CLIENT_ID=your_sandbox_google_oauth_client_id
+GOOGLE_OAUTH_CLIENT_SECRET=your_sandbox_google_oauth_client_secret
+GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback
+GSC_OAUTH_STATE_COOKIE_NAME=gsc_oauth_state
+GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
+
+# ────────────────────────────────────────────────────────
 # 機能フラグ（任意）
 # ────────────────────────────────────────────────────────
 FEATURE_RPC_V2=false  # 新しい Supabase RPC を有効化する場合は true
@@ -758,7 +769,8 @@ npm run vercel:stats
 1. **管理者ロールの付与**: Supabase の `users` テーブルで自分のユーザーの `role` を `admin` に変更
 2. **事業者情報の登録**: `/business-info` で 5W2H などの基本情報を入力
 3. **WordPress 連携**（任意）: `/setup/wordpress` で WordPress サイトを接続
-4. **プロンプトテンプレートの確認**: `/admin/prompts` でデフォルトテンプレートを確認・編集
+4. **Google Search Console 連携**（任意）: `/setup/gsc` で GSC プロパティを接続
+5. **プロンプトテンプレートの確認**: `/admin/prompts` でデフォルトテンプレートを確認・編集
 
 ### ローカル開発のポイント
 - `npm run lint` で ESLint + Next/Tailwind ルールを検証（Husky pre-commit でも自動実行）
