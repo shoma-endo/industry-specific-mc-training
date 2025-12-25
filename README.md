@@ -715,7 +715,7 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 
 ##### よくあるエラーと対処法
 
-**エラー: `redirect_uri_mismatch`**
+##### エラー: `redirect_uri_mismatch`
 - **原因**: Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` が一致していない
 - **対処**: 両方の設定を確認し、完全に一致させる（プロトコル、ホスト、パスすべて）
 
