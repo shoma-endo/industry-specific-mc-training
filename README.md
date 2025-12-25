@@ -258,13 +258,47 @@ sequenceDiagram
 ```
 
 ## 🛠️ 技術スタック
-- **フロントエンド**: Next.js 15.5.7 (App Router), React 19.2.1, TypeScript 5.9.3, Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react
-- **エディタ**: TipTap 3.7.x + lowlight ハイライト、カスタム UI コンポーネント群
-- **バックエンド**: Next.js Route Handlers & Server Actions, Supabase JS 2.75 (PostgreSQL + RLS)
-- **AI**: Anthropic Claude Sonnet 4.5（SSE ストリーミング）, OpenAI Chat Completions（Fine-tuned モデル含む）
-- **認証**: LINE LIFF v2.25.1, WordPress.com OAuth 2.0, Google OAuth 2.0 (Search Console), Vercel Edge Cookie ストア, 独自ミドルウェアによるロール判定
-- **決済**: Stripe 17.7（Checkout / Billing Portal / Subscription API）
-- **開発ツール**: TypeScript strict, ESLint 9, Prettier 3, tsc-watch, Husky, ngrok
+
+### フロントエンド
+- **フレームワーク**: Next.js 15.5.9 (App Router), React 19.2.3, TypeScript 5.9.3
+- **スタイリング**: Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react, tw-animate-css
+- **テーマ**: next-themes 0.4.6 (ダークモード対応)
+- **エディタ**: TipTap 3.7.2 + lowlight 3.3.0 (シンタックスハイライト)
+- **グラフ**: Recharts 3.5.0
+- **通知**: Sonner 2.0.7 (Toast)
+- **Markdown**: react-markdown 10.1.0
+
+### バックエンド
+- **API**: Next.js Route Handlers & Server Actions
+- **データベース**: Supabase JS 2.75.0 (PostgreSQL + Row Level Security)
+- **バリデーション**: Zod 4.1.12
+- **ランタイム**: Node.js 22.21.1
+
+### AI・LLM
+- **Anthropic**: Claude Sonnet 4.5 (SSE ストリーミング)
+- **OpenAI**: GPT-4.1 nano (Fine-tuned モデル含む)
+
+### 認証
+- **LINE**: LIFF v2.25.1
+- **OAuth 2.0**: WordPress.com, Google (Search Console)
+- **セッション管理**: Vercel Edge Cookie ストア
+- **アクセス制御**: 独自ミドルウェアによるロール判定
+
+### 決済
+- **Stripe**: 17.7.0 (Checkout, Billing Portal, Subscription API)
+
+### 外部連携
+- **WordPress REST API**: 投稿取得・同期
+- **Google Search Console API**: 検索パフォーマンスデータ取得・記事評価
+
+### 開発ツール
+- **型チェック**: TypeScript strict mode
+- **リンター**: ESLint 9, eslint-config-next
+- **フォーマッター**: Prettier 3.5.3
+- **ビルド**: tsc-watch 6.2.1, Turbopack
+- **Git Hooks**: Husky 9.1.7
+- **依存関係解析**: Knip 5.77.1
+- **ローカル公開**: ngrok (日本リージョン)
 
 ## 📊 データベーススキーマ（主要テーブル）
 
