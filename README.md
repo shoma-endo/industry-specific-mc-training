@@ -715,7 +715,7 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 
 ##### よくあるエラーと対処法
 
-**エラー: `redirect_uri_mismatch`**
+##### エラー: `redirect_uri_mismatch`
 - **原因**: Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` が一致していない
 - **対処**: 両方の設定を確認し、完全に一致させる（プロトコル、ホスト、パスすべて）
 
@@ -898,6 +898,16 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 
 5. **連携解除の確認**
    - `/setup/gsc` から連携解除を実行し、`gsc_credentials` テーブルから該当レコードが削除されることを確認
+
+6. **記事評価・提案システムの確認**
+   - `/api/cron/gsc-evaluate`（または `/api/gsc/evaluate` による手動実行）により評価が実行されることを確認
+   - 評価実行後、`gsc_article_evaluations` テーブルに評価レコードが作成・更新されることを確認
+   - `gsc_article_evaluation_history` テーブルに評価履歴が記録されることを確認
+   - `current_suggestion_stage` が段階的に遷移すること（タイトル → 書き出し → 本文 → ペルソナ）を確認
+     - 初期評価時は `current_suggestion_stage = 1`（タイトル）から開始
+     - 改善が確認されない場合、次の評価サイクルで `current_suggestion_stage` がインクリメントされることを確認
+   - 改善が確認できた場合（`outcome_type = 'improved'` など）にステージがリセット（`current_suggestion_stage = 1`）されることを確認
+   - 評価間隔が環境変数 `GSC_EVALUATION_INTERVAL_DAYS`（デフォルト: 30日）に従って設定されることを確認
 
 **PR への記載例:**
 - 検証日時と環境（ローカル/本番）
