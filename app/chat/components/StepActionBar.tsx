@@ -2,7 +2,7 @@
 import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
 import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
-import { BookMarked, BookOpen, Loader2, SkipBack, SkipForward } from 'lucide-react';
+import { BookMarked, BookOpen, FilePenLine, Loader2, SkipBack, SkipForward } from 'lucide-react';
 
 interface StepActionBarProps {
   step?: BlogStepId | undefined;
@@ -11,6 +11,9 @@ interface StepActionBarProps {
   hasDetectedBlogStep?: boolean | undefined;
   onSaveClick?: (() => void) | undefined;
   annotationLoading?: boolean | undefined;
+  hasStep7Content?: boolean | undefined;
+  onGenerateTitleMeta?: (() => void) | undefined;
+  isGenerateTitleMetaLoading?: boolean | undefined;
   onNextStepChange?: ((nextStep: BlogStepId | null) => void) | undefined;
   flowStatus?: string | undefined;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
@@ -31,6 +34,9 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       hasDetectedBlogStep,
       onSaveClick,
       annotationLoading,
+      hasStep7Content,
+      onGenerateTitleMeta,
+      isGenerateTitleMetaLoading = false,
       onNextStepChange,
       flowStatus = 'idle',
       onLoadBlogArticle,
@@ -58,6 +64,8 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const isStep7 = displayStep === 'step7';
     const isStep1 = displayStep === 'step1';
     const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
+    const showTitleMetaButton =
+      isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
     const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
 
@@ -144,6 +152,22 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
           <BookMarked size={14} />
           <span>{annotationLoading ? '読み込み中...' : 'ブログ保存'}</span>
         </Button>
+        {showTitleMetaButton && (
+          <Button
+            onClick={() => onGenerateTitleMeta?.()}
+            disabled={isDisabled || !onGenerateTitleMeta || isGenerateTitleMetaLoading}
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-1 bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100"
+          >
+            {isGenerateTitleMetaLoading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <FilePenLine size={14} />
+            )}
+            <span>{isGenerateTitleMetaLoading ? '生成中…' : 'タイトル・説明文生成'}</span>
+          </Button>
+        )}
       </div>
     );
   }

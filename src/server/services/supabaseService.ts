@@ -495,6 +495,33 @@ export class SupabaseService {
     return this.success(data ?? []);
   }
 
+  async getLatestChatMessageBySessionAndModel(
+    sessionId: string,
+    userId: string,
+    model: string
+  ): Promise<SupabaseResult<DbChatMessage | null>> {
+    const { data, error } = await this.supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('user_id', userId)
+      .eq('model', model)
+      .eq('role', 'assistant')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('チャットメッセージの取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get latest chat message by model',
+        context: { sessionId, userId, model },
+      });
+    }
+
+    return this.success((data ?? null) as DbChatMessage | null);
+  }
+
   /**
    * 指定したユーザーのメッセージ数を、時間範囲でカウント
    * role は 'user' のみを対象（送信回数としてカウントするため）

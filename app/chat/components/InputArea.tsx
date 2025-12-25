@@ -66,6 +66,9 @@ interface InputAreaProps {
   hasDetectedBlogStep?: boolean;
   onSaveClick?: () => void;
   annotationLoading?: boolean;
+  hasStep7Content?: boolean;
+  onGenerateTitleMeta?: () => void;
+  isGenerateTitleMetaLoading?: boolean;
   stepActionBarDisabled?: boolean;
   onNextStepChange?: (nextStep: BlogStepId | null) => void;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
@@ -105,6 +108,9 @@ const InputArea: React.FC<InputAreaProps> = ({
   hasDetectedBlogStep,
   onSaveClick,
   annotationLoading,
+  hasStep7Content,
+  onGenerateTitleMeta,
+  isGenerateTitleMetaLoading,
   stepActionBarDisabled,
   onNextStepChange,
   onLoadBlogArticle,
@@ -465,6 +471,9 @@ const InputArea: React.FC<InputAreaProps> = ({
               disabled={stepActionBarDisabled}
               onSaveClick={onSaveClick}
               annotationLoading={annotationLoading}
+              hasStep7Content={hasStep7Content}
+              onGenerateTitleMeta={onGenerateTitleMeta}
+              isGenerateTitleMetaLoading={isGenerateTitleMetaLoading}
               onNextStepChange={onNextStepChange}
               flowStatus={blogFlowStatus}
               onLoadBlogArticle={handleLoadBlogArticle}

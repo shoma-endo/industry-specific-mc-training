@@ -6,6 +6,7 @@ import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
 import { canUseServices } from '@/authUtils';
 import { userService } from '@/server/services/userService';
+import { withAuth } from '@/server/middleware/withAuth.middleware';
 import type { UserRole } from '@/types/user';
 import { z } from 'zod';
 import { SupabaseService } from '@/server/services/supabaseService';
@@ -148,6 +149,40 @@ export async function getSessionMessages(sessionId: string, liffAccessToken: str
   }
   const messages = await chatService.getSessionMessages(sessionId, auth.userId);
   return { messages, error: null };
+}
+
+export async function getLatestBlogStep7MessageBySession(sessionId: string): Promise<
+  | { success: false; error: string }
+  | { success: true; data: { content: string; createdAt: number } | null }
+> {
+  if (!sessionId) {
+    return { success: false as const, error: 'セッションIDが必要です' };
+  }
+
+  return withAuth(async ({ userId }) => {
+    const supabase = new SupabaseService();
+    const result = await supabase.getLatestChatMessageBySessionAndModel(
+      sessionId,
+      userId,
+      'blog_creation_step7'
+    );
+
+    if (!result.success) {
+      return { success: false as const, error: result.error.userMessage };
+    }
+
+    if (!result.data) {
+      return { success: true as const, data: null };
+    }
+
+    return {
+      success: true as const,
+      data: {
+        content: result.data.content,
+        createdAt: result.data.created_at,
+      },
+    };
+  });
 }
 
 export async function searchChatSessions(data: z.infer<typeof searchChatSessionsSchema>) {

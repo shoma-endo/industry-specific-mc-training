@@ -24,10 +24,13 @@ import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/ty
 import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
+import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 
 const FULL_MARKDOWN_PREFIX = '"full_markdown":"';
+const TITLE_META_SYSTEM_PROMPT =
+  '本文を元にタイトル（全角32文字以内で狙うキーワードはなるべく左よせ）、説明文（全角80文字程度）を３パターン作成してください';
 
 interface FullMarkdownDecoder {
   feed: (chunk: string) => string;
@@ -269,6 +272,9 @@ interface ChatLayoutCtx {
   onSessionTitleEditCancel: () => void;
   onSessionTitleEditConfirm: () => void;
   onNextStepChange: (nextStep: BlogStepId | null) => void;
+  hasStep7Content: boolean;
+  onGenerateTitleMeta: () => void;
+  isGenerateTitleMetaLoading: boolean;
   onLoadBlogArticle?: (() => Promise<void>) | null | undefined;
   initialStep?: BlogStepId | null;
 }
@@ -298,6 +304,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onSessionTitleEditCancel,
     onSessionTitleEditConfirm,
     onNextStepChange,
+    hasStep7Content,
+    onGenerateTitleMeta,
+    isGenerateTitleMetaLoading,
     onLoadBlogArticle,
     initialStep,
   } = ctx;
@@ -467,6 +476,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           hasDetectedBlogStep={hasDetectedBlogStep}
           onSaveClick={() => ui.annotation.openWith()}
           annotationLoading={ui.annotation.loading}
+          hasStep7Content={hasStep7Content}
+          onGenerateTitleMeta={onGenerateTitleMeta}
+          isGenerateTitleMetaLoading={isGenerateTitleMetaLoading}
           stepActionBarDisabled={chatSession.state.isLoading || ui.annotation.loading}
           currentSessionTitle={currentSessionTitle}
           currentSessionId={chatSession.state.currentSessionId}
@@ -530,6 +542,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
   const [annotationLoading, setAnnotationLoading] = useState(false);
+  const [isGeneratingTitleMeta, setIsGeneratingTitleMeta] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [canvasStep, setCanvasStep] = useState<BlogStepId | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>('');
@@ -694,6 +707,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
     return initialMap;
   }, [chatSession.state.messages]);
+
+  const hasStep7Content = (blogCanvasVersionsByStep.step7 ?? []).length > 0;
 
   useEffect(() => {
     const selectionUpdates: Partial<Record<BlogStepId, string | null>> = {};
@@ -1050,6 +1065,33 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setAnnotationOpen(true);
     } finally {
       setAnnotationLoading(false);
+    }
+  };
+
+  const handleGenerateTitleMeta = async () => {
+    const sessionId = chatSession.state.currentSessionId;
+    if (!sessionId) return;
+
+    setIsGeneratingTitleMeta(true);
+    try {
+      const res = await getLatestBlogStep7MessageBySession(sessionId);
+      if (!res.success) {
+        throw new Error(res.error || '本文の取得に失敗しました');
+      }
+      if (!res.data?.content?.trim()) {
+        throw new Error('本文が見つかりませんでした');
+      }
+
+      const systemPrompt = `${TITLE_META_SYSTEM_PROMPT}\n\n本文:\n${res.data.content}`;
+      await chatSession.actions.sendMessage(
+        '本文を元にタイトルと説明文を作成してください。',
+        'blog_title_meta_generation',
+        { systemPrompt }
+      );
+    } catch (error) {
+      console.error('Failed to generate title/meta:', error);
+    } finally {
+      setIsGeneratingTitleMeta(false);
     }
   };
 
@@ -1418,6 +1460,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onSessionTitleEditCancel: handleTitleEditCancel,
           onSessionTitleEditConfirm: handleTitleEditConfirm,
           onNextStepChange: handleNextStepChange,
+          hasStep7Content,
+          onGenerateTitleMeta: handleGenerateTitleMeta,
+          isGenerateTitleMetaLoading: isGeneratingTitleMeta,
           onLoadBlogArticle: handleLoadBlogArticle,
         }}
       />
