@@ -1076,10 +1076,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     try {
       const res = await getLatestBlogStep7MessageBySession(sessionId);
       if (!res.success) {
-        throw new Error(res.error || '本文の取得に失敗しました');
+        const errorMessage = res.error || '本文の取得に失敗しました';
+        chatSession.actions.setError(errorMessage);
+        return;
       }
       if (!res.data?.content?.trim()) {
-        throw new Error('本文が見つかりませんでした');
+        chatSession.actions.setError('本文が見つかりませんでした');
+        return;
       }
 
       const systemPrompt = `${TITLE_META_SYSTEM_PROMPT}\n\n本文:\n${res.data.content}`;
@@ -1090,6 +1093,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       );
     } catch (error) {
       console.error('Failed to generate title/meta:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'タイトル・説明文の生成に失敗しました';
+      chatSession.actions.setError(errorMessage);
     } finally {
       setIsGeneratingTitleMeta(false);
     }
