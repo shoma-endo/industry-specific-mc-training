@@ -37,7 +37,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 ### Google Search Console 連携
 - `/setup/gsc` で OAuth 認証状態・接続アカウント・プロパティを可視化し、プロパティ選択や連携解除を実行
 - `app/api/gsc/oauth/*` が Google OAuth 2.0 の開始／コールバックに対応し、Supabase `gsc_credentials` テーブルへリフレッシュトークンを保存
-- GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupActions.ts` / `src/server/actions/gscDashboard.actions.ts` など）
+- GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupClient.tsx` / `src/server/actions/gscSetup.actions.ts` / `src/server/actions/gscDashboard.actions.ts` など）
 - Search Console 日次指標は `gsc_page_metrics`、クエリ指標は `gsc_query_metrics` に保存し、WordPress 注釈 (`content_annotations`) と 1:N で紐付け可能（normalized_url でマッチング）。
 - GSC インポートは 30 日単位で自動分割し、クエリ指標は 1,000 行 × 10 ページ = 最大 10,000 行を上限として取得。
 - 記事ごとの順位評価と改善提案ステップを `gsc_article_evaluations` / `gsc_article_evaluation_history` で管理し、デフォルト30日間隔で「タイトル→書き出し→本文→ペルソナ」の順にエスカレーション。改善が確認できたらステージをリセット。
@@ -582,7 +582,7 @@ npm install
    - **service_role key**（秘密情報、サーバーサイド専用）
    - **Database Password**
 
-2. これらの情報を `.env.local` ファイルに設定します（詳細は「5. 環境変数の設定」を参照）
+2. これらの情報を `.env.local` ファイルに設定します（詳細は「6. 環境変数の設定」を参照）
 
 #### 2.2 データベーススキーマについて
 
@@ -632,7 +632,116 @@ npm install
 - `STRIPE_ENABLED=false` を設定
 - ただし、`STRIPE_SECRET_KEY` と `STRIPE_PRICE_ID` にはダミー値（例: `sk_test_dummy`）を設定する必要があります
 
-### 5. 環境変数の設定
+### 5. Google Search Console の設定（GSC 連携機能を使用する場合）
+
+#### 5.1 Google Cloud Console での設定
+
+**重要**: GSC 連携機能を使用する場合は、Google Cloud Console で OAuth 2.0 クライアント ID を作成する必要があります。
+
+##### 5.1.1 プロジェクトの作成または選択
+1. [Google Cloud Console](https://console.cloud.google.com/) にログイン
+2. プロジェクトを選択するか、新規プロジェクトを作成
+
+##### 5.1.2 OAuth consent screen（同意画面）の設定
+1. 「API とサービス」→「OAuth consent screen」に移動
+2. **User Type** を選択：
+   - **外部**（推奨）: テストユーザーを追加して開発・検証が可能
+   - **内部**: Google Workspace 組織内のみ（通常は外部を選択）
+3. **アプリ情報**を入力：
+   - アプリ名: 例）`GrowMate GSC Integration`
+   - ユーザーサポートメール: あなたのメールアドレス
+   - デベロッパーの連絡先情報: あなたのメールアドレス
+4. **スコープ**を追加：
+   - 「スコープを追加または削除」をクリック
+   - `https://www.googleapis.com/auth/webmasters.readonly` を追加（Search Console API の読み取り専用アクセス）
+5. **テストユーザー**を追加（外部ユーザータイプの場合）：
+   - 「テストユーザー」セクションで「ユーザーを追加」
+   - GSC 連携をテストする Google アカウントのメールアドレスを追加
+   - **重要**: テストユーザーとして登録されていないアカウントでは認証できません
+
+##### 5.1.3 OAuth 2.0 クライアント ID の作成
+1. 「API とサービス」→「認証情報」に移動
+2. 「認証情報を作成」→「OAuth クライアント ID」を選択
+3. **アプリケーションの種類**を「ウェブアプリケーション」に設定
+4. **名前**を入力（例: `GrowMate GSC OAuth Client`）
+5. **承認済みのリダイレクト URI**を追加：
+   - **ローカル開発用**: `http://localhost:3000/api/gsc/oauth/callback`
+   - **ngrok 利用時**: `https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback`
+   - **本番環境用**: `https://your-domain.com/api/gsc/oauth/callback`
+   - **重要**: 使用する環境に応じて適切な URI を設定してください。ngrok を使用する場合は、起動時に表示される URL に合わせて Google Cloud Console の設定も更新が必要です
+6. 「作成」をクリック
+7. **クライアント ID** と **クライアントシークレット** をコピー（後で `.env.local` に設定します）
+
+##### 5.1.4 Search Console API の有効化
+1. 「API とサービス」→「ライブラリ」に移動
+2. 「Google Search Console API」を検索
+3. 「有効にする」をクリック
+
+#### 5.2 環境変数の設定
+
+作成した OAuth 2.0 クライアント ID とシークレットを `.env.local` に設定します：
+
+```bash
+# ────────────────────────────────────────────────────────
+# Google Search Console OAuth 設定（GSC連携利用時は必須）
+# ────────────────────────────────────────────────────────
+GOOGLE_OAUTH_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret
+GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback  # ローカル開発時
+# GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback  # ngrok 利用時
+# GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-domain.com/api/gsc/oauth/callback  # 本番環境
+GSC_OAUTH_STATE_COOKIE_NAME=gsc_oauth_state
+GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
+```
+
+**redirect_uri の使い分け:**
+- **ローカル開発**: `http://localhost:3000/api/gsc/oauth/callback` を使用（Google Cloud Console にも同じ URI を登録）
+- **ngrok 利用時**: ngrok 起動時に表示される HTTPS URL を使用（例: `https://xxxxx.ngrok.io/api/gsc/oauth/callback`）。Google Cloud Console の設定も同じ URI に更新が必要
+- **本番環境**: デプロイ先のドメインを使用（例: `https://your-domain.com/api/gsc/oauth/callback`）
+
+**重要**: 
+- 開発環境と本番環境で異なる OAuth クライアント ID を使用することを推奨します
+- Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` は完全に一致させる必要があります
+- ngrok を使用する場合、起動毎に URL が変わるため、Google Cloud Console の設定も都度更新が必要です
+
+#### 5.3 期待される動作とトラブルシューティング
+
+##### 正常な動作フロー
+1. `/setup/gsc` にアクセスし、「Google Search Console と連携」ボタンをクリック
+2. Google 認証画面が表示され、`webmasters.readonly` スコープの許可を求められる
+3. 認証完了後、`/api/gsc/oauth/callback` 経由でコールバックが処理される
+4. プロパティ一覧が表示され、Search Console に登録されているプロパティ（サイト）を選択できる
+5. プロパティ選択後、Supabase `gsc_credentials` テーブルに認証情報が保存される
+
+##### よくあるエラーと対処法
+
+**エラー: `redirect_uri_mismatch`**
+- **原因**: Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` が一致していない
+- **対処**: 両方の設定を確認し、完全に一致させる（プロトコル、ホスト、パスすべて）
+
+**エラー: `access_denied` または認証画面で「このアプリは確認されていません」**
+- **原因**: OAuth consent screen でテストユーザーとして登録されていないアカウントで認証しようとしている
+- **対処**: Google Cloud Console の「OAuth consent screen」→「テストユーザー」に、使用する Google アカウントのメールアドレスを追加
+
+**エラー: プロパティ一覧が表示されない、または空のリスト**
+- **原因**: 
+  - Search Console API が有効化されていない
+  - 認証した Google アカウントに Search Console プロパティへのアクセス権限がない
+  - スコープが正しく設定されていない
+- **対処**: 
+  - Google Cloud Console で Search Console API が有効化されているか確認
+  - 認証に使用した Google アカウントで [Search Console](https://search.google.com/search-console) にアクセスし、プロパティが存在するか確認
+  - OAuth consent screen のスコープに `webmasters.readonly` が含まれているか確認
+
+**エラー: `invalid_client`**
+- **原因**: クライアント ID またはシークレットが間違っている
+- **対処**: `.env.local` の `GOOGLE_OAUTH_CLIENT_ID` と `GOOGLE_OAUTH_CLIENT_SECRET` を確認
+
+**権限不足時のエラーメッセージ例:**
+- `Error: The caller does not have permission` → Search Console API が有効化されていない、または認証したアカウントにプロパティへのアクセス権限がない
+- `Error: Insufficient Permission` → OAuth consent screen のスコープ設定が不十分
+
+### 6. 環境変数の設定
 
 プロジェクトルートに `.env.local` ファイルを作成し、以下の環境変数を設定してください：
 
@@ -686,11 +795,12 @@ OAUTH_TOKEN_COOKIE_NAME=wp_oauth_token
 # ────────────────────────────────────────────────────────
 # Google Search Console OAuth 設定（任意、GSC連携利用時は必須）
 # ────────────────────────────────────────────────────────
-# 注意: 以下の値は開発環境（Google OAuth サンドボックス）用です。
-# 本番環境では異なる Client ID/Secret を使用してください。
-GOOGLE_OAUTH_CLIENT_ID=your_sandbox_google_oauth_client_id
-GOOGLE_OAUTH_CLIENT_SECRET=your_sandbox_google_oauth_client_secret
-GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback
+# 詳細は「5. Google Search Console の設定」セクションを参照してください。
+GOOGLE_OAUTH_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret
+GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback  # ローカル開発時
+# GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback  # ngrok 利用時
+# GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-domain.com/api/gsc/oauth/callback  # 本番環境
 GSC_OAUTH_STATE_COOKIE_NAME=gsc_oauth_state
 GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 
@@ -702,7 +812,7 @@ FEATURE_RPC_V2=false  # 新しい Supabase RPC を有効化する場合は true
 
 **重要**: `.env.local` は `.gitignore` に含まれています。本番環境では Vercel の環境変数設定を使用してください。
 
-### 6. 開発サーバーの起動
+### 7. 開発サーバーの起動
 
 ```bash
 # TypeScript の型チェック + Next.js 開発サーバーを起動
@@ -711,13 +821,13 @@ npm run dev
 
 ブラウザで `http://localhost:3000` にアクセスしてアプリケーションを確認できます。
 
-### 7. LIFF ローカル開発のための ngrok セットアップ（任意）
+### 8. LIFF ローカル開発のための ngrok セットアップ（任意）
 
 LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテストする場合は ngrok を使用します。
 
 **重要**: 本番環境とLINE設定を共有しているため、通常のローカル開発ではngrokは不要です。LIFF認証が必要な機能を開発・テストする場合のみ使用してください。
 
-#### 7.1 ngrok のセットアップ
+#### 8.1 ngrok のセットアップ
 1. [ngrok](https://ngrok.com/) にサインアップ
 2. 無料プランでは固定サブドメインが使えないため、有料プランまたは起動毎の動的 URL を使用
 3. `package.json` の ngrok スクリプトを環境に合わせて調整：
@@ -725,7 +835,7 @@ LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテス
    "ngrok": "ngrok http --region=jp --subdomain=your-subdomain 3000"
    ```
 
-#### 7.2 ngrok の起動とテスト用設定
+#### 8.2 ngrok の起動とテスト用設定
 
 ```bash
 # 別ターミナルで ngrok を起動
@@ -739,30 +849,60 @@ ngrok が表示する HTTPS URL（例: `https://your-subdomain.ngrok.io`）を `
 - ngrok URL での完全なLIFF動作確認は、本番設定との競合が発生するため推奨されません
 - LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（http://localhost:3000）を使用してください
 
-### 8. 動作確認と検証
+### 9. 動作確認と検証
 
-#### 8.1 Lint チェック
+#### 9.1 Lint チェック
 ```bash
 npm run lint
 ```
 
-#### 8.2 ビルドチェック
+#### 9.2 ビルドチェック
 ```bash
 npm run build
 npm run start
 ```
 
-#### 8.3 データベース統計確認
+#### 9.3 データベース統計確認
 ```bash
 npm run db:stats
 ```
 
-#### 8.4 Vercel 統計確認（Vercel にデプロイ済みの場合）
+#### 9.4 Vercel 統計確認（Vercel にデプロイ済みの場合）
 ```bash
 npm run vercel:stats
 ```
 
-### 9. 初期データのセットアップ
+#### 9.5 GSC 連携の手動検証（GSC 連携機能を変更した場合）
+GSC 連携機能を変更した場合は、以下の手順で動作確認を行い、PR に検証結果を記載してください：
+
+1. **OAuth 認証フローの確認**
+   - `/setup/gsc` にアクセスし、「Google Search Console と連携」ボタンをクリック
+   - Google 認証画面が表示され、適切なスコープ（`webmasters.readonly`）が要求されることを確認
+   - 認証完了後、`/api/gsc/oauth/callback` 経由でコールバックが正常に処理されることを確認
+   - Supabase `gsc_credentials` テーブルに `refresh_token` が保存されていることを確認
+
+2. **プロパティ選択の確認**
+   - 認証完了後、プロパティ一覧が表示されることを確認
+   - プロパティを選択し、`gsc_credentials` テーブルの `property_uri` が更新されることを確認
+
+3. **ダッシュボード表示の確認**
+   - `/app/gsc-dashboard` にアクセスし、GSC データが正常に表示されることを確認
+   - グラフや統計情報が適切にレンダリングされることを確認
+
+4. **データインポートの確認**
+   - `/app/gsc-import` にアクセスし、データインポート機能が正常に動作することを確認
+   - インポート後、`gsc_page_metrics` と `gsc_query_metrics` テーブルにデータが保存されることを確認
+
+5. **連携解除の確認**
+   - `/setup/gsc` から連携解除を実行し、`gsc_credentials` テーブルから該当レコードが削除されることを確認
+
+**PR への記載例:**
+- 検証日時と環境（ローカル/本番）
+- 各ステップの実行結果（成功/失敗、エラーメッセージ）
+- スクリーンショットまたは再現手順
+- Supabase テーブルの確認結果（必要に応じて）
+
+### 10. 初期データのセットアップ
 
 アプリケーションに初回ログインした後、以下の設定を行います：
 
