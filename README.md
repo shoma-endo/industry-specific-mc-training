@@ -153,6 +153,12 @@ graph TB
 
 ## 🔄 認証フロー
 
+### 1. LINE LIFF 認証フロー（基本認証）
+
+**対象**: 全ユーザー
+**目的**: アプリへの基本認証
+**保存先**: `users` テーブル
+
 ```mermaid
 sequenceDiagram
     participant U as User
@@ -179,12 +185,84 @@ sequenceDiagram
     S->>C: 認証済みセッションを返却
 ```
 
+### 2. WordPress OAuth 認証フロー
+
+**対象**: 管理者のみ
+**目的**: WordPress.com サイトとの連携（投稿取得・同期）
+**保存先**: `wordpress_settings` テーブル
+**必要な環境変数**: `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`, `COOKIE_SECRET`
+
+```mermaid
+sequenceDiagram
+    participant U as User (Admin)
+    participant C as Client
+    participant S as Next.js Server
+    participant WP as WordPress.com OAuth
+    participant DB as Supabase
+
+    U->>C: WordPress連携を開始
+    C->>S: /api/wordpress/oauth/start
+    S->>S: LINE認証チェック & 管理者権限確認
+    S->>S: OAuth state 生成・Cookie保存
+    S->>WP: OAuth認証URLへリダイレクト
+    WP->>U: WordPress.com認証画面表示
+    U->>WP: 認証許可
+    WP->>S: /api/wordpress/oauth/callback?code=xxx&state=yyy
+    S->>S: state検証
+    S->>WP: トークン交換リクエスト (code → access_token)
+    WP->>S: access_token, refresh_token 返却
+    S->>DB: wordpress_settings にトークンを保存
+    S->>C: 連携完了をリダイレクト
+```
+
+### 3. Google Search Console OAuth 認証フロー
+
+**対象**: 全ユーザー
+**目的**: Google Search Console データの取得・記事評価
+**保存先**: `gsc_credentials` テーブル
+**必要な環境変数**: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`, `COOKIE_SECRET`
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Client
+    participant S as Next.js Server
+    participant G as Google OAuth
+    participant GSC as Google Search Console API
+    participant DB as Supabase
+
+    U->>C: GSC連携を開始
+    C->>S: /api/gsc/oauth/start
+    S->>S: LINE認証チェック
+    S->>S: OAuth state 生成・Cookie保存
+    S->>G: OAuth認証URLへリダイレクト<br/>(scope: webmasters.readonly)
+    G->>U: Google認証画面表示
+    U->>G: 認証許可
+    G->>S: /api/gsc/oauth/callback?code=xxx&state=yyy
+    S->>S: state検証
+    S->>G: トークン交換リクエスト (code → tokens)
+    G->>S: access_token, refresh_token, scope 返却
+    S->>DB: gsc_credentials にトークンを保存
+    S->>C: 連携完了をリダイレクト
+
+    Note over U,DB: プロパティ選択フェーズ
+    U->>C: プロパティ選択画面
+    C->>S: プロパティ一覧取得
+    S->>GSC: Sites.list API 呼び出し
+    GSC->>S: プロパティ一覧を返却
+    S->>C: プロパティ一覧を表示
+    U->>C: プロパティを選択
+    C->>S: 選択したプロパティを保存
+    S->>DB: gsc_credentials の property_uri を更新
+    S->>C: 設定完了
+```
+
 ## 🛠️ 技術スタック
 - **フロントエンド**: Next.js 15.5.7 (App Router), React 19.2.1, TypeScript 5.9.3, Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react
 - **エディタ**: TipTap 3.7.x + lowlight ハイライト、カスタム UI コンポーネント群
 - **バックエンド**: Next.js Route Handlers & Server Actions, Supabase JS 2.75 (PostgreSQL + RLS)
 - **AI**: Anthropic Claude Sonnet 4.5（SSE ストリーミング）, OpenAI Chat Completions（Fine-tuned モデル含む）
-- **認証**: LINE LIFF v2.25.1, Vercel Edge Cookie ストア, 独自ミドルウェアによるロール判定
+- **認証**: LINE LIFF v2.25.1, WordPress.com OAuth 2.0, Google OAuth 2.0 (Search Console), Vercel Edge Cookie ストア, 独自ミドルウェアによるロール判定
 - **決済**: Stripe 17.7（Checkout / Billing Portal / Subscription API）
 - **開発ツール**: TypeScript strict, ESLint 9, Prettier 3, tsc-watch, Husky, ngrok
 
