@@ -719,11 +719,13 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 - **原因**: Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` が一致していない
 - **対処**: 両方の設定を確認し、完全に一致させる（プロトコル、ホスト、パスすべて）
 
-**エラー: `access_denied` または認証画面で「このアプリは確認されていません」**
+##### エラー: `access_denied` または認証画面で「このアプリは確認されていません」
+
 - **原因**: OAuth consent screen でテストユーザーとして登録されていないアカウントで認証しようとしている
 - **対処**: Google Cloud Console の「OAuth consent screen」→「テストユーザー」に、使用する Google アカウントのメールアドレスを追加
 
-**エラー: プロパティ一覧が表示されない、または空のリスト**
+##### エラー: プロパティ一覧が表示されない、または空のリスト
+
 - **原因**: 
   - Search Console API が有効化されていない
   - 認証した Google アカウントに Search Console プロパティへのアクセス権限がない
@@ -733,11 +735,12 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
   - 認証に使用した Google アカウントで [Search Console](https://search.google.com/search-console) にアクセスし、プロパティが存在するか確認
   - OAuth consent screen のスコープに `webmasters.readonly` が含まれているか確認
 
-**エラー: `invalid_client`**
+##### エラー: `invalid_client`
+
 - **原因**: クライアント ID またはシークレットが間違っている
 - **対処**: `.env.local` の `GOOGLE_OAUTH_CLIENT_ID` と `GOOGLE_OAUTH_CLIENT_SECRET` を確認
 
-**権限不足時のエラーメッセージ例:**
+##### 権限不足時のエラーメッセージ例
 - `Error: The caller does not have permission` → Search Console API が有効化されていない、または認証したアカウントにプロパティへのアクセス権限がない
 - `Error: Insufficient Permission` → OAuth consent screen のスコープ設定が不十分
 
