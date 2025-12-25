@@ -75,6 +75,8 @@ graph TB
     Analytics["Analytics Table"]
     BusinessForm["Business Info Form"]
     AdminUI["Admin Dashboards"]
+    GscSetup["GSC Setup Dashboard"]
+    GscDashboard["GSC Analytics Dashboard"]
   end
 
   subgraph Server["Next.js Route Handlers & Server Actions"]
@@ -84,6 +86,8 @@ graph TB
     WordPressAPI["/api/wordpress/*"]
     AdminAPI["/api/admin/*"]
     SubscriptionAPI["/api/refresh, /api/user/*"]
+    GscAPI["/api/gsc/*"]
+    GscCron["/api/cron/gsc-evaluate"]
     ServerActions["server/actions/*"]
   end
 
@@ -96,6 +100,11 @@ graph TB
     PromptsTable["prompt_templates"]
     VersionsTable["prompt_versions"]
     WordpressTable["wordpress_settings"]
+    GscCredentials["gsc_credentials"]
+    GscPageMetrics["gsc_page_metrics"]
+    GscQueryMetrics["gsc_query_metrics"]
+    GscEvaluations["gsc_article_evaluations"]
+    GscHistory["gsc_article_evaluation_history"]
   end
 
   subgraph External["External Services"]
@@ -104,6 +113,7 @@ graph TB
     OpenAI["OpenAI GPT-4.1 nano FT"]
     Stripe["Stripe Subscriptions"]
     WordPress["WordPress REST API"]
+    GSC["Google Search Console API"]
   end
 
   LIFFProvider --> AuthMiddleware
@@ -113,6 +123,8 @@ graph TB
   Analytics --> WordPressAPI
   BusinessForm --> ServerActions
   AdminUI --> ServerActions
+  GscSetup --> GscAPI
+  GscDashboard --> GscAPI
 
   ServerActions --> UsersTable
   ServerActions --> BriefsTable
@@ -122,6 +134,12 @@ graph TB
   WordPressAPI --> WordpressTable
   AdminAPI --> PromptsTable
   AdminAPI --> VersionsTable
+  GscAPI --> GscCredentials
+  GscAPI --> GscPageMetrics
+  GscAPI --> GscQueryMetrics
+  GscAPI --> GscEvaluations
+  GscCron --> GscEvaluations
+  GscCron --> GscHistory
 
   AuthMiddleware --> LINE
   ChatStream --> Anthropic
@@ -129,9 +147,17 @@ graph TB
   ChatStream --> OpenAI
   SubscriptionAPI --> Stripe
   WordPressAPI --> WordPress
+  GscAPI --> GSC
+  GscCron --> GSC
 ```
 
 ## 🔄 認証フロー
+
+### 1. LINE LIFF 認証フロー（基本認証）
+
+**対象**: 全ユーザー
+**目的**: アプリへの基本認証
+**保存先**: `users` テーブル
 
 ```mermaid
 sequenceDiagram
@@ -159,14 +185,120 @@ sequenceDiagram
     S->>C: 認証済みセッションを返却
 ```
 
+### 2. WordPress OAuth 認証フロー
+
+**対象**: 管理者のみ
+**目的**: WordPress.com サイトとの連携（投稿取得・同期）
+**保存先**: `wordpress_settings` テーブル
+**必要な環境変数**: `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`, `COOKIE_SECRET`
+
+```mermaid
+sequenceDiagram
+    participant U as User (Admin)
+    participant C as Client
+    participant S as Next.js Server
+    participant WP as WordPress.com OAuth
+    participant DB as Supabase
+
+    U->>C: WordPress連携を開始
+    C->>S: /api/wordpress/oauth/start
+    S->>S: LINE認証チェック & 管理者権限確認
+    S->>S: OAuth state 生成・Cookie保存
+    S->>WP: OAuth認証URLへリダイレクト
+    WP->>U: WordPress.com認証画面表示
+    U->>WP: 認証許可
+    WP->>S: /api/wordpress/oauth/callback?code=xxx&state=yyy
+    S->>S: state検証
+    S->>WP: トークン交換リクエスト (code → access_token)
+    WP->>S: access_token, refresh_token 返却
+    S->>DB: wordpress_settings にトークンを保存
+    S->>C: 連携完了をリダイレクト
+```
+
+### 3. Google Search Console OAuth 認証フロー
+
+**対象**: 全ユーザー
+**目的**: Google Search Console データの取得・記事評価
+**保存先**: `gsc_credentials` テーブル
+**必要な環境変数**: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`, `COOKIE_SECRET`
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Client
+    participant S as Next.js Server
+    participant G as Google OAuth
+    participant GSC as Google Search Console API
+    participant DB as Supabase
+
+    U->>C: GSC連携を開始
+    C->>S: /api/gsc/oauth/start
+    S->>S: LINE認証チェック
+    S->>S: OAuth state 生成・Cookie保存
+    S->>G: OAuth認証URLへリダイレクト<br/>(scope: webmasters.readonly)
+    G->>U: Google認証画面表示
+    U->>G: 認証許可
+    G->>S: /api/gsc/oauth/callback?code=xxx&state=yyy
+    S->>S: state検証
+    S->>G: トークン交換リクエスト (code → tokens)
+    G->>S: access_token, refresh_token, scope 返却
+    S->>DB: gsc_credentials にトークンを保存
+    S->>C: 連携完了をリダイレクト
+
+    Note over U,DB: プロパティ選択フェーズ
+    U->>C: プロパティ選択画面
+    C->>S: プロパティ一覧取得
+    S->>GSC: Sites.list API 呼び出し
+    GSC->>S: プロパティ一覧を返却
+    S->>C: プロパティ一覧を表示
+    U->>C: プロパティを選択
+    C->>S: 選択したプロパティを保存
+    S->>DB: gsc_credentials の property_uri を更新
+    S->>C: 設定完了
+```
+
 ## 🛠️ 技術スタック
-- **フロントエンド**: Next.js 15.5.7 (App Router), React 19.2.1, TypeScript 5.9.3, Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react
-- **エディタ**: TipTap 3.7.x + lowlight ハイライト、カスタム UI コンポーネント群
-- **バックエンド**: Next.js Route Handlers & Server Actions, Supabase JS 2.75 (PostgreSQL + RLS)
-- **AI**: Anthropic Claude Sonnet 4.5（SSE ストリーミング）, OpenAI Chat Completions（Fine-tuned モデル含む）
-- **認証**: LINE LIFF v2.25.1, Vercel Edge Cookie ストア, 独自ミドルウェアによるロール判定
-- **決済**: Stripe 17.7（Checkout / Billing Portal / Subscription API）
-- **開発ツール**: TypeScript strict, ESLint 9, Prettier 3, tsc-watch, Husky, ngrok
+
+### フロントエンド
+- **フレームワーク**: Next.js 15.5.9 (App Router), React 19.2.3, TypeScript 5.9.3
+- **スタイリング**: Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react, tw-animate-css
+- **テーマ**: next-themes 0.4.6 (ダークモード対応)
+- **エディタ**: TipTap 3.7.2 + lowlight 3.3.0 (シンタックスハイライト)
+- **グラフ**: Recharts 3.5.0
+- **通知**: Sonner 2.0.7 (Toast)
+- **Markdown**: react-markdown 10.1.0
+
+### バックエンド
+- **API**: Next.js Route Handlers & Server Actions
+- **データベース**: Supabase JS 2.75.0 (PostgreSQL + Row Level Security)
+- **バリデーション**: Zod 4.1.12
+- **ランタイム**: Node.js 22.21.1
+
+### AI・LLM
+- **Anthropic**: Claude Sonnet 4.5 (SSE ストリーミング)
+- **OpenAI**: GPT-4.1 nano (Fine-tuned モデル含む)
+
+### 認証
+- **LINE**: LIFF v2.25.1
+- **OAuth 2.0**: WordPress.com, Google (Search Console)
+- **セッション管理**: Vercel Edge Cookie ストア
+- **アクセス制御**: 独自ミドルウェアによるロール判定
+
+### 決済
+- **Stripe**: 17.7.0 (Checkout, Billing Portal, Subscription API)
+
+### 外部連携
+- **WordPress REST API**: 投稿取得・同期
+- **Google Search Console API**: 検索パフォーマンスデータ取得・記事評価
+
+### 開発ツール
+- **型チェック**: TypeScript strict mode
+- **リンター**: ESLint 9, eslint-config-next
+- **フォーマッター**: Prettier 3.5.3
+- **ビルド**: tsc-watch 6.2.1, Turbopack
+- **Git Hooks**: Husky 9.1.7
+- **依存関係解析**: Knip 5.77.1
+- **ローカル公開**: ngrok (日本リージョン)
 
 ## 📊 データベーススキーマ（主要テーブル）
 
@@ -237,19 +369,132 @@ erDiagram
         timestamptz updated_at
     }
 
+    wordpress_settings {
+        uuid id PK
+        uuid user_id UK,FK
+        text wp_type
+        text wp_client_id
+        text wp_client_secret
+        text wp_site_id
+        text wp_site_url
+        text wp_username
+        text wp_application_password
+        text wp_access_token
+        text wp_refresh_token
+        timestamptz wp_token_expires_at
+        text[] wp_content_types
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    prompt_templates {
+        uuid id PK
+        text name
+        text description
+        text category
+        boolean is_active
+        uuid created_by FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    prompt_versions {
+        uuid id PK
+        uuid template_id FK
+        integer version_number
+        text content
+        text change_summary
+        uuid created_by FK
+        timestamptz created_at
+    }
+
+    gsc_credentials {
+        uuid id PK
+        uuid user_id UK,FK
+        text google_account_email
+        text refresh_token
+        text access_token
+        timestamptz access_token_expires_at
+        text[] scope
+        text property_uri
+        text property_type
+        text property_display_name
+        text permission_level
+        boolean verified
+        timestamptz last_synced_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    gsc_page_metrics {
+        uuid id PK
+        uuid user_id FK
+        uuid content_annotation_id FK
+        text property_uri
+        text search_type
+        date date
+        text url
+        text normalized_url
+        integer clicks
+        integer impressions
+        numeric ctr
+        numeric position
+        timestamptz imported_at
+    }
+
+    gsc_query_metrics {
+        uuid id PK
+        uuid user_id FK
+        text property_uri
+        text property_type
+        text search_type
+        date date
+        text url
+        text normalized_url
+        text query
+        text query_normalized
+        integer clicks
+        integer impressions
+        numeric ctr
+        numeric position
+        uuid content_annotation_id FK
+        timestamptz imported_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     gsc_article_evaluations {
         uuid id PK
         uuid user_id FK
         uuid content_annotation_id FK
         text property_uri
-        smallint current_stage
         smallint current_suggestion_stage
         date last_evaluated_on
-        date next_evaluation_on
-        integer evaluation_hour
+        date base_evaluation_date
         integer cycle_days
+        integer evaluation_hour
         numeric last_seen_position
         text status
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    gsc_article_evaluation_history {
+        uuid id PK
+        uuid user_id FK
+        uuid content_annotation_id FK
+        date evaluation_date
+        smallint stage
+        numeric previous_position
+        numeric current_position
+        text outcome_type
+        text outcome
+        text error_code
+        text error_message
+        boolean suggestion_applied
+        text suggestion_summary
+        boolean is_read
+        timestamptz created_at
     }
 
     users ||--o{ chat_sessions : owns
@@ -257,8 +502,18 @@ erDiagram
     users ||--|| briefs : "stores one brief"
     users ||--o{ content_annotations : annotates
     users ||--o| wordpress_settings : configures
-    prompt_templates ||--o{ prompt_versions : captures
+    users ||--o| gsc_credentials : "has GSC auth"
+    users ||--o{ gsc_page_metrics : owns
+    users ||--o{ gsc_query_metrics : owns
+    users ||--o{ gsc_article_evaluation_history : owns
+    users ||--o{ prompt_templates : creates
+    users ||--o{ prompt_versions : creates
+    prompt_templates ||--o{ prompt_versions : "has versions"
     content_annotations ||--o| gsc_article_evaluations : "monitored by"
+    content_annotations ||--o{ gsc_page_metrics : "tracked by"
+    content_annotations ||--o{ gsc_query_metrics : "tracked by"
+    content_annotations ||--o{ gsc_article_evaluation_history : "evaluated in"
+    gsc_article_evaluations ||--o{ gsc_article_evaluation_history : "has history"
 ```
 
 ## 📋 環境変数（18 項目: 必須14項目、オプション4項目）
@@ -429,6 +684,17 @@ OAUTH_STATE_COOKIE_NAME=wp_oauth_state
 OAUTH_TOKEN_COOKIE_NAME=wp_oauth_token
 
 # ────────────────────────────────────────────────────────
+# Google Search Console OAuth 設定（任意、GSC連携利用時は必須）
+# ────────────────────────────────────────────────────────
+# 注意: 以下の値は開発環境（Google OAuth サンドボックス）用です。
+# 本番環境では異なる Client ID/Secret を使用してください。
+GOOGLE_OAUTH_CLIENT_ID=your_sandbox_google_oauth_client_id
+GOOGLE_OAUTH_CLIENT_SECRET=your_sandbox_google_oauth_client_secret
+GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback
+GSC_OAUTH_STATE_COOKIE_NAME=gsc_oauth_state
+GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
+
+# ────────────────────────────────────────────────────────
 # 機能フラグ（任意）
 # ────────────────────────────────────────────────────────
 FEATURE_RPC_V2=false  # 新しい Supabase RPC を有効化する場合は true
@@ -503,7 +769,8 @@ npm run vercel:stats
 1. **管理者ロールの付与**: Supabase の `users` テーブルで自分のユーザーの `role` を `admin` に変更
 2. **事業者情報の登録**: `/business-info` で 5W2H などの基本情報を入力
 3. **WordPress 連携**（任意）: `/setup/wordpress` で WordPress サイトを接続
-4. **プロンプトテンプレートの確認**: `/admin/prompts` でデフォルトテンプレートを確認・編集
+4. **Google Search Console 連携**（任意）: `/setup/gsc` で GSC プロパティを接続
+5. **プロンプトテンプレートの確認**: `/admin/prompts` でデフォルトテンプレートを確認・編集
 
 ### ローカル開発のポイント
 - `npm run lint` で ESLint + Next/Tailwind ルールを検証（Husky pre-commit でも自動実行）
