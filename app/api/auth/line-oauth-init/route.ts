@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { env } from '@/env';
 
+// Node.jsランタイムを強制（Vercelエッジ環境でのCookie永続化問題を回避）
+export const runtime = 'nodejs';
+
 /**
  * LINE OAuth state生成エンドポイント
  * セキュアなstate値を生成し、HttpOnly Cookieとして設定

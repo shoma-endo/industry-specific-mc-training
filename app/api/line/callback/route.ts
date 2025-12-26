@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/env'; // env モジュールをインポート
 import { cookies } from 'next/headers';
 
+// Node.jsランタイムを強制（Vercelエッジ環境でのCookie永続化問題を回避）
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
