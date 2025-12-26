@@ -89,9 +89,7 @@ export async function GET(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      // リフレッシュトークン自体の有効期限は通常指定されないか、非常に長いため、
-      // 必要に応じて maxAge を設定 (例: 90日)
-      // maxAge: 90 * 24 * 60 * 60,
+      maxAge: 60 * 60 * 24 * 90, // 90日（check-roleと一致）
       path: '/',
     });
 
