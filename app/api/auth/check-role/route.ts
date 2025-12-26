@@ -34,11 +34,15 @@ export async function GET() {
 
     // 新しいトークンが発行された場合、Cookieを更新
     if (result.newAccessToken) {
+      // LINE APIレスポンスから取得したexpires_inを使用
+      // expires_inが取得できない場合はデフォルト値（約30日 = 2592000秒）を使用
+      const maxAge = result.expiresIn ?? 60 * 60 * 24 * 30; // デフォルト30日
+      
       response.cookies.set('line_access_token', result.newAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 3, // 3日
+        maxAge,
         path: '/',
       });
     }
