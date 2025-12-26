@@ -37,6 +37,7 @@ export interface RefreshTokensResult {
   success: boolean;
   accessToken?: string;
   refreshToken?: string;
+  expiresIn?: number;
   error?: string;
   status?: number;
 }
@@ -319,6 +320,7 @@ export async function refreshTokens(refreshToken: string): Promise<RefreshTokens
       success: true,
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
+      expiresIn: data.expires_in,
     };
   } catch (error) {
     console.error('[Auth Middleware] Refresh token error:', error);

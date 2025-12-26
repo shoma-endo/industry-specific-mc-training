@@ -60,6 +60,7 @@ export async function getUserRoleWithRefresh(
   role: UserRole | null;
   newAccessToken?: string;
   newRefreshToken?: string;
+  expiresIn?: number;
   needsReauth?: boolean;
 }> {
   if (typeof window !== 'undefined') {
@@ -79,10 +80,12 @@ export async function getUserRoleWithRefresh(
       role: UserRole;
       newAccessToken?: string;
       newRefreshToken?: string;
+      expiresIn?: number;
       needsReauth?: boolean;
     } = { role };
     if (result.newAccessToken) returnValue.newAccessToken = result.newAccessToken;
     if (result.newRefreshToken) returnValue.newRefreshToken = result.newRefreshToken;
+    if (result.expiresIn !== undefined) returnValue.expiresIn = result.expiresIn;
     return returnValue;
   } catch (error) {
     console.error('[Auth Utils] Failed to get user role with refresh:', {
