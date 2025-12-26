@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getUserRoleWithRefresh } from '@/authUtils';
 
+// Node.jsランタイムを強制（Cookie更新の一貫性を確保）
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     const cookieStore = await cookies();
