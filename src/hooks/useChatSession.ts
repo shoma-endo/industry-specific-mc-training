@@ -427,8 +427,18 @@ export const useChatSession = (
     }));
   }, []);
 
+  const setError = useCallback((message: string | null) => {
+    setState(prev => ({
+      ...prev,
+      error: message,
+      warning: null,
+      isLoading: false,
+    }));
+  }, []);
+
   const actions: ChatSessionActions = {
     sendMessage,
+    setError,
     loadSessions,
     loadSession,
     deleteSession,
