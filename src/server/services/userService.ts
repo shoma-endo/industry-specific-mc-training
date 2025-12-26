@@ -164,6 +164,7 @@ export class UserService {
     user: User | null;
     newAccessToken?: string;
     newRefreshToken?: string;
+    expiresIn?: number;
     needsReauth?: boolean;
   }> {
     try {
@@ -183,6 +184,7 @@ export class UserService {
               user: User | null;
               newAccessToken?: string;
               newRefreshToken?: string;
+              expiresIn?: number;
               needsReauth?: boolean;
             } = { user };
 
@@ -192,6 +194,10 @@ export class UserService {
 
             if (refreshResult.newRefreshToken) {
               returnValue.newRefreshToken = refreshResult.newRefreshToken;
+            }
+
+            if (refreshResult.expiresIn !== undefined) {
+              returnValue.expiresIn = refreshResult.expiresIn;
             }
 
             return returnValue;

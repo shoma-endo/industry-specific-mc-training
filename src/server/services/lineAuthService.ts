@@ -63,6 +63,7 @@ export class LineAuthService {
     isValid: boolean;
     newAccessToken?: string;
     newRefreshToken?: string;
+    expiresIn?: number;
     needsReauth?: boolean;
   }> => {
     try {
@@ -79,6 +80,7 @@ export class LineAuthService {
             isValid: true,
             newAccessToken: refreshedTokens.access_token,
             newRefreshToken: refreshedTokens.refresh_token || refreshTokenValue, // 新しいリフレッシュトークンがない場合は既存のものを保持
+            expiresIn: refreshedTokens.expires_in,
           };
         } catch (refreshError) {
           console.error('[LINE Auth] Token refresh failed:', refreshError);
