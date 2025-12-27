@@ -80,8 +80,15 @@ if (!envVars.NEXT_PUBLIC_SITE_URL) {
   process.exit(1);
 }
 
-// ドメインを抽出（https:// を除去）
-const domain = envVars.NEXT_PUBLIC_SITE_URL.replace(/^https?:\/\//, '');
+// ドメインを抽出（URL形式をパースしてホスト名のみを取得）
+let domain: string;
+try {
+  const url = new URL(envVars.NEXT_PUBLIC_SITE_URL);
+  domain = url.hostname;
+} catch {
+  console.error('エラー: NEXT_PUBLIC_SITE_URL が有効なURLではありません。');
+  process.exit(1);
+}
 
 // ドメインに危険な文字が含まれていないか検証
 if (!/^[a-zA-Z0-9.-]+$/.test(domain)) {
