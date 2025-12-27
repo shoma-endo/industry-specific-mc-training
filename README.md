@@ -832,9 +832,13 @@ LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテス
 
 #### 8.1 ngrok のセットアップ
 1. [ngrok](https://ngrok.com/) にサインアップ
-2. ngrok ダッシュボードで**静的ドメイン**を作成（無料プランで1つ取得可能）
+2. ngrok ダッシュボードで認証トークンを取得し、ローカルに設定：
+   ```bash
+   ngrok config add-authtoken <your-authtoken>
+   ```
+3. ngrok ダッシュボードで**静的ドメイン**を作成（無料プランで1つ取得可能）
    - 例: `your-name.ngrok-free.app` または `xxx.ngrok-free.dev`
-3. `.env.local` に静的ドメインを設定：
+4. `.env.local` に静的ドメインを設定：
    ```bash
    NEXT_PUBLIC_SITE_URL=https://your-static-domain.ngrok-free.dev
    ```
@@ -855,7 +859,7 @@ npm run ngrok
 
 **注意**:
 - LINE Developers Console の LIFF エンドポイント URL には静的ドメインを設定してください
-- LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（http://localhost:3000）を使用可能です
+- LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（`http://localhost:3000`）を使用可能です
 
 ### 9. 動作確認と検証
 
