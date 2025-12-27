@@ -834,16 +834,16 @@ LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテス
 1. [ngrok](https://ngrok.com/) にサインアップ
 2. ngrok ダッシュボードで**静的ドメイン**を作成（無料プランで1つ取得可能）
    - 例: `your-name.ngrok-free.app` または `xxx.ngrok-free.dev`
-3. 静的ドメインを使用して起動：
+3. `.env.local` に静的ドメインを設定：
    ```bash
-   ngrok http --domain=your-static-domain.ngrok-free.app 3000
+   NEXT_PUBLIC_SITE_URL=https://your-static-domain.ngrok-free.dev
    ```
 
 #### 8.2 ngrok の起動とテスト用設定
 
 ```bash
-# 静的ドメインを指定して ngrok を起動
-ngrok http --domain=your-static-domain.ngrok-free.app 3000
+# .env.local の NEXT_PUBLIC_SITE_URL から自動でドメインを取得して起動
+npm run ngrok
 ```
 
 静的ドメインを使用することで、URL が固定され、LINE Developers Console の LIFF エンドポイント URL を毎回変更する必要がなくなります。
