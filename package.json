@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "ngrok": "ngrok http --domain=$(echo $NEXT_PUBLIC_SITE_URL | sed 's|https://||') 3000",
+    "ngrok": "bash -c 'if [ -z \"$NEXT_PUBLIC_SITE_URL\" ]; then echo \"エラー: NEXT_PUBLIC_SITE_URL が設定されていません。.env.local を確認してください。\" && exit 1; fi && ngrok http --domain=$(echo $NEXT_PUBLIC_SITE_URL | sed \"s|https://||\") 3000'",
     "db:stats": "tsx scripts/check-db-stats.ts",
     "vercel:stats": "tsx scripts/check-vercel-stats.ts",
     "prepare": "husky"
