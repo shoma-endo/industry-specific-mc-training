@@ -666,9 +666,9 @@ npm install
 4. **名前**を入力（例: `GrowMate GSC OAuth Client`）
 5. **承認済みのリダイレクト URI**を追加：
    - **ローカル開発用**: `http://localhost:3000/api/gsc/oauth/callback`
-   - **ngrok 利用時**: `https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback`
+   - **ngrok 利用時**: `https://your-static-domain.ngrok-free.dev/api/gsc/oauth/callback`（静的ドメイン）
    - **本番環境用**: `https://your-domain.com/api/gsc/oauth/callback`
-   - **重要**: 使用する環境に応じて適切な URI を設定してください。ngrok を使用する場合は、起動時に表示される URL に合わせて Google Cloud Console の設定も更新が必要です
+   - **重要**: 使用する環境に応じて適切な URI を設定してください。ngrok の静的ドメインを使用すれば、URL は固定されるため一度設定すれば変更不要です
 6. 「作成」をクリック
 7. **クライアント ID** と **クライアントシークレット** をコピー（後で `.env.local` に設定します）
 
@@ -688,7 +688,7 @@ npm install
 GOOGLE_OAUTH_CLIENT_ID=your_google_oauth_client_id
 GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret
 GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback  # ローカル開発時
-# GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback  # ngrok 利用時
+# GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/gsc/oauth/callback  # ngrok 利用時（静的ドメイン）
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-domain.com/api/gsc/oauth/callback  # 本番環境
 GSC_OAUTH_STATE_COOKIE_NAME=gsc_oauth_state
 GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
@@ -696,13 +696,13 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 
 **redirect_uri の使い分け:**
 - **ローカル開発**: `http://localhost:3000/api/gsc/oauth/callback` を使用（Google Cloud Console にも同じ URI を登録）
-- **ngrok 利用時**: ngrok 起動時に表示される HTTPS URL を使用（例: `https://xxxxx.ngrok.io/api/gsc/oauth/callback`）。Google Cloud Console の設定も同じ URI に更新が必要
+- **ngrok 利用時**: 静的ドメインを使用（例: `https://your-static-domain.ngrok-free.dev/api/gsc/oauth/callback`）。一度設定すれば変更不要
 - **本番環境**: デプロイ先のドメインを使用（例: `https://your-domain.com/api/gsc/oauth/callback`）
 
-**重要**: 
+**重要**:
 - 開発環境と本番環境で異なる OAuth クライアント ID を使用することを推奨します
 - Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` は完全に一致させる必要があります
-- ngrok を使用する場合、起動毎に URL が変わるため、Google Cloud Console の設定も都度更新が必要です
+- ngrok の静的ドメインを使用すれば URL は固定されるため、Google Cloud Console の設定変更は不要です
 
 #### 5.3 期待される動作とトラブルシューティング
 
@@ -782,7 +782,7 @@ OPENAI_API_KEY=sk-proj-xxxxx
 # ────────────────────────────────────────────────────────
 # サイト URL
 # ────────────────────────────────────────────────────────
-NEXT_PUBLIC_SITE_URL=https://your-ngrok-url.ngrok.io  # ローカル開発時
+NEXT_PUBLIC_SITE_URL=https://your-static-domain.ngrok-free.dev  # ローカル開発時（ngrok静的ドメイン）
 # NEXT_PUBLIC_SITE_URL=https://your-domain.com  # 本番環境
 
 # ────────────────────────────────────────────────────────
@@ -790,7 +790,7 @@ NEXT_PUBLIC_SITE_URL=https://your-ngrok-url.ngrok.io  # ローカル開発時
 # ────────────────────────────────────────────────────────
 WORDPRESS_COM_CLIENT_ID=your_wordpress_com_client_id
 WORDPRESS_COM_CLIENT_SECRET=your_wordpress_com_client_secret
-WORDPRESS_COM_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/wordpress/oauth/callback
+WORDPRESS_COM_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/wordpress/oauth/callback
 COOKIE_SECRET=your_random_32_char_secret_key  # openssl rand -hex 32 で生成
 OAUTH_STATE_COOKIE_NAME=wp_oauth_state
 OAUTH_TOKEN_COOKIE_NAME=wp_oauth_token
@@ -802,7 +802,7 @@ OAUTH_TOKEN_COOKIE_NAME=wp_oauth_token
 GOOGLE_OAUTH_CLIENT_ID=your_google_oauth_client_id
 GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret
 GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback  # ローカル開発時
-# GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/gsc/oauth/callback  # ngrok 利用時
+# GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/gsc/oauth/callback  # ngrok 利用時（静的ドメイン）
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-domain.com/api/gsc/oauth/callback  # 本番環境
 GSC_OAUTH_STATE_COOKIE_NAME=gsc_oauth_state
 GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
@@ -832,25 +832,34 @@ LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテス
 
 #### 8.1 ngrok のセットアップ
 1. [ngrok](https://ngrok.com/) にサインアップ
-2. 無料プランでは固定サブドメインが使えないため、有料プランまたは起動毎の動的 URL を使用
-3. `package.json` の ngrok スクリプトを環境に合わせて調整：
-   ```json
-   "ngrok": "ngrok http --region=jp --subdomain=your-subdomain 3000"
+2. ngrok ダッシュボードで認証トークンを取得し、ローカルに設定：
+   ```bash
+   ngrok config add-authtoken <your-authtoken>
+   ```
+3. ngrok ダッシュボードで**静的ドメイン**を作成（無料プランで1つ取得可能）
+   - 例: `your-name.ngrok-free.app` または `xxx.ngrok-free.dev`
+4. `.env.local` に静的ドメインを設定：
+   ```bash
+   NEXT_PUBLIC_SITE_URL=https://your-static-domain.ngrok-free.dev
    ```
 
 #### 8.2 ngrok の起動とテスト用設定
 
 ```bash
-# 別ターミナルで ngrok を起動
+# .env.local の NEXT_PUBLIC_SITE_URL から自動でドメインを取得して起動
 npm run ngrok
 ```
 
-ngrok が表示する HTTPS URL（例: `https://your-subdomain.ngrok.io`）を `.env.local` の `NEXT_PUBLIC_SITE_URL` に一時的に設定できます。
+静的ドメインを使用することで、URL が固定され、LINE Developers Console の LIFF エンドポイント URL を毎回変更する必要がなくなります。
+
+**無料プランの制限**:
+- 静的ドメインは **1つまで**
+- **商用利用は不可**（開発・検証用途のみ）
+- 複数人で開発する場合は、各自が無料アカウントを作成して静的ドメインを取得
 
 **注意**:
-- LINE Developers Console の LIFF エンドポイント URL やコールバック URL は**本番設定のまま変更しないでください**
-- ngrok URL での完全なLIFF動作確認は、本番設定との競合が発生するため推奨されません
-- LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（http://localhost:3000）を使用してください
+- LINE Developers Console の LIFF エンドポイント URL には静的ドメインを設定してください
+- LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（`http://localhost:3000`）を使用可能です
 
 ### 9. 動作確認と検証
 
