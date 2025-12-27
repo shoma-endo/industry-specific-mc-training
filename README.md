@@ -832,25 +832,30 @@ LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテス
 
 #### 8.1 ngrok のセットアップ
 1. [ngrok](https://ngrok.com/) にサインアップ
-2. 無料プランでは固定サブドメインが使えないため、有料プランまたは起動毎の動的 URL を使用
-3. `package.json` の ngrok スクリプトを環境に合わせて調整：
-   ```json
-   "ngrok": "ngrok http --region=jp --subdomain=your-subdomain 3000"
+2. ngrok ダッシュボードで**静的ドメイン**を作成（無料プランで1つ取得可能）
+   - 例: `your-name.ngrok-free.app` または `xxx.ngrok-free.dev`
+3. 静的ドメインを使用して起動：
+   ```bash
+   ngrok http --domain=your-static-domain.ngrok-free.app 3000
    ```
 
 #### 8.2 ngrok の起動とテスト用設定
 
 ```bash
-# 別ターミナルで ngrok を起動
-npm run ngrok
+# 静的ドメインを指定して ngrok を起動
+ngrok http --domain=your-static-domain.ngrok-free.app 3000
 ```
 
-ngrok が表示する HTTPS URL（例: `https://your-subdomain.ngrok.io`）を `.env.local` の `NEXT_PUBLIC_SITE_URL` に一時的に設定できます。
+静的ドメインを使用することで、URL が固定され、LINE Developers Console の LIFF エンドポイント URL を毎回変更する必要がなくなります。
+
+**無料プランの制限**:
+- 静的ドメインは **1つまで**
+- **商用利用は不可**（開発・検証用途のみ）
+- 複数人で開発する場合は、各自が無料アカウントを作成して静的ドメインを取得するか、1つのトンネルを共有
 
 **注意**:
-- LINE Developers Console の LIFF エンドポイント URL やコールバック URL は**本番設定のまま変更しないでください**
-- ngrok URL での完全なLIFF動作確認は、本番設定との競合が発生するため推奨されません
-- LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（http://localhost:3000）を使用してください
+- LINE Developers Console の LIFF エンドポイント URL には静的ドメインを設定してください
+- LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（http://localhost:3000）を使用可能です
 
 ### 9. 動作確認と検証
 
