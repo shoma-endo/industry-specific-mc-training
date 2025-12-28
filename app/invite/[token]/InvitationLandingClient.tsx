@@ -28,9 +28,11 @@ export default function InvitationLandingClient({
       }
 
       const { authUrl } = await response.json();
-      
+
       if (authUrl) {
         window.location.href = authUrl;
+      } else {
+        throw new Error('認証URLの取得に失敗しました');
       }
     } catch (error) {
       console.error('Registration error:', error);
