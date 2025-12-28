@@ -398,7 +398,14 @@ export class UserService {
     }
 
     // Update owner role to owner
-    await this.supabaseService.updateUserRole(invitation.ownerUserId, 'owner');
+    const ownerUpdateResult = await this.supabaseService.updateUserRole(
+      invitation.ownerUserId,
+      'owner'
+    );
+    if (!ownerUpdateResult.success) {
+      console.error('Failed to update owner role:', ownerUpdateResult.error);
+      // Note: User is already linked, so this is a partial success state
+    }
 
     return { success: true };
   }
