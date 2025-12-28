@@ -44,17 +44,21 @@ export class SubscriptionService implements ISubscriptionService {
         this.cachedSubscription = subscription;
         this.lastCheckTime = Date.now();
 
-        const isActiveOrTrialing = subscription.status === 'active' || subscription.status === 'trialing';
+        const isActiveOrTrialing =
+          subscription.status === 'active' || subscription.status === 'trialing';
 
         if (!isActiveOrTrialing || subscription.cancelAtPeriodEnd) {
           let detailedError = 'チャット機能のご利用には、有効なサブスクリプションが必要です。';
 
           if (subscription.cancelAtPeriodEnd && isActiveOrTrialing) {
-            detailedError = 'サブスクリプションは解約手続き済みです。現在の請求期間終了後にチャット機能はご利用いただけなくなります。';
+            detailedError =
+              'サブスクリプションは解約手続き済みです。現在の請求期間終了後にチャット機能はご利用いただけなくなります。';
           } else if (subscription.status === 'canceled') {
-            detailedError = 'サブスクリプションはキャンセル済みです。新しいサブスクリプションにご登録ください。';
+            detailedError =
+              'サブスクリプションはキャンセル済みです。新しいサブスクリプションにご登録ください。';
           } else if (subscription.status === 'past_due') {
-            detailedError = 'お支払いが確認できませんでした。お支払い情報を更新するか、新しいサブスクリプションにご登録ください。';
+            detailedError =
+              'お支払いが確認できませんでした。お支払い情報を更新するか、新しいサブスクリプションにご登録ください。';
           } else if (!isActiveOrTrialing) {
             detailedError = `現在のサブスクリプションステータス (${subscription.status}) ではチャット機能をご利用いただけません。`;
           }
@@ -71,6 +75,7 @@ export class SubscriptionService implements ISubscriptionService {
           hasActiveSubscription: true,
           requiresSubscription: false,
           subscription,
+          userRole: result.userRole, // ✅ userRoleをマッピング
         };
       }
 
@@ -92,16 +97,15 @@ export class SubscriptionService implements ISubscriptionService {
   hasActiveSubscription(): boolean {
     if (!this.cachedSubscription) return false;
 
-    const isActiveOrTrialing = 
-      this.cachedSubscription.status === 'active' || 
-      this.cachedSubscription.status === 'trialing';
+    const isActiveOrTrialing =
+      this.cachedSubscription.status === 'active' || this.cachedSubscription.status === 'trialing';
 
     return isActiveOrTrialing && !this.cachedSubscription.cancelAtPeriodEnd;
   }
 
   getSubscriptionDetails(): SubscriptionDetails | null {
     const now = Date.now();
-    
+
     // キャッシュが期限切れの場合はnullを返す
     if (now - this.lastCheckTime > this.CACHE_DURATION) {
       return null;

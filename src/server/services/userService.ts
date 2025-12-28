@@ -1,8 +1,9 @@
 import { LineAuthService, LineTokenExpiredError } from './lineAuthService';
 import { SupabaseService } from './supabaseService';
 import type { SupabaseResult } from './supabaseService';
-import type { User, UserRole } from '@/types/user';
+import type { User, UserRole, EmployeeInvitation } from '@/types/user';
 import { toDbUser, toUser, type DbUser } from '@/types/user';
+import { isInvitationValid } from '@/server/services/employeeInvitationService';
 
 /**
  * ユーザーサービス: ユーザー管理と課金状態の確認機能を提供
@@ -97,7 +98,9 @@ export class UserService {
             createResult.error.details.includes('line_user_id')
           ) {
             if (process.env.NODE_ENV === 'development') {
-              console.log('User creation failed due to duplicate key, attempting to find existing user');
+              console.log(
+                'User creation failed due to duplicate key, attempting to find existing user'
+              );
             }
             const retryData = this.unwrapResult(
               await this.supabaseService.getUserByLineId(lineProfile.userId)
@@ -307,6 +310,97 @@ export class UserService {
     }
 
     return true;
+  }
+
+  /* === スタッフ招待機能 ================================ */
+
+  async createEmployeeInvitation(
+    invitation: Omit<EmployeeInvitation, 'id' | 'createdAt'>
+  ): Promise<string> {
+    const result = await this.supabaseService.createEmployeeInvitation(invitation);
+    return this.unwrapResult(result);
+  }
+
+  async getEmployeeInvitationByToken(token: string): Promise<EmployeeInvitation | null> {
+    const result = await this.supabaseService.getEmployeeInvitationByToken(token);
+    if (!result.success) {
+      console.error('Failed to get invitation by token:', result.error);
+      return null;
+    }
+    return result.data;
+  }
+
+  async getEmployeeInvitationByOwnerId(ownerId: string): Promise<EmployeeInvitation | null> {
+    const result = await this.supabaseService.getEmployeeInvitationByOwnerId(ownerId);
+    if (!result.success) {
+      console.error('Failed to get invitation by owner:', result.error);
+      return null;
+    }
+    return result.data;
+  }
+
+  async markInvitationAsUsed(token: string, userId: string): Promise<void> {
+    const result = await this.supabaseService.markInvitationAsUsed(token, userId);
+    this.unwrapResult(result);
+  }
+
+  async deleteEmployeeInvitation(id: string): Promise<void> {
+    const result = await this.supabaseService.deleteEmployeeInvitation(id);
+    this.unwrapResult(result);
+  }
+
+  async getEmployeeByOwnerId(ownerId: string): Promise<User | null> {
+    const result = await this.supabaseService.getEmployeeByOwnerId(ownerId);
+    if (!result.success) {
+      console.error('Failed to get employee by owner id:', result.error);
+      return null;
+    }
+    return result.data ? toUser(result.data) : null;
+  }
+
+  async acceptEmployeeInvitation(
+    userId: string,
+    token: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const invitation = await this.getEmployeeInvitationByToken(token);
+    if (!invitation) return { success: false, error: 'Invitation not found' };
+
+    if (!isInvitationValid(invitation))
+      return { success: false, error: 'Invitation expired or used' };
+
+    if (invitation.ownerUserId === userId)
+      return { success: false, error: 'Cannot accept own invitation' };
+
+    // Check if user already belongs to an organization
+    const user = await this.getUserById(userId);
+    if (!user) return { success: false, error: 'User not found' };
+    if (user.ownerUserId) {
+      return { success: false, error: 'User already belongs to an organization' };
+    }
+
+    // Update user role to paid and link owner FIRST
+    // This prevents the case where invitation is marked used but user update fails
+    const updateResult = await this.supabaseService.updateUserById(userId, {
+      role: 'paid',
+      owner_user_id: invitation.ownerUserId,
+    });
+
+    if (!updateResult.success) return { success: false, error: 'Failed to update user' };
+
+    // Mark used AFTER successful user update
+    try {
+      await this.markInvitationAsUsed(token, userId);
+    } catch (e) {
+      // Logic constraint: If this fails, the user is already updated but invitation is valid.
+      // However, since the user is now linked (ownerUserId is set), they cannot reuse the token due to the check above.
+      // This is a safer partial failure state than the reverse.
+      console.error('Failed to mark invitation as used after user update:', e);
+    }
+
+    // Update owner role to owner
+    await this.supabaseService.updateUserRole(invitation.ownerUserId, 'owner');
+
+    return { success: true };
   }
 }
 

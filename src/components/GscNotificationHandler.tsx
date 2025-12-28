@@ -19,7 +19,9 @@ export function GscNotificationHandler() {
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
 
   // 一般ユーザー向けページでは通知を表示しない
-  const isPublicPage = pathname === '/home' || pathname === '/privacy';
+  const isPublicPage = !!pathname
+    ? pathname === '/home' || pathname === '/privacy' || pathname.startsWith('/invite')
+    : false;
 
   const showToast = useCallback(
     (count: number) => {

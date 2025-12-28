@@ -1,7 +1,7 @@
 /**
  * ユーザーロールの型定義
  */
-export type UserRole = 'trial' | 'paid' | 'admin' | 'unavailable';
+export type UserRole = 'trial' | 'paid' | 'admin' | 'unavailable' | 'owner';
 
 /**
  * 管理機能（設定・コンテンツ一覧）へのアクセスを許可するロール
@@ -37,7 +37,8 @@ export interface User {
   stripeSubscriptionId?: string | undefined; // Stripeサブスクリプション ID
 
   // 権限管理
-  role: UserRole; // ユーザーロール（trial: お試し, paid: 有料契約, admin: 管理者, unavailable: サービス利用不可）
+  role: UserRole; // ユーザーロール（trial: お試し, paid: 有料契約, admin: 管理者, unavailable: サービス利用不可, owner: スタッフを持つあなた）
+  ownerUserId?: string | null | undefined; // スタッフが紐づくあなたのID（あなた自身はNULL）
 }
 
 /**
@@ -72,6 +73,7 @@ export interface DbUser {
   stripe_subscription_id?: string | undefined;
 
   role: UserRole;
+  owner_user_id?: string | null | undefined;
 }
 
 /**
@@ -92,6 +94,7 @@ export function toDbUser(user: User): DbUser {
     stripe_subscription_id: user.stripeSubscriptionId,
 
     role: user.role,
+    owner_user_id: user.ownerUserId,
   };
 }
 
@@ -110,5 +113,16 @@ export function toUser(dbUser: DbUser): User {
     stripeSubscriptionId: dbUser.stripe_subscription_id,
 
     role: dbUser.role,
+    ownerUserId: dbUser.owner_user_id,
   };
+}
+
+export interface EmployeeInvitation {
+  id: string;
+  ownerUserId: string;
+  invitationToken: string;
+  expiresAt: number;
+  usedAt?: number;
+  usedByUserId?: string;
+  createdAt: number;
 }

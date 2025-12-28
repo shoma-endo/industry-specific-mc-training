@@ -5,11 +5,8 @@ import { StripeService } from '@/server/services/stripeService';
 import { LineAuthService } from '@/server/services/lineAuthService';
 import { userService } from '@/server/services/userService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
-import { isUnavailable, canUseServices } from '@/authUtils';
-import type {
-  EnsureAuthorizedUserOptions,
-  EnsureAuthorizedUserResult,
-} from '@/types/subscription';
+import { isUnavailable } from '@/authUtils';
+import type { EnsureAuthorizedUserOptions, EnsureAuthorizedUserResult } from '@/types/subscription';
 
 // 遅延初期化でStripeServiceのインスタンスを取得
 const getStripeService = () => new StripeService();
@@ -34,7 +31,7 @@ async function ensureAuthorizedUser(
 
   const user = await userService.getUserFromLiffToken(liffAccessToken);
 
-  if (user && !canUseServices(user.role)) {
+  if (user && isUnavailable(user.role)) {
     return {
       success: false,
       error: 'サービスの利用が停止されています',
@@ -106,6 +103,7 @@ export async function getUserSubscription(liffAccessToken: string) {
         nextBillingDate: nextBillingDate.toISOString(),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
       },
+      userRole: user?.role ?? 'trial', // ✅ ユーザーロールを追加
     };
   } catch (error) {
     console.error('サブスクリプション情報取得エラー:', error);

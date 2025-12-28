@@ -4,7 +4,10 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
-import { canUseServices } from '@/authUtils';
+import { isUnavailable } from '@/authUtils';
+
+// ... (code)
+
 import { userService } from '@/server/services/userService';
 import { withAuth } from '@/server/middleware/withAuth.middleware';
 import type { UserRole } from '@/types/user';
@@ -63,7 +66,8 @@ async function checkAuth(
   // unavailableユーザーのサービス利用制限チェック
   try {
     const user = await userService.getUserFromLiffToken(liffAccessToken);
-    if (user && !canUseServices(user.role)) {
+    // unavailableユーザーのサービス利用制限チェック
+    if (user && isUnavailable(user.role)) {
       return {
         isError: true as const,
         error: 'サービスの利用が停止されています',
@@ -151,7 +155,9 @@ export async function getSessionMessages(sessionId: string, liffAccessToken: str
   return { messages, error: null };
 }
 
-export async function getLatestBlogStep7MessageBySession(sessionId: string): Promise<
+export async function getLatestBlogStep7MessageBySession(
+  sessionId: string
+): Promise<
   | { success: false; error: string }
   | { success: true; data: { content: string; createdAt: number } | null }
 > {
@@ -199,11 +205,7 @@ export async function searchChatSessions(data: z.infer<typeof searchChatSessions
 
   try {
     const options = parsed.limit !== undefined ? { limit: parsed.limit } : undefined;
-    const matches = await chatService.searchChatSessions(
-      auth.userId,
-      parsed.query ?? '',
-      options
-    );
+    const matches = await chatService.searchChatSessions(auth.userId, parsed.query ?? '', options);
 
     return {
       results: matches.map(match => ({
@@ -281,7 +283,7 @@ export async function saveMessage(data: z.infer<typeof saveMessageSchema>) {
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+
   const supabase = new SupabaseService();
   const saveResult = await supabase.setMessageSaved(auth.userId, messageId, true);
 
@@ -298,7 +300,7 @@ export async function unsaveMessage(data: z.infer<typeof unsaveMessageSchema>) {
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+
   const supabase = new SupabaseService();
   const unsaveResult = await supabase.setMessageSaved(auth.userId, messageId, false);
 
@@ -315,7 +317,7 @@ export async function getSavedMessageIds(data: z.infer<typeof getSavedIdsSchema>
   if (auth.isError) {
     return { ids: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+
   const supabase = new SupabaseService();
   const idsResult = await supabase.getSavedMessageIdsBySession(auth.userId, sessionId);
 
@@ -334,7 +336,7 @@ export async function getAllSavedMessages(liffAccessToken: string) {
   if (auth.isError) {
     return { items: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+
   const supabase = new SupabaseService();
   const itemsResult = await supabase.getAllSavedMessages(auth.userId);
 

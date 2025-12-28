@@ -114,6 +114,29 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     }
   }, [initialize, isLoggedIn, profile, syncedWithServer, getAccessToken]);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/user/current', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.user) {
+          setUser(data.user as User);
+        } else if (data && data.userId) {
+          setUser({ id: data.userId } as User);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  }, [getAccessToken]);
+
   // ✅ 初期化完了時にのみサーバー同期を実行
   useEffect(() => {
     if (isLoggedIn && profile && !isInitialized) {
@@ -123,7 +146,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   }, [isLoggedIn, profile, isInitialized, syncWithServerIfNeeded]);
 
   // 公開パスの定義 - ルートを除外
-  const publicPaths = ['/home', '/privacy', '/login'];
+  const publicPaths = ['/home', '/privacy', '/login', '/invite'];
   // pathnameが取得できない場合（稀なケース）はfalseとして扱うが、SSR時はpathnameがあるため正しく判定される
   const isPublicPath = pathname
     ? publicPaths.some(
@@ -273,6 +296,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         logout,
         liffObject,
         getAccessToken,
+        refreshUser,
       }}
     >
       <div className="flex flex-col min-h-screen">

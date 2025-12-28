@@ -49,17 +49,19 @@ interface OverviewTabProps {
     skippedImportFailed: number;
   }>;
   onRunQueryImport: () => Promise<{
-    fetchedRows: number;
-    keptRows: number;
-    dedupedRows: number;
-    fetchErrorPages: number;
-    skipped: {
-      missingKeys: number;
-      invalidUrl: number;
-      emptyQuery: number;
-      zeroMetrics: number;
+    querySummary: {
+      fetchedRows: number;
+      keptRows: number;
+      dedupedRows: number;
+      fetchErrorPages: number;
+      skipped: {
+        missingKeys: number;
+        invalidUrl: number;
+        emptyQuery: number;
+        zeroMetrics: number;
+      };
+      hitLimit: boolean;
     };
-    hitLimit: boolean;
   }>;
   onRefreshDetail?: (annotationId: string) => Promise<void>;
 }
@@ -193,7 +195,10 @@ export function OverviewTab({
         <TrendLineChart data={chartData} visibleMetrics={visibleMetrics} />
 
         {/* データ準備状況 */}
-        <SuggestionDataReadiness annotation={detail.annotation} onUpdate={onRefreshDetail} />
+        <SuggestionDataReadiness
+          annotation={detail.annotation}
+          {...(onRefreshDetail && { onUpdate: onRefreshDetail })}
+        />
 
         {/* 評価設定 */}
         {detail.credential?.propertyUri && (

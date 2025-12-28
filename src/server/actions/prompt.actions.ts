@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { PromptService } from '@/server/services/promptService';
-import { canUseServices } from '@/authUtils';
+import { isUnavailable } from '@/authUtils';
 import {
   CreatePromptTemplateInput,
   UpdatePromptTemplateInput,
@@ -60,7 +60,7 @@ async function checkAdminPermission(liffAccessToken: string) {
     }
 
     // unavailableユーザーのサービス利用制限チェック
-    if (!canUseServices(user.role)) {
+    if (isUnavailable(user.role)) {
       return { success: false, error: 'サービスの利用が停止されています' };
     }
 

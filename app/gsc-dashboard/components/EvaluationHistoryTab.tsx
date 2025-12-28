@@ -267,7 +267,7 @@ export function EvaluationHistoryTab({
                           .map(section => {
                             // 見出しを抽出
                             const headingMatch = section.match(/^#\s+(.+)$/m);
-                            const heading = headingMatch ? headingMatch[1].trim() : null;
+                            const heading = headingMatch?.[1]?.trim() ?? null;
 
                             // 見出しから templateName を特定
                             let templateName: string | null = null;
