@@ -30,14 +30,18 @@ export async function POST(req: NextRequest) {
 
     // 既存の招待があれば削除 (clean up old invitations)
     const existingInvitation = await userService.getEmployeeInvitationByOwnerId(user.id);
-    if (existingInvitation && isInvitationValid(existingInvitation)) {
-      const invitationUrl = `${env.NEXT_PUBLIC_SITE_URL}/invite/${existingInvitation.invitationToken}`;
-      return NextResponse.json({
-        success: true,
-        invitationUrl,
-        token: existingInvitation.invitationToken,
-        expiresAt: existingInvitation.expiresAt,
-      });
+    if (existingInvitation) {
+      if (isInvitationValid(existingInvitation)) {
+        const invitationUrl = `${env.NEXT_PUBLIC_SITE_URL}/invite/${existingInvitation.invitationToken}`;
+        return NextResponse.json({
+          success: true,
+          invitationUrl,
+          token: existingInvitation.invitationToken,
+          expiresAt: existingInvitation.expiresAt,
+        });
+      }
+      // 期限切れの招待を削除
+      await userService.deleteEmployeeInvitation(existingInvitation.id);
     }
 
     // 新しい招待作成
