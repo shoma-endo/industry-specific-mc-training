@@ -15,6 +15,7 @@ import { Footer } from '@/components/Footer';
 import type { LiffContextType } from '@/types/components';
 import type { User } from '@/types/user';
 import { usePathname, useRouter } from 'next/navigation';
+import { isOwner } from '@/authUtils';
 
 const LiffContext = createContext<LiffContextType | null>(null);
 
@@ -214,6 +215,15 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   ]);
 
   useEffect(() => {
+    if (!pathname) {
+      return;
+    }
+    if (isOwner(user?.role ?? null) && pathname !== '/') {
+      router.replace('/');
+    }
+  }, [pathname, router, user?.role]);
+
+  useEffect(() => {
     if (
       !pathname ||
       isPublicPath ||
@@ -303,7 +313,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         {/* 公開ページの場合はpb-20 (フッター分の余白) を適用しない */}
         <main className={`flex-1 ${isPublicPath ? '' : 'pb-20'}`}>{children}</main>
         {/* 公開ページ以外でのみFooterを表示 */}
-        {!isPublicPath && <Footer />}
+        {!isPublicPath && !isOwner(user?.role ?? null) && <Footer />}
       </div>
     </LiffContext.Provider>
   );

@@ -1325,6 +1325,29 @@ export class SupabaseService {
     return this.success(undefined);
   }
 
+  async acceptEmployeeInvitation(userId: string, token: string): Promise<SupabaseResult<void>> {
+    const { data, error } = await this.supabase
+      .rpc('accept_employee_invitation', {
+        p_user_id: userId,
+        p_token: token,
+      })
+      .returns<Array<{ success: boolean; error: string | null }>>()
+      .single();
+
+    if (error) {
+      return this.failure('招待の受諾に失敗しました', { error, context: { userId } });
+    }
+
+    if (!data?.success) {
+      return this.failure(data?.error ?? '招待の受諾に失敗しました', {
+        error: new Error(data?.error ?? 'Failed to accept employee invitation'),
+        context: { userId },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
   async deleteEmployeeInvitation(id: string): Promise<SupabaseResult<void>> {
     const { error } = await this.supabase.from('employee_invitations').delete().eq('id', id);
 

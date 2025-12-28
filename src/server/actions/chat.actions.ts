@@ -4,7 +4,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
-import { isUnavailable } from '@/authUtils';
+import { isOwner, isUnavailable } from '@/authUtils';
 
 // ... (code)
 
@@ -71,6 +71,13 @@ async function checkAuth(
       return {
         isError: true as const,
         error: 'サービスの利用が停止されています',
+        requiresSubscription: false,
+      };
+    }
+    if (user && isOwner(user.role)) {
+      return {
+        isError: true as const,
+        error: '閲覧権限では利用できません',
         requiresSubscription: false,
       };
     }

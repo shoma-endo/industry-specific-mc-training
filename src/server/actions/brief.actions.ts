@@ -5,6 +5,7 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { briefInputSchema, type BriefInput } from '@/server/schemas/brief.schema';
 import { cookies } from 'next/headers';
 import type { ZodIssue } from 'zod';
+import { isOwner } from '@/authUtils';
 
 const supabaseService = new SupabaseService();
 
@@ -37,6 +38,9 @@ export const saveBrief = async (
     if (auth.error || !auth.userId) {
       return { success: false, error: auth.error || '認証エラー' };
     }
+    if (isOwner(auth.userDetails?.role ?? null)) {
+      return { success: false, error: '閲覧権限では利用できません' };
+    }
 
     // 事業者情報を保存
     const saveResult = await supabaseService.saveBrief(auth.userId, validationResult.data);
@@ -66,6 +70,9 @@ export const getBrief = async (
     const auth = await authMiddleware(liffAccessToken);
     if (auth.error || !auth.userId) {
       return { success: false, error: auth.error || '認証エラー' };
+    }
+    if (isOwner(auth.userDetails?.role ?? null)) {
+      return { success: false, error: '閲覧権限では利用できません' };
     }
 
     // 事業者情報を取得

@@ -3,7 +3,6 @@ import { SupabaseService } from './supabaseService';
 import type { SupabaseResult } from './supabaseService';
 import type { User, UserRole, EmployeeInvitation } from '@/types/user';
 import { toDbUser, toUser, type DbUser } from '@/types/user';
-import { isInvitationValid } from '@/server/services/employeeInvitationService';
 
 /**
  * ユーザーサービス: ユーザー管理と課金状態の確認機能を提供
@@ -362,51 +361,10 @@ export class UserService {
     userId: string,
     token: string
   ): Promise<{ success: boolean; error?: string }> {
-    const invitation = await this.getEmployeeInvitationByToken(token);
-    if (!invitation) return { success: false, error: 'Invitation not found' };
-
-    if (!isInvitationValid(invitation))
-      return { success: false, error: 'Invitation expired or used' };
-
-    if (invitation.ownerUserId === userId)
-      return { success: false, error: 'Cannot accept own invitation' };
-
-    // Check if user already belongs to an organization
-    const user = await this.getUserById(userId);
-    if (!user) return { success: false, error: 'User not found' };
-    if (user.ownerUserId) {
-      return { success: false, error: 'User already belongs to an organization' };
+    const result = await this.supabaseService.acceptEmployeeInvitation(userId, token);
+    if (!result.success) {
+      return { success: false, error: result.error.userMessage };
     }
-
-    // Update user role to paid and link owner FIRST
-    // This prevents the case where invitation is marked used but user update fails
-    const updateResult = await this.supabaseService.updateUserById(userId, {
-      role: 'paid',
-      owner_user_id: invitation.ownerUserId,
-    });
-
-    if (!updateResult.success) return { success: false, error: 'Failed to update user' };
-
-    // Mark used AFTER successful user update
-    try {
-      await this.markInvitationAsUsed(token, userId);
-    } catch (e) {
-      // Logic constraint: If this fails, the user is already updated but invitation is valid.
-      // However, since the user is now linked (ownerUserId is set), they cannot reuse the token due to the check above.
-      // This is a safer partial failure state than the reverse.
-      console.error('Failed to mark invitation as used after user update:', e);
-    }
-
-    // Update owner role to owner
-    const ownerUpdateResult = await this.supabaseService.updateUserRole(
-      invitation.ownerUserId,
-      'owner'
-    );
-    if (!ownerUpdateResult.success) {
-      console.error('Failed to update owner role:', ownerUpdateResult.error);
-      // Note: User is already linked, so this is a partial success state
-    }
-
     return { success: true };
   }
 }
