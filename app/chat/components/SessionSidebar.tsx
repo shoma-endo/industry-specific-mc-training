@@ -19,6 +19,7 @@ interface SessionSidebarProps {
   searchResults: ChatSessionSearchResult[];
   searchError: string | null;
   isSearching: boolean;
+  disableActions?: boolean;
 }
 
 const SessionSidebar: React.FC<SessionSidebarProps> = ({
@@ -31,6 +32,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   searchResults,
   searchError,
   isSearching,
+  disableActions,
 }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -136,6 +138,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
     sessionListRef,
     onToggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
     showToggleButton: !isMobile,
+    disableActions: !!disableActions,
   };
 
   const renderSearchResultList = () => {

@@ -406,6 +406,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           searchResults={chatSession.state.searchResults}
           searchError={chatSession.state.searchError}
           isSearching={chatSession.state.isSearching}
+          disableActions={isOwnerUser}
         />
       )}
 
@@ -443,6 +444,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               searchResults={chatSession.state.searchResults}
               searchError={chatSession.state.searchError}
               isSearching={chatSession.state.isSearching}
+              disableActions={isOwnerUser}
             />
           </SheetContent>
         </Sheet>

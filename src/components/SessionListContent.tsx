@@ -19,6 +19,7 @@ const SessionListContent = memo(function SessionListContent({
   onToggleSidebar,
   showToggleButton = false,
   headerExtra,
+  disableActions = false,
 }: SessionListContentProps) {
   return (
     <div className="h-full flex flex-col">
@@ -28,6 +29,7 @@ const SessionListContent = memo(function SessionListContent({
             <Button
               variant="outline"
               onClick={onStartNewChat}
+              disabled={disableActions}
               className="flex-1 flex items-center gap-2 bg-white border-gray-200 hover:bg-gray-50"
             >
               <PlusCircle size={16} className="text-[#06c755]" />
@@ -82,6 +84,8 @@ const SessionListContent = memo(function SessionListContent({
                       size="icon"
                       className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 opacity-70 hover:opacity-100 hover:bg-red-100 hover:text-red-600"
                       onClick={e => onDeleteClick(session, e)}
+                      disabled={disableActions}
+                      title={disableActions ? '現在この操作は無効です' : 'セッションを削除'}
                     >
                       <Trash2 size={14} />
                     </Button>

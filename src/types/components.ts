@@ -85,6 +85,7 @@ export interface SessionListContentProps {
   onToggleSidebar?: () => void;
   showToggleButton?: boolean;
   headerExtra?: React.ReactNode;
+  disableActions?: boolean;
 }
 
 /**
