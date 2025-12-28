@@ -40,8 +40,9 @@ export function ViewModeBanner() {
       toast.success('スタッフを削除しました');
       await refreshUser();
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'スタッフの削除に失敗しました';
+      toast.error(message);
     }
   };
 

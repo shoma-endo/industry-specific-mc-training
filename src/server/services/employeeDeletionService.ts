@@ -9,6 +9,7 @@ export class FullDeletionStrategy implements EmployeeDeletionStrategy {
   constructor(private supabaseService: SupabaseService) {}
 
   async deleteEmployeeData(employeeId: string, _ownerId: string): Promise<void> {
+    void _ownerId;
     // chat_sessions, briefs, content_annotations, gsc関連データ等を削除
     // supabaseServiceのdeleteUserByIdはCASCADE設定があれば関連データも消える可能性があるが
     // 明示的に削除メソッドがsupabaseServiceにある場合はそれを使うべき。

@@ -3,7 +3,6 @@
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 interface InvitationLandingClientProps {
   ownerName: string;
@@ -15,7 +14,6 @@ export default function InvitationLandingClient({
   token,
 }: InvitationLandingClientProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   const handleRegister = async () => {
     setIsLoading(true);

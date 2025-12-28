@@ -1,4 +1,3 @@
-import { notFound } from 'next/navigation';
 import { userService } from '@/server/services/userService';
 import { isInvitationValid } from '@/server/services/employeeInvitationService';
 import InvitationLandingClient from './InvitationLandingClient';
