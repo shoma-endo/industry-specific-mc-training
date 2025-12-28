@@ -125,8 +125,7 @@ export function InviteDialog({ trigger }: InviteDialogProps) {
     if (!containerRect) return;
 
     const relativeTop = rect.top - containerRect.top - BUBBLE_VERTICAL_OFFSET;
-    const relativeLeft =
-      rect.left - containerRect.left + rect.width / 2 - BUBBLE_HORIZONTAL_OFFSET;
+    const relativeLeft = rect.left - containerRect.left + rect.width / 2 - BUBBLE_HORIZONTAL_OFFSET;
 
     setBubble({
       isVisible: true,
@@ -238,15 +237,15 @@ export function InviteDialog({ trigger }: InviteDialogProps) {
             ) : employee ? (
               <div className="space-y-4">
                 <div className="p-4 bg-gray-50 rounded-lg flex items-center gap-3">
-                {employee.linePictureUrl ? (
-                  <Image
-                    src={employee.linePictureUrl}
-                    alt="Avatar"
-                    width={40}
-                    height={40}
-                    className="w-10 h-10 rounded-full"
-                  />
-                ) : (
+                  {employee.linePictureUrl ? (
+                    <Image
+                      src={employee.linePictureUrl}
+                      alt="Avatar"
+                      width={40}
+                      height={40}
+                      className="w-10 h-10 rounded-full"
+                    />
+                  ) : (
                     <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                       <span className="text-gray-500 text-xs">No Img</span>
                     </div>
