@@ -192,7 +192,7 @@ export function InviteDialog({
       const data = await res.json();
 
       setInvitation({
-        token: data.token ?? '',
+        token: data.token,
         expiresAt: data.expiresAt,
         url: data.invitationUrl,
       });
