@@ -117,6 +117,11 @@ export function InviteDialog({
         } else {
           setInvitation(null);
         }
+      } else if (statusRes.status !== 404) {
+        // 404以外のエラーは報告
+        console.error('Failed to fetch invitation status:', statusRes.status);
+        setInvitation(null);
+        toast.error('招待ステータスの取得に失敗しました');
       }
     } catch (error) {
       console.error('Failed to fetch status:', error);
