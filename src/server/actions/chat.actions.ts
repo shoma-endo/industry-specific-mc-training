@@ -6,9 +6,6 @@ import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
 import { isOwner, isUnavailable } from '@/authUtils';
 import { cookies } from 'next/headers';
-
-// ... (code)
-
 import { userService } from '@/server/services/userService';
 import type { UserRole } from '@/types/user';
 import { z } from 'zod';
