@@ -221,7 +221,7 @@ export function InviteDialog({
           <DialogHeader>
             <DialogTitle>スタッフ管理</DialogTitle>
             <DialogDescription>
-              スタッフを1名招待できます。スタッフが登録されると、あなたのアカウントは「閲覧権限」になり、日々の業務ツールの利用はできなくなりますが、スタッフの活動を管理できるようになります。
+              スタッフを1名招待できます。スタッフが登録されると、あなたのアカウントは「閲覧権限」になり、日々の業務ツールの利用はできなくなりますが、スタッフの画面を閲覧できるようになります。
             </DialogDescription>
           </DialogHeader>
 
@@ -309,13 +309,17 @@ export function InviteDialog({
                       <Copy size={16} />
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    有効期限: {new Date(invitation.expiresAt).toLocaleString()}
-                  </p>
-                </div>
-                <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
-                  招待リンクをスタッフの方に送ってください。
+                <p className="text-xs text-gray-500">
+                  有効期限: {new Date(invitation.expiresAt).toLocaleString()}
                 </p>
+                <p className="text-xs text-gray-500">
+                  招待リンクは第三者に共有しないでください。誤って共有した場合は、招待リンクを再発行してください。
+                  再発行すると、以前の招待リンクは無効になります。
+                </p>
+              </div>
+              <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+                招待リンクをスタッフの方に送ってください。
+              </p>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-4 gap-4">

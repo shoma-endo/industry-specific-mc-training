@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { userService } from '@/server/services/userService';
 import { canInviteEmployee } from '@/authUtils';
 import { env } from '@/env';
-import { isInvitationValid } from '@/server/services/employeeInvitationService';
 import { getUserFromAuthHeader } from '@/server/lib/auth-header';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 import {
@@ -32,19 +31,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '既にスタッフが登録されています' }, { status: 409 });
     }
 
-    // 既存の招待があれば削除 (clean up old invitations)
+    // 既存の招待があれば削除（再発行時は常に新しいリンクを発行）
     const existingInvitation = await userService.getEmployeeInvitationByOwnerId(user.id);
     if (existingInvitation) {
-      if (isInvitationValid(existingInvitation)) {
-        const invitationUrl = `${env.NEXT_PUBLIC_SITE_URL}/invite/${existingInvitation.invitationToken}`;
-        return NextResponse.json({
-          success: true,
-          invitationUrl,
-          token: existingInvitation.invitationToken,
-          expiresAt: existingInvitation.expiresAt,
-        });
-      }
-      // 期限切れの招待を削除
       await userService.deleteEmployeeInvitation(existingInvitation.id);
     }
 
