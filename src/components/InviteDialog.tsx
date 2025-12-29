@@ -86,6 +86,17 @@ export function InviteDialog({
         } else {
           setEmployee(null);
         }
+      } else if (empRes.status !== 404) {
+        // 404以外のエラーは報告
+        console.error('Failed to fetch employee:', empRes.status);
+        setEmployee(null);
+        toast.error('スタッフ情報の取得に失敗しました');
+
+        // 500系エラー（サーバーエラー）の場合は処理を中断
+        if (empRes.status >= 500) {
+          setLoading(false);
+          return;
+        }
       }
 
       // 招待情報取得（スタッフがいない場合のみ）

@@ -1,3 +1,5 @@
+import type { UserRole } from '@/types/user';
+
 export interface SubscriptionDetails {
   readonly id: string;
   readonly status: 'active' | 'canceled' | 'past_due' | 'trialing';
@@ -5,8 +7,6 @@ export interface SubscriptionDetails {
   readonly currentPeriodEnd: Date;
   readonly planName?: string | undefined;
 }
-
-import type { UserRole } from '@/types/user';
 
 export interface SubscriptionStatus {
   readonly hasActiveSubscription: boolean;
