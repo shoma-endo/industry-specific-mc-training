@@ -5,6 +5,7 @@ import { PromptService } from '@/server/services/promptService';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { z } from 'zod';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 const promptVariableSchema = z.object({
   name: z.string(),
@@ -69,6 +70,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    if (await isViewModeEnabled()) {
+      return NextResponse.json(
+        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
+        { status: 403 }
+      );
+    }
     const authHeader = request.headers.get('authorization');
     const bearer = authHeader?.startsWith('Bearer ')
       ? authHeader.slice('Bearer '.length)

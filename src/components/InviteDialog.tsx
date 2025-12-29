@@ -351,6 +351,10 @@ export function InviteDialog({
                 このスタッフに関連するすべてのデータ（閲覧モード含む）が完全に削除されます。
               </span>
               <br />
+              <span className="text-sm text-gray-600">
+                スタッフ削除後、あなたのアカウントは「有料会員」権限に戻り、通常の業務ツールを利用できるようになります。
+              </span>
+              <br />
               <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
             </DialogDescription>
           </DialogHeader>

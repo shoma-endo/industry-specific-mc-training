@@ -4,12 +4,19 @@ import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { isAdmin as isAdminRole } from '@/authUtils';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 const supabaseService = new SupabaseService();
 
 // WordPress接続状態をGETメソッドで確認（WordPress.comとセルフホスト両対応）
 export async function GET(request: NextRequest) {
   try {
+    if (await isViewModeEnabled()) {
+      return NextResponse.json(
+        { success: false, connected: false, message: VIEW_MODE_ERROR_MESSAGE },
+        { status: 403 }
+      );
+    }
     const liffToken = request.cookies.get('line_access_token')?.value;
     const refreshToken = request.cookies.get('line_refresh_token')?.value;
     const authResult = await authMiddleware(liffToken, refreshToken);
@@ -102,6 +109,12 @@ export async function GET(request: NextRequest) {
 // POSTメソッドも統合接続テストに対応
 export async function POST(request: NextRequest) {
   try {
+    if (await isViewModeEnabled()) {
+      return NextResponse.json(
+        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
+        { status: 403 }
+      );
+    }
     const liffToken = request.cookies.get('line_access_token')?.value;
     const refreshToken = request.cookies.get('line_refresh_token')?.value;
     const authResult = await authMiddleware(liffToken, refreshToken);

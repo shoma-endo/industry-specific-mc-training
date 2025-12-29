@@ -6,6 +6,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { gscImportService } from '@/server/services/gscImportService';
 import { gscEvaluationService } from '@/server/services/gscEvaluationService';
 import { splitRangeByDays, aggregateImportResults } from '@/server/lib/gsc-import-utils';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 export interface GscImportParams {
   startDate: string;
@@ -17,6 +18,9 @@ export interface GscImportParams {
 
 export async function runGscImport(params: GscImportParams) {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('line_access_token')?.value;
     const refreshToken = cookieStore.get('line_refresh_token')?.value;

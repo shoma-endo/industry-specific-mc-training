@@ -11,6 +11,7 @@ import {
   PromptTemplate,
   PromptTemplateWithVersions,
 } from '@/types/prompt';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 const promptVariableSchema = z.object({
   name: z.string().min(1, '変数名は必須です'),
@@ -83,6 +84,9 @@ export async function createPromptTemplate(
   data: z.infer<typeof promptSchema>
 ): Promise<PromptActionResponse<PromptTemplate>> {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
@@ -131,6 +135,9 @@ export async function updatePromptTemplate(
   data: z.infer<typeof promptSchema>
 ): Promise<PromptActionResponse<PromptTemplate>> {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {

@@ -2,9 +2,13 @@
 
 import { cookies } from 'next/headers';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 export async function clearAuthCache() {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('line_access_token')?.value;
     const refreshToken = cookieStore.get('line_refresh_token')?.value;

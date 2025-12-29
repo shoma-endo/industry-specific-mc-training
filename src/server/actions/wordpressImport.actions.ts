@@ -20,9 +20,13 @@ import {
   normalizeText,
   parseWpPostId,
 } from '@/lib/utils';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 export async function runWordpressBulkImport(accessToken: string) {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const authResult = await authMiddleware(accessToken);
     if (authResult.error || !authResult.userId) {
       return { success: false, error: authResult.error || ERROR_MESSAGES.AUTH.LIFF_AUTH_FAILED };

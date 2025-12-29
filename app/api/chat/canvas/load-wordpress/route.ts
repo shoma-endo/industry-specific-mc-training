@@ -6,6 +6,7 @@ import { buildWordPressServiceFromSettings } from '@/server/services/wordpressCo
 import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/canvas-content';
 import type { AnnotationRecord } from '@/types/annotation';
 import type { WordPressPostResponse } from '@/types/wordpress';
+import { VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 interface LoadWordPressRequestBody {
   sessionId?: string;
@@ -82,6 +83,13 @@ export async function POST(request: NextRequest) {
       return jsonResponse(401, {
         success: false,
         error: authResult.error || 'ユーザー認証に失敗しました',
+      });
+    }
+
+    if (authResult.viewMode) {
+      return jsonResponse(403, {
+        success: false,
+        error: VIEW_MODE_ERROR_MESSAGE,
       });
     }
 

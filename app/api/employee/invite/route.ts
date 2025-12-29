@@ -4,6 +4,7 @@ import { canInviteEmployee } from '@/authUtils';
 import { env } from '@/env';
 import { isInvitationValid } from '@/server/services/employeeInvitationService';
 import { getUserFromAuthHeader } from '@/server/lib/auth-header';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 import {
   generateExpiresAt,
   generateInvitationToken,
@@ -11,6 +12,9 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    if (await isViewModeEnabled()) {
+      return NextResponse.json({ error: VIEW_MODE_ERROR_MESSAGE }, { status: 403 });
+    }
     const authResult = await getUserFromAuthHeader(req);
     if (!authResult.ok) {
       return authResult.response;

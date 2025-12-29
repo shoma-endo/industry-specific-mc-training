@@ -8,6 +8,7 @@ import { gscImportService } from '@/server/services/gscImportService';
 import { normalizeUrl } from '@/lib/normalize-url';
 import { buildGscDateRange } from '@/lib/date-formatter';
 import type { GscEvaluationOutcome } from '@/types/gsc';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 const supabaseService = new SupabaseService();
 
@@ -207,6 +208,9 @@ export async function registerEvaluation(params: {
   evaluationHour?: number;
 }) {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const { userId, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
@@ -305,6 +309,9 @@ export async function updateEvaluation(params: {
   evaluationHour?: number;
 }) {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const { userId, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
@@ -551,6 +558,9 @@ export async function fetchQueryAnalysis(
 
 export async function runQueryImportForAnnotation(annotationId: string, options?: { days?: number }) {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const { userId, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
@@ -620,6 +630,9 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
  */
 export async function runEvaluationNow(contentAnnotationId: string) {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const { userId, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };

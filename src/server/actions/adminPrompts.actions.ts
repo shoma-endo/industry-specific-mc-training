@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { getPromptTemplates, updatePromptTemplate } from '@/server/actions/prompt.actions';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 const getAccessTokenOrError = async () => {
   const cookieStore = await cookies();
@@ -45,6 +46,9 @@ export async function savePrompt(params: {
   variables: unknown;
 }) {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const auth = await getAccessTokenOrError();
     if ('error' in auth) {
       return { success: false, error: auth.error };

@@ -3,6 +3,7 @@ import { userService } from '@/server/services/userService';
 import { EmployeeDeletionService } from '@/server/services/employeeDeletionService';
 import { isOwner } from '@/authUtils';
 import { getUserFromAuthHeader } from '@/server/lib/auth-header';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,6 +45,9 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    if (await isViewModeEnabled()) {
+      return NextResponse.json({ error: VIEW_MODE_ERROR_MESSAGE }, { status: 403 });
+    }
     const authResult = await getUserFromAuthHeader(req);
     if (!authResult.ok) {
       return authResult.response;

@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { checkUserRole } from './subscription.actions';
 import { isUnavailable } from '@/authUtils';
 import type { User, UserRole } from '@/types/user';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 export const getAllUsers = async (): Promise<{
   success: boolean;
@@ -50,6 +51,9 @@ export const updateUserRole = async (
   newRole: UserRole
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    if (await isViewModeEnabled()) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const cookieStore = await cookies();
     const lineAccessToken = cookieStore.get('line_access_token')?.value;
 
