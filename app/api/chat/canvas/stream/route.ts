@@ -304,7 +304,7 @@ export async function POST(req: NextRequest) {
               controller.enqueue(sendPing());
               resetIdleTimeout();
             }
-          }, 30000); // 30秒ごとにping
+          }, 20000); // 20秒ごとにping
 
           resetIdleTimeout();
 

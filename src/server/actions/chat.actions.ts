@@ -21,6 +21,14 @@ import {
   type StartChatInput,
 } from '@/server/schemas/chat.schema';
 
+/**
+ * オーナーの閲覧モードが有効かどうかを判定
+ * @returns 閲覧モードが有効な場合は true
+ */
+async function isOwnerViewMode(): Promise<boolean> {
+  return (await cookies()).get('owner_view_mode')?.value === '1';
+}
+
 // メッセージ保存関連のスキーマ
 const saveMessageSchema = z.object({
   messageId: z.string(),
@@ -174,7 +182,7 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
 }
 
 export async function getChatSessions(liffAccessToken: string) {
-  const isViewMode = (await cookies()).get('owner_view_mode')?.value === '1';
+  const isViewMode = await isOwnerViewMode();
   const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
     return { sessions: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
@@ -184,7 +192,7 @@ export async function getChatSessions(liffAccessToken: string) {
 }
 
 export async function getSessionMessages(sessionId: string, liffAccessToken: string) {
-  const isViewMode = (await cookies()).get('owner_view_mode')?.value === '1';
+  const isViewMode = await isOwnerViewMode();
   const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
     return { messages: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
@@ -232,7 +240,7 @@ export async function getLatestBlogStep7MessageBySession(
 export async function searchChatSessions(data: z.infer<typeof searchChatSessionsSchema>) {
   const parsed = searchChatSessionsSchema.parse(data);
 
-  const isViewMode = (await cookies()).get('owner_view_mode')?.value === '1';
+  const isViewMode = await isOwnerViewMode();
   const auth = await checkAuth(parsed.liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
     return {
@@ -364,7 +372,8 @@ export async function unsaveMessage(data: z.infer<typeof unsaveMessageSchema>) {
 
 export async function getSavedMessageIds(data: z.infer<typeof getSavedIdsSchema>) {
   const { sessionId, liffAccessToken } = getSavedIdsSchema.parse(data);
-  const auth = await checkAuth(liffAccessToken);
+  const isViewMode = await isOwnerViewMode();
+  const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
     return { ids: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
@@ -383,7 +392,8 @@ export async function getSavedMessageIds(data: z.infer<typeof getSavedIdsSchema>
 }
 
 export async function getAllSavedMessages(liffAccessToken: string) {
-  const auth = await checkAuth(liffAccessToken);
+  const isViewMode = await isOwnerViewMode();
+  const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
     return { items: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
