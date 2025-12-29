@@ -7,9 +7,13 @@ export const updateUserFullName = async (fullName: string): Promise<{ success: b
   try {
     const cookieStore = await cookies();
     const lineAccessToken = cookieStore.get('line_access_token')?.value;
+    const isViewMode = cookieStore.get('owner_view_mode')?.value === '1';
 
     if (!lineAccessToken) {
       return { success: false, error: 'ログインしていません' };
+    }
+    if (isViewMode) {
+      return { success: false, error: '閲覧モードでは操作できません' };
     }
 
     const user = await userService.getUserFromLiffToken(lineAccessToken);

@@ -20,10 +20,12 @@ export interface LiffContextType {
   isLoading: boolean;
   profile: LiffProfile | null;
   user?: import('@/types/user').User | null;
+  isOwnerViewMode: boolean;
   login: () => void;
   logout: () => void;
   liffObject: unknown;
   getAccessToken: () => Promise<string>;
+  refreshUser: () => Promise<void>;
 }
 
 export interface LiffProviderProps {
@@ -83,6 +85,8 @@ export interface SessionListContentProps {
   sessionListRef: React.RefObject<HTMLDivElement | null>;
   onToggleSidebar?: () => void;
   showToggleButton?: boolean;
+  headerExtra?: React.ReactNode;
+  disableActions?: boolean;
 }
 
 /**

@@ -6,11 +6,14 @@ export interface SubscriptionDetails {
   readonly planName?: string | undefined;
 }
 
+import type { UserRole } from '@/types/user';
+
 export interface SubscriptionStatus {
   readonly hasActiveSubscription: boolean;
   readonly requiresSubscription: boolean;
   readonly subscription?: SubscriptionDetails | undefined;
   readonly error?: string | undefined;
+  readonly userRole?: UserRole | undefined;
 }
 
 export interface ISubscriptionService {

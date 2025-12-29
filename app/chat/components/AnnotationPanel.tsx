@@ -11,6 +11,7 @@ import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 import { AnnotationRecord } from '@/types/annotation';
 import AnnotationFormFields from '@/components/AnnotationFormFields';
 import { useAnnotationForm } from '@/hooks/useAnnotationForm';
+import { useLiffContext } from '@/components/LiffProvider';
 
 interface Props {
   sessionId: string;
@@ -27,6 +28,7 @@ export default function AnnotationPanel({
   isVisible = true,
   onSaveSuccess,
 }: Props) {
+  const { isOwnerViewMode } = useLiffContext();
   const {
     form,
     updateField,
@@ -54,8 +56,10 @@ export default function AnnotationPanel({
     minWidth: 320,
     maxWidth: 1000,
   });
+  const isReadOnly = isOwnerViewMode;
 
   const handleSave = async () => {
+    if (isReadOnly) return;
     const result = await submit();
     if (!result.success) {
       return;
@@ -108,15 +112,17 @@ export default function AnnotationPanel({
       {/* コンテンツエリア - ヘッダーとの重なりを防ぐため上部パディングを調整 */}
       <div className="flex-1 overflow-auto p-4 ml-2" style={{ paddingTop: '80px' }}>
         <div className="space-y-5">
-          <AnnotationFormFields
-            form={form}
-            onFormChange={updateField}
-            canonicalUrl={canonicalUrl}
-            onCanonicalUrlChange={updateCanonicalUrl}
-            canonicalUrlError={canonicalUrlError}
-            canonicalUrlInputId="panel-wp-canonical-url"
-            wpPostTitle={wpPostTitle}
-          />
+          <fieldset disabled={isReadOnly}>
+            <AnnotationFormFields
+              form={form}
+              onFormChange={updateField}
+              canonicalUrl={canonicalUrl}
+              onCanonicalUrlChange={updateCanonicalUrl}
+              canonicalUrlError={canonicalUrlError}
+              canonicalUrlInputId="panel-wp-canonical-url"
+              wpPostTitle={wpPostTitle}
+            />
+          </fieldset>
 
           {/* アクションボタン */}
           <div className="pt-4 border-t border-gray-200">
@@ -130,7 +136,11 @@ export default function AnnotationPanel({
                 キャンセル
               </Button>
               <div className="relative">
-                <Button size="sm" onClick={handleSave} disabled={isSaving || saveDone}>
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving || saveDone || isReadOnly}
+              >
                   {isSaving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

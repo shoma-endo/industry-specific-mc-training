@@ -4,7 +4,11 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { ChatResponse } from '@/types/chat';
 import { ModelHandlerService } from './chat/modelHandlers';
-import { canUseServices } from '@/authUtils';
+import { isOwner, isUnavailable } from '@/authUtils';
+import { cookies } from 'next/headers';
+
+// ... (code)
+
 import { userService } from '@/server/services/userService';
 import { withAuth } from '@/server/middleware/withAuth.middleware';
 import type { UserRole } from '@/types/user';
@@ -46,10 +50,11 @@ const modelHandler = new ModelHandlerService();
 
 // 認証チェックを共通化（ロールも返す）
 async function checkAuth(
-  liffAccessToken: string
+  liffAccessToken: string,
+  options?: { allowOwner?: boolean }
 ): Promise<
   | { isError: true; error: string | undefined; requiresSubscription?: boolean }
-  | { isError: false; userId: string; role: UserRole }
+  | { isError: false; userId: string; role: UserRole; viewMode?: boolean }
 > {
   const authResult = await authMiddleware(liffAccessToken);
   if (authResult.error || authResult.requiresSubscription) {
@@ -62,15 +67,36 @@ async function checkAuth(
 
   // unavailableユーザーのサービス利用制限チェック
   try {
-    const user = await userService.getUserFromLiffToken(liffAccessToken);
-    if (user && !canUseServices(user.role)) {
+    const user = authResult.userDetails ?? (await userService.getUserFromLiffToken(liffAccessToken));
+    // unavailableユーザーのサービス利用制限チェック
+    if (user && isUnavailable(user.role)) {
       return {
         isError: true as const,
         error: 'サービスの利用が停止されています',
         requiresSubscription: false,
       };
     }
-    return { isError: false as const, userId: authResult.userId!, role: user?.role ?? 'trial' };
+    if (user && isOwner(user.role)) {
+      if (options?.allowOwner) {
+        return {
+          isError: false as const,
+          userId: authResult.userId!,
+          role: user.role,
+          ...(authResult.viewMode ? { viewMode: true } : {}),
+        };
+      }
+      return {
+        isError: true as const,
+        error: '閲覧権限では利用できません',
+        requiresSubscription: false,
+      };
+    }
+    return {
+      isError: false as const,
+      userId: authResult.userId!,
+      role: user?.role ?? 'trial',
+      ...(authResult.viewMode ? { viewMode: true } : {}),
+    };
   } catch (error) {
     console.error('User role check failed in checkAuth:', error);
     return {
@@ -92,6 +118,13 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
         message: '',
         error: auth.error,
         requiresSubscription: auth.requiresSubscription,
+      };
+    }
+    if (auth.viewMode) {
+      return {
+        message: '',
+        error: '閲覧モードでは操作できません',
+        requiresSubscription: false,
       };
     }
 
@@ -120,6 +153,13 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
         requiresSubscription: auth.requiresSubscription,
       };
     }
+    if (auth.viewMode) {
+      return {
+        message: '',
+        error: '閲覧モードでは操作できません',
+        requiresSubscription: false,
+      };
+    }
 
     // モデル処理に委譲
     return await modelHandler.handleContinue(auth.userId, validatedData);
@@ -134,7 +174,8 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
 }
 
 export async function getChatSessions(liffAccessToken: string) {
-  const auth = await checkAuth(liffAccessToken);
+  const isViewMode = (await cookies()).get('owner_view_mode')?.value === '1';
+  const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
     return { sessions: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
@@ -143,7 +184,8 @@ export async function getChatSessions(liffAccessToken: string) {
 }
 
 export async function getSessionMessages(sessionId: string, liffAccessToken: string) {
-  const auth = await checkAuth(liffAccessToken);
+  const isViewMode = (await cookies()).get('owner_view_mode')?.value === '1';
+  const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
     return { messages: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
@@ -151,7 +193,9 @@ export async function getSessionMessages(sessionId: string, liffAccessToken: str
   return { messages, error: null };
 }
 
-export async function getLatestBlogStep7MessageBySession(sessionId: string): Promise<
+export async function getLatestBlogStep7MessageBySession(
+  sessionId: string
+): Promise<
   | { success: false; error: string }
   | { success: true; data: { content: string; createdAt: number } | null }
 > {
@@ -188,7 +232,8 @@ export async function getLatestBlogStep7MessageBySession(sessionId: string): Pro
 export async function searchChatSessions(data: z.infer<typeof searchChatSessionsSchema>) {
   const parsed = searchChatSessionsSchema.parse(data);
 
-  const auth = await checkAuth(parsed.liffAccessToken);
+  const isViewMode = (await cookies()).get('owner_view_mode')?.value === '1';
+  const auth = await checkAuth(parsed.liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
     return {
       results: [],
@@ -199,11 +244,7 @@ export async function searchChatSessions(data: z.infer<typeof searchChatSessions
 
   try {
     const options = parsed.limit !== undefined ? { limit: parsed.limit } : undefined;
-    const matches = await chatService.searchChatSessions(
-      auth.userId,
-      parsed.query ?? '',
-      options
-    );
+    const matches = await chatService.searchChatSessions(auth.userId, parsed.query ?? '', options);
 
     return {
       results: matches.map(match => ({
@@ -231,6 +272,9 @@ export async function deleteChatSession(sessionId: string, liffAccessToken: stri
   const auth = await checkAuth(liffAccessToken);
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
+  }
+  if (auth.viewMode) {
+    return { success: false, error: '閲覧モードでは操作できません' };
   }
 
   try {
@@ -260,6 +304,9 @@ export async function updateChatSessionTitle(
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
+  if (auth.viewMode) {
+    return { success: false, error: '閲覧モードでは操作できません' };
+  }
 
   const supabase = new SupabaseService();
   const updateResult = await supabase.updateChatSession(parsed.sessionId, auth.userId, {
@@ -281,7 +328,10 @@ export async function saveMessage(data: z.infer<typeof saveMessageSchema>) {
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+  if (auth.viewMode) {
+    return { success: false, error: '閲覧モードでは操作できません' };
+  }
+
   const supabase = new SupabaseService();
   const saveResult = await supabase.setMessageSaved(auth.userId, messageId, true);
 
@@ -298,7 +348,10 @@ export async function unsaveMessage(data: z.infer<typeof unsaveMessageSchema>) {
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+  if (auth.viewMode) {
+    return { success: false, error: '閲覧モードでは操作できません' };
+  }
+
   const supabase = new SupabaseService();
   const unsaveResult = await supabase.setMessageSaved(auth.userId, messageId, false);
 
@@ -315,7 +368,7 @@ export async function getSavedMessageIds(data: z.infer<typeof getSavedIdsSchema>
   if (auth.isError) {
     return { ids: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+
   const supabase = new SupabaseService();
   const idsResult = await supabase.getSavedMessageIdsBySession(auth.userId, sessionId);
 
@@ -334,7 +387,7 @@ export async function getAllSavedMessages(liffAccessToken: string) {
   if (auth.isError) {
     return { items: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  
+
   const supabase = new SupabaseService();
   const itemsResult = await supabase.getAllSavedMessages(auth.userId);
 

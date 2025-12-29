@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { gscEvaluationService } from '@/server/services/gscEvaluationService';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 /**
  * GSC 評価実行 API（手動実行用）
@@ -25,6 +30,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: authResult.error || 'ユーザー認証に失敗しました' },
         { status: 401 }
+      );
+    }
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return NextResponse.json(
+        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
+        { status: 403 }
       );
     }
 

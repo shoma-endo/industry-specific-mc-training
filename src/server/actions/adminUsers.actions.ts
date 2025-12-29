@@ -2,6 +2,11 @@
 
 import { cookies } from 'next/headers';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 export async function clearAuthCache() {
   try {
@@ -11,6 +16,9 @@ export async function clearAuthCache() {
     const authResult = await authMiddleware(accessToken, refreshToken);
     if (authResult.error || !authResult.userId) {
       return { success: false, error: authResult.error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
     // 実際のキャッシュクリアエンドポイントを叩く（認証済み想定）
     await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/auth/clear-cache`, {

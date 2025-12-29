@@ -3,32 +3,39 @@
 import { useLiffContext } from '@/components/LiffProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
-import { useState, useEffect, useMemo } from 'react';
-import {
-  createSubscriptionSession,
-  cancelUserSubscription,
-  resumeUserSubscription,
-  createCustomerPortalSession,
-} from '@/server/actions/subscription.actions';
+import { useState, useEffect } from 'react';
 import { updateUserFullName } from '@/server/actions/user.actions';
 import { Button } from '@/components/ui/button';
+import { Toaster } from '@/components/ui/sonner';
 import Image from 'next/image';
-import { Settings, Shield, List } from 'lucide-react';
+import { Settings, Shield, List, UserPlus, UserX } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FullNameDialog } from '@/components/FullNameDialog';
-import { env } from '@/env';
-import { SubscriptionService } from '@/domain/services/subscriptionService';
-import { ErrorAlert } from '@/components/ErrorAlert';
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
-import type { SubscriptionDetails as DomainSubscriptionDetails } from '@/domain/interfaces/ISubscriptionService';
 import { hasPaidFeatureAccess } from '@/types/user';
+import { InviteDialog } from '@/components/InviteDialog';
+import { isOwner } from '@/authUtils';
+import { toast } from 'sonner';
 
-const STRIPE_ENABLED = env.NEXT_PUBLIC_STRIPE_ENABLED === 'true'; // サブスクリプション機能が有効かどうか
+interface EmployeeInfo {
+  id: string;
+  lineDisplayName: string;
+  linePictureUrl?: string;
+  createdAt: number;
+}
 
 const ProfileDisplay = () => {
-  const { profile, isLoading, isLoggedIn, logout } = useLiffContext();
+  const { profile, isLoading, isLoggedIn, logout, user, isOwnerViewMode } = useLiffContext();
 
-  if (isLoading || !isLoggedIn || !profile) {
+  if (isLoading || !isLoggedIn) {
+    return null;
+  }
+
+  const displayName = isOwnerViewMode ? user?.lineDisplayName : profile?.displayName;
+  const pictureUrl = isOwnerViewMode ? user?.linePictureUrl : profile?.pictureUrl;
+  const userId = isOwnerViewMode ? (user?.lineUserId ?? user?.id) : profile?.userId;
+
+  if (!displayName || !userId) {
     return null;
   }
 
@@ -38,21 +45,23 @@ const ProfileDisplay = () => {
         <CardTitle className="text-xl text-center">LINEプロフィール</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        {profile.pictureUrl && (
+        {pictureUrl && (
           <Avatar className="h-26 w-26 mb-6">
-            <Image src={profile.pictureUrl} alt={profile.displayName} width={104} height={104} />
+            <Image src={pictureUrl} alt={displayName} width={104} height={104} />
           </Avatar>
         )}
-        <h3 className="text-xl font-bold mb-2">{profile.displayName}</h3>
-        <p className="text-sm text-gray-600 mb-4">ユーザーID: {profile.userId}</p>
-        <button
-          onClick={logout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm"
-          aria-label="ログアウト"
-          tabIndex={0}
-        >
-          ログアウト
-        </button>
+        <h3 className="text-xl font-bold mb-2">{displayName}</h3>
+        <p className="text-sm text-gray-600 mb-4">ユーザーID: {userId}</p>
+        {!isOwnerViewMode && (
+          <button
+            onClick={logout}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm"
+            aria-label="ログアウト"
+            tabIndex={0}
+          >
+            ログアウト
+          </button>
+        )}
       </CardContent>
     </Card>
   );
@@ -99,44 +108,182 @@ const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProp
   );
 };
 
-import { Toaster } from '@/components/ui/sonner';
+interface EmployeeInviteCardProps {
+  canInvite: boolean;
+  isLoggedIn: boolean;
+  isLoading: boolean;
+}
+
+const EmployeeInviteCard = ({ canInvite, isLoggedIn, isLoading }: EmployeeInviteCardProps) => {
+  if (isLoading || !isLoggedIn || !canInvite) {
+    return null;
+  }
+
+  return (
+    <Card className="w-full max-w-md mb-6 border-emerald-200 bg-emerald-50">
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
+          <UserPlus className="h-5 w-5 text-emerald-600" />
+          スタッフ招待
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-gray-700 text-center mb-4">
+          招待リンクを発行してスタッフを招待できます。
+        </p>
+        <div className="flex justify-center w-full">
+          <InviteDialog
+            trigger={
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md transition-colors"
+                aria-label="招待ダイアログを開く"
+              >
+                <UserPlus className="mr-2 h-5 w-5" />
+                スタッフを招待する
+              </Button>
+            }
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+interface OwnerEmployeeCardProps {
+  isOwnerRole: boolean;
+  isLoggedIn: boolean;
+  isLoading: boolean;
+}
+
+const OwnerEmployeeCard = ({ isOwnerRole, isLoggedIn, isLoading }: OwnerEmployeeCardProps) => {
+  const { getAccessToken } = useLiffContext();
+  const router = useRouter();
+  const [employee, setEmployee] = useState<EmployeeInfo | null>(null);
+  const [fetching, setFetching] = useState(false);
+
+  useEffect(() => {
+    if (!isOwnerRole || !isLoggedIn) return;
+
+    const fetchEmployee = async () => {
+      setFetching(true);
+      try {
+        const accessToken = await getAccessToken();
+        const res = await fetch('/api/employee', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error('スタッフ情報の取得に失敗しました');
+        }
+
+        const data = await res.json();
+        setEmployee(data.employee ?? null);
+      } catch (error) {
+        console.error('Failed to fetch employee:', error);
+        toast.error('スタッフ情報の取得に失敗しました');
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    void fetchEmployee();
+  }, [getAccessToken, isLoggedIn, isOwnerRole]);
+
+  if (isLoading || !isLoggedIn || !isOwnerRole) {
+    return null;
+  }
+
+  const enterViewMode = () => {
+    if (!employee) {
+      return;
+    }
+    document.cookie = 'owner_view_mode=1; path=/; samesite=lax';
+    document.cookie = `owner_view_mode_employee_id=${employee.id}; path=/; samesite=lax`;
+    router.push('/chat');
+  };
+
+  return (
+    <>
+      <Card className="w-full max-w-md mb-6 border-amber-200 bg-amber-50">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
+            <UserPlus className="h-5 w-5 text-amber-600" />
+            スタッフ管理
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fetching ? (
+            <div className="text-center py-4">読み込み中...</div>
+          ) : employee ? (
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={enterViewMode}
+                className="w-full text-left p-4 bg-white rounded-lg flex items-center gap-3 hover:bg-amber-100 transition-colors"
+                aria-label="スタッフ画面を閲覧"
+              >
+                {employee.linePictureUrl ? (
+                  <Image
+                    src={employee.linePictureUrl}
+                    alt="Avatar"
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 rounded-full"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                    <span className="text-gray-500 text-xs">No Img</span>
+                  </div>
+                )}
+                <div>
+                  <p className="font-medium text-sm">{employee.lineDisplayName}</p>
+                  <p className="text-xs text-gray-500">
+                    登録日: {new Date(employee.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </button>
+              <div className="flex justify-end">
+                <InviteDialog
+                  onEmployeeDeleted={() => setEmployee(null)}
+                  defaultOpenMode="delete"
+                  trigger={
+                    <Button variant="destructive" size="sm" className="gap-2">
+                      <UserX className="h-4 w-4" />
+                      スタッフを削除
+                    </Button>
+                  }
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-700 text-center">
+              現在、スタッフは登録されていません。
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+};
 
 export default function Home() {
-  const { getAccessToken, isLoading, isLoggedIn, user } = useLiffContext();
-  const subscriptionService = useMemo(() => new SubscriptionService(), []);
-  const subscription = useSubscriptionStatus(subscriptionService, getAccessToken, isLoggedIn);
+  const { isLoading, isLoggedIn, user, isOwnerViewMode } = useLiffContext();
   const userRole = user?.role ?? null;
   const isRoleLoading = isLoggedIn && !user;
-  const [pendingAction, setPendingAction] = useState<
-    null | 'subscribe' | 'updatePayment' | 'cancel' | 'resume'
-  >(null);
-  const [operationError, setOperationError] = useState<string | null>(null);
-  const subscriptionLoading = subscription.isLoading;
-  const subscriptionInitialized = subscription.hasInitialized;
-  const activeSubscription: DomainSubscriptionDetails | null =
-    (subscription.subscriptionStatus?.subscription as DomainSubscriptionDetails | undefined) ?? null;
-  const hasActiveSubscription = subscription.hasActiveSubscription;
-  const subscriptionError = operationError ?? subscription.error;
 
   // フルネーム関連ステート
   const [showFullNameDialog, setShowFullNameDialog] = useState(false);
 
   const isAdmin = userRole === 'admin';
+  const isOwnerRole = isOwner(userRole);
   const hasManagementAccess = hasPaidFeatureAccess(userRole);
-
-  // 日付フォーマット関数（constパターン）
-  const formatDate = (value: Date | string | null | undefined) => {
-    if (!value) {
-      return '情報なし';
-    }
-
-    const date = value instanceof Date ? value : new Date(value);
-    return new Intl.DateTimeFormat('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
-  };
+  const canInvite =
+    !isOwnerViewMode &&
+    (userRole === 'admin' || userRole === 'paid') &&
+    (user?.ownerUserId ?? null) === null;
 
   // フルネーム未入力チェック
   useEffect(() => {
@@ -144,102 +291,6 @@ export default function Home() {
       setShowFullNameDialog(true);
     }
   }, [isLoggedIn, user, isLoading]);
-
-  const {
-    checkSubscription: initializeSubscription,
-    refreshSubscription,
-    clearError,
-    resetInitialization,
-  } = subscription.actions;
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      resetInitialization();
-    }
-  }, [isLoggedIn, resetInitialization]);
-
-  // イベントハンドラー（handleプレフィックス）
-  const handleSubscribe = async () => {
-    setPendingAction('subscribe');
-    setOperationError(null);
-    clearError();
-    try {
-      const token = await getAccessToken();
-      const { url } = await createSubscriptionSession(token, window.location.origin);
-      if (url) window.location.href = url;
-    } catch {
-      setOperationError('登録処理中にエラー');
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const handleUpdatePayment = async () => {
-    setPendingAction('updatePayment');
-    setOperationError(null);
-    clearError();
-    try {
-      const token = await getAccessToken();
-      const { url } = await createCustomerPortalSession(window.location.origin + '/', token);
-      if (url) window.location.href = url;
-    } catch {
-      setOperationError('支払方法変更エラー');
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const handleInitializeSubscription = () => {
-    setOperationError(null);
-    clearError();
-    void initializeSubscription();
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!activeSubscription) return;
-    if (!confirm('サブスクリプションを解約してもよろしいですか？')) return;
-
-    setPendingAction('cancel');
-    setOperationError(null);
-    clearError();
-    try {
-      const token = await getAccessToken();
-      const result = await cancelUserSubscription(activeSubscription.id, false, token);
-
-      if (result.success) {
-        await refreshSubscription();
-      } else {
-        setOperationError(result.error || '解約に失敗しました');
-      }
-    } catch {
-      setOperationError('解約処理中にエラー');
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const handleResumeSubscription = async () => {
-    if (!activeSubscription) return;
-    if (!confirm('サブスクリプションの継続手続きを行いますか？')) return;
-
-    setPendingAction('resume');
-    setOperationError(null);
-    clearError();
-    try {
-      const token = await getAccessToken();
-      const result = await resumeUserSubscription(activeSubscription.id, token);
-
-      if (result.success) {
-        await refreshSubscription();
-      } else {
-        setOperationError(result.error || '継続に失敗しました');
-      }
-    } catch {
-      setOperationError('継続処理中にエラー');
-    } finally {
-      setPendingAction(null);
-    }
-  };
 
   const handleSaveFullName = async (fullName: string) => {
     try {
@@ -256,34 +307,12 @@ export default function Home() {
     }
   };
 
-  const renderSubscriptionStatus = () => {
-    if (!activeSubscription) return null;
-
-    const status = activeSubscription.status;
-    const statusConfig: Record<string, { label: string; className: string }> = {
-      active: { label: 'アクティブ', className: 'px-2 py-1 bg-green-100 text-green-800 rounded' },
-      trialing: { label: 'トライアル中', className: 'px-2 py-1 bg-blue-100 text-blue-800 rounded' },
-      past_due: { label: '支払い期限切れ', className: 'px-2 py-1 bg-red-100 text-red-800 rounded' },
-      canceled: {
-        label: 'キャンセル済み',
-        className: 'px-2 py-1 bg-gray-100 text-gray-800 rounded',
-      },
-    };
-
-    const config = statusConfig[status] || {
-      label: '不明',
-      className: 'px-2 py-1 bg-gray-100 text-gray-800 rounded',
-    };
-
-    return <span className={config.className}>{config.label}</span>;
-  };
-
   return (
     <>
       <Toaster />
       <FullNameDialog open={showFullNameDialog} onSave={handleSaveFullName} />
 
-      {(!isLoading && isLoggedIn) && (
+      {!isLoading && isLoggedIn && (
         <div className="flex flex-col items-center justify-center min-h-screen p-8">
           <h1 className="text-3xl font-bold mb-8">GrowMate</h1>
 
@@ -293,188 +322,204 @@ export default function Home() {
             isLoggedIn={isLoggedIn}
             isLoading={isLoading || isRoleLoading}
           />
+          <EmployeeInviteCard
+            canInvite={canInvite}
+            isLoggedIn={isLoggedIn}
+            isLoading={isLoading || isRoleLoading}
+          />
+          <OwnerEmployeeCard
+            isOwnerRole={isOwnerRole}
+            isLoggedIn={isLoggedIn}
+            isLoading={isLoading || isRoleLoading}
+          />
 
           {/* 有料/管理者向け 設定ページ導線 */}
           {isLoggedIn && hasManagementAccess && !isRoleLoading && (
-          <Card className="w-full max-w-md mb-6">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
-                <Settings className="h-5 w-5" />
-                設定
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 text-center mb-4">
-                WordPressやGoogle Search Consoleの<br />
-                連携設定はこちらから
-              </p>
-              <Button asChild className="w-full" aria-label="設定ページへ移動" tabIndex={0}>
-                <Link href="/setup">設定を開く</Link>
-              </Button>
-            </CardContent>
-          </Card>
+            <Card className="w-full max-w-md mb-6">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
+                  <Settings className="h-5 w-5" />
+                  設定
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 text-center mb-4">
+                  WordPressやGoogle Search Consoleの
+                  <br />
+                  連携設定はこちらから
+                </p>
+                <Button asChild className="w-full" aria-label="設定ページへ移動" tabIndex={0}>
+                  <Link href="/setup">設定を開く</Link>
+                </Button>
+              </CardContent>
+            </Card>
           )}
 
           {/* 有料/管理者向け コンテンツ一覧導線 */}
           {isLoggedIn && hasManagementAccess && !isRoleLoading && (
-          <Card className="w-full max-w-md mb-6">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
-                <List className="h-5 w-5" />
-                コンテンツ一覧
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 text-center mb-4">
-                WordPressとGoogle Search Consoleの<br />
-                メタ情報を一覧表示します
-              </p>
-              <Button asChild className="w-full" aria-label="コンテンツ一覧へ移動" tabIndex={0}>
-                <Link href="/analytics">一覧を開く</Link>
-              </Button>
-            </CardContent>
-          </Card>
+            <Card className="w-full max-w-md mb-6">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
+                  <List className="h-5 w-5" />
+                  コンテンツ一覧
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 text-center mb-4">
+                  WordPressとGoogle Search Consoleの
+                  <br />
+                  メタ情報を一覧表示します
+                </p>
+                <Button asChild className="w-full" aria-label="コンテンツ一覧へ移動" tabIndex={0}>
+                  <Link href="/analytics">一覧を開く</Link>
+                </Button>
+              </CardContent>
+            </Card>
           )}
 
-          {/* サブスクリプション情報カード */}
-          {STRIPE_ENABLED && (
-          <Card className="w-full max-w-md mb-6 mt-4">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-center">
-                サブスクリプション情報
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {subscriptionLoading ? (
-                <div className="text-center py-4">読み込み中...</div>
-              ) : !subscriptionInitialized ? (
-                <div className="p-4 bg-gray-100 rounded">
-                  <p className="text-gray-600">
-                    サブスクリプション情報の取得には少し時間がかかる場合があります。必要なときに読み込んでください。
-                  </p>
-                  <Button
-                    className="mt-4 w-full"
-                    onClick={handleInitializeSubscription}
-                    disabled={subscriptionLoading}
-                    aria-label="サブスクリプション情報を読み込む"
-                    tabIndex={0}
-                  >
-                    情報を読み込む
-                  </Button>
-                </div>
-              ) : subscriptionError ? (
-                <div className="mb-4">
-                  <ErrorAlert error={subscriptionError} />
-                </div>
-              ) : !hasActiveSubscription ? (
-                <div className="p-4 bg-gray-100 rounded">
-                  <p className="text-gray-600">有効なサブスクリプションがありません。</p>
-                  <Button
-                    className="mt-4 w-full"
-                    onClick={handleSubscribe}
-                    disabled={pendingAction !== null}
-                    aria-label="サブスクリプション登録"
-                    tabIndex={0}
-                  >
-                    {pendingAction === 'subscribe' ? '処理中...' : 'サブスクリプション登録'}
-                  </Button>
-                </div>
-              ) : activeSubscription && hasActiveSubscription ? (
-                <>
-                  {/* ステータス表示 */}
-                  <div className="p-4 bg-gray-100 rounded mb-4">
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="font-semibold">ステータス：</span>
-                      {renderSubscriptionStatus()}
-                    </div>
-                    <div className="mt-2">
-                      <span className="font-semibold">次回請求日：</span>
-                      <span className="ml-2">
-                        {formatDate(activeSubscription.currentPeriodEnd)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 操作ボタン */}
-                  <div className="space-y-3">
+          {/* サブスクリプション情報カード（現在未使用） */}
+          {/* {STRIPE_ENABLED && (
+            <Card className="w-full max-w-md mb-6 mt-4">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-center">
+                  サブスクリプション情報
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {subscriptionLoading ? (
+                  <div className="text-center py-4">読み込み中...</div>
+                ) : !subscriptionInitialized ? (
+                  <div className="p-4 bg-gray-100 rounded">
+                    <p className="text-gray-600">
+                      サブスクリプション情報の取得には少し時間がかかる場合があります。必要なときに読み込んでください。
+                    </p>
                     <Button
-                      className="w-full"
-                      onClick={handleUpdatePayment}
-                      disabled={pendingAction !== null}
-                      aria-label="支払い方法変更"
+                      className="mt-4 w-full"
+                      onClick={handleInitializeSubscription}
+                      disabled={subscriptionLoading}
+                      aria-label="サブスクリプション情報を読み込む"
                       tabIndex={0}
                     >
-                      {pendingAction === 'updatePayment' ? '処理中...' : '支払い方法変更'}
+                      情報を読み込む
                     </Button>
+                  </div>
+                ) : subscriptionError ? (
+                  <div className="mb-4">
+                    <ErrorAlert error={subscriptionError} />
+                  </div>
+                ) : !hasActiveSubscription ? (
+                  <div className="p-4 bg-gray-100 rounded">
+                    <p className="text-gray-600">有効なサブスクリプションがありません。</p>
+                    <Button
+                      className="mt-4 w-full"
+                      onClick={handleSubscribe}
+                      disabled={pendingAction !== null}
+                      aria-label="サブスクリプション登録"
+                      tabIndex={0}
+                    >
+                      {pendingAction === 'subscribe' ? '処理中...' : 'サブスクリプション登録'}
+                    </Button>
+                  </div>
+                ) : activeSubscription && hasActiveSubscription ? (
+                  <>
+                    <div className="p-4 bg-gray-100 rounded mb-4">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="font-semibold">ステータス：</span>
+                        {renderSubscriptionStatus()}
+                      </div>
+                      <div className="mt-2">
+                        <span className="font-semibold">次回請求日：</span>
+                        <span className="ml-2">
+                          {formatDate(activeSubscription.currentPeriodEnd)}
+                        </span>
+                      </div>
+                    </div>
 
-                    {activeSubscription.cancelAtPeriodEnd ? (
+                    <div className="space-y-3">
                       <Button
-                        variant="outline"
-                        className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
-                        onClick={handleResumeSubscription}
+                        className="w-full"
+                        onClick={handleUpdatePayment}
                         disabled={pendingAction !== null}
-                        aria-label="サブスクリプション継続"
+                        aria-label="支払い方法変更"
                         tabIndex={0}
                       >
-                        {pendingAction === 'resume' ? '処理中...' : 'サブスクリプションを継続する'}
+                        {pendingAction === 'updatePayment' ? '処理中...' : '支払い方法変更'}
                       </Button>
-                    ) : (
-                      (activeSubscription.status === 'active' ||
-                        activeSubscription.status === 'trialing') && (
+
+                      {activeSubscription.cancelAtPeriodEnd ? (
                         <Button
                           variant="outline"
-                          className="w-full border-red-300 text-red-600 hover:bg-red-50"
-                          onClick={handleCancelSubscription}
+                          className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
+                          onClick={handleResumeSubscription}
                           disabled={pendingAction !== null}
-                          aria-label="サブスクリプション解約"
+                          aria-label="サブスクリプション継続"
                           tabIndex={0}
                         >
-                          {pendingAction === 'cancel' ? '処理中...' : 'サブスクリプションを解約する'}
+                          {pendingAction === 'resume'
+                            ? '処理中...'
+                            : 'サブスクリプションを継続する'}
                         </Button>
-                      )
-                    )}
+                      ) : (
+                        (activeSubscription.status === 'active' ||
+                          activeSubscription.status === 'trialing') && (
+                          <Button
+                            variant="outline"
+                            className="w-full border-red-300 text-red-600 hover:bg-red-50"
+                            onClick={handleCancelSubscription}
+                            disabled={pendingAction !== null}
+                            aria-label="サブスクリプション解約"
+                            tabIndex={0}
+                          >
+                            {pendingAction === 'cancel'
+                              ? '処理中...'
+                              : 'サブスクリプションを解約する'}
+                          </Button>
+                        )
+                      )}
 
-                    {!(
-                      activeSubscription.status === 'active' ||
-                      activeSubscription.status === 'trialing' ||
-                      (activeSubscription.status === 'past_due' &&
-                        !activeSubscription.cancelAtPeriodEnd)
-                    ) && (
-                      <div className="p-3 bg-gray-100 rounded text-sm text-gray-700 text-center">
-                        {(() => {
-                          const statusMessages = {
-                            canceled: 'このサブスクリプションは既に終了しています。',
-                            past_due: 'お支払いが遅延しています。新規登録してください。',
-                            trialing: 'トライアル期間が終了すると自動的に課金されます。',
-                          };
+                      {!(
+                        activeSubscription.status === 'active' ||
+                        activeSubscription.status === 'trialing' ||
+                        (activeSubscription.status === 'past_due' &&
+                          !activeSubscription.cancelAtPeriodEnd)
+                      ) && (
+                        <div className="p-3 bg-gray-100 rounded text-sm text-gray-700 text-center">
+                          {(() => {
+                            const statusMessages = {
+                              canceled: 'このサブスクリプションは既に終了しています。',
+                              past_due: 'お支払いが遅延しています。新規登録してください。',
+                              trialing: 'トライアル期間が終了すると自動的に課金されます。',
+                            };
 
-                          return (
-                            statusMessages[
-                              activeSubscription.status as keyof typeof statusMessages
-                            ] || 'サブスクリプションに問題があります。'
-                          );
-                        })()}
-                        <Button
-                          className="mt-3 w-full"
-                          onClick={handleSubscribe}
-                          aria-label="新規サブスクリプション登録"
-                          tabIndex={0}
-                          disabled={pendingAction !== null}
-                        >
-                          {pendingAction === 'subscribe' ? '処理中...' : '新規サブスクリプション登録'}
-                        </Button>
-                      </div>
-                    )}
+                            return (
+                              statusMessages[
+                                activeSubscription.status as keyof typeof statusMessages
+                              ] || 'サブスクリプションに問題があります。'
+                            );
+                          })()}
+                          <Button
+                            className="mt-3 w-full"
+                            onClick={handleSubscribe}
+                            aria-label="新規サブスクリプション登録"
+                            tabIndex={0}
+                            disabled={pendingAction !== null}
+                          >
+                            {pendingAction === 'subscribe'
+                              ? '処理中...'
+                              : '新規サブスクリプション登録'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : hasActiveSubscription ? (
+                  <div className="p-4 bg-gray-100 rounded text-center text-gray-700">
+                    サブスクリプションは有効です。
                   </div>
-                </>
-              ) : hasActiveSubscription ? (
-                <div className="p-4 bg-gray-100 rounded text-center text-gray-700">
-                  サブスクリプションは有効です。
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-          )}
+                ) : null}
+              </CardContent>
+            </Card>
+          )} */}
         </div>
       )}
     </>

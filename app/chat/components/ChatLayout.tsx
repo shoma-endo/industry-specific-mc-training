@@ -27,6 +27,7 @@ import { getContentAnnotationBySession } from '@/server/actions/wordpress.action
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
+import { ViewModeBanner } from '@/components/ViewModeBanner';
 
 const FULL_MARKDOWN_PREFIX = '"full_markdown":"';
 const TITLE_META_SYSTEM_PROMPT =
@@ -203,8 +204,15 @@ const ErrorAlert: React.FC<{ error: string; onClose?: () => void }> = ({ error, 
   </div>
 );
 
-const WarningAlert: React.FC<{ message: string; onClose?: () => void }> = ({ message, onClose }) => (
-  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-3" role="status" aria-live="polite">
+const WarningAlert: React.FC<{ message: string; onClose?: () => void }> = ({
+  message,
+  onClose,
+}) => (
+  <div
+    className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-3"
+    role="status"
+    aria-live="polite"
+  >
     <div className="flex">
       <div className="flex-shrink-0">
         <AlertTriangle className="h-5 w-5 text-yellow-500" />
@@ -311,6 +319,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     initialStep,
   } = ctx;
   const router = useRouter();
+  const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
 
   const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
@@ -379,8 +388,11 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     hasDetectedBlogStep &&
     (!!lastAssistantMessage || hasInitialStepButNoMessages);
 
+  const isReadOnly = isOwnerViewMode;
+
   return (
     <>
+      {isReadOnly && <ViewModeBanner />}
       {/* デスクトップサイドバー */}
       {!isMobile && (
         <SessionSidebar
@@ -393,6 +405,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           searchResults={chatSession.state.searchResults}
           searchError={chatSession.state.searchError}
           isSearching={chatSession.state.isSearching}
+          disableActions={isReadOnly}
         />
       )}
 
@@ -430,6 +443,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               searchResults={chatSession.state.searchResults}
               searchError={chatSession.state.searchError}
               isSearching={chatSession.state.isSearching}
+              disableActions={isReadOnly}
             />
           </SheetContent>
         </Sheet>
@@ -469,7 +483,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
         <InputArea
           onSendMessage={onSendMessage}
-          disabled={chatSession.state.isLoading || ui.annotation.loading}
+          disabled={chatSession.state.isLoading || ui.annotation.loading || isReadOnly}
           shouldShowStepActionBar={shouldShowStepActionBar}
           stepActionBarRef={stepActionBarRef}
           displayStep={displayStep}
@@ -537,7 +551,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   isMobile = false,
   initialStep = null,
 }) => {
-  const { getAccessToken } = useLiffContext();
+  const { getAccessToken, isOwnerViewMode } = useLiffContext();
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
@@ -1025,12 +1039,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
       setCanvasPanelOpen(true);
     },
-    [
-      annotationOpen,
-      blogCanvasVersionsByStep,
-      latestBlogStep,
-      setCanvasStreamingContent,
-    ]
+    [annotationOpen, blogCanvasVersionsByStep, latestBlogStep, setCanvasStreamingContent]
   );
 
   // ✅ 保存ボタンクリック時にAnnotationPanelを表示する関数
@@ -1160,6 +1169,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const handleCanvasSelectionEdit = useCallback(
     async (payload: CanvasSelectionEditPayload): Promise<CanvasSelectionEditResult> => {
+      if (isOwnerViewMode) {
+        throw new Error('閲覧モードでは編集できません');
+      }
       if (canvasEditInFlightRef.current) {
         throw new Error('他のAI編集が進行中です。完了をお待ちください。');
       }
@@ -1343,8 +1355,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           }
 
           if (eventType === 'done' && typeof eventData === 'object' && eventData !== null) {
-            fullMarkdown =
-              (eventData as { fullMarkdown?: string }).fullMarkdown ?? fullMarkdown;
+            fullMarkdown = (eventData as { fullMarkdown?: string }).fullMarkdown ?? fullMarkdown;
             analysisResult = (eventData as { analysis?: string }).analysis ?? analysisResult;
             setCanvasStreamingContent(fullMarkdown);
             setOptimisticMessages(prev =>
@@ -1363,8 +1374,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
           if (eventType === 'error' && typeof eventData === 'object' && eventData !== null) {
             const message =
-              (eventData as { message?: string }).message ||
-              'ストリーミングエラーが発生しました';
+              (eventData as { message?: string }).message || 'ストリーミングエラーが発生しました';
             throw new Error(message);
           }
         };
@@ -1415,6 +1425,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       chatSession.state.currentSessionId,
       getAccessToken,
       handleModelChange,
+      isOwnerViewMode,
       latestBlogStep,
       resolvedCanvasStep,
       setAnnotationData,
@@ -1480,7 +1491,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           }}
           content={canvasContent}
           isVisible={canvasPanelOpen}
-          onSelectionEdit={handleCanvasSelectionEdit}
+          {...(isOwnerViewMode ? {} : { onSelectionEdit: handleCanvasSelectionEdit })}
           versions={canvasVersionsWithMeta}
           activeVersionId={activeCanvasVersion?.id ?? null}
           onVersionSelect={handleCanvasVersionSelect}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { getQueryImportToastMessage } from '@/lib/gsc-import';
 import { cn } from '@/lib/utils';
+import { useLiffContext } from '@/components/LiffProvider';
 import {
   Dialog,
   DialogContent,
@@ -49,17 +50,19 @@ interface OverviewTabProps {
     skippedImportFailed: number;
   }>;
   onRunQueryImport: () => Promise<{
-    fetchedRows: number;
-    keptRows: number;
-    dedupedRows: number;
-    fetchErrorPages: number;
-    skipped: {
-      missingKeys: number;
-      invalidUrl: number;
-      emptyQuery: number;
-      zeroMetrics: number;
+    querySummary: {
+      fetchedRows: number;
+      keptRows: number;
+      dedupedRows: number;
+      fetchErrorPages: number;
+      skipped: {
+        missingKeys: number;
+        invalidUrl: number;
+        emptyQuery: number;
+        zeroMetrics: number;
+      };
+      hitLimit: boolean;
     };
-    hitLimit: boolean;
   }>;
   onRefreshDetail?: (annotationId: string) => Promise<void>;
 }
@@ -77,8 +80,10 @@ export function OverviewTab({
   onRunQueryImport,
   onRefreshDetail,
 }: OverviewTabProps) {
+  const { isOwnerViewMode } = useLiffContext();
   const [isQueryImporting, setIsQueryImporting] = useState(false);
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+  const isReadOnly = isOwnerViewMode;
 
   if (detailLoading) {
     return (
@@ -103,6 +108,7 @@ export function OverviewTab({
   }
 
   const handleSync = async () => {
+    if (isReadOnly) return;
     if (!detail.annotation.canonical_url) {
       toast.error('記事URLが未登録です');
       return;
@@ -145,7 +151,7 @@ export function OverviewTab({
                     variant="outline"
                     size="sm"
                     className="h-8 border-blue-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50 hover:border-blue-300"
-                    disabled={isQueryImporting || !detail.annotation.canonical_url}
+                    disabled={isQueryImporting || !detail.annotation.canonical_url || isReadOnly}
                   >
                     <RefreshCw
                       className={cn('w-3.5 h-3.5 mr-1.5', isQueryImporting && 'animate-spin')}
@@ -166,7 +172,7 @@ export function OverviewTab({
                     <DialogClose asChild>
                       <Button variant="outline">キャンセル</Button>
                     </DialogClose>
-                    <Button onClick={handleSync} disabled={isQueryImporting}>
+                    <Button onClick={handleSync} disabled={isQueryImporting || isReadOnly}>
                       {isQueryImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       同期を実行
                     </Button>
@@ -193,7 +199,10 @@ export function OverviewTab({
         <TrendLineChart data={chartData} visibleMetrics={visibleMetrics} />
 
         {/* データ準備状況 */}
-        <SuggestionDataReadiness annotation={detail.annotation} onUpdate={onRefreshDetail} />
+        <SuggestionDataReadiness
+          annotation={detail.annotation}
+          {...(onRefreshDetail && { onUpdate: onRefreshDetail })}
+        />
 
         {/* 評価設定 */}
         {detail.credential?.propertyUri && (

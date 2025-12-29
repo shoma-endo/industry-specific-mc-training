@@ -19,6 +19,7 @@ import { markSuggestionAsRead } from '@/server/actions/gscNotification.actions';
 import type { GscEvaluationHistoryItem } from '../types';
 import { formatDateTime } from '@/lib/date-formatter';
 import { MODEL_CONFIGS } from '@/lib/constants';
+import { useLiffContext } from '@/components/LiffProvider';
 
 // 改善提案セクションの共通スタイル
 const SUGGESTION_STYLE = {
@@ -35,9 +36,11 @@ export function EvaluationHistoryTab({
   history: initialHistory,
   onHistoryRead,
 }: EvaluationHistoryTabProps) {
+  const { isOwnerViewMode } = useLiffContext();
   const [history, setHistory] = useState(initialHistory);
   const [selectedHistory, setSelectedHistory] = useState<GscEvaluationHistoryItem | null>(null);
   const [isPending, startTransition] = useTransition();
+  const isReadOnly = isOwnerViewMode;
 
   // 親からの最新履歴に同期（ローカルで既読にした状態を保持）
   useEffect(() => {
@@ -63,6 +66,7 @@ export function EvaluationHistoryTab({
   }, [initialHistory, selectedHistory]);
 
   const handleMarkAsRead = (historyId: string) => {
+    if (isReadOnly) return;
     startTransition(async () => {
       const result = await markSuggestionAsRead(historyId);
       if (result.success) {
@@ -267,7 +271,7 @@ export function EvaluationHistoryTab({
                           .map(section => {
                             // 見出しを抽出
                             const headingMatch = section.match(/^#\s+(.+)$/m);
-                            const heading = headingMatch ? headingMatch[1].trim() : null;
+                            const heading = headingMatch?.[1]?.trim() ?? null;
 
                             // 見出しから templateName を特定
                             let templateName: string | null = null;
@@ -343,7 +347,7 @@ export function EvaluationHistoryTab({
               selectedHistory.outcome !== 'improved' && (
                 <Button
                   onClick={() => handleMarkAsRead(selectedHistory.id)}
-                  disabled={isPending}
+                  disabled={isPending || isReadOnly}
                   className="gap-2"
                 >
                   {isPending ? (

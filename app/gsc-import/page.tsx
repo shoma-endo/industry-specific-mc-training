@@ -12,6 +12,7 @@ import { runGscImport } from '@/server/actions/gscImport.actions';
 import { fetchGscStatus } from '@/server/actions/gscSetup.actions';
 import { getQuerySummaryLabels } from '@/lib/gsc-import';
 import type { GscConnectionStatus } from '@/types/gsc';
+import { useLiffContext } from '@/components/LiffProvider';
 
 type ImportResponse = {
   success: boolean;
@@ -65,6 +66,7 @@ const isOAuthTokenError = (errorMessage: string | undefined): boolean => {
 };
 
 export default function GscImportPage() {
+  const { isOwnerViewMode } = useLiffContext();
   const [startDate, setStartDate] = useState(daysAgoISO(30));
   const [endDate, setEndDate] = useState(todayISO());
   const [searchType, setSearchType] = useState<'web' | 'image' | 'news'>('web');
@@ -76,6 +78,7 @@ export default function GscImportPage() {
   const querySummaryLabels = result?.data?.querySummary
     ? getQuerySummaryLabels(result.data.querySummary)
     : null;
+  const isReadOnly = isOwnerViewMode;
 
   // 期間（日数）を計算
   const calculateDaysDiff = (start: string, end: string): number => {
@@ -118,6 +121,7 @@ export default function GscImportPage() {
   }, []);
 
   const handleSubmit = async () => {
+    if (isReadOnly) return;
     setIsLoading(true);
     setResult(null);
     try {
@@ -213,6 +217,7 @@ export default function GscImportPage() {
                 value={startDate}
                 max={endDate}
                 onChange={e => setStartDate(e.target.value)}
+                disabled={isReadOnly}
               />
             </div>
             <div className="space-y-2">
@@ -225,6 +230,7 @@ export default function GscImportPage() {
                 value={endDate}
                 min={startDate}
                 onChange={e => setEndDate(e.target.value)}
+                disabled={isReadOnly}
               />
             </div>
           </div>
@@ -232,7 +238,11 @@ export default function GscImportPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <span className="text-sm font-medium text-gray-700">検索タイプ</span>
-              <Select value={searchType} onValueChange={v => setSearchType(v as typeof searchType)}>
+              <Select
+                value={searchType}
+                onValueChange={v => setSearchType(v as typeof searchType)}
+                disabled={isReadOnly}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="選択" />
                 </SelectTrigger>
@@ -270,6 +280,7 @@ export default function GscImportPage() {
                   const resolvedValue = maxRows === '' ? 1 : maxRows;
                   setMaxRows(Math.max(1, Math.min(25000, resolvedValue)));
                 }}
+                disabled={isReadOnly}
               />
               <p className="text-xs text-gray-500">
                 推奨: 1000～2000（空欄の場合は1として扱います）
@@ -294,7 +305,7 @@ export default function GscImportPage() {
             </Alert>
           )}
 
-          <Button onClick={handleSubmit} disabled={isLoading} className="w-full">
+          <Button onClick={handleSubmit} disabled={isLoading || isReadOnly} className="w-full">
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

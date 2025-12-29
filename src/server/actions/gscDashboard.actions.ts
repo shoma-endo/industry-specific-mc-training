@@ -8,6 +8,11 @@ import { gscImportService } from '@/server/services/gscImportService';
 import { normalizeUrl } from '@/lib/normalize-url';
 import { buildGscDateRange } from '@/lib/date-formatter';
 import type { GscEvaluationOutcome } from '@/types/gsc';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 const supabaseService = new SupabaseService();
 
@@ -76,7 +81,7 @@ const getAuthUserId = async () => {
   if (authResult.error || !authResult.userId) {
     return { error: authResult.error || 'ユーザー認証に失敗しました' };
   }
-  return { userId: authResult.userId };
+  return { userId: authResult.userId, role: resolveViewModeRole(authResult) };
 };
 
 export async function fetchGscDetail(
@@ -207,9 +212,12 @@ export async function registerEvaluation(params: {
   evaluationHour?: number;
 }) {
   try {
-    const { userId, error } = await getAuthUserId();
+    const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(role ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays, evaluationHour } =
@@ -305,9 +313,12 @@ export async function updateEvaluation(params: {
   evaluationHour?: number;
 }) {
   try {
-    const { userId, error } = await getAuthUserId();
+    const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(role ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     const { contentAnnotationId, baseEvaluationDate, cycleDays, evaluationHour } = params;
@@ -551,9 +562,12 @@ export async function fetchQueryAnalysis(
 
 export async function runQueryImportForAnnotation(annotationId: string, options?: { days?: number }) {
   try {
-    const { userId, error } = await getAuthUserId();
+    const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(role ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     if (!annotationId) {
@@ -620,9 +634,12 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
  */
 export async function runEvaluationNow(contentAnnotationId: string) {
   try {
-    const { userId, error } = await getAuthUserId();
+    const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(role ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     // 動的インポートで循環参照を回避
