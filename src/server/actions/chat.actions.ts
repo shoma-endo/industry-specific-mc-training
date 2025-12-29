@@ -85,9 +85,16 @@ async function checkAuth(
     }
     if (user && isOwner(user.role)) {
       if (options?.allowOwner) {
+        if (!authResult.userId) {
+          return {
+            isError: true as const,
+            error: '認証に失敗しました',
+            requiresSubscription: false,
+          };
+        }
         return {
           isError: false as const,
-          userId: authResult.userId!,
+          userId: authResult.userId,
           role: user.role,
           ...(authResult.viewMode ? { viewMode: true } : {}),
         };
@@ -98,9 +105,16 @@ async function checkAuth(
         requiresSubscription: false,
       };
     }
+    if (!authResult.userId) {
+      return {
+        isError: true as const,
+        error: '認証に失敗しました',
+        requiresSubscription: false,
+      };
+    }
     return {
       isError: false as const,
-      userId: authResult.userId!,
+      userId: authResult.userId,
       role: user?.role ?? 'trial',
       ...(authResult.viewMode ? { viewMode: true } : {}),
     };
