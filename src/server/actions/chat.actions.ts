@@ -140,13 +140,6 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
         requiresSubscription: auth.requiresSubscription,
       };
     }
-    if (auth.viewMode) {
-      return {
-        message: '',
-        error: '閲覧モードでは操作できません',
-        requiresSubscription: false,
-      };
-    }
 
     // モデル処理に委譲
     return await modelHandler.handleStart(auth.userId, validatedData);
@@ -171,13 +164,6 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
         message: '',
         error: auth.error,
         requiresSubscription: auth.requiresSubscription,
-      };
-    }
-    if (auth.viewMode) {
-      return {
-        message: '',
-        error: '閲覧モードでは操作できません',
-        requiresSubscription: false,
       };
     }
 
@@ -298,9 +284,6 @@ export async function deleteChatSession(sessionId: string, liffAccessToken: stri
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  if (auth.viewMode) {
-    return { success: false, error: '閲覧モードでは操作できません' };
-  }
 
   try {
     await chatService.deleteChatSession(sessionId, auth.userId);
@@ -329,9 +312,6 @@ export async function updateChatSessionTitle(
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  if (auth.viewMode) {
-    return { success: false, error: '閲覧モードでは操作できません' };
-  }
 
   const supabase = new SupabaseService();
   const updateResult = await supabase.updateChatSession(parsed.sessionId, auth.userId, {
@@ -353,9 +333,6 @@ export async function saveMessage(data: z.infer<typeof saveMessageSchema>) {
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
   }
-  if (auth.viewMode) {
-    return { success: false, error: '閲覧モードでは操作できません' };
-  }
 
   const supabase = new SupabaseService();
   const saveResult = await supabase.setMessageSaved(auth.userId, messageId, true);
@@ -372,9 +349,6 @@ export async function unsaveMessage(data: z.infer<typeof unsaveMessageSchema>) {
   const auth = await checkAuth(liffAccessToken);
   if (auth.isError) {
     return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
-  }
-  if (auth.viewMode) {
-    return { success: false, error: '閲覧モードでは操作できません' };
   }
 
   const supabase = new SupabaseService();
