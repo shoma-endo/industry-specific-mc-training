@@ -2,26 +2,37 @@
 
 import { userService } from '@/server/services/userService';
 import { cookies } from 'next/headers';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
 
 export const updateUserFullName = async (fullName: string): Promise<{ success: boolean; error?: string }> => {
   try {
     const cookieStore = await cookies();
     const lineAccessToken = cookieStore.get('line_access_token')?.value;
-    const isViewMode = cookieStore.get('owner_view_mode')?.value === '1';
+    const refreshToken = cookieStore.get('line_refresh_token')?.value;
 
     if (!lineAccessToken) {
       return { success: false, error: 'ログインしていません' };
     }
-    if (isViewMode) {
-      return { success: false, error: '閲覧モードでは操作できません' };
+
+    const authResult = await authMiddleware(lineAccessToken, refreshToken);
+    if (authResult.error) {
+      return { success: false, error: authResult.error };
     }
 
-    const user = await userService.getUserFromLiffToken(lineAccessToken);
-    if (!user) {
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
+
+    if (!authResult.userId) {
       return { success: false, error: 'ユーザーが見つかりません' };
     }
 
-    const success = await userService.updateFullName(user.id, fullName);
+    const success = await userService.updateFullName(authResult.userId, fullName);
     if (!success) {
       return { success: false, error: 'フルネームの更新に失敗しました' };
     }

@@ -85,7 +85,7 @@ export function verifyOAuthState(
 function constantTimeEquals(a: string, b: string) {
   const bufA: Buffer = Buffer.from(a, 'utf8');
   const bufB: Buffer = Buffer.from(b, 'utf8');
-  if ((bufA as unknown as Uint8Array).length !== (bufB as unknown as Uint8Array).length) {
+  if (bufA.length !== bufB.length) {
     return false;
   }
   return timingSafeEqual(bufA, bufB);
