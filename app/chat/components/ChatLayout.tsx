@@ -1083,7 +1083,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
     setIsGeneratingTitleMeta(true);
     try {
-      const res = await getLatestBlogStep7MessageBySession(sessionId);
+      const accessToken = await getAccessToken();
+      const res = await getLatestBlogStep7MessageBySession(sessionId, accessToken);
       if (!res.success) {
         const errorMessage = res.error || '本文の取得に失敗しました';
         chatSession.actions.setError(errorMessage);

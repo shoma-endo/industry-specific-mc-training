@@ -10,7 +10,6 @@ import { cookies } from 'next/headers';
 // ... (code)
 
 import { userService } from '@/server/services/userService';
-import { withAuth } from '@/server/middleware/withAuth.middleware';
 import type { UserRole } from '@/types/user';
 import { z } from 'zod';
 import { SupabaseService } from '@/server/services/supabaseService';
@@ -202,7 +201,8 @@ export async function getSessionMessages(sessionId: string, liffAccessToken: str
 }
 
 export async function getLatestBlogStep7MessageBySession(
-  sessionId: string
+  sessionId: string,
+  liffAccessToken: string
 ): Promise<
   | { success: false; error: string }
   | { success: true; data: { content: string; createdAt: number } | null }
@@ -211,30 +211,34 @@ export async function getLatestBlogStep7MessageBySession(
     return { success: false as const, error: 'セッションIDが必要です' };
   }
 
-  return withAuth(async ({ userId }) => {
-    const supabase = new SupabaseService();
-    const result = await supabase.getLatestChatMessageBySessionAndModel(
-      sessionId,
-      userId,
-      'blog_creation_step7'
-    );
+  const isViewMode = await isOwnerViewMode();
+  const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
+  if (auth.isError) {
+    return { success: false as const, error: auth.error ?? '認証に失敗しました' };
+  }
 
-    if (!result.success) {
-      return { success: false as const, error: result.error.userMessage };
-    }
+  const supabase = new SupabaseService();
+  const result = await supabase.getLatestChatMessageBySessionAndModel(
+    sessionId,
+    auth.userId,
+    'blog_creation_step7'
+  );
 
-    if (!result.data) {
-      return { success: true as const, data: null };
-    }
+  if (!result.success) {
+    return { success: false as const, error: result.error.userMessage };
+  }
 
-    return {
-      success: true as const,
-      data: {
-        content: result.data.content,
-        createdAt: result.data.created_at,
-      },
-    };
-  });
+  if (!result.data) {
+    return { success: true as const, data: null };
+  }
+
+  return {
+    success: true as const,
+    data: {
+      content: result.data.content,
+      createdAt: result.data.created_at,
+    },
+  };
 }
 
 export async function searchChatSessions(data: z.infer<typeof searchChatSessionsSchema>) {
