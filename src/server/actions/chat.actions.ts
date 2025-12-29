@@ -75,7 +75,6 @@ async function checkAuth(
   // unavailableユーザーのサービス利用制限チェック
   try {
     const user = authResult.userDetails ?? (await userService.getUserFromLiffToken(liffAccessToken));
-    // unavailableユーザーのサービス利用制限チェック
     if (user && isUnavailable(user.role)) {
       return {
         isError: true as const,
