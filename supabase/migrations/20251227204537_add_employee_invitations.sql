@@ -42,6 +42,7 @@ CREATE POLICY "owners_manage_own_invitations" ON employee_invitations
 -- 30日TTL（使用済み/期限切れを定期削除）
 -- ロールバック案:
 -- SELECT cron.unschedule('cleanup-employee-invitations-ttl');
+-- DROP FUNCTION IF EXISTS public.accept_employee_invitation(uuid, text);
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 SELECT cron.schedule(
   'cleanup-employee-invitations-ttl',
