@@ -183,9 +183,13 @@ export function InviteDialog({
           Authorization: `Bearer ${accessToken}`,
         },
       });
-      const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || '招待の作成に失敗しました');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: '招待の作成に失敗しました' }));
+        throw new Error(data.error || '招待の作成に失敗しました');
+      }
+
+      const data = await res.json();
 
       setInvitation({
         token: data.token ?? '',
@@ -212,7 +216,7 @@ export function InviteDialog({
         },
       });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({ error: 'スタッフの削除に失敗しました' }));
         throw new Error(data.error || 'スタッフの削除に失敗しました');
       }
 
