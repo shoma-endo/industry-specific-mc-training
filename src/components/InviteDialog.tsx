@@ -42,9 +42,15 @@ const BUBBLE_HORIZONTAL_OFFSET = 75;
 
 interface InviteDialogProps {
   trigger?: React.ReactNode;
+  onEmployeeDeleted?: () => void;
+  defaultOpenMode?: 'invite' | 'delete';
 }
 
-export function InviteDialog({ trigger }: InviteDialogProps) {
+export function InviteDialog({
+  trigger,
+  onEmployeeDeleted,
+  defaultOpenMode = 'invite',
+}: InviteDialogProps) {
   const { getAccessToken, refreshUser } = useLiffContext();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -110,10 +116,17 @@ export function InviteDialog({ trigger }: InviteDialogProps) {
   }, [getAccessToken]);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchStatus();
+    if (!isOpen) {
+      return;
     }
-  }, [isOpen, fetchStatus]);
+    // defaultOpenModeが'delete'の場合は招待ダイアログをスキップして削除ダイアログを開く
+    if (defaultOpenMode === 'delete') {
+      setDeleteDialogOpen(true);
+      setIsOpen(false);
+      return;
+    }
+    fetchStatus();
+  }, [defaultOpenMode, isOpen, fetchStatus]);
 
   const showBubble = useCallback((message: string) => {
     if (!copyButtonRef.current) return;
@@ -184,6 +197,7 @@ export function InviteDialog({ trigger }: InviteDialogProps) {
       setEmployee(null);
       toast.success('スタッフを削除しました');
       await refreshUser();
+      onEmployeeDeleted?.();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'スタッフの削除に失敗しました';
       toast.error(message);
@@ -332,6 +346,10 @@ export function InviteDialog({ trigger }: InviteDialogProps) {
             </DialogTitle>
             <DialogDescription className="text-left">
               スタッフを削除してもよろしいですか？
+              <br />
+              <span className="text-sm text-gray-600">
+                このスタッフに関連するすべてのデータ（閲覧モード含む）が完全に削除されます。
+              </span>
               <br />
               <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
             </DialogDescription>

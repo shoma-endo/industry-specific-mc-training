@@ -15,14 +15,6 @@ import { hasPaidFeatureAccess } from '@/types/user';
 import { InviteDialog } from '@/components/InviteDialog';
 import { isOwner } from '@/authUtils';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 interface EmployeeInfo {
   id: string;
@@ -169,11 +161,10 @@ const OwnerEmployeeCard = ({
   isLoggedIn,
   isLoading,
 }: OwnerEmployeeCardProps) => {
-  const { getAccessToken, refreshUser } = useLiffContext();
+  const { getAccessToken } = useLiffContext();
   const router = useRouter();
   const [employee, setEmployee] = useState<EmployeeInfo | null>(null);
   const [fetching, setFetching] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!isOwnerRole || !isLoggedIn) return;
@@ -205,33 +196,6 @@ const OwnerEmployeeCard = ({
 
     void fetchEmployee();
   }, [getAccessToken, isLoggedIn, isOwnerRole]);
-
-  const handleDelete = async () => {
-    setFetching(true);
-    try {
-      const accessToken = await getAccessToken();
-      const res = await fetch('/api/employee', {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'スタッフの削除に失敗しました');
-      }
-
-      setEmployee(null);
-      toast.success('スタッフを削除しました');
-      await refreshUser();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'スタッフの削除に失敗しました';
-      toast.error(message);
-    } finally {
-      setFetching(false);
-    }
-  };
 
   if (isLoading || !isLoggedIn || !isOwnerRole) {
     return null;
@@ -287,15 +251,16 @@ const OwnerEmployeeCard = ({
                 </div>
               </button>
               <div className="flex justify-end">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="gap-2"
-                >
-                  <UserX className="h-4 w-4" />
-                  スタッフを削除
-                </Button>
+                <InviteDialog
+                  onEmployeeDeleted={() => setEmployee(null)}
+                  defaultOpenMode="delete"
+                  trigger={
+                    <Button variant="destructive" size="sm" className="gap-2">
+                      <UserX className="h-4 w-4" />
+                      スタッフを削除
+                    </Button>
+                  }
+                />
               </div>
             </div>
           ) : (
@@ -305,41 +270,6 @@ const OwnerEmployeeCard = ({
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              スタッフを削除
-            </DialogTitle>
-            <DialogDescription className="text-left">
-              スタッフを削除してもよろしいですか？
-              <br />
-              <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={fetching}>
-              キャンセル
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                try {
-                  await handleDelete();
-                  setDeleteDialogOpen(false);
-                } catch {
-                  // エラーはhandleDelete内でtoast表示済み
-                }
-              }}
-              disabled={fetching}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {fetching ? '削除中...' : '削除'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };
