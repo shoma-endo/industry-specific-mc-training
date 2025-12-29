@@ -237,7 +237,12 @@ export function InviteDialog({
 
       setEmployee(null);
       toast.success('スタッフを削除しました');
-      await refreshUser();
+      try {
+        await refreshUser();
+      } catch (error) {
+        console.error('Failed to refresh user after deletion:', error);
+        toast.warning('スタッフの削除は完了しましたが、画面の更新に失敗しました。ページを再読み込みしてください。');
+      }
       onEmployeeDeleted?.();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'スタッフの削除に失敗しました';
