@@ -45,12 +45,12 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    if (await isViewModeEnabled()) {
-      return NextResponse.json({ error: VIEW_MODE_ERROR_MESSAGE }, { status: 403 });
-    }
     const authResult = await getUserFromAuthHeader(req);
     if (!authResult.ok) {
       return authResult.response;
+    }
+    if (await isViewModeEnabled(authResult.role)) {
+      return NextResponse.json({ error: VIEW_MODE_ERROR_MESSAGE }, { status: 403 });
     }
 
     // owner role check using authUtils

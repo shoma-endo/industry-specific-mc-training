@@ -84,13 +84,17 @@ export async function createPromptTemplate(
   data: z.infer<typeof promptSchema>
 ): Promise<PromptActionResponse<PromptTemplate>> {
   try {
-    if (await isViewModeEnabled()) {
-      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
-    }
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
       return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+    }
+    const adminUser = adminCheck.user;
+    if (!adminUser) {
+      return { success: false, error: 'ユーザー情報が見つかりません' };
+    }
+    if (await isViewModeEnabled(adminUser.role)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     // データ検証
@@ -135,13 +139,17 @@ export async function updatePromptTemplate(
   data: z.infer<typeof promptSchema>
 ): Promise<PromptActionResponse<PromptTemplate>> {
   try {
-    if (await isViewModeEnabled()) {
-      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
-    }
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
       return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+    }
+    const adminUser = adminCheck.user;
+    if (!adminUser) {
+      return { success: false, error: 'ユーザー情報が見つかりません' };
+    }
+    if (await isViewModeEnabled(adminUser.role)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     // データ検証

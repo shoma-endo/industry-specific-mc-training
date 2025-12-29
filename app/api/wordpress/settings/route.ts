@@ -3,18 +3,16 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { isAdmin as isAdminRole } from '@/authUtils';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
-import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 const supabaseService = new SupabaseService();
 
 export async function POST(request: NextRequest) {
   try {
-    if (await isViewModeEnabled()) {
-      return NextResponse.json(
-        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
-        { status: 403 }
-      );
-    }
     const {
       wpType,
       wpSiteId,
@@ -48,6 +46,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Authentication failed' },
         { status: 401 }
+      );
+    }
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return NextResponse.json(
+        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
+        { status: 403 }
       );
     }
 

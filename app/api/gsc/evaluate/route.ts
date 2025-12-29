@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { gscEvaluationService } from '@/server/services/gscEvaluationService';
-import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 /**
  * GSC 評価実行 API（手動実行用）
@@ -14,12 +18,6 @@ import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mo
  */
 export async function POST(request: NextRequest) {
   try {
-    if (await isViewModeEnabled()) {
-      return NextResponse.json(
-        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
-        { status: 403 }
-      );
-    }
     const liffAccessToken = request.cookies.get('line_access_token')?.value;
     const refreshToken = request.cookies.get('line_refresh_token')?.value;
 
@@ -32,6 +30,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: authResult.error || 'ユーザー認証に失敗しました' },
         { status: 401 }
+      );
+    }
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return NextResponse.json(
+        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
+        { status: 403 }
       );
     }
 

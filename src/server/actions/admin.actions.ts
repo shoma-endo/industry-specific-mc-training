@@ -51,9 +51,6 @@ export const updateUserRole = async (
   newRole: UserRole
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    if (await isViewModeEnabled()) {
-      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
-    }
     const cookieStore = await cookies();
     const lineAccessToken = cookieStore.get('line_access_token')?.value;
 
@@ -65,6 +62,9 @@ export const updateUserRole = async (
     const roleResult = await checkUserRole(lineAccessToken);
     if (!roleResult.success) {
       return { success: false, error: roleResult.error || '権限の取得に失敗しました' };
+    }
+    if (await isViewModeEnabled(roleResult.role)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     // unavailableユーザーのサービス利用制限チェック

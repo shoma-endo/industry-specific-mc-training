@@ -12,15 +12,15 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
-    if (await isViewModeEnabled()) {
-      return NextResponse.json({ error: VIEW_MODE_ERROR_MESSAGE }, { status: 403 });
-    }
     const authResult = await getUserFromAuthHeader(req);
     if (!authResult.ok) {
       return authResult.response;
     }
 
     const { user } = authResult;
+    if (await isViewModeEnabled(authResult.role)) {
+      return NextResponse.json({ error: VIEW_MODE_ERROR_MESSAGE }, { status: 403 });
+    }
 
     if (!canInviteEmployee(user.role)) {
       return NextResponse.json({ error: '招待権限がありません' }, { status: 403 });
