@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { useState, useEffect } from 'react';
 import { updateUserFullName } from '@/server/actions/user.actions';
 import { Button } from '@/components/ui/button';
+import { Toaster } from '@/components/ui/sonner';
 import Image from 'next/image';
 import { Settings, Shield, List, UserPlus, UserX } from 'lucide-react';
 import Link from 'next/link';
@@ -147,8 +148,6 @@ const EmployeeInviteCard = ({ canInvite, isLoggedIn, isLoading }: EmployeeInvite
     </Card>
   );
 };
-
-import { Toaster } from '@/components/ui/sonner';
 
 interface OwnerEmployeeCardProps {
   isOwnerRole: boolean;
