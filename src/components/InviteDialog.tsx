@@ -63,6 +63,7 @@ export function InviteDialog({
     position: { top: 0, left: 0 },
   });
   const copyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const bubbleTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // ステータス取得
   const fetchStatus = useCallback(async () => {
@@ -150,6 +151,15 @@ export function InviteDialog({
     fetchStatus();
   }, [defaultOpenMode, isOpen, fetchStatus]);
 
+  // アンマウント時のクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (bubbleTimeoutRef.current) {
+        clearTimeout(bubbleTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const showBubble = useCallback((message: string) => {
     if (!copyButtonRef.current) return;
     const rect = copyButtonRef.current.getBoundingClientRect();
@@ -168,7 +178,12 @@ export function InviteDialog({
       position: { top: relativeTop, left: relativeLeft },
     });
 
-    setTimeout(() => {
+    // 前回のタイムアウトをクリア
+    if (bubbleTimeoutRef.current) {
+      clearTimeout(bubbleTimeoutRef.current);
+    }
+
+    bubbleTimeoutRef.current = setTimeout(() => {
       setBubble(prev => ({ ...prev, isVisible: false }));
     }, 3000);
   }, []);
