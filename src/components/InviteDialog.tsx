@@ -122,6 +122,12 @@ export function InviteDialog({
         console.error('Failed to fetch invitation status:', statusRes.status);
         setInvitation(null);
         toast.error('招待ステータスの取得に失敗しました');
+
+        // 500系エラー（サーバーエラー）の場合は処理を中断
+        if (statusRes.status >= 500) {
+          setLoading(false);
+          return;
+        }
       }
     } catch (error) {
       console.error('Failed to fetch status:', error);
@@ -301,42 +307,44 @@ export function InviteDialog({
                 </div>
               </div>
             ) : invitation ? (
-              <div className="space-y-4">
-                <div className="grid w-full gap-2">
-                  <Label htmlFor="link">招待リンク</Label>
-                  <div className="flex items-center gap-2">
-                    <Input id="link" defaultValue={invitation.url} readOnly className="flex-1" />
-                    <Button
-                      ref={copyButtonRef}
-                      size="icon"
-                      variant="outline"
-                      onClick={() => {
-                        window.navigator.clipboard
-                          .writeText(invitation.url)
-                          .then(() => {
-                            showBubble('✅ コピーしました');
-                          })
-                          .catch(error => {
-                            console.error('Failed to copy:', error);
-                            toast.error('コピーに失敗しました');
-                          });
-                      }}
-                    >
-                      <Copy size={16} />
-                    </Button>
+              <React.Fragment>
+                <div className="space-y-4">
+                  <div className="grid w-full gap-2">
+                    <Label htmlFor="link">招待リンク</Label>
+                    <div className="flex items-center gap-2">
+                      <Input id="link" defaultValue={invitation.url} readOnly className="flex-1" />
+                      <Button
+                        ref={copyButtonRef}
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          window.navigator.clipboard
+                            .writeText(invitation.url)
+                            .then(() => {
+                              showBubble('✅ コピーしました');
+                            })
+                            .catch(error => {
+                              console.error('Failed to copy:', error);
+                              toast.error('コピーに失敗しました');
+                            });
+                        }}
+                      >
+                        <Copy size={16} />
+                      </Button>
+                    </div>
                   </div>
-                <p className="text-xs text-gray-500">
-                  有効期限: {new Date(invitation.expiresAt).toLocaleString()}
+                  <p className="text-xs text-gray-500">
+                    有効期限: {new Date(invitation.expiresAt).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    招待リンクは第三者に共有しないでください。誤って共有した場合は、招待リンクを再発行してください。
+                    再発行すると、以前の招待リンクは無効になります。
+                  </p>
+                </div>
+                <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+                  招待リンクをスタッフの方に送ってください。
                 </p>
-                <p className="text-xs text-gray-500">
-                  招待リンクは第三者に共有しないでください。誤って共有した場合は、招待リンクを再発行してください。
-                  再発行すると、以前の招待リンクは無効になります。
-                </p>
-              </div>
-              <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
-                招待リンクをスタッフの方に送ってください。
-              </p>
-              </div>
+              </React.Fragment>
             ) : (
               <div className="flex flex-col items-center justify-center py-4 gap-4">
                 <p className="text-sm text-center text-gray-600">
