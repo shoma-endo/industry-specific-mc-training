@@ -1412,11 +1412,27 @@ export class SupabaseService {
   }
 
   async deleteUserFully(userId: string): Promise<SupabaseResult<void>> {
-    const { error } = await this.supabase.from('users').delete().eq('id', userId);
+    const { data, error } = await this.supabase
+      .rpc('delete_user_fully', {
+        p_user_id: userId,
+      })
+      .returns<Array<{ success: boolean; error: string | null }>>()
+      .single();
 
     if (error) {
-      return this.failure('ユーザーの完全削除に失敗しました', { error });
+      return this.failure('ユーザーの完全削除に失敗しました', {
+        error,
+        context: { userId },
+      });
     }
+
+    if (!data?.success) {
+      return this.failure(data?.error ?? 'ユーザーの完全削除に失敗しました', {
+        error: new Error(data?.error ?? 'Failed to delete user fully'),
+        context: { userId },
+      });
+    }
+
     return this.success(undefined);
   }
 
