@@ -38,6 +38,9 @@ export const saveBrief = async (
     if (auth.error || !auth.userId) {
       return { success: false, error: auth.error || '認証エラー' };
     }
+    if (auth.viewMode) {
+      return { success: false, error: '閲覧モードでは操作できません' };
+    }
     if (isOwner(auth.userDetails?.role ?? null)) {
       return { success: false, error: '閲覧権限では利用できません' };
     }
@@ -66,12 +69,14 @@ export const getBrief = async (
   liffAccessToken: string
 ): Promise<ActionResult<BriefInput | null>> => {
   try {
+    const cookieStore = await cookies();
+    const isViewMode = cookieStore.get('owner_view_mode')?.value === '1';
     // 認証
     const auth = await authMiddleware(liffAccessToken);
     if (auth.error || !auth.userId) {
       return { success: false, error: auth.error || '認証エラー' };
     }
-    if (isOwner(auth.userDetails?.role ?? null)) {
+    if (isOwner(auth.userDetails?.role ?? null) && !isViewMode) {
       return { success: false, error: '閲覧権限では利用できません' };
     }
 

@@ -20,6 +20,7 @@ export interface LiffContextType {
   isLoading: boolean;
   profile: LiffProfile | null;
   user?: import('@/types/user').User | null;
+  isOwnerViewMode: boolean;
   login: () => void;
   logout: () => void;
   liffObject: unknown;

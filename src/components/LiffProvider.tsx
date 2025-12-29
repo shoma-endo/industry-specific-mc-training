@@ -12,6 +12,7 @@ import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Footer } from '@/components/Footer';
+import { ViewModeBanner } from '@/components/ViewModeBanner';
 import type { LiffContextType } from '@/types/components';
 import type { User } from '@/types/user';
 import { usePathname, useRouter } from 'next/navigation';
@@ -44,8 +45,22 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
   const [syncedWithServer, setSyncedWithServer] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isOwnerViewMode, setIsOwnerViewMode] = useState(false);
+  const [viewModeResolved, setViewModeResolved] = useState(false);
   const [hasServerSession, setHasServerSession] = useState<boolean | null>(null);
   const hasRequestedLiffLoginRef = useRef(false);
+  const viewModeRetryRef = useRef(0);
+  function getOwnerViewModeCookie() {
+    if (typeof document === 'undefined') {
+      return false;
+    }
+    const cookies = document.cookie.split(';').map(cookie => cookie.trim());
+    const hasViewMode = cookies.some(cookie => cookie.startsWith('owner_view_mode=1'));
+    const hasViewUser = cookies.some(cookie =>
+      cookie.startsWith('owner_view_mode_employee_id=')
+    );
+    return hasViewMode && hasViewUser;
+  }
 
   // ✅ 最新の値を参照するためのRef
   const liffObjectRef = useRef(liffObject);
@@ -106,11 +121,15 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
             // 最低限の情報のみ
             setUser({ id: data.userId } as User);
           }
+          setIsOwnerViewMode(Boolean(data?.viewMode));
+          setViewModeResolved(true);
         }
-
         setSyncedWithServer(true);
       } catch (error) {
         console.error('Failed to sync user ID with server:', error);
+        if (!getOwnerViewModeCookie()) {
+          setViewModeResolved(true);
+        }
       }
     }
   }, [initialize, isLoggedIn, profile, syncedWithServer, getAccessToken]);
@@ -132,9 +151,14 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         } else if (data && data.userId) {
           setUser({ id: data.userId } as User);
         }
+        setIsOwnerViewMode(Boolean(data?.viewMode));
+        setViewModeResolved(true);
       }
     } catch (error) {
       console.error('Failed to refresh user:', error);
+      if (!getOwnerViewModeCookie()) {
+        setViewModeResolved(true);
+      }
     }
   }, [getAccessToken]);
 
@@ -145,6 +169,31 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
       setIsInitialized(true);
     }
   }, [isLoggedIn, profile, isInitialized, syncWithServerIfNeeded]);
+
+  useEffect(() => {
+    const cookieViewMode = getOwnerViewModeCookie();
+    if (!cookieViewMode) {
+      viewModeRetryRef.current = 0;
+      if (!viewModeResolved) {
+        setViewModeResolved(true);
+      }
+      return;
+    }
+    if (viewModeResolved) {
+      viewModeRetryRef.current = 0;
+      return;
+    }
+    if (viewModeRetryRef.current >= 3) {
+      setViewModeResolved(true);
+      return;
+    }
+    viewModeRetryRef.current += 1;
+    const retryDelayMs = 300 * viewModeRetryRef.current;
+    const retryTimer = setTimeout(() => {
+      refreshUser();
+    }, retryDelayMs);
+    return () => clearTimeout(retryTimer);
+  }, [refreshUser, viewModeResolved]);
 
   // 公開パスの定義 - ルートを除外
   const publicPaths = ['/home', '/privacy', '/login', '/invite'];
@@ -218,10 +267,24 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     if (!pathname) {
       return;
     }
-    if (isOwner(user?.role ?? null) && pathname !== '/') {
+    const cookieViewMode = getOwnerViewModeCookie();
+    if (cookieViewMode && !isOwnerViewMode) {
+      refreshUser();
+    }
+    if (!viewModeResolved) {
+      return;
+    }
+    if (isOwner(user?.role ?? null) && pathname !== '/' && !isOwnerViewMode && !cookieViewMode) {
       router.replace('/');
     }
-  }, [pathname, router, user?.role]);
+  }, [
+    isOwnerViewMode,
+    pathname,
+    refreshUser,
+    router,
+    user?.role,
+    viewModeResolved,
+  ]);
 
   useEffect(() => {
     if (
@@ -270,6 +333,16 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     );
   }
 
+  if (!isPublicPath && getOwnerViewModeCookie() && !viewModeResolved) {
+    return (
+      <Card className="max-w-md mx-auto mt-8">
+        <CardContent className="flex justify-center items-center p-8">
+          <p>閲覧モードを準備中...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // 🚨 修正: 未ログイン時の強制ログイン画面表示を削除
   // Middlewareがログイン状態を保証しているため、ここではチェックしない
   // これにより、サーバーサイドログイン済みだがLIFF SDK未ログインの場合もページを表示できる
@@ -302,6 +375,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         isLoading,
         profile,
         user,
+        isOwnerViewMode,
         login,
         logout,
         liffObject,
@@ -310,10 +384,11 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
       }}
     >
       <div className="flex flex-col min-h-screen">
+        {isOwnerViewMode && <ViewModeBanner />}
         {/* 公開ページの場合はpb-20 (フッター分の余白) を適用しない */}
         <main className={`flex-1 ${isPublicPath ? '' : 'pb-20'}`}>{children}</main>
-        {/* 公開ページ以外でのみFooterを表示 */}
-        {!isPublicPath && !isOwner(user?.role ?? null) && <Footer />}
+        {/* 公開ページ以外でのみFooterを表示（閲覧モード時は表示する） */}
+        {!isPublicPath && (!isOwner(user?.role ?? null) || isOwnerViewMode) && <Footer />}
       </div>
     </LiffContext.Provider>
   );

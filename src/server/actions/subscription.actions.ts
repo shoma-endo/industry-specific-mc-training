@@ -29,7 +29,14 @@ async function ensureAuthorizedUser(
     };
   }
 
-  const user = await userService.getUserFromLiffToken(liffAccessToken);
+  if (authResult.viewMode) {
+    return {
+      success: false,
+      error: '閲覧モードでは操作できません',
+    };
+  }
+
+  const user = authResult.userDetails ?? (await userService.getUserFromLiffToken(liffAccessToken));
 
   if (user && isUnavailable(user.role)) {
     return {
@@ -72,7 +79,7 @@ export async function getUserSubscription(liffAccessToken: string) {
     }
 
     // unavailableユーザーのサービス利用制限チェック
-    const user = await userService.getUserFromLiffToken(liffAccessToken);
+    const user = authResult.userDetails ?? (await userService.getUserFromLiffToken(liffAccessToken));
     if (user && isUnavailable(user.role)) {
       return {
         success: false,

@@ -28,7 +28,6 @@ import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.action
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
-import { isOwner } from '@/authUtils';
 
 const FULL_MARKDOWN_PREFIX = '"full_markdown":"';
 const TITLE_META_SYSTEM_PROMPT =
@@ -320,6 +319,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     initialStep,
   } = ctx;
   const router = useRouter();
+  const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
 
   const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
@@ -388,12 +388,11 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     hasDetectedBlogStep &&
     (!!lastAssistantMessage || hasInitialStepButNoMessages);
 
-  const currentUserRole = subscription.subscriptionStatus?.userRole;
-  const isOwnerUser = isOwner(currentUserRole || null);
+  const isReadOnly = isOwnerViewMode;
 
   return (
     <>
-      {isOwnerUser && <ViewModeBanner />}
+      {isReadOnly && <ViewModeBanner />}
       {/* デスクトップサイドバー */}
       {!isMobile && (
         <SessionSidebar
@@ -406,7 +405,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           searchResults={chatSession.state.searchResults}
           searchError={chatSession.state.searchError}
           isSearching={chatSession.state.isSearching}
-          disableActions={isOwnerUser}
+          disableActions={isReadOnly}
         />
       )}
 
@@ -444,7 +443,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               searchResults={chatSession.state.searchResults}
               searchError={chatSession.state.searchError}
               isSearching={chatSession.state.isSearching}
-              disableActions={isOwnerUser}
+              disableActions={isReadOnly}
             />
           </SheetContent>
         </Sheet>
@@ -484,7 +483,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
         <InputArea
           onSendMessage={onSendMessage}
-          disabled={chatSession.state.isLoading || ui.annotation.loading || isOwnerUser}
+          disabled={chatSession.state.isLoading || ui.annotation.loading || isReadOnly}
           shouldShowStepActionBar={shouldShowStepActionBar}
           stepActionBarRef={stepActionBarRef}
           displayStep={displayStep}
@@ -552,7 +551,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   isMobile = false,
   initialStep = null,
 }) => {
-  const { getAccessToken } = useLiffContext();
+  const { getAccessToken, isOwnerViewMode } = useLiffContext();
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
@@ -1170,6 +1169,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const handleCanvasSelectionEdit = useCallback(
     async (payload: CanvasSelectionEditPayload): Promise<CanvasSelectionEditResult> => {
+      if (isOwnerViewMode) {
+        throw new Error('閲覧モードでは編集できません');
+      }
       if (canvasEditInFlightRef.current) {
         throw new Error('他のAI編集が進行中です。完了をお待ちください。');
       }
@@ -1423,6 +1425,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       chatSession.state.currentSessionId,
       getAccessToken,
       handleModelChange,
+      isOwnerViewMode,
       latestBlogStep,
       resolvedCanvasStep,
       setAnnotationData,
@@ -1488,7 +1491,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           }}
           content={canvasContent}
           isVisible={canvasPanelOpen}
-          onSelectionEdit={handleCanvasSelectionEdit}
+          {...(isOwnerViewMode ? {} : { onSelectionEdit: handleCanvasSelectionEdit })}
           versions={canvasVersionsWithMeta}
           activeVersionId={activeCanvasVersion?.id ?? null}
           onVersionSelect={handleCanvasVersionSelect}

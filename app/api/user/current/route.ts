@@ -6,6 +6,7 @@ import {
   clearAuthCookies,
   setAuthCookies,
 } from '@/server/middleware/auth.middleware';
+import { userService } from '@/server/services/userService';
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -40,20 +41,60 @@ export async function GET() {
       return NextResponse.json({ userId: null, user: null, error: authResult.error });
     }
 
-    const user = authResult.userDetails;
+    let user = authResult.userDetails;
+    if (authResult.viewMode && authResult.viewModeUserId) {
+      const actorUserId = authResult.actorUserId;
+      const actorRole = authResult.actorRole ?? null;
+
+      if (!actorUserId || actorRole !== 'owner') {
+        return NextResponse.json({
+          userId: null,
+          user: null,
+          error: 'Unauthorized to use view mode',
+        });
+      }
+
+      try {
+        const viewUser = await userService.getUserById(authResult.viewModeUserId);
+        if (!viewUser) {
+          return NextResponse.json({
+            userId: null,
+            user: null,
+            error: 'View mode user not found',
+          });
+        }
+        if (viewUser.ownerUserId !== actorUserId) {
+          return NextResponse.json({
+            userId: null,
+            user: null,
+            error: 'Unauthorized to view user',
+          });
+        }
+        user = viewUser;
+      } catch (error) {
+        console.error('[User Current API] Failed to fetch view user:', error);
+        return NextResponse.json({
+          userId: null,
+          user: null,
+          error: 'Failed to fetch view mode user',
+        });
+      }
+    }
 
     // レスポンスを一度だけ作成（最小限のユーザー情報を含める）
     const response = NextResponse.json({
       userId: user?.id ?? null,
-      user: user
-        ? {
-            id: user.id,
-            fullName: user.fullName ?? null,
-            role: user.role,
-            lineDisplayName: user.lineDisplayName,
-            linePictureUrl: user.linePictureUrl ?? null,
-          }
-        : null,
+          user: user
+            ? {
+                id: user.id,
+                fullName: user.fullName ?? null,
+                role: user.role,
+                lineUserId: user.lineUserId,
+                lineDisplayName: user.lineDisplayName,
+                linePictureUrl: user.linePictureUrl ?? null,
+              }
+            : null,
+      viewMode: Boolean(authResult.viewMode),
       tokenRefreshed: Boolean(authResult.newAccessToken),
     });
 

@@ -8,6 +8,7 @@ import { ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import SessionListContent from '@/components/SessionListContent';
 import { DeleteChatDialog } from '@/components/DeleteChatDialog';
+import { useLiffContext } from '@/components/LiffProvider';
 
 interface SessionSidebarProps {
   sessions: ChatSession[];
@@ -34,12 +35,14 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   isSearching,
   disableActions,
 }) => {
+  const { isOwnerViewMode } = useLiffContext();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
   const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
   const sessionListRef = useRef<HTMLDivElement>(null);
+  const isReadOnly = Boolean(isOwnerViewMode || disableActions);
 
   const handleSessionClick = async (sessionId: string) => {
     // ✅ 親コンポーネント（ChatLayout）が初期化を担当
@@ -51,16 +54,19 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   };
 
   const handleStartNewChat = () => {
+    if (isReadOnly) return;
     actions.startNewSession();
   };
 
   const handleDeleteClick = (session: ChatSession, e: React.MouseEvent) => {
+    if (isReadOnly) return;
     e.stopPropagation();
     setSessionToDelete(session);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
+    if (isReadOnly) return;
     if (!sessionToDelete) return;
 
     setIsDeletingSession(true);
@@ -138,7 +144,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
     sessionListRef,
     onToggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
     showToggleButton: !isMobile,
-    disableActions: !!disableActions,
+    disableActions: isReadOnly,
   };
 
   const renderSearchResultList = () => {
