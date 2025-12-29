@@ -82,7 +82,7 @@ begin
 
   get diagnostics v_row_count = row_count;
   if v_row_count = 0 then
-    raise exception 'Failed to update owner role';
+    raise exception 'Failed to update owner timestamp';
   end if;
 
   return query select true, null::text;
