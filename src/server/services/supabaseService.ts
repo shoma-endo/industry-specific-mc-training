@@ -1357,6 +1357,35 @@ export class SupabaseService {
     return this.success(undefined);
   }
 
+  async deleteEmployeeAndRestoreOwner(
+    employeeId: string,
+    ownerId: string
+  ): Promise<SupabaseResult<void>> {
+    const { data, error } = await this.supabase
+      .rpc('delete_employee_and_restore_owner', {
+        p_employee_id: employeeId,
+        p_owner_id: ownerId,
+      })
+      .returns<Array<{ success: boolean; error: string | null }>>()
+      .single();
+
+    if (error) {
+      return this.failure('スタッフ削除とオーナー復帰に失敗しました', {
+        error,
+        context: { employeeId, ownerId },
+      });
+    }
+
+    if (!data?.success) {
+      return this.failure(data?.error ?? 'スタッフ削除とオーナー復帰に失敗しました', {
+        error: new Error(data?.error ?? 'Failed to delete employee and restore owner'),
+        context: { employeeId, ownerId },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
   async getEmployeeInvitationByOwnerId(
     ownerId: string
   ): Promise<SupabaseResult<EmployeeInvitation | null>> {
