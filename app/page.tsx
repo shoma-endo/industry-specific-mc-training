@@ -32,7 +32,7 @@ const ProfileDisplay = () => {
 
   const displayName = isOwnerViewMode ? user?.lineDisplayName : profile?.displayName;
   const pictureUrl = isOwnerViewMode ? user?.linePictureUrl : profile?.pictureUrl;
-  const userId = isOwnerViewMode ? user?.lineUserId ?? user?.id : profile?.userId;
+  const userId = isOwnerViewMode ? (user?.lineUserId ?? user?.id) : profile?.userId;
 
   if (!displayName || !userId) {
     return null;
@@ -156,11 +156,7 @@ interface OwnerEmployeeCardProps {
   isLoading: boolean;
 }
 
-const OwnerEmployeeCard = ({
-  isOwnerRole,
-  isLoggedIn,
-  isLoading,
-}: OwnerEmployeeCardProps) => {
+const OwnerEmployeeCard = ({ isOwnerRole, isLoggedIn, isLoading }: OwnerEmployeeCardProps) => {
   const { getAccessToken } = useLiffContext();
   const router = useRouter();
   const [employee, setEmployee] = useState<EmployeeInfo | null>(null);
@@ -227,7 +223,7 @@ const OwnerEmployeeCard = ({
               <button
                 type="button"
                 onClick={enterViewMode}
-                className="w-full text-left p-4 bg-white rounded-lg flex items-center gap-3 hover:bg-amber-50 transition-colors"
+                className="w-full text-left p-4 bg-white rounded-lg flex items-center gap-3 hover:bg-amber-100 transition-colors"
                 aria-label="スタッフ画面を閲覧"
               >
                 {employee.linePictureUrl ? (
