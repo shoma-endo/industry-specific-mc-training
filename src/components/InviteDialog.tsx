@@ -63,7 +63,7 @@ export function InviteDialog({
     position: { top: 0, left: 0 },
   });
   const copyButtonRef = useRef<HTMLButtonElement | null>(null);
-  const bubbleTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const bubbleTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // ステータス取得
   const fetchStatus = useCallback(async () => {
