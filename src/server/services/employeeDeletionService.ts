@@ -58,12 +58,24 @@ export class EmployeeDeletionService {
       throw error;
     }
 
-    // あなたの状態を一括更新（ロールをpaidに戻し、owner_user_idをクリア）
+    // あなたの状態を一括更新（元のロールに戻し、owner_user_idをクリア）
     // 注意: 削除が成功した後に更新が失敗した場合、データ不整合が発生する可能性がある
     // 将来的にはPostgreSQLのトランザクション（RPC関数）を使用することを検討
+    const ownerResult = await this.supabaseService.getUserById(ownerId);
+    if (!ownerResult.success) {
+      console.error('[EmployeeDeletionService] オーナー情報の取得に失敗:', {
+        ownerId,
+        error: ownerResult.error,
+      });
+      throw new Error('オーナー情報の取得に失敗しました');
+    }
+    const owner = ownerResult.data;
+    const fallbackRole = 'paid';
+    const restoredRole = owner?.owner_previous_role ?? fallbackRole;
     const result = await this.supabaseService.updateUserById(ownerId, {
-      role: 'paid',
+      role: restoredRole,
       owner_user_id: null,
+      owner_previous_role: null,
       updated_at: Date.now(),
     });
 

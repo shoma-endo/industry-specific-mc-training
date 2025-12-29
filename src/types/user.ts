@@ -39,6 +39,7 @@ export interface User {
   // 権限管理
   role: UserRole; // ユーザーロール（trial: お試し, paid: 有料契約, admin: 管理者, unavailable: サービス利用不可, owner: スタッフを持つあなた）
   ownerUserId?: string | null | undefined; // スタッフが紐づくあなたのID（あなた自身はNULL）
+  ownerPreviousRole?: UserRole | null | undefined; // owner化前のロール（復帰用）
 }
 
 /**
@@ -74,6 +75,7 @@ export interface DbUser {
 
   role: UserRole;
   owner_user_id?: string | null | undefined;
+  owner_previous_role?: UserRole | null | undefined;
 }
 
 /**
@@ -95,6 +97,7 @@ export function toDbUser(user: User): DbUser {
 
     role: user.role,
     owner_user_id: user.ownerUserId,
+    owner_previous_role: user.ownerPreviousRole ?? null,
   };
 }
 
@@ -114,6 +117,7 @@ export function toUser(dbUser: DbUser): User {
 
     role: dbUser.role,
     ownerUserId: dbUser.owner_user_id,
+    ownerPreviousRole: dbUser.owner_previous_role ?? null,
   };
 }
 

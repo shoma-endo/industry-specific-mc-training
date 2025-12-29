@@ -220,6 +220,10 @@ const withTokens = (
       return baseResult;
     }
 
+    if (user.role === 'owner') {
+      return baseResult;
+    }
+
     const shouldCheckSubscription = !skipSubscriptionCheck && env.STRIPE_ENABLED === 'true';
 
     if (!shouldCheckSubscription) {
