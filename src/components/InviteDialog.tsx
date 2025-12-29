@@ -281,6 +281,8 @@ export function InviteDialog({
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
+                aria-live="polite"
+                role="status"
               >
                 {bubble.message}
               </div>
