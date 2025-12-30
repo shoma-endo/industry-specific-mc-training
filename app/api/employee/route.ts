@@ -35,7 +35,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       hasEmployee: false,
-      employee: null,
     });
   } catch (error) {
     console.error('Get Employee API Error:', error);
