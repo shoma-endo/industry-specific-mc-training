@@ -114,7 +114,12 @@ export function InviteDialog({
       });
       if (statusRes.ok) {
         const statusData = await statusRes.json();
-        if (statusData?.hasActiveInvitation && statusData?.invitation) {
+        if (
+          statusData?.hasActiveInvitation &&
+          statusData?.invitation?.token &&
+          statusData?.invitation?.expiresAt &&
+          statusData?.invitation?.url
+        ) {
           setInvitation({
             token: statusData.invitation.token,
             expiresAt: statusData.invitation.expiresAt,
