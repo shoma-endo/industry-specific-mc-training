@@ -79,13 +79,18 @@ export function InviteDialog({
       });
       if (empRes.ok) {
         const empData = await empRes.json();
-        if (empData.hasEmployee) {
+        if (empData?.hasEmployee && empData?.employee) {
           setEmployee(empData.employee);
           setInvitation(null);
           setLoading(false);
           return;
-        } else {
+        } else if (empData?.hasEmployee === false) {
           setEmployee(null);
+        } else {
+          console.error('Unexpected employee response structure:', empData);
+          toast.error('スタッフ情報の取得に失敗しました');
+          setLoading(false);
+          return;
         }
       } else if (empRes.status !== 404) {
         // 404以外のエラーは報告
@@ -109,13 +114,17 @@ export function InviteDialog({
       });
       if (statusRes.ok) {
         const statusData = await statusRes.json();
-        if (statusData.hasActiveInvitation && statusData.invitation) {
+        if (statusData?.hasActiveInvitation && statusData?.invitation) {
           setInvitation({
             token: statusData.invitation.token,
             expiresAt: statusData.invitation.expiresAt,
             url: statusData.invitation.url,
           });
+        } else if (statusData?.hasActiveInvitation === false) {
+          setInvitation(null);
         } else {
+          console.error('Unexpected invitation status response structure:', statusData);
+          toast.error('招待ステータスの取得に失敗しました');
           setInvitation(null);
         }
       } else if (statusRes.status !== 404) {
