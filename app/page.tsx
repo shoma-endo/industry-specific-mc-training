@@ -260,7 +260,7 @@ const OwnerEmployeeCard = ({ isOwnerRole, isLoggedIn, isLoading }: OwnerEmployee
             </div>
           ) : (
             <p className="text-sm text-gray-700 text-center">
-              現在、スタッフは登録されていません。
+              現在スタッフは登録されていません。
             </p>
           )}
         </CardContent>

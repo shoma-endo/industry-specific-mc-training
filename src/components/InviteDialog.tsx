@@ -241,7 +241,9 @@ export function InviteDialog({
         await refreshUser();
       } catch (error) {
         console.error('Failed to refresh user after deletion:', error);
-        toast.warning('スタッフの削除は完了しましたが、画面の更新に失敗しました。ページを再読み込みしてください。');
+        toast.warning(
+          'スタッフの削除は完了しましたが、画面の更新に失敗しました。ページを再読み込みしてください。'
+        );
       }
       onEmployeeDeleted?.();
     } catch (error: unknown) {
@@ -362,21 +364,21 @@ export function InviteDialog({
                   <p className="text-xs text-gray-500">
                     有効期限: {new Date(invitation.expiresAt).toLocaleString()}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    招待リンクは第三者に共有しないでください。誤って共有した場合は、招待リンクを再発行してください。
-                    再発行すると、以前の招待リンクは無効になります。
-                  </p>
                 </div>
-                <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+                <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded mt-4">
                   招待リンクをスタッフの方に送ってください。
+                </p>
+                <p className="text-xs text-gray-500 mt-3">
+                  招待リンクは第三者に共有しないでください。誤って共有した場合は、招待リンクを再発行してください。
+                  再発行すると、以前の招待リンクは無効になります。
                 </p>
               </React.Fragment>
             ) : (
               <div className="flex flex-col items-center justify-center py-4 gap-4">
                 <p className="text-sm text-center text-gray-600">
-                  現在、スタッフは登録されていません。
+                  現在スタッフは登録されていません。
                   <br />
-                  招待リンクを発行して、スタッフを招待しましょう。
+                  招待リンクを発行してスタッフを招待しましょう。
                 </p>
                 <Button
                   onClick={createInvitation}
