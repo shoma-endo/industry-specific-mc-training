@@ -3,6 +3,7 @@
 import React from 'react';
 import { Lock, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { useLiffContext } from '@/components/LiffProvider';
 import { cn } from '@/lib/utils';
 
@@ -25,9 +26,17 @@ export function ViewModeBanner() {
   const handleExitViewMode = async () => {
     document.cookie = 'owner_view_mode=; path=/; max-age=0';
     document.cookie = 'owner_view_mode_employee_id=; path=/; max-age=0';
-    await refreshUser();
-    router.replace('/');
-    router.refresh();
+
+    try {
+      await refreshUser();
+      router.replace('/');
+    } catch (error) {
+      console.error('Failed to exit view mode:', error);
+      toast.warning(
+        '閲覧モードの終了中にエラーが発生しましたが、画面を戻します。問題が続く場合はページを再読み込みしてください。'
+      );
+      router.replace('/');
+    }
   };
 
   return (
