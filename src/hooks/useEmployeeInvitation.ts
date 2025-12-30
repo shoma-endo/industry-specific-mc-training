@@ -1,18 +1,40 @@
+import { z } from 'zod';
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 
-export interface EmployeeInfo {
-  id: string;
-  lineDisplayName: string;
-  linePictureUrl?: string;
-  createdAt: number;
-}
+// Zodスキーマ定義
+const employeeInfoSchema = z.object({
+  id: z.string(),
+  lineDisplayName: z.string(),
+  linePictureUrl: z.string().optional(),
+  createdAt: z.number(),
+});
 
-export interface InvitationInfo {
-  token: string;
-  expiresAt: number;
-  url: string;
-}
+const employeeResponseSchema = z.object({
+  hasEmployee: z.boolean(),
+  employee: employeeInfoSchema.optional(),
+});
+
+const invitationInfoSchema = z.object({
+  token: z.string(),
+  expiresAt: z.number(),
+  url: z.string(),
+});
+
+const invitationStatusSchema = z.object({
+  hasActiveInvitation: z.boolean(),
+  invitation: invitationInfoSchema.optional(),
+});
+
+const createInvitationResponseSchema = z.object({
+  token: z.string(),
+  expiresAt: z.number(),
+  invitationUrl: z.string(),
+});
+
+// Zodスキーマから型を推論
+export type EmployeeInfo = z.infer<typeof employeeInfoSchema>;
+export type InvitationInfo = z.infer<typeof invitationInfoSchema>;
 
 interface UseEmployeeInvitationOptions {
   getAccessToken: () => Promise<string>;
@@ -32,12 +54,12 @@ interface UseEmployeeInvitationResult {
 type FetchEmployeeInfoResult =
   | { hasEmployee: true; employee: EmployeeInfo }
   | { hasEmployee: false }
-  | { error: true; shouldAbort?: true };
+  | { error: true };
 
 type FetchInvitationStatusResult =
   | { hasActiveInvitation: true; invitation: InvitationInfo }
   | { hasActiveInvitation: false }
-  | { error: true; shouldAbort?: true };
+  | { error: true };
 
 /**
  * 従業員情報を取得するヘルパー関数
@@ -52,19 +74,20 @@ const fetchEmployeeInfo = async (accessToken: string): Promise<FetchEmployeeInfo
 
   if (empRes.ok) {
     const empData = await empRes.json();
-    if (empData?.hasEmployee && empData?.employee) {
-      return { hasEmployee: true, employee: empData.employee };
-    } else if (empData?.hasEmployee === false) {
-      return { hasEmployee: false };
-    } else {
-      console.error('Unexpected employee response structure:', empData);
+    const parsed = employeeResponseSchema.safeParse(empData);
+    if (!parsed.success) {
+      console.error('Invalid employee response:', parsed.error);
       toast.error('スタッフ情報の取得に失敗しました');
       return { error: true };
     }
+    if (parsed.data.hasEmployee && parsed.data.employee) {
+      return { hasEmployee: true, employee: parsed.data.employee };
+    }
+    return { hasEmployee: false };
   } else if (empRes.status >= 500) {
     console.error('Failed to fetch employee:', empRes.status);
     toast.error('スタッフ情報の取得に失敗しました');
-    return { error: true, shouldAbort: true };
+    return { error: true };
   } else if (empRes.status !== 404) {
     console.error('Failed to fetch employee:', empRes.status);
     toast.error('スタッフ情報の取得に失敗しました');
@@ -86,31 +109,23 @@ const fetchInvitationStatus = async (accessToken: string): Promise<FetchInvitati
 
   if (statusRes.ok) {
     const statusData = await statusRes.json();
-    if (
-      statusData?.hasActiveInvitation &&
-      statusData?.invitation?.token &&
-      statusData?.invitation?.expiresAt &&
-      statusData?.invitation?.url
-    ) {
-      return {
-        hasActiveInvitation: true,
-        invitation: {
-          token: statusData.invitation.token,
-          expiresAt: statusData.invitation.expiresAt,
-          url: statusData.invitation.url,
-        },
-      };
-    } else if (statusData?.hasActiveInvitation === false) {
-      return { hasActiveInvitation: false };
-    } else {
-      console.error('Unexpected invitation status response structure:', statusData);
+    const parsed = invitationStatusSchema.safeParse(statusData);
+    if (!parsed.success) {
+      console.error('Invalid invitation status response:', parsed.error);
       toast.error('招待ステータスの取得に失敗しました');
       return { error: true };
     }
+    if (parsed.data.hasActiveInvitation && parsed.data.invitation) {
+      return {
+        hasActiveInvitation: true,
+        invitation: parsed.data.invitation,
+      };
+    }
+    return { hasActiveInvitation: false };
   } else if (statusRes.status >= 500) {
     console.error('Failed to fetch invitation status:', statusRes.status);
     toast.error('招待ステータスの取得に失敗しました');
-    return { error: true, shouldAbort: true };
+    return { error: true };
   } else if (statusRes.status !== 404) {
     console.error('Failed to fetch invitation status:', statusRes.status);
     toast.error('招待ステータスの取得に失敗しました');
@@ -136,10 +151,6 @@ export function useEmployeeInvitation({
       // スタッフ情報取得
       const employeeResult = await fetchEmployeeInfo(accessToken);
       if ('error' in employeeResult && employeeResult.error) {
-        if (employeeResult.shouldAbort) {
-          setLoading(false);
-          return;
-        }
         setLoading(false);
         return;
       }
@@ -159,10 +170,8 @@ export function useEmployeeInvitation({
       setEmployee(null);
       const invitationResult = await fetchInvitationStatus(accessToken);
       if ('error' in invitationResult && invitationResult.error) {
-        if (invitationResult.shouldAbort) {
-          setLoading(false);
-          return;
-        }
+        setLoading(false);
+        return;
       }
 
       if (
@@ -199,16 +208,16 @@ export function useEmployeeInvitation({
       }
 
       const data = await res.json();
-
-      if (!data.token || !data.expiresAt || !data.invitationUrl) {
-        console.error('Invalid invitation response:', data);
+      const parsed = createInvitationResponseSchema.safeParse(data);
+      if (!parsed.success) {
+        console.error('Invalid invitation response:', parsed.error);
         throw new Error('招待リンクのレスポンスが不正です');
       }
 
       setInvitation({
-        token: data.token,
-        expiresAt: data.expiresAt,
-        url: data.invitationUrl,
+        token: parsed.data.token,
+        expiresAt: parsed.data.expiresAt,
+        url: parsed.data.invitationUrl,
       });
       toast.success('招待リンクを発行しました');
     } catch (error: unknown) {

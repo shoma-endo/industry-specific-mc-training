@@ -39,7 +39,7 @@ export function InviteDialog({
     useEmployeeInvitation({
       getAccessToken,
       refreshUser,
-      ...(onEmployeeDeleted && { onEmployeeDeleted }),
+      ...(onEmployeeDeleted ? { onEmployeeDeleted } : {}),
     });
 
   const { bubble, copyButtonRef, showBubble } = useCopyBubble();
