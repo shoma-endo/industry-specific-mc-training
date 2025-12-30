@@ -220,6 +220,11 @@ export function InviteDialog({
 
       const data = await res.json();
 
+      if (!data.token || !data.expiresAt || !data.invitationUrl) {
+        console.error('Invalid invitation response:', data);
+        throw new Error('招待リンクのレスポンスが不正です');
+      }
+
       setInvitation({
         token: data.token,
         expiresAt: data.expiresAt,
