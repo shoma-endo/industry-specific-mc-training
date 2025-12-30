@@ -19,7 +19,6 @@ begin
     delete from chat_messages where user_id = p_user_id::text;
     delete from chat_sessions where user_id = p_user_id::text;
     delete from content_annotations where user_id = p_user_id::text;
-    delete from content_categories where user_id = p_user_id::text;
     delete from briefs where user_id = p_user_id::text;
 
     delete from users where id = p_user_id;
