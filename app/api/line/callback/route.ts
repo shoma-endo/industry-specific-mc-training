@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/env'; // env モジュールをインポート
 import { cookies } from 'next/headers';
+import { userService } from '@/server/services/userService';
 
 // Node.jsランタイムを強制（Vercelエッジ環境でのCookie永続化問題を回避）
 export const runtime = 'nodejs';
@@ -27,10 +28,7 @@ export async function GET(request: NextRequest) {
   // nonce検証（使い捨てトークン確認）
   if (!savedNonce) {
     console.error('Missing nonce in cookies');
-    return NextResponse.json(
-      { error: 'Invalid OAuth session' },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: 'Invalid OAuth session' }, { status: 403 });
   }
 
   // 使用済みのstate/nonceを即座に削除（再利用攻撃防止）
@@ -69,9 +67,34 @@ export async function GET(request: NextRequest) {
     // 例: データベースにユーザー情報と紐付けて保存、セッションストアに保存など。
     // Cookie に保存する場合、httpOnly, secure, sameSite 属性を適切に設定してください。
 
+    // ユーザー情報の取得・作成 (Invitation処理のため)
+    let invToken: string | undefined;
+    try {
+      const currentUser = await userService.getUserFromLiffToken(tokenData.access_token);
+
+      // 招待Cookieの確認と処理
+      invToken = cookieStore.get('employee_invitation_token')?.value;
+      if (currentUser && invToken) {
+        console.log('Processing invitation token:', invToken);
+        const acceptResult = await userService.acceptEmployeeInvitation(currentUser.id, invToken);
+        if (!acceptResult.success) {
+          console.error('Failed to accept invitation:', acceptResult.error);
+        } else {
+          console.log('Invitation accepted successfully');
+        }
+      }
+    } catch (e) {
+      console.error('Error in user creation/invitation processing:', e);
+    }
+
     // ユーザーを認証後のページ（例: ホーム画面）にリダイレクト
     const redirectUrl = new URL('/', env.NEXT_PUBLIC_SITE_URL);
     const res = NextResponse.redirect(redirectUrl);
+
+    // 招待Cookieを削除
+    if (invToken) {
+      res.cookies.delete('employee_invitation_token');
+    }
 
     // Cookieにトークンを保存 (httpOnlyでJSからのアクセスを防ぐ)
     // Secure属性は HTTPS でのみ送信されるようにするため、本番環境では true を推奨

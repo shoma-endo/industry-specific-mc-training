@@ -23,12 +23,15 @@ import {
   type WordPressConnectionStatus,
 } from '@/server/actions/wordpress.actions';
 import { useServerAction } from '@/hooks/useServerAction';
+import { useLiffContext } from '@/components/LiffProvider';
 
 export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDashboardProps) {
+  const { isOwnerViewMode } = useLiffContext();
   const [wpStatus, setWpStatus] = useState<WordPressConnectionStatus | null>(null);
   const [gscConnection, setGscConnection] = useState(gscStatus);
   const [gscNeedsReauth, setGscNeedsReauth] = useState(false);
   const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(false);
+  const isReadOnly = isOwnerViewMode;
 
   const { execute: fetchWpStatus, isLoading: isLoadingStatus } = useServerAction<WordPressConnectionStatus>();
 
@@ -161,21 +164,21 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
                 WordPressサイトと連携して、コンテンツの公開・更新を効率化します。
               </p>
 
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Button
-                    asChild
-                    variant={wordpressSettings.hasSettings ? 'outline' : 'default'}
-                    className={`w-full ${wordpressSettings.hasSettings ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
-                  >
-                    <Link href="/setup/wordpress">
-                      <Settings size={16} className="mr-2" />
-                      {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
-                    </Link>
-                  </Button>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Button
+                      asChild
+                      variant={wordpressSettings.hasSettings ? 'outline' : 'default'}
+                      className={`w-full ${wordpressSettings.hasSettings ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
+                    >
+                      <Link href="/setup/wordpress">
+                        <Settings size={16} className="mr-2" />
+                        {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
           </CardContent>
         </Card>
 
@@ -309,7 +312,7 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
                   variant="ghost"
                   size="sm"
                   onClick={refetchGscStatus}
-                  disabled={isLoadingGscStatus}
+                  disabled={isLoadingGscStatus || isReadOnly}
                   className="flex items-center gap-1"
                 >
                   <RefreshCw className={`h-4 w-4 ${isLoadingGscStatus ? 'animate-spin' : ''}`} />

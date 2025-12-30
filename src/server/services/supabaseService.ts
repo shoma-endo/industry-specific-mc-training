@@ -1,11 +1,7 @@
 import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
-import {
-  DbChatMessage,
-  DbChatSession,
-  DbChatSessionSearchRow,
-} from '@/types/chat';
-import type { DbUser } from '@/types/user';
+import { DbChatMessage, DbChatSession, DbChatSessionSearchRow } from '@/types/chat';
+import type { DbUser, EmployeeInvitation } from '@/types/user';
 import type { UserRole } from '@/types/user';
 import type { GscCredential, GscPropertyType, GscSearchType } from '@/types/gsc';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
@@ -205,7 +201,9 @@ export class SupabaseService {
     return this.success((data as DbUser) ?? null);
   }
 
-  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<SupabaseResult<DbUser | null>> {
+  async getUserByStripeCustomerId(
+    stripeCustomerId: string
+  ): Promise<SupabaseResult<DbUser | null>> {
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
@@ -224,11 +222,7 @@ export class SupabaseService {
   }
 
   async createUser(user: DbUser): Promise<SupabaseResult<DbUser>> {
-    const { data, error } = await this.supabase
-      .from('users')
-      .insert(user)
-      .select('*')
-      .single();
+    const { data, error } = await this.supabase.from('users').insert(user).select('*').single();
 
     if (error) {
       return this.failure('ユーザーの作成に失敗しました', {
@@ -666,10 +660,7 @@ export class SupabaseService {
     }
   }
 
-  async updateWordPressContentTypes(
-    userId: string,
-    wpContentTypes: string[]
-  ): Promise<void> {
+  async updateWordPressContentTypes(userId: string, wpContentTypes: string[]): Promise<void> {
     const { error } = await this.supabase
       .from('wordpress_settings')
       .update({
@@ -691,7 +682,12 @@ export class SupabaseService {
     userId: string,
     wpSettings?: WordPressSettings
   ): Promise<
-    | { success: true; accessToken: string; refreshToken?: string | null; expiresAt?: string | null }
+    | {
+        success: true;
+        accessToken: string;
+        refreshToken?: string | null;
+        expiresAt?: string | null;
+      }
     | { success: false; error: string }
   > {
     const settings = wpSettings ?? (await this.getWordPressSettingsByUserId(userId));
@@ -703,7 +699,10 @@ export class SupabaseService {
     const refreshToken = settings.wpRefreshToken;
 
     if (!clientId || !clientSecret || !refreshToken) {
-      return { success: false, error: 'クライアントID/シークレットまたはリフレッシュトークンが不足しています' };
+      return {
+        success: false,
+        error: 'クライアントID/シークレットまたはリフレッシュトークンが不足しています',
+      };
     }
 
     try {
@@ -911,10 +910,7 @@ export class SupabaseService {
    * Google Search Console 資格情報を削除
    */
   async deleteGscCredential(userId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('gsc_credentials')
-      .delete()
-      .eq('user_id', userId);
+    const { error } = await this.supabase.from('gsc_credentials').delete().eq('user_id', userId);
 
     if (error) {
       console.error('[SupabaseService] deleteGscCredential: エラー詳細', {
@@ -991,7 +987,10 @@ export class SupabaseService {
    * 特定のアノテーションに関連付けられているが、現在の正規化URLとは異なるクエリ指標データを削除
    * URL変更時のデータ不整合（二重カウント）を解消するために使用
    */
-  async cleanupOldGscQueryMetrics(annotationId: string, currentNormalizedUrl: string): Promise<void> {
+  async cleanupOldGscQueryMetrics(
+    annotationId: string,
+    currentNormalizedUrl: string
+  ): Promise<void> {
     const { error: queryError } = await this.supabase
       .from('gsc_query_metrics')
       .delete()
@@ -1000,7 +999,9 @@ export class SupabaseService {
 
     if (queryError) {
       console.error('[SupabaseService] cleanupOldGscQueryMetrics failed:', queryError);
-      throw new Error(`以前のURLのクエリ指標データのクリーンアップに失敗しました: ${queryError.message}`);
+      throw new Error(
+        `以前のURLのクエリ指標データのクリーンアップに失敗しました: ${queryError.message}`
+      );
     }
   }
 
@@ -1018,7 +1019,10 @@ export class SupabaseService {
     return (count ?? 0) > 0;
   }
 
-  async hasOldGscQueryMetrics(annotationId: string, currentNormalizedUrl: string): Promise<boolean> {
+  async hasOldGscQueryMetrics(
+    annotationId: string,
+    currentNormalizedUrl: string
+  ): Promise<boolean> {
     const { count, error } = await this.supabase
       .from('gsc_query_metrics')
       .select('id', { count: 'exact', head: true })
@@ -1036,7 +1040,10 @@ export class SupabaseService {
    * 特定のアノテーションに関連付けられているが、現在の正規化URLとは異なるページ指標データを削除
    * URL変更時のデータ不整合（二重カウント）を解消するために使用
    */
-  async cleanupOldGscPageMetrics(annotationId: string, currentNormalizedUrl: string): Promise<void> {
+  async cleanupOldGscPageMetrics(
+    annotationId: string,
+    currentNormalizedUrl: string
+  ): Promise<void> {
     const { error: pageError } = await this.supabase
       .from('gsc_page_metrics')
       .delete()
@@ -1045,7 +1052,9 @@ export class SupabaseService {
 
     if (pageError) {
       console.error('[SupabaseService] cleanupOldGscPageMetrics failed:', pageError);
-      throw new Error(`以前のURLのページ指標データのクリーンアップに失敗しました: ${pageError.message}`);
+      throw new Error(
+        `以前のURLのページ指標データのクリーンアップに失敗しました: ${pageError.message}`
+      );
     }
   }
 
@@ -1105,7 +1114,10 @@ export class SupabaseService {
   /**
    * コンテンツ注釈を直接削除（孤立したコンテンツの削除用）
    */
-  async deleteContentAnnotation(annotationId: string, userId: string): Promise<SupabaseResult<void>> {
+  async deleteContentAnnotation(
+    annotationId: string,
+    userId: string
+  ): Promise<SupabaseResult<void>> {
     const { error } = await this.supabase
       .from('content_annotations')
       .delete()
@@ -1227,9 +1239,9 @@ export class SupabaseService {
    */
   async getAllSavedMessages(
     userId: string
-  ): Promise<SupabaseResult<
-    Array<{ id: string; content: string; created_at: number; session_id: string }>
-  >> {
+  ): Promise<
+    SupabaseResult<Array<{ id: string; content: string; created_at: number; session_id: string }>>
+  > {
     const { data, error } = await this.supabase
       .from('chat_messages')
       .select('id, content, created_at, session_id')
@@ -1249,5 +1261,191 @@ export class SupabaseService {
     return this.success(
       (data || []) as Array<{ id: string; content: string; created_at: number; session_id: string }>
     );
+  }
+
+  /* === スタッフ招待機能 ================================ */
+
+  async createEmployeeInvitation(
+    invitation: Omit<EmployeeInvitation, 'id' | 'createdAt'>
+  ): Promise<SupabaseResult<string>> {
+    const { data, error } = await this.supabase
+      .from('employee_invitations')
+      .insert({
+        owner_user_id: invitation.ownerUserId,
+        invitation_token: invitation.invitationToken,
+        expires_at: invitation.expiresAt,
+        created_at: Date.now(),
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      return this.failure('招待の作成に失敗しました', { error });
+    }
+    return this.success(data.id);
+  }
+
+  async getEmployeeInvitationByToken(
+    token: string
+  ): Promise<SupabaseResult<EmployeeInvitation | null>> {
+    const { data, error } = await this.supabase
+      .from('employee_invitations')
+      .select('*')
+      .eq('invitation_token', token)
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('招待の取得に失敗しました', { error });
+    }
+    if (!data) return this.success(null);
+
+    return this.success({
+      id: data.id,
+      ownerUserId: data.owner_user_id,
+      invitationToken: data.invitation_token,
+      expiresAt: data.expires_at,
+      usedAt: data.used_at,
+      usedByUserId: data.used_by_user_id,
+      createdAt: data.created_at,
+    });
+  }
+
+  async markInvitationAsUsed(token: string, userId: string): Promise<SupabaseResult<void>> {
+    const { error } = await this.supabase
+      .from('employee_invitations')
+      .update({
+        used_at: Date.now(),
+        used_by_user_id: userId,
+      })
+      .eq('invitation_token', token);
+
+    if (error) {
+      return this.failure('招待の使用済更新に失敗しました', { error });
+    }
+    return this.success(undefined);
+  }
+
+  async acceptEmployeeInvitation(userId: string, token: string): Promise<SupabaseResult<void>> {
+    const { data, error } = await this.supabase
+      .rpc('accept_employee_invitation', {
+        p_user_id: userId,
+        p_token: token,
+      })
+      .returns<Array<{ success: boolean; error: string | null }>>()
+      .single();
+
+    if (error) {
+      return this.failure('招待の受諾に失敗しました', { error, context: { userId } });
+    }
+
+    if (!data?.success) {
+      return this.failure(data?.error ?? '招待の受諾に失敗しました', {
+        error: new Error(data?.error ?? 'Failed to accept employee invitation'),
+        context: { userId },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
+  async deleteEmployeeInvitation(id: string): Promise<SupabaseResult<void>> {
+    const { error } = await this.supabase.from('employee_invitations').delete().eq('id', id);
+
+    if (error) {
+      return this.failure('招待の削除に失敗しました', { error });
+    }
+    return this.success(undefined);
+  }
+
+  async deleteEmployeeAndRestoreOwner(
+    employeeId: string,
+    ownerId: string
+  ): Promise<SupabaseResult<void>> {
+    const { data, error } = await this.supabase
+      .rpc('delete_employee_and_restore_owner', {
+        p_employee_id: employeeId,
+        p_owner_id: ownerId,
+      })
+      .returns<Array<{ success: boolean; error: string | null }>>()
+      .single();
+
+    if (error) {
+      return this.failure('スタッフ削除とオーナー復帰に失敗しました', {
+        error,
+        context: { employeeId, ownerId },
+      });
+    }
+
+    if (!data?.success) {
+      return this.failure(data?.error ?? 'スタッフ削除とオーナー復帰に失敗しました', {
+        error: new Error(data?.error ?? 'Failed to delete employee and restore owner'),
+        context: { employeeId, ownerId },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
+  async getEmployeeInvitationByOwnerId(
+    ownerId: string
+  ): Promise<SupabaseResult<EmployeeInvitation | null>> {
+    const { data, error } = await this.supabase
+      .from('employee_invitations')
+      .select('*')
+      .eq('owner_user_id', ownerId)
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('招待の取得に失敗しました', { error });
+    }
+    if (!data) return this.success(null);
+
+    return this.success({
+      id: data.id,
+      ownerUserId: data.owner_user_id,
+      invitationToken: data.invitation_token,
+      expiresAt: data.expires_at,
+      usedAt: data.used_at,
+      usedByUserId: data.used_by_user_id,
+      createdAt: data.created_at,
+    });
+  }
+
+  async deleteUserFully(userId: string): Promise<SupabaseResult<void>> {
+    const { data, error } = await this.supabase
+      .rpc('delete_user_fully', {
+        p_user_id: userId,
+      })
+      .returns<Array<{ success: boolean; error: string | null }>>()
+      .single();
+
+    if (error) {
+      return this.failure('ユーザーの完全削除に失敗しました', {
+        error,
+        context: { userId },
+      });
+    }
+
+    if (!data?.success) {
+      return this.failure(data?.error ?? 'ユーザーの完全削除に失敗しました', {
+        error: new Error(data?.error ?? 'Failed to delete user fully'),
+        context: { userId },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
+  async getEmployeeByOwnerId(ownerId: string): Promise<SupabaseResult<DbUser | null>> {
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('*')
+      .eq('owner_user_id', ownerId)
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('スタッフの取得に失敗しました', { error });
+    }
+    return this.success((data as DbUser) ?? null);
   }
 }

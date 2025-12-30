@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { updateContentAnnotationFields } from '@/server/actions/wordpress.actions';
+import { useLiffContext } from '@/components/LiffProvider';
 
 interface SuggestionDataReadinessProps {
   annotation: {
@@ -44,6 +45,7 @@ interface DataRequirement {
 }
 
 export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionDataReadinessProps) {
+  const { isOwnerViewMode } = useLiffContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [formData, setFormData] = useState({
@@ -54,9 +56,11 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
   });
   const [canonicalUrlError, setCanonicalUrlError] = useState('');
   const [formError, setFormError] = useState('');
+  const isReadOnly = isOwnerViewMode;
 
   // Dialog を開く時に最新値を反映
   const handleOpenDialog = () => {
+    if (isReadOnly) return;
     setFormData({
       canonical_url: annotation.canonical_url ?? '',
       opening_proposal: annotation.opening_proposal ?? '',
@@ -121,6 +125,7 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
   const missingRequirements = requirements.filter(req => !checkStageReadiness(req));
 
   const handleSave = () => {
+    if (isReadOnly) return;
     if (!annotation.id || typeof annotation.id !== 'string' || annotation.id.trim().length === 0) {
       setFormError('アノテーションIDが無効です');
       return;
@@ -194,6 +199,7 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
                   size="default"
                   onClick={handleOpenDialog}
                   className="gap-2 bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+                  disabled={isReadOnly}
                 >
                   <Edit className="h-4 w-4" />
                   登録する
@@ -253,6 +259,7 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
                       }
                     }}
                     placeholder="例: https://example.com/article-title/"
+                    disabled={isReadOnly}
                   />
                   {canonicalUrlError && <p className="text-sm text-red-600">{canonicalUrlError}</p>}
                 </div>
@@ -268,6 +275,7 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
                 value={formData.opening_proposal}
                 onChange={e => setFormData(prev => ({ ...prev, opening_proposal: e.target.value }))}
                 placeholder="書き出しの方向性や冒頭で伝えたい内容"
+                disabled={isReadOnly}
               />
             </div>
 
@@ -282,6 +290,7 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
                 value={formData.persona}
                 onChange={e => setFormData(prev => ({ ...prev, persona: e.target.value }))}
                 placeholder="デモグラフィック情報やペルソナ"
+                disabled={isReadOnly}
               />
             </div>
 
@@ -294,15 +303,20 @@ export function SuggestionDataReadiness({ annotation, onUpdate }: SuggestionData
                 value={formData.needs}
                 onChange={e => setFormData(prev => ({ ...prev, needs: e.target.value }))}
                 placeholder="ユーザーのニーズや課題"
+                disabled={isReadOnly}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} disabled={isPending}>
+            <Button
+              variant="ghost"
+              onClick={() => setIsDialogOpen(false)}
+              disabled={isPending || isReadOnly}
+            >
               キャンセル
             </Button>
-            <Button onClick={handleSave} disabled={isPending}>
+            <Button onClick={handleSave} disabled={isPending || isReadOnly}>
               {isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />

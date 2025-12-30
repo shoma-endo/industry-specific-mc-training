@@ -9,6 +9,11 @@ import type { GscCredential, GscConnectionStatus, GscSiteEntry } from '@/types/g
 import { toGscConnectionStatus } from '@/server/lib/gsc-status';
 import { formatGscPropertyDisplayName } from '@/server/services/gscService';
 import { propertyTypeFromUri } from '@/server/lib/gsc-status';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 const supabaseService = new SupabaseService();
 const gscService = new GscService();
@@ -66,7 +71,7 @@ const getAuthUserId = async () => {
   if (authResult.error || !authResult.userId) {
     return { error: authResult.error || 'ユーザー認証に失敗しました' };
   }
-  return { userId: authResult.userId };
+  return { userId: authResult.userId, role: resolveViewModeRole(authResult) };
 };
 
 export async function fetchGscStatus() {
@@ -81,9 +86,12 @@ export async function fetchGscStatus() {
 
 export async function fetchGscProperties() {
   try {
-    const { userId, error } = await getAuthUserId();
+    const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(role ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     const credential = await supabaseService.getGscCredentialByUserId(userId);
@@ -115,9 +123,12 @@ export async function fetchGscProperties() {
 
 export async function saveGscProperty(params: { propertyUri: string; permissionLevel?: string | null }) {
   try {
-    const { userId, error } = await getAuthUserId();
+    const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(role ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
     const propertyUri = params.propertyUri?.trim();
     if (!propertyUri) {
@@ -154,11 +165,14 @@ export async function saveGscProperty(params: { propertyUri: string; permissionL
 
 export async function disconnectGsc() {
   try {
-    const { userId, error } = await getAuthUserId();
+    const { userId, role, error } = await getAuthUserId();
 
     if (error || !userId) {
       console.error('[GSC Setup] disconnectGsc: ユーザー認証失敗', { error });
       return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(role ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     await supabaseService.deleteGscCredential(userId);
@@ -185,6 +199,13 @@ export async function refetchGscStatusWithValidation(): Promise<
   | { success: false; error: string; needsReauth?: boolean }
 > {
   try {
+    const { role, error } = await getAuthUserId();
+    if (error) {
+      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(role ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     // ステータスを取得
     const statusResult = await fetchGscStatus();
     if (!statusResult.success || !statusResult.data) {

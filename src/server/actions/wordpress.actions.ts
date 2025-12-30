@@ -36,6 +36,11 @@ import type {
   SessionAnnotationUpsertPayload,
 } from '@/types/annotation';
 import type { DbChatSession } from '@/types/chat';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 const supabaseService = new SupabaseService();
 
@@ -502,7 +507,10 @@ async function parseRssAndNormalize(
 }
 
 export async function getWordPressPostsForCurrentUser(page: number, perPage: number) {
-  return withAuth(async ({ userId, cookieStore }) => {
+  return withAuth(async ({ userId, cookieStore, viewModeRole }) => {
+    if (await isViewModeEnabled(viewModeRole ?? null)) {
+      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
 
     if (!wpSettings) {
@@ -563,7 +571,10 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
       wp_post_title?: string | null;
     }
 > {
-  return withAuth(async ({ userId, cookieStore }) => {
+  return withAuth(async ({ userId, cookieStore, viewModeRole }) => {
+    if (await isViewModeEnabled(viewModeRole ?? null)) {
+      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const supabaseServiceLocal = new SupabaseService();
     const client = supabaseServiceLocal.getClient();
 
@@ -785,6 +796,9 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return { success: false as const, error: 'Authentication failed' };
     }
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
+    }
 
     const isAdmin = isAdminRole(authResult.userDetails.role);
 
@@ -840,6 +854,9 @@ export async function testWordPressConnectionAction() {
 
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return { success: false as const, error: 'ユーザー認証に失敗しました' };
+    }
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     const isAdmin = isAdminRole(authResult.userDetails.role);
@@ -947,7 +964,10 @@ export async function upsertContentAnnotationBySession(
       wp_post_title?: string | null;
     }
 > {
-  return withAuth(async ({ userId, cookieStore }) => {
+  return withAuth(async ({ userId, cookieStore, viewModeRole }) => {
+    if (await isViewModeEnabled(viewModeRole ?? null)) {
+      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const supabaseServiceLocal = new SupabaseService();
     const client = supabaseServiceLocal.getClient();
 
@@ -1110,7 +1130,10 @@ export interface EnsureAnnotationChatSessionPayload {
 export async function ensureAnnotationChatSession(
   payload: EnsureAnnotationChatSessionPayload
 ): Promise<{ success: true; sessionId: string } | { success: false; error: string }> {
-  return withAuth(async ({ userId }) => {
+  return withAuth(async ({ userId, viewModeRole }) => {
+    if (await isViewModeEnabled(viewModeRole ?? null)) {
+      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const service = new SupabaseService();
     const client = service.getClient();
 
@@ -1320,7 +1343,10 @@ export async function updateContentAnnotationFields(
     return { success: false as const, error: 'アノテーションIDが無効です' };
   }
 
-  return withAuth(async ({ userId, cookieStore }) => {
+  return withAuth(async ({ userId, cookieStore, viewModeRole }) => {
+    if (await isViewModeEnabled(viewModeRole ?? null)) {
+      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const supabaseServiceLocal = new SupabaseService();
     const client = supabaseServiceLocal.getClient();
 
@@ -1421,7 +1447,10 @@ export async function updateContentAnnotationFields(
 export async function fetchWordPressStatusAction(): Promise<
   { success: true; data: WordPressConnectionStatus } | { success: false; error: string }
 > {
-  return withAuth(async ({ userId, cookieStore, userDetails }) => {
+  return withAuth(async ({ userId, cookieStore, userDetails, viewModeRole }) => {
+    if (await isViewModeEnabled(viewModeRole ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
     const isAdmin = isAdminRole(userDetails?.role ?? null);
 
@@ -1514,6 +1543,12 @@ export async function deleteContentAnnotation(
     return {
       success: false,
       error: authResult.error || 'サブスクリプションが必要です',
+    };
+  }
+  if (authResult.viewMode) {
+    return {
+      success: false,
+      error: VIEW_MODE_ERROR_MESSAGE,
     };
   }
 

@@ -38,6 +38,13 @@
     "forceConsistentCasingInFileNames": true /* ファイル名の大文字小文字の一貫性を強制 */,
     "useUnknownInCatchVariables": true /* catch節の変数をanyではなくunknownとして扱う */
   },
-  "include": ["next-env.d.ts", "scripts/**/*", "src/**/*", "types/**/*", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "scripts/**/*",
+    "src/**/*",
+    "types/**/*",
+    ".next/types/**/*.ts",
+    "app/**/*"
+  ],
   "exclude": ["node_modules", ".next"]
 }

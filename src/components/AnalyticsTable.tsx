@@ -100,7 +100,8 @@ export default function AnalyticsTable({
   unreadAnnotationIds,
 }: Props) {
   const router = useRouter();
-  const { getAccessToken } = useLiffContext();
+  const { getAccessToken, isOwnerViewMode } = useLiffContext();
+  const isReadOnly = isOwnerViewMode;
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
   const [editingRowKey, setEditingRowKey] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(createEmptyForm);
@@ -366,6 +367,7 @@ export default function AnalyticsTable({
   );
 
   const handleDeleteClick = React.useCallback((item: AnalyticsContentItem) => {
+    if (isReadOnly) return;
     const annotation = item.annotation;
     const sessionId = annotation?.session_id;
     const annotationId = annotation?.id;
@@ -382,7 +384,7 @@ export default function AnalyticsTable({
     setHasOrphanContent(!sessionId);
     setDeletingRowKey(item.rowKey);
     setDeleteDialogOpen(true);
-  }, []);
+  }, [isReadOnly]);
 
   const handleDeleteConfirm = React.useCallback(async () => {
     setIsDeleting(true);
@@ -701,7 +703,7 @@ export default function AnalyticsTable({
                                 size="sm"
                                 className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                                 onClick={() => handleDeleteClick(item)}
-                                disabled={isDeleting && deletingRowKey === item.rowKey}
+                                disabled={isReadOnly || (isDeleting && deletingRowKey === item.rowKey)}
                               >
                                 <Trash2 className="h-4 w-4" />
                                 削除

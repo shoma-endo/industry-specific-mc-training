@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { isOwner } from '@/authUtils';
 
 export interface UnreadSuggestion {
   id: string;
@@ -31,6 +32,9 @@ const getAuthUserId = async () => {
   const authResult = await authMiddleware(accessToken, refreshToken);
   if (authResult.error || !authResult.userId) {
     return { error: authResult.error || 'ユーザー認証に失敗しました' };
+  }
+  if (isOwner(authResult.userDetails?.role ?? null)) {
+    return { error: '閲覧権限では利用できません' };
   }
   return { userId: authResult.userId };
 };

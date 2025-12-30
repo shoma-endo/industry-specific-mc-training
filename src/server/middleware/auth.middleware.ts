@@ -9,7 +9,7 @@ import { userService } from '@/server/services/userService';
 import { isUnavailable } from '@/authUtils';
 import { env } from '@/env';
 import { LiffError } from '@/domain/errors/LiffError';
-import type { User } from '@/types/user';
+import type { User, UserRole } from '@/types/user';
 
 export interface EnsureAuthenticatedOptions {
   accessToken?: string;
@@ -25,6 +25,10 @@ export interface AuthenticatedUser {
   subscription: Stripe.Subscription | null;
   user?: { id: string };
   userDetails?: User | null;
+  viewMode?: boolean;
+  viewModeUserId?: string;
+  actorUserId?: string;
+  actorRole?: UserRole | null;
   error?: string;
   newAccessToken?: string;
   newRefreshToken?: string;
@@ -139,7 +143,7 @@ const withTokens = (
       );
     }
 
-    const user = await userService.getUserFromLiffToken(currentAccessToken);
+    let user = await userService.getUserFromLiffToken(currentAccessToken);
     if (!user) {
       return withTokens(
         {
@@ -154,6 +158,35 @@ const withTokens = (
       );
     }
 
+    const cookieStore = await nextCookies();
+    const isViewModeEnabled = cookieStore.get('owner_view_mode')?.value === '1';
+    const viewModeUserId = cookieStore.get('owner_view_mode_employee_id')?.value;
+    let isViewMode = false;
+    let actorUserId: string | undefined;
+    let actorRole: UserRole | null | undefined;
+    let viewModeUserIdResolved: string | undefined;
+
+    if (isViewModeEnabled && viewModeUserId && user.role === 'owner') {
+      const viewUser = await userService.getUserById(viewModeUserId);
+      if (viewUser && viewUser.ownerUserId === user.id) {
+        actorUserId = user.id;
+        actorRole = user.role ?? null;
+        user = viewUser;
+        isViewMode = true;
+        viewModeUserIdResolved = viewUser.id;
+      }
+    }
+
+    const viewModeInfo: Pick<
+      AuthenticatedUser,
+      'viewMode' | 'viewModeUserId' | 'actorUserId' | 'actorRole'
+    > = {
+      ...(isViewMode ? { viewMode: true } : {}),
+      ...(viewModeUserIdResolved ? { viewModeUserId: viewModeUserIdResolved } : {}),
+      ...(actorUserId ? { actorUserId } : {}),
+      ...(actorRole ? { actorRole } : {}),
+    };
+
     if (isUnavailable(user.role)) {
       return withTokens(
         {
@@ -164,6 +197,7 @@ const withTokens = (
           subscription: null,
           user: { id: user.id },
           userDetails: user,
+          ...viewModeInfo,
         },
         { accessToken: latestAccessToken ?? null, refreshToken: latestRefreshToken ?? null }
       );
@@ -177,11 +211,16 @@ const withTokens = (
         subscription: null,
         user: { id: user.id },
         userDetails: user,
+        ...viewModeInfo,
       },
       { accessToken: latestAccessToken ?? null, refreshToken: latestRefreshToken ?? null }
     );
 
     if (user.role === 'admin') {
+      return baseResult;
+    }
+
+    if (user.role === 'owner') {
       return baseResult;
     }
 

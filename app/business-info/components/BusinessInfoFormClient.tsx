@@ -52,11 +52,12 @@ const createInitialState = (data?: Partial<BriefInput>): FormState => ({
 });
 
 export default function BusinessInfoFormClient({ initialData }: BusinessInfoFormClientProps) {
-  const { getAccessToken, isLoggedIn } = useLiffContext();
+  const { getAccessToken, isLoggedIn, isOwnerViewMode } = useLiffContext();
   const [form, setForm] = useState<FormState>(() => createInitialState());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string>('');
+  const isReadOnly = isOwnerViewMode;
 
   // 初期データの読み込み
   useEffect(() => {
@@ -198,8 +199,9 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* プロフィール情報セクション */}
-        <Card>
+        <fieldset disabled={isReadOnly} className="space-y-8">
+          {/* プロフィール情報セクション */}
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
@@ -405,8 +407,13 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
           </CardContent>
         </Card>
 
-        <div className="flex justify-center pt-6">
-          <Button type="submit" size="lg" disabled={isSaving} className="w-full max-w-md">
+          <div className="flex justify-center pt-6">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={isSaving || isReadOnly}
+              className="w-full max-w-md"
+            >
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -418,8 +425,9 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
                 事業者情報を保存
               </>
             )}
-          </Button>
-        </div>
+            </Button>
+          </div>
+        </fieldset>
       </form>
     </div>
   );

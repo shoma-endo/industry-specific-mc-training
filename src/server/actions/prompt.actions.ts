@@ -4,13 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { PromptService } from '@/server/services/promptService';
-import { canUseServices } from '@/authUtils';
+import { isUnavailable } from '@/authUtils';
 import {
   CreatePromptTemplateInput,
   UpdatePromptTemplateInput,
   PromptTemplate,
   PromptTemplateWithVersions,
 } from '@/types/prompt';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 const promptVariableSchema = z.object({
   name: z.string().min(1, '変数名は必須です'),
@@ -60,7 +61,7 @@ async function checkAdminPermission(liffAccessToken: string) {
     }
 
     // unavailableユーザーのサービス利用制限チェック
-    if (!canUseServices(user.role)) {
+    if (isUnavailable(user.role)) {
       return { success: false, error: 'サービスの利用が停止されています' };
     }
 
@@ -87,6 +88,13 @@ export async function createPromptTemplate(
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
       return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+    }
+    const adminUser = adminCheck.user;
+    if (!adminUser) {
+      return { success: false, error: 'ユーザー情報が見つかりません' };
+    }
+    if (await isViewModeEnabled(adminUser.role)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     // データ検証
@@ -135,6 +143,13 @@ export async function updatePromptTemplate(
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
       return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+    }
+    const adminUser = adminCheck.user;
+    if (!adminUser) {
+      return { success: false, error: 'ユーザー情報が見つかりません' };
+    }
+    if (await isViewModeEnabled(adminUser.role)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     // データ検証
