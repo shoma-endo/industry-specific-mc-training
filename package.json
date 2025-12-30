@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsc-watch --onSuccess \"next dev --turbopack\"",
+    "dev": "next dev --turbopack",
+    "dev:types": "tsc --noEmit --watch",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -71,7 +72,6 @@
     "knip": "^5.77.1",
     "prettier": "^3.5.3",
     "tailwindcss": "^4",
-    "tsc-watch": "^6.2.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
