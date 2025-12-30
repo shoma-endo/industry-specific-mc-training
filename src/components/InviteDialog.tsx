@@ -39,7 +39,7 @@ export function InviteDialog({
     useEmployeeInvitation({
       getAccessToken,
       refreshUser,
-      ...(onEmployeeDeleted ? { onEmployeeDeleted } : {}),
+      onEmployeeDeleted,
     });
 
   const { bubble, copyButtonRef, showBubble } = useCopyBubble();
@@ -120,7 +120,7 @@ export function InviteDialog({
                   <div>
                     <p className="font-medium text-sm">{employee.lineDisplayName}</p>
                     <p className="text-xs text-gray-500">
-                      登録日: {new Date(employee.createdAt).toLocaleDateString()}
+                      登録日: {new Date(employee.createdAt).toLocaleDateString('ja-JP')}
                     </p>
                   </div>
                 </div>
@@ -165,7 +165,7 @@ export function InviteDialog({
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    有効期限: {new Date(invitation.expiresAt).toLocaleString()}
+                    有効期限: {new Date(invitation.expiresAt).toLocaleString('ja-JP')}
                   </p>
                 </div>
                 <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded mt-4">
