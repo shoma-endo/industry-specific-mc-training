@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Copy, UserPlus, UserX } from 'lucide-react';
+import { Loader2, Copy, UserPlus, UserX, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLiffContext } from '@/components/LiffProvider';
 import Image from 'next/image';
@@ -372,6 +372,27 @@ export function InviteDialog({
                   招待リンクは第三者に共有しないでください。誤って共有した場合は、招待リンクを再発行してください。
                   再発行すると、以前の招待リンクは無効になります。
                 </p>
+                <div className="flex justify-end mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={createInvitation}
+                    disabled={loading}
+                    className="gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        再発行中...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCw size={14} />
+                        招待リンクを再発行
+                      </>
+                    )}
+                  </Button>
+                </div>
               </React.Fragment>
             ) : (
               <div className="flex flex-col items-center justify-center py-4 gap-4">
