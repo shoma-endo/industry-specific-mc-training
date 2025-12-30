@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,28 +16,9 @@ import { Loader2, Copy, UserPlus, UserX, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLiffContext } from '@/components/LiffProvider';
 import Image from 'next/image';
-
-interface EmployeeInfo {
-  id: string;
-  lineDisplayName: string;
-  linePictureUrl?: string;
-  createdAt: number;
-}
-
-interface InvitationInfo {
-  token: string;
-  expiresAt: number;
-  url: string;
-}
-
-interface BubbleState {
-  isVisible: boolean;
-  message: string;
-  position: { top: number; left: number };
-}
-
-const BUBBLE_VERTICAL_OFFSET = 52;
-const BUBBLE_HORIZONTAL_OFFSET = 75;
+import { useEmployeeInvitation } from '@/hooks/useEmployeeInvitation';
+import { useCopyBubble } from '@/hooks/useCopyBubble';
+import { DeleteEmployeeDialog } from '@/components/DeleteEmployeeDialog';
 
 interface InviteDialogProps {
   trigger?: React.ReactNode;
@@ -53,104 +33,16 @@ export function InviteDialog({
 }: InviteDialogProps) {
   const { getAccessToken, refreshUser } = useLiffContext();
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [employee, setEmployee] = useState<EmployeeInfo | null>(null);
-  const [invitation, setInvitation] = useState<InvitationInfo | null>(null);
-  const [bubble, setBubble] = useState<BubbleState>({
-    isVisible: false,
-    message: '',
-    position: { top: 0, left: 0 },
-  });
-  const copyButtonRef = useRef<HTMLButtonElement | null>(null);
-  const bubbleTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // ステータス取得
-  const fetchStatus = useCallback(async () => {
-    setLoading(true);
-    try {
-      const accessToken = await getAccessToken();
-      // スタッフ情報取得
-      const empRes = await fetch('/api/employee', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      if (empRes.ok) {
-        const empData = await empRes.json();
-        if (empData?.hasEmployee && empData?.employee) {
-          setEmployee(empData.employee);
-          setInvitation(null);
-          setLoading(false);
-          return;
-        } else if (empData?.hasEmployee === false) {
-          setEmployee(null);
-        } else {
-          console.error('Unexpected employee response structure:', empData);
-          toast.error('スタッフ情報の取得に失敗しました');
-          setLoading(false);
-          return;
-        }
-      } else if (empRes.status !== 404) {
-        // 404以外のエラーは報告
-        console.error('Failed to fetch employee:', empRes.status);
-        setEmployee(null);
-        toast.error('スタッフ情報の取得に失敗しました');
+  const { employee, invitation, loading, fetchStatus, createInvitation, deleteEmployee } =
+    useEmployeeInvitation({
+      getAccessToken,
+      refreshUser,
+      ...(onEmployeeDeleted && { onEmployeeDeleted }),
+    });
 
-        // 500系エラー（サーバーエラー）の場合は処理を中断
-        if (empRes.status >= 500) {
-          setLoading(false);
-          return;
-        }
-      }
-
-      // 招待情報取得（スタッフがいない場合のみ）
-      const statusRes = await fetch('/api/employee/invite/status', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        if (
-          statusData?.hasActiveInvitation &&
-          statusData?.invitation?.token &&
-          statusData?.invitation?.expiresAt &&
-          statusData?.invitation?.url
-        ) {
-          setInvitation({
-            token: statusData.invitation.token,
-            expiresAt: statusData.invitation.expiresAt,
-            url: statusData.invitation.url,
-          });
-        } else if (statusData?.hasActiveInvitation === false) {
-          setInvitation(null);
-        } else {
-          console.error('Unexpected invitation status response structure:', statusData);
-          toast.error('招待ステータスの取得に失敗しました');
-          setInvitation(null);
-        }
-      } else if (statusRes.status !== 404) {
-        // 404以外のエラーは報告
-        console.error('Failed to fetch invitation status:', statusRes.status);
-        setInvitation(null);
-        toast.error('招待ステータスの取得に失敗しました');
-
-        // 500系エラー（サーバーエラー）の場合は処理を中断
-        if (statusRes.status >= 500) {
-          setLoading(false);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch status:', error);
-      toast.error('ステータスの取得に失敗しました');
-    } finally {
-      setLoading(false);
-    }
-  }, [getAccessToken]);
+  const { bubble, copyButtonRef, showBubble } = useCopyBubble();
 
   useEffect(() => {
     if (!isOpen) {
@@ -164,114 +56,6 @@ export function InviteDialog({
     }
     fetchStatus();
   }, [defaultOpenMode, isOpen, fetchStatus]);
-
-  // アンマウント時のクリーンアップ
-  useEffect(() => {
-    return () => {
-      if (bubbleTimeoutRef.current) {
-        clearTimeout(bubbleTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const showBubble = useCallback((message: string) => {
-    if (!copyButtonRef.current) return;
-    const rect = copyButtonRef.current.getBoundingClientRect();
-    const containerRect =
-      copyButtonRef.current.closest('[data-invite-dialog-container]')?.getBoundingClientRect() ||
-      null;
-
-    if (!containerRect) return;
-
-    const relativeTop = rect.top - containerRect.top - BUBBLE_VERTICAL_OFFSET;
-    const relativeLeft = rect.left - containerRect.left + rect.width / 2 - BUBBLE_HORIZONTAL_OFFSET;
-
-    setBubble({
-      isVisible: true,
-      message,
-      position: { top: relativeTop, left: relativeLeft },
-    });
-
-    // 前回のタイムアウトをクリア
-    if (bubbleTimeoutRef.current) {
-      clearTimeout(bubbleTimeoutRef.current);
-    }
-
-    bubbleTimeoutRef.current = setTimeout(() => {
-      setBubble(prev => ({ ...prev, isVisible: false }));
-    }, 3000);
-  }, []);
-
-  const createInvitation = async () => {
-    setLoading(true);
-    try {
-      const accessToken = await getAccessToken();
-      const res = await fetch('/api/employee/invite', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: '招待の作成に失敗しました' }));
-        throw new Error(data.error || '招待の作成に失敗しました');
-      }
-
-      const data = await res.json();
-
-      if (!data.token || !data.expiresAt || !data.invitationUrl) {
-        console.error('Invalid invitation response:', data);
-        throw new Error('招待リンクのレスポンスが不正です');
-      }
-
-      setInvitation({
-        token: data.token,
-        expiresAt: data.expiresAt,
-        url: data.invitationUrl,
-      });
-      toast.success('招待リンクを発行しました');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '招待の作成に失敗しました';
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteEmployee = async () => {
-    setLoading(true);
-    try {
-      const accessToken = await getAccessToken();
-      const res = await fetch('/api/employee', {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: 'スタッフの削除に失敗しました' }));
-        throw new Error(data.error || 'スタッフの削除に失敗しました');
-      }
-
-      setEmployee(null);
-      toast.success('スタッフを削除しました');
-      try {
-        await refreshUser();
-      } catch (error) {
-        console.error('Failed to refresh user after deletion:', error);
-        toast.warning(
-          'スタッフの削除は完了しましたが、画面の更新に失敗しました。ページを再読み込みしてください。'
-        );
-      }
-      onEmployeeDeleted?.();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'スタッフの削除に失敗しました';
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <>
@@ -433,45 +217,12 @@ export function InviteDialog({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserX className="h-5 w-5 text-red-500" />
-              スタッフを削除
-            </DialogTitle>
-            <DialogDescription className="text-left">
-              スタッフを削除してもよろしいですか？
-              <br />
-              <span className="text-sm text-gray-600">
-                このスタッフに関連するすべてのデータ（閲覧モード含む）が完全に削除されます。
-              </span>
-              <br />
-              <span className="text-sm text-gray-600">
-                スタッフ削除後、あなたのアカウントは「有料会員」権限に戻り、通常の業務ツールを利用できるようになります。
-              </span>
-              <br />
-              <span className="text-red-600 font-medium">この操作は取り消すことができません。</span>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={loading}>
-              キャンセル
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                await deleteEmployee();
-                setDeleteDialogOpen(false);
-              }}
-              disabled={loading}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {loading ? '削除中...' : '削除'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteEmployeeDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onDelete={deleteEmployee}
+        loading={loading}
+      />
     </>
   );
 }
