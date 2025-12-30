@@ -33,7 +33,8 @@ const ProfileDisplay = () => {
 
   const displayName = isOwnerViewMode ? user?.lineDisplayName : profile?.displayName;
   const pictureUrl = isOwnerViewMode ? user?.linePictureUrl : profile?.pictureUrl;
-  const userId = isOwnerViewMode ? (user?.lineUserId ?? user?.id) : profile?.userId;
+  const ownerUserId = user?.lineUserId || user?.id;
+  const userId = isOwnerViewMode ? ownerUserId : profile?.userId;
 
   if (!displayName || !userId) {
     return null;
@@ -200,8 +201,12 @@ const OwnerEmployeeCard = ({ isOwnerRole, isLoggedIn, isLoading }: OwnerEmployee
     if (!employee) {
       return;
     }
-    document.cookie = 'owner_view_mode=1; path=/; samesite=lax';
-    document.cookie = `owner_view_mode_employee_id=${employee.id}; path=/; samesite=lax`;
+    // Secure フラグは HTTPS 接続時のみ追加
+    const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const secureFlag = isSecure ? '; secure' : '';
+    const cookieOptions = `path=/; samesite=lax; max-age=3600${secureFlag}`; // 1時間の有効期限
+    document.cookie = `owner_view_mode=1; ${cookieOptions}`;
+    document.cookie = `owner_view_mode_employee_id=${employee.id}; ${cookieOptions}`;
     router.push('/chat');
   };
 
@@ -259,9 +264,7 @@ const OwnerEmployeeCard = ({ isOwnerRole, isLoggedIn, isLoading }: OwnerEmployee
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-700 text-center">
-              現在スタッフは登録されていません。
-            </p>
+            <p className="text-sm text-gray-700 text-center">現在スタッフは登録されていません。</p>
           )}
         </CardContent>
       </Card>
@@ -281,9 +284,7 @@ export default function Home() {
   const isOwnerRole = isOwner(userRole);
   const hasManagementAccess = hasPaidFeatureAccess(userRole);
   const canInvite =
-    !isOwnerViewMode &&
-    (userRole === 'admin' || userRole === 'paid') &&
-    (user?.ownerUserId ?? null) === null;
+    !isOwnerViewMode && (userRole === 'admin' || userRole === 'paid') && !user?.ownerUserId;
 
   // フルネーム未入力チェック
   useEffect(() => {
