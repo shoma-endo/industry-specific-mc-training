@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { userService } from '@/server/services/userService';
 import { EmployeeDeletionService } from '@/server/services/employeeDeletionService';
-import { isOwner } from '@/authUtils';
+import { canInviteEmployee, isOwner } from '@/authUtils';
 import { getUserFromAuthHeader } from '@/server/lib/auth-header';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       return authResult.response;
     }
 
-    if (!isOwner(authResult.role)) {
+    if (!isOwner(authResult.role) && !canInviteEmployee(authResult.role)) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 });
     }
 
