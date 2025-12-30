@@ -4,10 +4,24 @@ import React from 'react';
 import { Lock, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLiffContext } from '@/components/LiffProvider';
+import { cn } from '@/lib/utils';
+
+const statusBadgeStyles = cn(
+  'pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full shadow-sm backdrop-blur-md transition-colors cursor-help',
+  'bg-slate-100/50 border border-slate-200/60 text-slate-500',
+  'hover:bg-slate-100/80'
+);
+
+const exitButtonStyles = cn(
+  'group pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-md shadow-sm backdrop-blur-md border transition-all duration-200',
+  'text-xs text-slate-500 bg-white/70 border-slate-200/50',
+  'hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 hover:shadow-md'
+);
 
 export function ViewModeBanner() {
   const { refreshUser } = useLiffContext();
   const router = useRouter();
+
   const handleExitViewMode = async () => {
     document.cookie = 'owner_view_mode=; path=/; max-age=0';
     document.cookie = 'owner_view_mode_employee_id=; path=/; max-age=0';
@@ -19,10 +33,7 @@ export function ViewModeBanner() {
   return (
     <div className="fixed top-0 left-0 right-0 h-14 z-[60] flex items-center justify-center px-4 gap-4 pointer-events-none">
       {/* User Status Display */}
-      <div
-        className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/50 border border-slate-200/60 text-slate-500 shadow-sm backdrop-blur-md transition-colors hover:bg-slate-100/80 cursor-help"
-        title="閲覧専用のため編集はできません"
-      >
+      <div className={statusBadgeStyles} title="閲覧専用のため編集はできません">
         <Lock size={14} className="text-slate-500" aria-hidden="true" />
         <span className="text-xs font-medium">閲覧モード</span>
       </div>
@@ -31,10 +42,10 @@ export function ViewModeBanner() {
       <button
         onClick={handleExitViewMode}
         aria-label="閲覧モードを終了して自分の画面に戻る"
-        className="pointer-events-auto flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 transition-colors bg-white/50 hover:bg-white/80 px-3 py-1.5 rounded-md backdrop-blur-sm border border-transparent hover:border-slate-200"
+        className={exitButtonStyles}
       >
-        <ArrowLeft size={14} />
-        <span className="underline underline-offset-2">自分の画面へ戻る</span>
+        <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-0.5" />
+        <span className="font-medium">自分の画面へ戻る</span>
       </button>
     </div>
   );
