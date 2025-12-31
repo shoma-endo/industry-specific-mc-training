@@ -19,7 +19,9 @@ export const updateUserFullName = async (fullName: string): Promise<{ success: b
       return { success: false, error: 'ログインしていません' };
     }
 
-    const authResult = await authMiddleware(lineAccessToken, refreshToken);
+    const authResult = await authMiddleware(lineAccessToken, refreshToken, {
+      skipSubscriptionCheck: true
+    });
     if (authResult.error) {
       return { success: false, error: authResult.error };
     }
