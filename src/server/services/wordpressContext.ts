@@ -10,7 +10,7 @@ interface CookieGetter {
   (name: string): string | undefined;
 }
 
-export const WPCOM_TOKEN_COOKIE_NAME = process.env.OAUTH_TOKEN_COOKIE_NAME || 'wpcom_oauth_token';
+export const WPCOM_TOKEN_COOKIE_NAME = 'wpcom_oauth_token';
 
 export type WordPressServiceBuildFailureReason =
   | 'wordpress_auth_missing'

@@ -53,7 +53,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - Search Console 日次指標は `gsc_page_metrics`、クエリ指標は `gsc_query_metrics` に保存し、WordPress 注釈 (`content_annotations`) と 1:N で紐付け可能（normalized_url でマッチング）。
 - GSC インポートは 30 日単位で自動分割し、クエリ指標は 1,000 行 × 10 ページ = 最大 10,000 行を上限として取得。
 - 記事ごとの順位評価と改善提案ステップを `gsc_article_evaluations` / `gsc_article_evaluation_history` で管理し、デフォルト30日間隔で「タイトル→書き出し→本文→ペルソナ」の順にエスカレーション。改善が確認できたらステージをリセット。
-- 評価間隔は環境変数 `GSC_EVALUATION_INTERVAL_DAYS` で一括設定（未設定時は30日）。将来のユーザー別設定拡張を見込んでサーバー側で取得関数を用意。
+- 評価間隔は30日固定（将来のユーザー別設定拡張を見込んでサーバー側で取得関数を用意）。
 
 ### サブスクリプションと権限
 
@@ -556,7 +556,6 @@ erDiagram
 | Server | `GOOGLE_OAUTH_CLIENT_ID`             | 任意（GSC 連携利用時は必須）      | Google Search Console OAuth 用クライアント ID                                 |
 | Server | `GOOGLE_OAUTH_CLIENT_SECRET`         | 任意（GSC 連携利用時は必須）      | Google Search Console OAuth 用クライアントシークレット                        |
 | Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC 連携利用時は必須）      | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など） |
-| Server | `GSC_OAUTH_STATE_COOKIE_NAME`        | 任意                              | GSC OAuth state 用 Cookie 名（未設定時は `gsc_oauth_state`）                  |
 | Client | `NEXT_PUBLIC_LIFF_ID`                | ✅                                | LIFF アプリ ID                                                                |
 | Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID`        | ✅                                | LIFF Channel ID                                                               |
 | Client | `NEXT_PUBLIC_SUPABASE_URL`           | ✅                                | Supabase プロジェクト URL                                                     |
@@ -567,9 +566,8 @@ erDiagram
 ### 追加で利用できる任意設定
 
 - `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`: WordPress.com OAuth 連携で必須
-- `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress / Google Search Console OAuth のセキュアな Cookie 管理
+- `COOKIE_SECRET`: WordPress / Google Search Console OAuth のセキュアな Cookie 管理
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`: Google Search Console 連携を利用する場合のみ設定
-- `GSC_EVALUATION_INTERVAL_DAYS`: GSC記事評価の実行間隔（日数）。未設定時は30日がデフォルト
 
 ## 🚀 セットアップ手順
 
@@ -721,8 +719,6 @@ GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret
 GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback  # ローカル開発時
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/gsc/oauth/callback  # ngrok 利用時（静的ドメイン）
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-domain.com/api/gsc/oauth/callback  # 本番環境
-GSC_OAUTH_STATE_COOKIE_NAME=gsc_oauth_state
-GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 ```
 
 **redirect_uri の使い分け:**
@@ -827,8 +823,6 @@ WORDPRESS_COM_CLIENT_ID=your_wordpress_com_client_id
 WORDPRESS_COM_CLIENT_SECRET=your_wordpress_com_client_secret
 WORDPRESS_COM_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/wordpress/oauth/callback
 COOKIE_SECRET=your_random_32_char_secret_key  # openssl rand -hex 32 で生成
-OAUTH_STATE_COOKIE_NAME=wp_oauth_state
-OAUTH_TOKEN_COOKIE_NAME=wp_oauth_token
 
 # ────────────────────────────────────────────────────────
 # Google Search Console OAuth 設定（任意、GSC連携利用時は必須）
@@ -839,8 +833,6 @@ GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret
 GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback  # ローカル開発時
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/gsc/oauth/callback  # ngrok 利用時（静的ドメイン）
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-domain.com/api/gsc/oauth/callback  # 本番環境
-GSC_OAUTH_STATE_COOKIE_NAME=gsc_oauth_state
-GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 
 # ────────────────────────────────────────────────────────
 # 機能フラグ（任意）
@@ -958,7 +950,7 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
      - 初期評価時は `current_suggestion_stage = 1`（タイトル）から開始
      - 改善が確認されない場合、次の評価サイクルで `current_suggestion_stage` がインクリメントされることを確認
    - 改善が確認できた場合（`outcome_type = 'improved'` など）にステージがリセット（`current_suggestion_stage = 1`）されることを確認
-   - 評価間隔が環境変数 `GSC_EVALUATION_INTERVAL_DAYS`（デフォルト: 30日）に従って設定されることを確認
+   - 評価間隔が30日で設定されることを確認
 
 **PR への記載例:**
 

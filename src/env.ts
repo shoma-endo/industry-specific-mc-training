@@ -21,14 +21,10 @@ const serverEnvSchema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_SEARCH_CONSOLE_REDIRECT_URI: z.string().url().optional(),
-  GSC_OAUTH_STATE_COOKIE_NAME: z.string().min(1).optional(),
   WORDPRESS_COM_CLIENT_ID: z.string().min(1).optional(),
   WORDPRESS_COM_CLIENT_SECRET: z.string().min(1).optional(),
   WORDPRESS_COM_REDIRECT_URI: z.string().url().optional(),
   COOKIE_SECRET: z.string().min(1).optional(),
-  OAUTH_STATE_COOKIE_NAME: z.string().min(1).optional(),
-  OAUTH_TOKEN_COOKIE_NAME: z.string().min(1).optional(),
-  GSC_EVALUATION_INTERVAL_DAYS: z.string().optional(),
 });
 
 type ClientEnv = z.infer<typeof clientEnvSchema>;
@@ -62,14 +58,10 @@ if (isServer) {
     GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID,
     GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
     GOOGLE_SEARCH_CONSOLE_REDIRECT_URI: process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI,
-    GSC_OAUTH_STATE_COOKIE_NAME: process.env.GSC_OAUTH_STATE_COOKIE_NAME,
     WORDPRESS_COM_CLIENT_ID: process.env.WORDPRESS_COM_CLIENT_ID,
     WORDPRESS_COM_CLIENT_SECRET: process.env.WORDPRESS_COM_CLIENT_SECRET,
     WORDPRESS_COM_REDIRECT_URI: process.env.WORDPRESS_COM_REDIRECT_URI,
     COOKIE_SECRET: process.env.COOKIE_SECRET,
-    OAUTH_STATE_COOKIE_NAME: process.env.OAUTH_STATE_COOKIE_NAME,
-    OAUTH_TOKEN_COOKIE_NAME: process.env.OAUTH_TOKEN_COOKIE_NAME,
-    GSC_EVALUATION_INTERVAL_DAYS: process.env.GSC_EVALUATION_INTERVAL_DAYS,
   } satisfies { [K in keyof ServerEnv]?: ServerEnv[K] | undefined };
 
   parsedServerEnv = serverEnvSchema.parse(serverRuntimeEnv);
@@ -87,14 +79,10 @@ const serverOnlyKeys = new Set<keyof ServerEnv>([
   'GOOGLE_OAUTH_CLIENT_ID',
   'GOOGLE_OAUTH_CLIENT_SECRET',
   'GOOGLE_SEARCH_CONSOLE_REDIRECT_URI',
-  'GSC_OAUTH_STATE_COOKIE_NAME',
   'WORDPRESS_COM_CLIENT_ID',
   'WORDPRESS_COM_CLIENT_SECRET',
   'WORDPRESS_COM_REDIRECT_URI',
   'COOKIE_SECRET',
-  'OAUTH_STATE_COOKIE_NAME',
-  'OAUTH_TOKEN_COOKIE_NAME',
-  'GSC_EVALUATION_INTERVAL_DAYS',
 ]);
 
 const clientKeys = new Set<keyof ClientEnv>([

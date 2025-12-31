@@ -6,26 +6,11 @@ const DEFAULT_QUERY_ROW_LIMIT = 1000;
 const DEFAULT_QUERY_MAX_PAGES = 10;
 
 /**
- * 評価間隔(日)を環境変数から取得する。
- * 未設定・不正値はデフォルト(30日)にフォールバックし、最小1日に丸める。
- */
-export function getGscEvaluationIntervalDays(): number {
-  const raw = process.env.GSC_EVALUATION_INTERVAL_DAYS;
-  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    return DEFAULT_INTERVAL_DAYS;
-  }
-
-  return parsed;
-}
-
-/**
  * 将来のユーザー別設定対応を見越して、呼び出し側で統一的に使う設定オブジェクト。
  */
 export function getGscEvaluationConfig() {
   return {
-    intervalDays: getGscEvaluationIntervalDays(),
+    intervalDays: DEFAULT_INTERVAL_DAYS,
   } as const;
 }
 
