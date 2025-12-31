@@ -10,10 +10,9 @@ import {
   toChatSession,
   OpenAIMessage,
   ServerChatSession,
-  ServerChatMessage,
 } from '@/types/chat';
 import { SupabaseService, type SupabaseResult } from './supabaseService';
-import { MODEL_CONFIGS, FEATURE_FLAGS, CHAT_HISTORY_LIMIT } from '@/lib/constants';
+import { MODEL_CONFIGS, CHAT_HISTORY_LIMIT } from '@/lib/constants';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 
 interface ChatResponse {
@@ -414,84 +413,13 @@ class ChatService {
   /**
    * Server Component用: セッションとメッセージを一括取得 (RPC)
    * N+1問題を解消し、パフォーマンスを向上
-   * Feature Flagによって新旧実装を切り替え可能
    */
   async getSessionsWithMessages(userId: string): Promise<ServerChatSession[]> {
-    if (FEATURE_FLAGS.USE_RPC_V2) {
-      // 新実装: RPC関数を使用
-      const { data, error } = await this.supabaseService
-        .getClient()
-        .rpc('get_sessions_with_messages', { p_user_id: userId });
-
-      if (error) {
-        console.error('Failed to get sessions with messages (RPC):', error);
-        // RPCが失敗した場合は旧実装にフォールバック
-        console.warn('Falling back to legacy implementation');
-        try {
-          return this.getSessionsWithMessagesLegacy(userId);
-        } catch (fallbackError) {
-          throw new ChatError(
-            'セッション取得に失敗しました（RPC/レガシー両方）',
-            ChatErrorCode.SESSION_LOAD_FAILED,
-            { userId, rpcError: error, fallbackError }
-          );
-        }
-      }
-
-      return (data ?? []).map(
-        (row: {
-          session_id: string;
-          title: string;
-          last_message_at: number;
-          messages: ServerChatMessage[];
-        }) => ({
-          id: row.session_id,
-          title: row.title,
-          last_message_at: row.last_message_at,
-          messages: row.messages || [],
-        })
-      );
-    } else {
-      // 旧実装: 従来の方法
-      return this.getSessionsWithMessagesLegacy(userId);
-    }
-  }
-
-  /**
-   * レガシー実装: 個別にセッションとメッセージを取得（フォールバック用）
-   */
-  private async getSessionsWithMessagesLegacy(userId: string): Promise<ServerChatSession[]> {
-    try {
-      const sessions = await this.getUserSessions(userId);
-
-      // 最大5件のセッションのみメッセージを取得（パフォーマンス考慮）
-      const sessionsWithMessages = await Promise.all(
-        sessions.slice(0, 5).map(async session => {
-          const messages = await this.getSessionMessages(session.id, userId);
-          const serverMessages: ServerChatMessage[] = messages.map(msg => ({
-            id: msg.id,
-            role: msg.role as 'user' | 'assistant' | 'system',
-            content: msg.content,
-            created_at: msg.createdAt,
-          }));
-
-          return {
-            id: session.id,
-            title: session.title,
-            last_message_at: session.lastMessageAt,
-            messages: serverMessages,
-          };
-        })
-      );
-
-      return sessionsWithMessages;
-    } catch (error) {
-      console.error('Failed to get sessions with messages (legacy):', error);
-      throw new ChatError('セッション取得に失敗しました', ChatErrorCode.SESSION_LOAD_FAILED, {
-        userId,
-        error,
-      });
-    }
+    return this.unwrapSupabaseResult(
+      await this.supabaseService.getSessionsWithMessages(userId),
+      ChatErrorCode.SESSION_LOAD_FAILED,
+      { userId }
+    );
   }
 
   /**

@@ -30,7 +30,6 @@ const serverEnvSchema = z.object({
   OAUTH_STATE_COOKIE_NAME: z.string().min(1).optional(),
   OAUTH_TOKEN_COOKIE_NAME: z.string().min(1).optional(),
   GSC_EVALUATION_INTERVAL_DAYS: z.string().optional(),
-  FEATURE_RPC_V2: z.string().optional(),
 });
 
 type ClientEnv = z.infer<typeof clientEnvSchema>;
@@ -73,7 +72,6 @@ if (isServer) {
     OAUTH_STATE_COOKIE_NAME: process.env.OAUTH_STATE_COOKIE_NAME,
     OAUTH_TOKEN_COOKIE_NAME: process.env.OAUTH_TOKEN_COOKIE_NAME,
     GSC_EVALUATION_INTERVAL_DAYS: process.env.GSC_EVALUATION_INTERVAL_DAYS,
-    FEATURE_RPC_V2: process.env.FEATURE_RPC_V2,
   } satisfies { [K in keyof ServerEnv]?: ServerEnv[K] | undefined };
 
   parsedServerEnv = serverEnvSchema.parse(serverRuntimeEnv);
@@ -100,7 +98,6 @@ const serverOnlyKeys = new Set<keyof ServerEnv>([
   'OAUTH_STATE_COOKIE_NAME',
   'OAUTH_TOKEN_COOKIE_NAME',
   'GSC_EVALUATION_INTERVAL_DAYS',
-  'FEATURE_RPC_V2',
 ]);
 
 const clientKeys = new Set<keyof ClientEnv>([

@@ -552,7 +552,6 @@ erDiagram
 - `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress / Google Search Console OAuth のセキュアな Cookie 管理
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`: Google Search Console 連携を利用する場合のみ設定
 - `GSC_EVALUATION_INTERVAL_DAYS`: GSC記事評価の実行間隔（日数）。未設定時は30日がデフォルト
-- `FEATURE_RPC_V2`: `true` で新しい Supabase RPC 経路を有効化（`FEATURE_FLAGS.USE_RPC_V2`）
 
 ## 🚀 セットアップ手順
 
@@ -815,7 +814,6 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 # ────────────────────────────────────────────────────────
 # 機能フラグ（任意）
 # ────────────────────────────────────────────────────────
-FEATURE_RPC_V2=false  # 新しい Supabase RPC を有効化する場合は true
 ```
 
 **重要**: `.env.local` は `.gitignore` に含まれています。本番環境では Vercel の環境変数設定を使用してください。
