@@ -10,7 +10,6 @@ const clientEnvSchema = z.object({
 });
 
 const serverEnvSchema = z.object({
-  DBPASS: z.string().min(1),
   SUPABASE_SERVICE_ROLE: z.string().min(1),
   STRIPE_ENABLED: z.string().default('false'),
   STRIPE_SECRET_KEY: z.string().min(1),
@@ -52,7 +51,6 @@ const parsedClientEnv = clientEnvSchema.parse(clientRuntimeEnv);
 let parsedServerEnv: ServerEnv | undefined;
 if (isServer) {
   const serverRuntimeEnv = {
-    DBPASS: process.env.DBPASS,
     SUPABASE_SERVICE_ROLE: process.env.SUPABASE_SERVICE_ROLE,
     STRIPE_ENABLED: process.env.STRIPE_ENABLED,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
@@ -78,7 +76,6 @@ if (isServer) {
 }
 
 const serverOnlyKeys = new Set<keyof ServerEnv>([
-  'DBPASS',
   'SUPABASE_SERVICE_ROLE',
   'STRIPE_ENABLED',
   'STRIPE_SECRET_KEY',
@@ -151,7 +148,10 @@ const envProxy = new Proxy({} as Env, {
     if (typeof prop !== 'string') {
       return undefined;
     }
-    if (clientKeys.has(prop as keyof ClientEnv) || (isServer && serverOnlyKeys.has(prop as keyof ServerEnv))) {
+    if (
+      clientKeys.has(prop as keyof ClientEnv) ||
+      (isServer && serverOnlyKeys.has(prop as keyof ServerEnv))
+    ) {
       return { enumerable: true, configurable: false };
     }
     return undefined;

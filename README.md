@@ -3,6 +3,7 @@
 LINE LIFF を入り口に、業界特化のマーケティングコンテンツを一括生成・管理する SaaS アプリケーションです。Next.js 15 App Router を基盤に、マルチベンダー AI、WordPress 連携、Stripe サブスクリプション、Supabase による堅牢なデータ管理を統合しています。
 
 ## 🧭 プロダクト概要
+
 - LIFF でログインしたユーザー向けに、広告／LP／ブログ制作を支援する AI ワークスペースを提供
 - Anthropic Claude Sonnet 4.5 と OpenAI の Fine-tuned モデル `ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2` を用途に応じて切り替え
 - WordPress.com / 自社ホスティングを問わない投稿取得と、Supabase へのコンテンツ注釈保存
@@ -12,16 +13,19 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 ## 🚀 主な機能
 
 ### LINE LIFF 認証とユーザー管理
+
 - LIFF v2.25 を利用したシームレスな LINE ログインと自動トークンリフレッシュ
 - サーバーサイドの `authMiddleware` でアクセストークン検証・ロール判定を一元管理
 - Supabase `users` テーブルにプロフィール・サブスクリプション ID・ロール・最終ログインを保存
 
 ### スタッフ招待と閲覧
+
 - 招待リンクの発行・削除・状態取得を `src/hooks/useEmployeeInvitation.ts` と `src/components/InviteDialog.tsx` で管理
 - API は `app/api/employee/route.ts` と `app/api/employee/invite/*` が担当し、招待リンクは `app/invite/[token]/page.tsx` で受け付け
 - オーナーのスタッフ閲覧は `app/page.tsx` の閲覧モード切替（Cookie付与）と `src/server/middleware/auth.middleware.ts` の判定で実現
 
 ### AI コンテンツ支援ワークスペース
+
 - `app/chat` 配下の ChatLayout で、セッション管理・モデル選択・AI 応答ストリーミングを統合
 - `MODEL_CONFIGS` に定義した 7 ステップのブログ作成フロー（ニーズ整理〜本文作成）と広告／LP テンプレートを提供
 - `POST /api/chat/anthropic/stream` による SSE で Claude 応答をリアルタイム描画
@@ -29,17 +33,20 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - ステップ毎のプロンプト変数へ `content_annotations` と 事業者ブリーフ (`briefs`) をマージし、文脈の再利用を最小化
 
 ### キャンバス編集と選択範囲リライト
+
 - TipTap 3 ベースの `CanvasPanel` に Markdown レンダリング／見出しアウトライン／バージョン履歴を実装
 - `POST /api/chat/canvas/stream` で選択範囲と指示を送信し、Claude の Tool Use による全文差し替えを適用
 - 選択テキストの履歴・プレビュー・Web 検索トリガー（Claude ツール `web_search_20250305`）をサポート
 
 ### WordPress 連携とコンテンツ注釈
+
 - WordPress.com OAuth とセルフホスト版 Application Password の両対応（`app/setup/wordpress`）
 - `WordPressService` が REST API の候補 URL を試行し、投稿情報を正規化
 - `app/analytics` の一覧で投稿と Supabase `content_annotations` を突き合わせ、未紐付けの注釈も表示
 - `AnnotationPanel` でセッション単位のメモ・キーワード・ペルソナ・PREP 等を保存し、ブログ生成時に再利用
 
 ### Google Search Console 連携
+
 - `/setup/gsc` で OAuth 認証状態・接続アカウント・プロパティを可視化し、プロパティ選択や連携解除を実行
 - `app/api/gsc/oauth/*` が Google OAuth 2.0 の開始／コールバックに対応し、Supabase `gsc_credentials` テーブルへリフレッシュトークンを保存
 - GSC連携（状態確認・プロパティ取得・選択更新・接続解除）はサーバーアクション経由で処理（`src/components/GscSetupClient.tsx` / `src/server/actions/gscSetup.actions.ts` / `src/server/actions/gscDashboard.actions.ts` など）
@@ -49,21 +56,25 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - 評価間隔は環境変数 `GSC_EVALUATION_INTERVAL_DAYS` で一括設定（未設定時は30日）。将来のユーザー別設定拡張を見込んでサーバー側で取得関数を用意。
 
 ### サブスクリプションと権限
+
 - Stripe v17.7 で Checkout / Billing Portal / Subscription 状態確認を実装（`SubscriptionService`）
 - `SubscriptionService` とカスタムフック `useSubscriptionStatus` で UI 側から有効プランを判定
 - `authMiddleware` が `requiresSubscription` を返し、有料機能へアクセス制御を適用
 - ユーザー権限（`trial` / `paid` / `admin` / `unavailable`）を Supabase 側で管理し、LIFF ログイン時に自動同期（`trial` はチャット送信が1日3回まで、`paid` は無制限）
 
 ### 管理者ダッシュボード
+
 - `/admin` でプロンプトテンプレート、ユーザー情報の管理 UI を提供
 - `/admin/prompts` からテンプレート編集とバージョン保存、暗黙パラメータ（content 系変数）説明を表示
 - `/admin/users` ではロール切り替え後に `POST /api/auth/clear-cache` を呼び出し、キャッシュを即時無効化
 
 ### 事業者情報ブリーフ
+
 - `/business-info` でサービス概要や 5W2H、決済方法などを入力し、`briefs` テーブルに JSON として保存
 - ブリーフはプロンプトテンプレートの変数へ流用され、広告文や LP のコンテキストを自動補完
 
 ### セットアップ導線
+
 - `/setup/wordpress` で WordPress 連携の初期設定を案内
 - `/setup/gsc` で Google Search Console OAuth 連携とプロパティ選択を管理
 - `/subscription` でプラン購入、`/analytics` で WordPress 投稿と注釈を照合
@@ -265,6 +276,7 @@ sequenceDiagram
 ## 🛠️ 技術スタック
 
 ### フロントエンド
+
 - **フレームワーク**: Next.js 15.5.9 (App Router), React 19.2.3, TypeScript 5.9.3
 - **スタイリング**: Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react, tw-animate-css
 - **テーマ**: next-themes 0.4.6 (ダークモード対応)
@@ -274,29 +286,35 @@ sequenceDiagram
 - **Markdown**: react-markdown 10.1.0
 
 ### バックエンド
+
 - **API**: Next.js Route Handlers & Server Actions
 - **データベース**: Supabase JS 2.75.0 (PostgreSQL + Row Level Security)
 - **バリデーション**: Zod 4.1.12
 - **ランタイム**: Node.js 22.21.1
 
 ### AI・LLM
+
 - **Anthropic**: Claude Sonnet 4.5 (SSE ストリーミング)
 - **OpenAI**: GPT-4.1 nano (Fine-tuned モデル含む)
 
 ### 認証
+
 - **LINE**: LIFF v2.25.1
 - **OAuth 2.0**: WordPress.com, Google (Search Console)
 - **セッション管理**: Vercel Edge Cookie ストア
 - **アクセス制御**: 独自ミドルウェアによるロール判定
 
 ### 決済
+
 - **Stripe**: 17.7.0 (Checkout, Billing Portal, Subscription API)
 
 ### 外部連携
+
 - **WordPress REST API**: 投稿取得・同期
 - **Google Search Console API**: 検索パフォーマンスデータ取得・記事評価
 
 ### 開発ツール
+
 - **型チェック**: TypeScript strict mode
 - **リンター**: ESLint 9, eslint-config-next
 - **フォーマッター**: Prettier 3.5.3
@@ -521,33 +539,33 @@ erDiagram
     gsc_article_evaluations ||--o{ gsc_article_evaluation_history : "has history"
 ```
 
-## 📋 環境変数（18 項目: 必須14項目、オプション4項目）
+## 📋 環境変数（18 項目: 必須12項目、オプション6項目）
 
 `src/env.ts` で厳格にバリデーションされるサーバー／クライアント環境変数です。`.env.local` を手動で用意してください。
 
-| 種別 | 変数名 | 必須 | 用途 |
-| ---- | ------ | ---- | ---- |
-| Server | `DBPASS` | ✅ | Supabase からアクセスされる Postgres password |
-| Server | `SUPABASE_SERVICE_ROLE` | ✅ | サーバーサイド特権操作用 Service Role キー |
-| Server | `STRIPE_ENABLED` | 任意 | Stripe 機能の有効化フラグ（`true` / `false`） |
-| Server | `STRIPE_SECRET_KEY` | ✅（Stripe 無効でもダミー値必須） | Stripe API 呼び出し用シークレット |
-| Server | `STRIPE_PRICE_ID` | ✅（Stripe 無効でもダミー値必須） | サブスクリプションで使用する Price ID |
-| Server | `OPENAI_API_KEY` | ✅ | Fine-tuned モデル利用時の OpenAI キー |
-| Server | `ANTHROPIC_API_KEY` | ✅ | Claude ストリーミング用 API キー |
-| Server | `LINE_CHANNEL_ID` | ✅ | LINE Login 用チャネル ID |
-| Server | `LINE_CHANNEL_SECRET` | ✅ | LINE Login 用チャネルシークレット |
-| Server | `GOOGLE_OAUTH_CLIENT_ID` | 任意（GSC 連携利用時は必須） | Google Search Console OAuth 用クライアント ID |
-| Server | `GOOGLE_OAUTH_CLIENT_SECRET` | 任意（GSC 連携利用時は必須） | Google Search Console OAuth 用クライアントシークレット |
-| Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC 連携利用時は必須） | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など） |
-| Server | `GSC_OAUTH_STATE_COOKIE_NAME` | 任意 | GSC OAuth state 用 Cookie 名（未設定時は `gsc_oauth_state`） |
-| Client | `NEXT_PUBLIC_LIFF_ID` | ✅ | LIFF アプリ ID |
-| Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID` | ✅ | LIFF Channel ID |
-| Client | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase プロジェクト URL |
-| Client | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon キー |
-| Client | `NEXT_PUBLIC_SITE_URL` | ✅ | サイトの公開 URL |
-| Client | `NEXT_PUBLIC_STRIPE_ENABLED` | 任意 | クライアント側での Stripe 有効化フラグ（未設定時は `STRIPE_ENABLED` を継承） |
+| 種別   | 変数名                               | 必須                              | 用途                                                                          |
+| ------ | ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------- |
+| Server | `SUPABASE_SERVICE_ROLE`              | ✅                                | サーバーサイド特権操作用 Service Role キー                                    |
+| Server | `STRIPE_ENABLED`                     | 任意                              | Stripe 機能の有効化フラグ（`true` / `false`）                                 |
+| Server | `STRIPE_SECRET_KEY`                  | ✅（Stripe 無効でもダミー値必須） | Stripe API 呼び出し用シークレット                                             |
+| Server | `STRIPE_PRICE_ID`                    | ✅（Stripe 無効でもダミー値必須） | サブスクリプションで使用する Price ID                                         |
+| Server | `OPENAI_API_KEY`                     | ✅                                | Fine-tuned モデル利用時の OpenAI キー                                         |
+| Server | `ANTHROPIC_API_KEY`                  | ✅                                | Claude ストリーミング用 API キー                                              |
+| Server | `LINE_CHANNEL_ID`                    | ✅                                | LINE Login 用チャネル ID                                                      |
+| Server | `LINE_CHANNEL_SECRET`                | ✅                                | LINE Login 用チャネルシークレット                                             |
+| Server | `GOOGLE_OAUTH_CLIENT_ID`             | 任意（GSC 連携利用時は必須）      | Google Search Console OAuth 用クライアント ID                                 |
+| Server | `GOOGLE_OAUTH_CLIENT_SECRET`         | 任意（GSC 連携利用時は必須）      | Google Search Console OAuth 用クライアントシークレット                        |
+| Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC 連携利用時は必須）      | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など） |
+| Server | `GSC_OAUTH_STATE_COOKIE_NAME`        | 任意                              | GSC OAuth state 用 Cookie 名（未設定時は `gsc_oauth_state`）                  |
+| Client | `NEXT_PUBLIC_LIFF_ID`                | ✅                                | LIFF アプリ ID                                                                |
+| Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID`        | ✅                                | LIFF Channel ID                                                               |
+| Client | `NEXT_PUBLIC_SUPABASE_URL`           | ✅                                | Supabase プロジェクト URL                                                     |
+| Client | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | ✅                                | Supabase anon キー                                                            |
+| Client | `NEXT_PUBLIC_SITE_URL`               | ✅                                | サイトの公開 URL                                                              |
+| Client | `NEXT_PUBLIC_STRIPE_ENABLED`         | 任意                              | クライアント側での Stripe 有効化フラグ（未設定時は `STRIPE_ENABLED` を継承）  |
 
 ### 追加で利用できる任意設定
+
 - `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`: WordPress.com OAuth 連携で必須
 - `OAUTH_STATE_COOKIE_NAME`, `OAUTH_TOKEN_COOKIE_NAME`, `COOKIE_SECRET`: WordPress / Google Search Console OAuth のセキュアな Cookie 管理
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`: Google Search Console 連携を利用する場合のみ設定
@@ -556,6 +574,7 @@ erDiagram
 ## 🚀 セットアップ手順
 
 ### 必要条件
+
 - **Node.js**: 18 以上（推奨: 20.x LTS）
 - **npm**: 9 以上
 - **Supabase 接続情報**（管理者から取得）
@@ -584,7 +603,6 @@ npm install
    - **Project URL** (`https://xxxxx.supabase.co`)
    - **anon public key**
    - **service_role key**（秘密情報、サーバーサイド専用）
-   - **Database Password**
 
 2. これらの情報を `.env.local` ファイルに設定します（詳細は「6. 環境変数の設定」を参照）
 
@@ -595,6 +613,7 @@ npm install
 - **ローカルでのマイグレーション適用は不要です**（`npx supabase db push` は実行しないでください）
 
 **注意事項:**
+
 - 本番データと同じデータベースを使用するため、データ操作には十分注意してください
 - テスト用のデータ作成時は、自分のユーザーIDに紐付けて作成し、他のユーザーのデータを誤って変更・削除しないようにしてください
 - スキーマ変更が必要な場合は、必ずプロジェクト管理者に相談してください
@@ -616,6 +635,7 @@ npm install
 #### 3.2 LINE設定の注意事項
 
 **注意事項:**
+
 - 本番環境と同じLINE ChannelおよびLIFFアプリを使用します
 - **LINE Developers Consoleでの設定変更は本番環境にも影響します**
 - LIFF エンドポイント URL やコールバック URL の変更は行わないでください
@@ -624,15 +644,18 @@ npm install
 ### 4. Stripe の設定（サブスクリプション機能を使用する場合）
 
 #### 4.1 Stripe アカウントの作成とキー取得
+
 1. [Stripe Dashboard](https://dashboard.stripe.com/) にログイン
 2. 「開発者」→「API キー」から以下を取得：
    - **シークレットキー**（`sk_test_...` または `sk_live_...`）
 
 #### 4.2 サブスクリプション商品と Price ID の作成
+
 1. Stripe Dashboard の「商品」→「商品を追加」
 2. サブスクリプション商品を作成し、**Price ID** (`price_xxxxx`) をコピー
 
 #### 4.3 Stripe を無効化する場合
+
 - `STRIPE_ENABLED=false` を設定
 - ただし、`STRIPE_SECRET_KEY` と `STRIPE_PRICE_ID` にはダミー値（例: `sk_test_dummy`）を設定する必要があります
 
@@ -643,10 +666,12 @@ npm install
 **重要**: GSC 連携機能を使用する場合は、Google Cloud Console で OAuth 2.0 クライアント ID を作成する必要があります。
 
 ##### 5.1.1 プロジェクトの作成または選択
+
 1. [Google Cloud Console](https://console.cloud.google.com/) にログイン
 2. プロジェクトを選択するか、新規プロジェクトを作成
 
 ##### 5.1.2 OAuth consent screen（同意画面）の設定
+
 1. 「API とサービス」→「OAuth consent screen」に移動
 2. **User Type** を選択：
    - **外部**（推奨）: テストユーザーを追加して開発・検証が可能
@@ -664,6 +689,7 @@ npm install
    - **重要**: テストユーザーとして登録されていないアカウントでは認証できません
 
 ##### 5.1.3 OAuth 2.0 クライアント ID の作成
+
 1. 「API とサービス」→「認証情報」に移動
 2. 「認証情報を作成」→「OAuth クライアント ID」を選択
 3. **アプリケーションの種類**を「ウェブアプリケーション」に設定
@@ -677,6 +703,7 @@ npm install
 7. **クライアント ID** と **クライアントシークレット** をコピー（後で `.env.local` に設定します）
 
 ##### 5.1.4 Search Console API の有効化
+
 1. 「API とサービス」→「ライブラリ」に移動
 2. 「Google Search Console API」を検索
 3. 「有効にする」をクリック
@@ -699,11 +726,13 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 ```
 
 **redirect_uri の使い分け:**
+
 - **ローカル開発**: `http://localhost:3000/api/gsc/oauth/callback` を使用（Google Cloud Console にも同じ URI を登録）
 - **ngrok 利用時**: 静的ドメインを使用（例: `https://your-static-domain.ngrok-free.dev/api/gsc/oauth/callback`）。一度設定すれば変更不要
 - **本番環境**: デプロイ先のドメインを使用（例: `https://your-domain.com/api/gsc/oauth/callback`）
 
 **重要**:
+
 - 開発環境と本番環境で異なる OAuth クライアント ID を使用することを推奨します
 - Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` は完全に一致させる必要があります
 - ngrok の静的ドメインを使用すれば URL は固定されるため、Google Cloud Console の設定変更は不要です
@@ -711,6 +740,7 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 #### 5.3 期待される動作とトラブルシューティング
 
 ##### 正常な動作フロー
+
 1. `/setup/gsc` にアクセスし、「Google Search Console と連携」ボタンをクリック
 2. Google 認証画面が表示され、`webmasters.readonly` スコープの許可を求められる
 3. 認証完了後、`/api/gsc/oauth/callback` 経由でコールバックが処理される
@@ -720,6 +750,7 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 ##### よくあるエラーと対処法
 
 ##### エラー: `redirect_uri_mismatch`
+
 - **原因**: Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` が一致していない
 - **対処**: 両方の設定を確認し、完全に一致させる（プロトコル、ホスト、パスすべて）
 
@@ -730,11 +761,11 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 
 ##### エラー: プロパティ一覧が表示されない、または空のリスト
 
-- **原因**: 
+- **原因**:
   - Search Console API が有効化されていない
   - 認証した Google アカウントに Search Console プロパティへのアクセス権限がない
   - スコープが正しく設定されていない
-- **対処**: 
+- **対処**:
   - Google Cloud Console で Search Console API が有効化されているか確認
   - 認証に使用した Google アカウントで [Search Console](https://search.google.com/search-console) にアクセスし、プロパティが存在するか確認
   - OAuth consent screen のスコープに `webmasters.readonly` が含まれているか確認
@@ -745,6 +776,7 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 - **対処**: `.env.local` の `GOOGLE_OAUTH_CLIENT_ID` と `GOOGLE_OAUTH_CLIENT_SECRET` を確認
 
 ##### 権限不足時のエラーメッセージ例
+
 - `Error: The caller does not have permission` → Search Console API が有効化されていない、または認証したアカウントにプロパティへのアクセス権限がない
 - `Error: Insufficient Permission` → OAuth consent screen のスコープ設定が不十分
 
@@ -756,7 +788,6 @@ GSC_EVALUATION_INTERVAL_DAYS=30  # デフォルト: 30日
 # ────────────────────────────────────────────────────────
 # Supabase 設定
 # ────────────────────────────────────────────────────────
-DBPASS=your_supabase_database_password
 SUPABASE_SERVICE_ROLE=your_supabase_service_role_key
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -834,6 +865,7 @@ LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテス
 **重要**: 本番環境とLINE設定を共有しているため、通常のローカル開発ではngrokは不要です。LIFF認証が必要な機能を開発・テストする場合のみ使用してください。
 
 #### 8.1 ngrok のセットアップ
+
 1. [ngrok](https://ngrok.com/) にサインアップ
 2. ngrok ダッシュボードで認証トークンを取得し、ローカルに設定：
    ```bash
@@ -856,38 +888,45 @@ npm run ngrok
 静的ドメインを使用することで、URL が固定され、LINE Developers Console の LIFF エンドポイント URL を毎回変更する必要がなくなります。
 
 **無料プランの制限**:
+
 - 静的ドメインは **1つまで**
 - **商用利用は不可**（開発・検証用途のみ）
 - 複数人で開発する場合は、各自が無料アカウントを作成して静的ドメインを取得
 
 **注意**:
+
 - LINE Developers Console の LIFF エンドポイント URL には静的ドメインを設定してください
 - LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（`http://localhost:3000`）を使用可能です
 
 ### 9. 動作確認と検証
 
 #### 9.1 Lint チェック
+
 ```bash
 npm run lint
 ```
 
 #### 9.2 ビルドチェック
+
 ```bash
 npm run build
 npm run start
 ```
 
 #### 9.3 データベース統計確認
+
 ```bash
 npm run db:stats
 ```
 
 #### 9.4 Vercel 統計確認（Vercel にデプロイ済みの場合）
+
 ```bash
 npm run vercel:stats
 ```
 
 #### 9.5 GSC 連携の手動検証（GSC 連携機能を変更した場合）
+
 GSC 連携機能を変更した場合は、以下の手順で動作確認を行い、PR に検証結果を記載してください：
 
 1. **OAuth 認証フローの確認**
@@ -922,12 +961,14 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
    - 評価間隔が環境変数 `GSC_EVALUATION_INTERVAL_DAYS`（デフォルト: 30日）に従って設定されることを確認
 
 **PR への記載例:**
+
 - 検証日時と環境（ローカル/本番）
 - 各ステップの実行結果（成功/失敗、エラーメッセージ）
 - スクリーンショットまたは再現手順
 - Supabase テーブルの確認結果（必要に応じて）
 
 #### 9.6 スタッフ招待の手動検証（スタッフ招待機能を変更した場合）
+
 スタッフ招待機能を変更した場合は、以下の手順で動作確認を行い、PR に検証結果を記載してください：
 
 1. **招待リンク生成と有効性の確認**
@@ -948,6 +989,7 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
    - スタッフ削除後、オーナー権限が復帰することを確認
 
 **PR への記載例:**
+
 - 検証日時と環境（ローカル/本番）
 - 各ステップの実行結果（成功/失敗、エラーメッセージ）
 - スクリーンショットまたは再現手順
@@ -964,6 +1006,7 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 5. **プロンプトテンプレートの確認**: `/admin/prompts` でデフォルトテンプレートを確認・編集
 
 ### ローカル開発のポイント
+
 - `npm run lint` で ESLint + Next/Tailwind ルールを検証（Husky pre-commit でも自動実行）
 - `npm run build` → `npm run start` で本番ビルドの健全性をチェック
 - **Supabase スキーマ変更**: 本番環境と共有しているため、スキーマ変更は必ず管理者に相談してください。変更が必要な場合は `supabase/migrations/` に SQL を追加し、ロールバック手順をコメントに残します
@@ -1021,39 +1064,40 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 
 ## 🔧 主な API エンドポイント
 
-| エンドポイント | メソッド | 概要 | 認証 |
-| -------------- | -------- | ---- | ---- |
-| `/api/chat/anthropic/stream` | POST | Claude とのチャット SSE ストリーム | `Authorization: Bearer <LIFF>` |
-| `/api/chat/canvas/stream` | POST | Canvas 編集リクエスト（選択範囲差し替え） | `Authorization: Bearer <LIFF>` |
-| `/api/chat/canvas/load-wordpress` | POST | WordPress記事をCanvasに読み込み | `Authorization: Bearer <LIFF>` |
-| `/api/refresh` | POST | LINE リフレッシュトークンからアクセストークン再発行 | Cookie (`line_refresh_token`) |
-| `/api/user/current` | GET | ログインユーザーのプロファイル・ロール情報 | Cookie (`line_access_token`) |
-| `/api/auth/check-role` | GET | ロールのサーバー検証 | Cookie |
-| `/api/auth/clear-cache` | POST | Edge キャッシュクリア通知 | 任意 |
-| `/api/auth/line-oauth-init` | GET | LINE OAuth state生成エンドポイント | Cookie |
-| `/api/line/callback` | GET | LINE OAuth コールバック | 公開（state チェックあり） |
-| `/api/wordpress/settings` | GET/POST | WordPress 設定の取得・保存（server action と共有） | Cookie |
-| `/api/wordpress/status` | GET | WordPress 接続状況の確認 | Cookie |
-| `/api/wordpress/posts` | GET | WordPress 投稿一覧の取得 | Cookie + WP 認証 |
-| `/api/wordpress/test-connection` | POST | WordPress 接続テスト | Cookie |
-| `/api/wordpress/oauth/start` | GET | WordPress.com OAuth リダイレクト開始 | 公開（環境変数必須） |
-| `/api/wordpress/oauth/callback` | GET | WordPress.com OAuth コールバック | Cookie |
-| `/api/admin/prompts` | GET | プロンプトテンプレート一覧（管理者専用） | Cookie + admin ロール |
-| `/api/admin/prompts/[id]` | POST | テンプレート更新・バージョン生成 | Cookie + admin ロール |
-| `/api/wordpress/bulk-import-posts` | POST | WordPress 記事の一括インポート | Bearer + admin ロール |
-| `/api/gsc/status` | GET | GSC連携状態確認 | Cookie |
-| `/api/gsc/oauth/start` | GET | GSC OAuth リダイレクト開始 | 公開（環境変数必須） |
-| `/api/gsc/oauth/callback` | GET | GSC OAuth コールバック | Cookie |
-| `/api/gsc/disconnect` | POST | GSC連携解除 | Cookie |
-| `/api/gsc/properties` | GET | GSCプロパティ一覧取得 | Cookie |
-| `/api/gsc/property` | POST | GSCプロパティ選択 | Cookie |
-| `/api/gsc/dashboard` | GET | GSCダッシュボードデータ取得 | Cookie |
-| `/api/gsc/import` | POST | GSCデータインポート | Cookie |
-| `/api/gsc/evaluate` | POST | GSC記事評価の手動実行 | Cookie |
-| `/api/gsc/evaluations` | GET | GSC評価履歴取得 | Cookie |
-| `/api/cron/gsc-evaluate` | POST | GSC記事評価の定期実行（GitHub Actions などのスケジューラ経由で Bearer 認証） | Authorization ヘッダー |
+| エンドポイント                     | メソッド | 概要                                                                         | 認証                           |
+| ---------------------------------- | -------- | ---------------------------------------------------------------------------- | ------------------------------ |
+| `/api/chat/anthropic/stream`       | POST     | Claude とのチャット SSE ストリーム                                           | `Authorization: Bearer <LIFF>` |
+| `/api/chat/canvas/stream`          | POST     | Canvas 編集リクエスト（選択範囲差し替え）                                    | `Authorization: Bearer <LIFF>` |
+| `/api/chat/canvas/load-wordpress`  | POST     | WordPress記事をCanvasに読み込み                                              | `Authorization: Bearer <LIFF>` |
+| `/api/refresh`                     | POST     | LINE リフレッシュトークンからアクセストークン再発行                          | Cookie (`line_refresh_token`)  |
+| `/api/user/current`                | GET      | ログインユーザーのプロファイル・ロール情報                                   | Cookie (`line_access_token`)   |
+| `/api/auth/check-role`             | GET      | ロールのサーバー検証                                                         | Cookie                         |
+| `/api/auth/clear-cache`            | POST     | Edge キャッシュクリア通知                                                    | 任意                           |
+| `/api/auth/line-oauth-init`        | GET      | LINE OAuth state生成エンドポイント                                           | Cookie                         |
+| `/api/line/callback`               | GET      | LINE OAuth コールバック                                                      | 公開（state チェックあり）     |
+| `/api/wordpress/settings`          | GET/POST | WordPress 設定の取得・保存（server action と共有）                           | Cookie                         |
+| `/api/wordpress/status`            | GET      | WordPress 接続状況の確認                                                     | Cookie                         |
+| `/api/wordpress/posts`             | GET      | WordPress 投稿一覧の取得                                                     | Cookie + WP 認証               |
+| `/api/wordpress/test-connection`   | POST     | WordPress 接続テスト                                                         | Cookie                         |
+| `/api/wordpress/oauth/start`       | GET      | WordPress.com OAuth リダイレクト開始                                         | 公開（環境変数必須）           |
+| `/api/wordpress/oauth/callback`    | GET      | WordPress.com OAuth コールバック                                             | Cookie                         |
+| `/api/admin/prompts`               | GET      | プロンプトテンプレート一覧（管理者専用）                                     | Cookie + admin ロール          |
+| `/api/admin/prompts/[id]`          | POST     | テンプレート更新・バージョン生成                                             | Cookie + admin ロール          |
+| `/api/wordpress/bulk-import-posts` | POST     | WordPress 記事の一括インポート                                               | Bearer + admin ロール          |
+| `/api/gsc/status`                  | GET      | GSC連携状態確認                                                              | Cookie                         |
+| `/api/gsc/oauth/start`             | GET      | GSC OAuth リダイレクト開始                                                   | 公開（環境変数必須）           |
+| `/api/gsc/oauth/callback`          | GET      | GSC OAuth コールバック                                                       | Cookie                         |
+| `/api/gsc/disconnect`              | POST     | GSC連携解除                                                                  | Cookie                         |
+| `/api/gsc/properties`              | GET      | GSCプロパティ一覧取得                                                        | Cookie                         |
+| `/api/gsc/property`                | POST     | GSCプロパティ選択                                                            | Cookie                         |
+| `/api/gsc/dashboard`               | GET      | GSCダッシュボードデータ取得                                                  | Cookie                         |
+| `/api/gsc/import`                  | POST     | GSCデータインポート                                                          | Cookie                         |
+| `/api/gsc/evaluate`                | POST     | GSC記事評価の手動実行                                                        | Cookie                         |
+| `/api/gsc/evaluations`             | GET      | GSC評価履歴取得                                                              | Cookie                         |
+| `/api/cron/gsc-evaluate`           | POST     | GSC記事評価の定期実行（GitHub Actions などのスケジューラ経由で Bearer 認証） | Authorization ヘッダー         |
 
 ### GSC 評価バッチ（GitHub Actions での実行例）
+
 - Vercel 環境変数: `CRON_SECRET` を設定（Cronバッチ用の共有シークレット）
 - GitHub Actions Secret: 同じ値の `CRON_SECRET` を登録
 - ワークフロー: `.github/workflows/gsc-cron.yml` の `TARGET_URL` をデプロイ先ドメインに置き換える（例: `https://your-app.vercel.app/api/cron/gsc-evaluate`）
@@ -1063,6 +1107,7 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 サーバーアクション (`src/server/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
 
 ## 🛡️ セキュリティと運用の注意点
+
 - Supabase では主要テーブルに RLS を適用済み（開発ポリシーが残る箇所は運用前に見直す）
 - `authMiddleware` がロール・サブスクリプションを検証し、`requiresSubscription` でプレミアム機能を保護
 - WordPress アプリケーションパスワードや OAuth トークンは HTTP-only Cookie に保存（本番では安全な KMS / Secrets 管理を推奨）
@@ -1070,34 +1115,39 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 - `AnnotationPanel` の URL 正規化で内部／ローカルホストへの誤登録を防止
 
 ## 📱 デプロイと運用
+
 - Vercel を想定（Edge Runtime と Node.js Runtime をルートごとに切り分け）
 - デプロイ前チェック: `npm run lint` → `npm run build`
 - 環境変数は Vercel Project Settings へ反映し、本番は Stripe 本番キー・WordPress 本番サイトに切り替え
 - Supabase マイグレーションは `npx supabase db push` で同期、ロールバック手順（コメント）を常に更新
 
 ### GitHub Actions シークレット設定
+
 週次レポート用のワークフローで使用するシークレットを GitHub Repository Settings → Secrets and variables → Actions で設定してください。
 
-| シークレット名 | 用途 | 必須 |
-| ------------- | ---- | ---- |
-| `CI_WEBHOOK_URL` | CI ビルド結果通知用 Lark Webhook URL | 任意 |
-| `DB_STATS_WEBHOOK_URL` | データベース統計レポート用 Lark Webhook URL | 任意 |
-| `VERCEL_STATS_WEBHOOK_URL` | Vercel 統計レポート用 Lark Webhook URL | 任意 |
-| `VERCEL_TOKEN` | Vercel API アクセストークン（Settings → Tokens で作成） | Vercel レポート用 |
-| `VERCEL_PROJECT_ID` | Vercel プロジェクト ID（`prj_` で始まる） | Vercel レポート用 |
-| `VERCEL_TEAM_ID` | Vercel チーム ID（`team_` で始まる、オプション） | Vercel レポート用（オプション） |
+| シークレット名             | 用途                                                    | 必須                            |
+| -------------------------- | ------------------------------------------------------- | ------------------------------- |
+| `CI_WEBHOOK_URL`           | CI ビルド結果通知用 Lark Webhook URL                    | 任意                            |
+| `DB_STATS_WEBHOOK_URL`     | データベース統計レポート用 Lark Webhook URL             | 任意                            |
+| `VERCEL_STATS_WEBHOOK_URL` | Vercel 統計レポート用 Lark Webhook URL                  | 任意                            |
+| `VERCEL_TOKEN`             | Vercel API アクセストークン（Settings → Tokens で作成） | Vercel レポート用               |
+| `VERCEL_PROJECT_ID`        | Vercel プロジェクト ID（`prj_` で始まる）               | Vercel レポート用               |
+| `VERCEL_TEAM_ID`           | Vercel チーム ID（`team_` で始まる、オプション）        | Vercel レポート用（オプション） |
 
 **Vercel API トークンの取得方法:**
+
 1. Vercel Dashboard → Settings → Tokens
 2. 「Create Token」をクリック
 3. トークン名を入力し、スコープを設定（`Full Account` または `Project` スコープ）
 4. 生成されたトークンを `VERCEL_TOKEN` シークレットに設定
 
 **Vercel プロジェクト ID の取得方法:**
+
 - Vercel Dashboard → プロジェクト → Settings → General の「Project ID」を確認
 - または、`.vercel/project.json` ファイルの `projectId` フィールドを確認
 
 ## 🤝 コントリビューション
+
 1. フィーチャーブランチを作成
 2. 変更を実装し、`npm run lint` の結果を確認
 3. 必要に応じて Supabase マイグレーションを追加し、ロールバック手順を明記
