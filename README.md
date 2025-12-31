@@ -1120,6 +1120,7 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 | `CI_WEBHOOK_URL`           | CI ビルド結果通知用 Lark Webhook URL                    | 任意                            |
 | `DB_STATS_WEBHOOK_URL`     | データベース統計レポート用 Lark Webhook URL             | 任意                            |
 | `VERCEL_STATS_WEBHOOK_URL` | Vercel 統計レポート用 Lark Webhook URL                  | 任意                            |
+| `CRON_SECRET`              | GSC 評価バッチ実行用の共有シークレット（Bearer 認証）   | GSC 評価バッチ利用時            |
 | `VERCEL_TOKEN`             | Vercel API アクセストークン（Settings → Tokens で作成） | Vercel レポート用               |
 | `VERCEL_PROJECT_ID`        | Vercel プロジェクト ID（`prj_` で始まる）               | Vercel レポート用               |
 | `VERCEL_TEAM_ID`           | Vercel チーム ID（`team_` で始まる、オプション）        | Vercel レポート用（オプション） |

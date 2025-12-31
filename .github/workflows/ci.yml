@@ -40,7 +40,6 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_PUBLIC_STRIPE_ENABLED: false
           # サーバー環境変数（ビルド時に必須）
-          DBPASS: dummy-dbpass
           SUPABASE_SERVICE_ROLE: dummy-service-role
           STRIPE_ENABLED: false
           STRIPE_SECRET_KEY: sk_test_dummy
@@ -49,8 +48,6 @@ jobs:
           ANTHROPIC_API_KEY: sk-ant-dummy
           LINE_CHANNEL_ID: dummy-line-channel-id
           LINE_CHANNEL_SECRET: dummy-line-channel-secret
-          BASE_WEBHOOK_URL: https://dummy.webhook.url
-          RELAY_BEARER_TOKEN: dummy-bearer-token
 
       - name: Send webhook notification
         if: always()
