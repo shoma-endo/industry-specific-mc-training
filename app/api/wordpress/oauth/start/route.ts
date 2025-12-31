@@ -9,7 +9,7 @@ export async function GET() {
   const clientId = process.env.WORDPRESS_COM_CLIENT_ID;
   const clientSecret = process.env.WORDPRESS_COM_CLIENT_SECRET;
   const redirectUri = process.env.WORDPRESS_COM_REDIRECT_URI;
-  const stateCookieName = process.env.OAUTH_STATE_COOKIE_NAME || 'wpcom_oauth_state';
+  const stateCookieName = 'wpcom_oauth_state';
   const cookieSecret = process.env.COOKIE_SECRET;
 
   if (!clientId || !redirectUri || !cookieSecret) {

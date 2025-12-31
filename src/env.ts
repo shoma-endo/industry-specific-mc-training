@@ -10,7 +10,6 @@ const clientEnvSchema = z.object({
 });
 
 const serverEnvSchema = z.object({
-  DBPASS: z.string().min(1),
   SUPABASE_SERVICE_ROLE: z.string().min(1),
   STRIPE_ENABLED: z.string().default('false'),
   STRIPE_SECRET_KEY: z.string().min(1),
@@ -22,15 +21,10 @@ const serverEnvSchema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_SEARCH_CONSOLE_REDIRECT_URI: z.string().url().optional(),
-  GSC_OAUTH_STATE_COOKIE_NAME: z.string().min(1).optional(),
   WORDPRESS_COM_CLIENT_ID: z.string().min(1).optional(),
   WORDPRESS_COM_CLIENT_SECRET: z.string().min(1).optional(),
   WORDPRESS_COM_REDIRECT_URI: z.string().url().optional(),
   COOKIE_SECRET: z.string().min(1).optional(),
-  OAUTH_STATE_COOKIE_NAME: z.string().min(1).optional(),
-  OAUTH_TOKEN_COOKIE_NAME: z.string().min(1).optional(),
-  GSC_EVALUATION_INTERVAL_DAYS: z.string().optional(),
-  FEATURE_RPC_V2: z.string().optional(),
 });
 
 type ClientEnv = z.infer<typeof clientEnvSchema>;
@@ -53,7 +47,6 @@ const parsedClientEnv = clientEnvSchema.parse(clientRuntimeEnv);
 let parsedServerEnv: ServerEnv | undefined;
 if (isServer) {
   const serverRuntimeEnv = {
-    DBPASS: process.env.DBPASS,
     SUPABASE_SERVICE_ROLE: process.env.SUPABASE_SERVICE_ROLE,
     STRIPE_ENABLED: process.env.STRIPE_ENABLED,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
@@ -65,22 +58,16 @@ if (isServer) {
     GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID,
     GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
     GOOGLE_SEARCH_CONSOLE_REDIRECT_URI: process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI,
-    GSC_OAUTH_STATE_COOKIE_NAME: process.env.GSC_OAUTH_STATE_COOKIE_NAME,
     WORDPRESS_COM_CLIENT_ID: process.env.WORDPRESS_COM_CLIENT_ID,
     WORDPRESS_COM_CLIENT_SECRET: process.env.WORDPRESS_COM_CLIENT_SECRET,
     WORDPRESS_COM_REDIRECT_URI: process.env.WORDPRESS_COM_REDIRECT_URI,
     COOKIE_SECRET: process.env.COOKIE_SECRET,
-    OAUTH_STATE_COOKIE_NAME: process.env.OAUTH_STATE_COOKIE_NAME,
-    OAUTH_TOKEN_COOKIE_NAME: process.env.OAUTH_TOKEN_COOKIE_NAME,
-    GSC_EVALUATION_INTERVAL_DAYS: process.env.GSC_EVALUATION_INTERVAL_DAYS,
-    FEATURE_RPC_V2: process.env.FEATURE_RPC_V2,
   } satisfies { [K in keyof ServerEnv]?: ServerEnv[K] | undefined };
 
   parsedServerEnv = serverEnvSchema.parse(serverRuntimeEnv);
 }
 
 const serverOnlyKeys = new Set<keyof ServerEnv>([
-  'DBPASS',
   'SUPABASE_SERVICE_ROLE',
   'STRIPE_ENABLED',
   'STRIPE_SECRET_KEY',
@@ -92,15 +79,10 @@ const serverOnlyKeys = new Set<keyof ServerEnv>([
   'GOOGLE_OAUTH_CLIENT_ID',
   'GOOGLE_OAUTH_CLIENT_SECRET',
   'GOOGLE_SEARCH_CONSOLE_REDIRECT_URI',
-  'GSC_OAUTH_STATE_COOKIE_NAME',
   'WORDPRESS_COM_CLIENT_ID',
   'WORDPRESS_COM_CLIENT_SECRET',
   'WORDPRESS_COM_REDIRECT_URI',
   'COOKIE_SECRET',
-  'OAUTH_STATE_COOKIE_NAME',
-  'OAUTH_TOKEN_COOKIE_NAME',
-  'GSC_EVALUATION_INTERVAL_DAYS',
-  'FEATURE_RPC_V2',
 ]);
 
 const clientKeys = new Set<keyof ClientEnv>([
@@ -154,7 +136,10 @@ const envProxy = new Proxy({} as Env, {
     if (typeof prop !== 'string') {
       return undefined;
     }
-    if (clientKeys.has(prop as keyof ClientEnv) || (isServer && serverOnlyKeys.has(prop as keyof ServerEnv))) {
+    if (
+      clientKeys.has(prop as keyof ClientEnv) ||
+      (isServer && serverOnlyKeys.has(prop as keyof ServerEnv))
+    ) {
       return { enumerable: true, configurable: false };
     }
     return undefined;

@@ -1,6 +1,12 @@
 import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
-import { DbChatMessage, DbChatSession, DbChatSessionSearchRow } from '@/types/chat';
+import {
+  DbChatMessage,
+  DbChatSession,
+  DbChatSessionSearchRow,
+  ServerChatMessage,
+  ServerChatSession,
+} from '@/types/chat';
 import type { DbUser, EmployeeInvitation } from '@/types/user';
 import type { UserRole } from '@/types/user';
 import type { GscCredential, GscPropertyType, GscSearchType } from '@/types/gsc';
@@ -368,6 +374,45 @@ export class SupabaseService {
     }
 
     return this.success(data ?? []);
+  }
+
+  /**
+   * セッションとメッセージを一括取得（RPC関数を使用）
+   * N+1問題を解消し、パフォーマンスを向上
+   */
+  async getSessionsWithMessages(
+    userId: string,
+    options?: { limit?: number }
+  ): Promise<SupabaseResult<ServerChatSession[]>> {
+    const limit = options?.limit ?? 20;
+    const { data, error } = await this.supabase.rpc('get_sessions_with_messages', {
+      p_user_id: userId,
+      p_limit: limit,
+    });
+
+    if (error) {
+      return this.failure('セッション取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get sessions with messages (RPC)',
+        context: { userId, limit },
+      });
+    }
+
+    type SessionsWithMessagesRow = {
+      session_id: string;
+      title: string;
+      last_message_at: number;
+      messages: ServerChatMessage[] | null;
+    };
+
+    const sessions = (Array.isArray(data) ? data : []).map((row: SessionsWithMessagesRow) => ({
+      id: row.session_id,
+      title: row.title,
+      last_message_at: row.last_message_at,
+      messages: row.messages ?? [],
+    }));
+
+    return this.success(sessions);
   }
 
   async searchChatSessions(
