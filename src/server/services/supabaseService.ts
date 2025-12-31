@@ -376,16 +376,25 @@ export class SupabaseService {
     return this.success(data ?? []);
   }
 
-  async getSessionsWithMessages(userId: string): Promise<SupabaseResult<ServerChatSession[]>> {
+  /**
+   * セッションとメッセージを一括取得（RPC関数を使用）
+   * N+1問題を解消し、パフォーマンスを向上
+   */
+  async getSessionsWithMessages(
+    userId: string,
+    options?: { limit?: number }
+  ): Promise<SupabaseResult<ServerChatSession[]>> {
+    const limit = options?.limit ?? 20;
     const { data, error } = await this.supabase.rpc('get_sessions_with_messages', {
       p_user_id: userId,
+      p_limit: limit,
     });
 
     if (error) {
       return this.failure('セッション取得に失敗しました', {
         error,
         developerMessage: 'Failed to get sessions with messages (RPC)',
-        context: { userId },
+        context: { userId, limit },
       });
     }
 

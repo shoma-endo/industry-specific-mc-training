@@ -361,11 +361,15 @@ class ChatService {
       }));
     } catch (error) {
       console.error('Failed to search user sessions:', error);
-      throw new ChatError('チャットセッションの検索に失敗しました', ChatErrorCode.SESSION_LOAD_FAILED, {
-        userId,
-        query,
-        error,
-      });
+      throw new ChatError(
+        'チャットセッションの検索に失敗しました',
+        ChatErrorCode.SESSION_LOAD_FAILED,
+        {
+          userId,
+          query,
+          error,
+        }
+      );
     }
   }
 
@@ -411,14 +415,17 @@ class ChatService {
   }
 
   /**
-   * Server Component用: セッションとメッセージを一括取得 (RPC)
+   * Server Component用: セッションとメッセージを一括取得（RPC関数を使用）
    * N+1問題を解消し、パフォーマンスを向上
    */
-  async getSessionsWithMessages(userId: string): Promise<ServerChatSession[]> {
+  async getSessionsWithMessages(
+    userId: string,
+    options?: { limit?: number }
+  ): Promise<ServerChatSession[]> {
     return this.unwrapSupabaseResult(
-      await this.supabaseService.getSessionsWithMessages(userId),
+      await this.supabaseService.getSessionsWithMessages(userId, options),
       ChatErrorCode.SESSION_LOAD_FAILED,
-      { userId }
+      { userId, limit: options?.limit }
     );
   }
 
