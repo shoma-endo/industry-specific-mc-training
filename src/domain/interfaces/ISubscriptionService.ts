@@ -1,3 +1,5 @@
+import type { UserRole } from '@/types/user';
+
 export interface SubscriptionDetails {
   readonly id: string;
   readonly status: 'active' | 'canceled' | 'past_due' | 'trialing';
@@ -11,6 +13,7 @@ export interface SubscriptionStatus {
   readonly requiresSubscription: boolean;
   readonly subscription?: SubscriptionDetails | undefined;
   readonly error?: string | undefined;
+  readonly userRole?: UserRole | undefined;
 }
 
 export interface ISubscriptionService {

@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 export interface OAuthStatePayload {
@@ -82,8 +83,8 @@ export function verifyOAuthState(
 }
 
 function constantTimeEquals(a: string, b: string) {
-  const bufA = Buffer.from(a, 'utf8');
-  const bufB = Buffer.from(b, 'utf8');
+  const bufA: Buffer = Buffer.from(a, 'utf8');
+  const bufB: Buffer = Buffer.from(b, 'utf8');
   if (bufA.length !== bufB.length) {
     return false;
   }

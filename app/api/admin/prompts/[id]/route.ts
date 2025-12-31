@@ -5,6 +5,11 @@ import { PromptService } from '@/server/services/promptService';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { z } from 'zod';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 const promptVariableSchema = z.object({
   name: z.string(),
@@ -91,6 +96,12 @@ export async function POST(request: NextRequest) {
           error: chatError.userMessage,
         },
         { status: 401 }
+      );
+    }
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return NextResponse.json(
+        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
+        { status: 403 }
       );
     }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import * as React from 'react';
+import React, { useMemo, useState, useCallback, useEffect, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Settings, GripVertical } from 'lucide-react';
@@ -35,10 +35,10 @@ interface FieldConfiguratorProps {
   columns: ColumnOption[];
   storageKey: string;
   onChange?: (visibleIds: string[], orderedIds: string[]) => void;
-  children: (config: FieldConfigRenderProps) => React.ReactNode;
+  children: (config: FieldConfigRenderProps) => ReactNode;
   hideTrigger?: boolean;
   triggerId?: string;
-  dialogExtraContent?: React.ReactNode;
+  dialogExtraContent?: ReactNode;
 }
 
 export default function FieldConfigurator({
@@ -50,17 +50,17 @@ export default function FieldConfigurator({
   triggerId,
   dialogExtraContent,
 }: FieldConfiguratorProps) {
-  const defaultVisibleIds = React.useMemo(
+  const defaultVisibleIds = useMemo(
     () => columns.filter(c => c.defaultVisible !== false).map(c => c.id),
     [columns]
   );
-  const defaultOrder = React.useMemo(() => columns.map(c => c.id), [columns]);
+  const defaultOrder = useMemo(() => columns.map(c => c.id), [columns]);
 
-  const [open, setOpen] = React.useState(false);
-  const [visibleIds, setVisibleIds] = React.useState<string[]>(defaultVisibleIds);
-  const [orderedIds, setOrderedIds] = React.useState<string[]>(defaultOrder);
+  const [open, setOpen] = useState(false);
+  const [visibleIds, setVisibleIds] = useState<string[]>(defaultVisibleIds);
+  const [orderedIds, setOrderedIds] = useState<string[]>(defaultOrder);
 
-  const normalizeOrder = React.useCallback(
+  const normalizeOrder = useCallback(
     (order: string[]) => {
       const knownIds = columns.map(c => c.id);
       const filtered = order.filter(id => knownIds.includes(id));
@@ -70,14 +70,14 @@ export default function FieldConfigurator({
     [columns]
   );
 
-  const persistConfig = React.useCallback(
+  const persistConfig = useCallback(
     (nextVisible: string[], nextOrder: string[]) => {
       localStorage.setItem(storageKey, JSON.stringify({ visible: nextVisible, order: nextOrder }));
     },
     [storageKey]
   );
 
-  const applyConfig = React.useCallback(
+  const applyConfig = useCallback(
     (nextVisible: string[], nextOrder: string[], shouldPersist = false) => {
       const normalizedVisible = nextVisible.filter(id => columns.some(c => c.id === id));
       const normalizedOrder = normalizeOrder(nextOrder);
@@ -91,7 +91,7 @@ export default function FieldConfigurator({
     [columns, normalizeOrder, onChange, persistConfig]
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     try {
       const raw = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
       if (raw) {
@@ -119,10 +119,10 @@ export default function FieldConfigurator({
     }
   }, [applyConfig, columns, defaultOrder, defaultVisibleIds, storageKey]);
 
-  const visibleSet = React.useMemo(() => new Set(visibleIds), [visibleIds]);
+  const visibleSet = useMemo(() => new Set(visibleIds), [visibleIds]);
 
   // 外部ボタン（triggerId）から開くためのリスナー
-  React.useEffect(() => {
+  useEffect(() => {
     if (!triggerId) return;
     if (typeof window === 'undefined') return;
     const el = document.getElementById(triggerId);

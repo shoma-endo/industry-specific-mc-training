@@ -23,6 +23,7 @@ import {
 } from '@/server/actions/wordpress.actions';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { diagnoseWordPressError } from '@/domain/errors/wordpress-error-diagnostics';
+import { useLiffContext } from '@/components/LiffProvider';
 
 interface StatusOutcome {
   success: boolean;
@@ -100,12 +101,14 @@ export default function WordPressSettingsForm({
   existingSettings,
   role,
 }: WordPressSettingsFormProps) {
+  const { isOwnerViewMode } = useLiffContext();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [saveStatus, setSaveStatus] = useState<StatusOutcome | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<StatusOutcome | null>(null);
   const [expandedPanel, setExpandedPanel] = useState<'save' | 'connection' | null>(null);
+  const isReadOnly = isOwnerViewMode;
 
   // フォームの状態
   const isAdmin = isAdminRole(role);
@@ -134,6 +137,7 @@ export default function WordPressSettingsForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) return;
 
     if (!isAdmin && wpType !== 'self_hosted') {
       setSaveStatus({
@@ -219,10 +223,12 @@ export default function WordPressSettingsForm({
   };
 
   const redirectToWordPressOAuth = () => {
+    if (isReadOnly) return;
     window.location.href = '/api/wordpress/oauth/start';
   };
 
   const handleTestConnection = async () => {
+    if (isReadOnly) return;
     if (!isAdmin && wpType !== 'self_hosted') {
       setConnectionStatus({
         success: false,
@@ -324,7 +330,7 @@ export default function WordPressSettingsForm({
               <Select
                 value={wpType}
                 onValueChange={(value: WordPressType) => setWpType(value)}
-                disabled={!isAdmin}
+                disabled={!isAdmin || isReadOnly}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="WordPress種別を選択" />
@@ -343,6 +349,7 @@ export default function WordPressSettingsForm({
                 value={contentTypesInput}
                 onChange={e => setContentTypesInput(e.target.value)}
                 className="w-full"
+                disabled={isReadOnly}
               />
               <p className="text-xs text-gray-500">
                 REST API のエンドポイント名（例: posts, pages, product）。カンマ区切りで複数指定できます。
@@ -363,6 +370,7 @@ export default function WordPressSettingsForm({
                     onChange={e => setWpSiteId(e.target.value)}
                     className="w-full"
                     required
+                    disabled={isReadOnly}
                   />
                   <p className="text-xs text-gray-500">
                     数値のサイトID または サイトドメイン（example.wordpress.com /
@@ -381,6 +389,7 @@ export default function WordPressSettingsForm({
                     variant="outline"
                     onClick={redirectToWordPressOAuth}
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                    disabled={isReadOnly}
                   >
                     WordPress.com OAuth認証を開始
                   </Button>
@@ -401,6 +410,7 @@ export default function WordPressSettingsForm({
                     onChange={e => setWpSiteUrl(e.target.value)}
                     className="w-full"
                     required
+                    disabled={isReadOnly}
                   />
                   <p className="text-xs text-gray-500">
                     WordPressサイトのURLを入力してください（例: https://example.com）
@@ -417,6 +427,7 @@ export default function WordPressSettingsForm({
                     onChange={e => setWpUsername(e.target.value)}
                     className="w-full"
                     required
+                    disabled={isReadOnly}
                   />
                   <p className="text-xs text-gray-500">
                     WordPressの管理者ユーザー名を入力してください
@@ -434,6 +445,7 @@ export default function WordPressSettingsForm({
                     onChange={e => setWpApplicationPassword(e.target.value)}
                     className="w-full"
                     required
+                    disabled={isReadOnly}
                   />
                   <p className="text-xs text-gray-500">
                     WordPress管理画面で生成したアプリケーションパスワードを入力してください
@@ -450,7 +462,7 @@ export default function WordPressSettingsForm({
                 onToggleDetails={() =>
                   setExpandedPanel(prev => (prev === 'connection' ? null : 'connection'))
                 }
-                {...(connectionStatus.needsOAuth
+                {...(connectionStatus.needsOAuth && !isReadOnly
                   ? { onOAuthClick: redirectToWordPressOAuth }
                   : {})}
               />
@@ -473,7 +485,7 @@ export default function WordPressSettingsForm({
                 type="button"
                 variant="secondary"
                 onClick={handleTestConnection}
-                disabled={isTestingConnection || !hasSavedSettings}
+                disabled={isTestingConnection || !hasSavedSettings || isReadOnly}
                 className="w-full"
                 title={hasSavedSettings ? undefined : '先に設定を保存してください'}
               >
@@ -491,7 +503,7 @@ export default function WordPressSettingsForm({
                     <Link href="/setup">キャンセル</Link>
                   </Button>
                 </div>
-                <Button type="submit" disabled={isLoading} className="flex-1">
+                <Button type="submit" disabled={isLoading || isReadOnly} className="flex-1">
                   {isLoading ? '保存中...' : existingSettings ? '設定を更新' : '設定を保存'}
                 </Button>
               </div>

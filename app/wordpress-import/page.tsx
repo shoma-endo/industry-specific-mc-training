@@ -59,7 +59,8 @@ export default function WordPressImportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
-  const { getAccessToken } = useLiffContext();
+  const { getAccessToken, isOwnerViewMode } = useLiffContext();
+  const isReadOnly = isOwnerViewMode;
 
   const formatTypeLabel = (type: string) => {
     const lowered = type.toLowerCase();
@@ -122,6 +123,7 @@ export default function WordPressImportPage() {
   };
 
   const handleImport = async () => {
+    if (isReadOnly) return;
     setIsLoading(true);
     setError(undefined);
     setResult(null);
@@ -189,7 +191,7 @@ export default function WordPressImportPage() {
 
             <Button
               onClick={handleImport}
-              disabled={isLoading}
+              disabled={isLoading || isReadOnly}
               className="w-full"
             >
               {isLoading ? (

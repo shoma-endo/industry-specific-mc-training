@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   const redirectUri = process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI;
   const cookieSecret = process.env.COOKIE_SECRET;
-  const stateCookieName = process.env.GSC_OAUTH_STATE_COOKIE_NAME || 'gsc_oauth_state';
+  const stateCookieName = 'gsc_oauth_state';
 
   const buildJsonResponse = (body: Record<string, unknown>, init: ResponseInit) => {
     const res = NextResponse.json(body, init);

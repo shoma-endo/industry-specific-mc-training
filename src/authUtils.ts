@@ -11,8 +11,12 @@ export function isUnavailable(role: UserRole | null): boolean {
   return role === 'unavailable';
 }
 
-export function canUseServices(role: UserRole | null): boolean {
-  return role !== 'unavailable' && role !== null;
+export function isOwner(role: UserRole | null): boolean {
+  return role === 'owner';
+}
+
+export function canInviteEmployee(role: UserRole | null): boolean {
+  return role === 'paid' || role === 'admin';
 }
 
 export function getRoleDisplayName(role: UserRole | null): string {
@@ -23,6 +27,8 @@ export function getRoleDisplayName(role: UserRole | null): string {
       return 'お試しユーザー';
     case 'paid':
       return '有料契約ユーザー';
+    case 'owner':
+      return '閲覧権限';
     case 'unavailable':
       return 'サービス利用停止';
     default:

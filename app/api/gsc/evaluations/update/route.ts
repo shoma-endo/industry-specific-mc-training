@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import {
+  isViewModeEnabled,
+  resolveViewModeRole,
+  VIEW_MODE_ERROR_MESSAGE,
+} from '@/server/lib/view-mode';
 
 const supabaseService = new SupabaseService();
 
@@ -26,6 +31,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: authResult.error || 'ユーザー認証に失敗しました' },
         { status: 401 }
+      );
+    }
+    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
+      return NextResponse.json(
+        { success: false, error: VIEW_MODE_ERROR_MESSAGE },
+        { status: 403 }
       );
     }
 

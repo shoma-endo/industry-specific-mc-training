@@ -19,7 +19,7 @@ interface ErrorBoundaryState {
 
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {

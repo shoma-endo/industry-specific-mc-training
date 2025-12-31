@@ -7,6 +7,7 @@ import { MODEL_CONFIGS } from '@/lib/constants';
 import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/canvas-content';
 import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
 import type { UserRole } from '@/types/user';
+import { VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -139,6 +140,22 @@ export async function POST(req: NextRequest) {
         }),
         {
           status: 401,
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-store',
+            Connection: 'keep-alive',
+          },
+        }
+      );
+    }
+    if (authResult.viewMode) {
+      return new Response(
+        sendSSE('error', {
+          type: 'view_mode',
+          message: VIEW_MODE_ERROR_MESSAGE,
+        }),
+        {
+          status: 403,
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-store',
@@ -287,7 +304,7 @@ export async function POST(req: NextRequest) {
               controller.enqueue(sendPing());
               resetIdleTimeout();
             }
-          }, 30000); // 30秒ごとにping
+          }, 20000); // 20秒ごとにping
 
           resetIdleTimeout();
 

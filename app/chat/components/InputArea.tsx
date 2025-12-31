@@ -14,6 +14,7 @@ import {
 import { Bot, Send, Menu, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
+import { useLiffContext } from '@/components/LiffProvider';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import ChatSearch from './search/ChatSearch';
 
@@ -121,18 +122,21 @@ const InputArea: React.FC<InputAreaProps> = ({
   onSearch,
   onClearSearch,
 }) => {
+  const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = propIsMobile ?? false;
   const titleErrorId = useId();
-  const isTitleEditable = Boolean(currentSessionId);
+  const isReadOnly = isOwnerViewMode;
+  const isTitleEditable = Boolean(currentSessionId) && !isReadOnly;
   const effectiveDraftTitle = draftSessionTitle ?? currentSessionTitle ?? '';
   const [isLoadingBlogArticle, setIsLoadingBlogArticle] = useState(false);
   const [blogArticleError, setBlogArticleError] = useState<string | null>(null);
 
   const isModelSelected = Boolean(selectedModel);
-  const isInputDisabled = disabled || !isModelSelected;
+  const isInputDisabled = disabled || !isModelSelected || isReadOnly;
+  const isStepActionBarDisabled = Boolean(stepActionBarDisabled || isReadOnly);
 
   // ブログ作成中は「次に進む」タイミングでは次ステップのプレースホルダーを表示
   const placeholderMessage = (() => {
@@ -326,7 +330,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                         placeholder="チャットタイトルを入力"
                         autoFocus
                         maxLength={60}
-                        disabled={isSavingSessionTitle}
+                        disabled={isSavingSessionTitle || isReadOnly}
                         aria-label="チャットタイトルを入力"
                         aria-invalid={sessionTitleError ? true : false}
                         aria-describedby={sessionTitleError ? titleErrorId : undefined}
@@ -347,7 +351,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                           variant="ghost"
                           size="icon"
                           onClick={() => onSessionTitleEditConfirm?.()}
-                          disabled={isSavingSessionTitle}
+                          disabled={isSavingSessionTitle || isReadOnly}
                           aria-label="タイトルを保存"
                           className="h-8 w-8 text-[#06c755]"
                         >
@@ -417,6 +421,7 @@ const InputArea: React.FC<InputAreaProps> = ({
           <div className="flex items-center gap-3">
             <Select
               {...(isModelSelected ? { value: selectedModel } : {})}
+              disabled={isReadOnly}
               onValueChange={value => {
                 setSelectedModel(value);
                 if (value === 'blog_creation') {
@@ -468,7 +473,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               step={displayStep}
               hasDetectedBlogStep={hasDetectedBlogStep}
               className="flex-wrap gap-3"
-              disabled={stepActionBarDisabled}
+              disabled={isStepActionBarDisabled}
               onSaveClick={onSaveClick}
               annotationLoading={annotationLoading}
               hasStep7Content={hasStep7Content}

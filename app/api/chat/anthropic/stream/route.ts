@@ -8,6 +8,7 @@ import { ChatError } from '@/domain/errors/ChatError';
 import { getSystemPrompt } from '@/lib/prompts';
 import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
 import type { UserRole } from '@/types/user';
+import { VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -67,6 +68,19 @@ export async function POST(req: NextRequest) {
           Connection: 'keep-alive',
         },
       });
+    }
+    if (authResult.viewMode) {
+      return new Response(
+        sendSSE('error', { type: 'view_mode', message: VIEW_MODE_ERROR_MESSAGE }),
+        {
+          status: 403,
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-store',
+            Connection: 'keep-alive',
+          },
+        }
+      );
     }
 
     const { userId, userDetails } = authResult;

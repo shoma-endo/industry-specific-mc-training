@@ -12,7 +12,7 @@ export async function GET() {
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '';
   const redirectUri = process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI ?? '';
   const cookieSecret = process.env.COOKIE_SECRET ?? '';
-  const stateCookieName = process.env.GSC_OAUTH_STATE_COOKIE_NAME || 'gsc_oauth_state';
+  const stateCookieName = 'gsc_oauth_state';
 
   const isConfigured = Boolean(clientId && clientSecret && redirectUri && cookieSecret);
 

@@ -30,7 +30,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     <AnalyticsClient
       items={items}
       unreadAnnotationIds={unreadResult.annotationIds}
-      error={error}
+      error={error ?? null}
       total={total}
       totalPages={totalPages}
       currentPage={currentPage}

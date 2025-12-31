@@ -16,10 +16,6 @@ export const GOOGLE_SEARCH_CONSOLE_SCOPES = [
 ];
 
 // Feature Flags
-export const FEATURE_FLAGS = {
-  USE_RPC_V2: process.env.FEATURE_RPC_V2 === 'true',
-};
-
 // AI モデル設定
 interface ModelConfig {
   provider: 'openai' | 'anthropic';

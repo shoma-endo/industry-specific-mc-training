@@ -6,12 +6,13 @@ import { toast } from 'sonner';
 import { Bell, X } from 'lucide-react';
 import { useLiffContext } from '@/components/LiffProvider';
 import { getUnreadSuggestionsCount } from '@/server/actions/gscNotification.actions';
+import { isOwner } from '@/authUtils';
 
 const TOAST_SESSION_KEY = 'gsc_notification_toast_shown';
 const UNREAD_EVENT = 'gsc-unread-updated';
 
 export function GscNotificationHandler() {
-  const { isLoggedIn, isLoading } = useLiffContext();
+  const { isLoggedIn, isLoading, user } = useLiffContext();
   const pathname = usePathname();
   const router = useRouter();
   const toastShownRef = useRef(false);
@@ -19,7 +20,9 @@ export function GscNotificationHandler() {
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
 
   // 一般ユーザー向けページでは通知を表示しない
-  const isPublicPage = pathname === '/home' || pathname === '/privacy';
+  const isPublicPage = !!pathname
+    ? pathname === '/home' || pathname === '/privacy' || pathname.startsWith('/invite')
+    : false;
 
   const showToast = useCallback(
     (count: number) => {
@@ -88,8 +91,10 @@ export function GscNotificationHandler() {
     [router]
   );
 
+  const userRole = user?.role ?? null;
+
   const fetchUnread = useCallback(async () => {
-    if (!isLoggedIn || isLoading || isPublicPage) return;
+    if (!isLoggedIn || isLoading || isPublicPage || isOwner(userRole)) return;
 
       try {
       const result = await getUnreadSuggestionsCount();
@@ -106,7 +111,7 @@ export function GscNotificationHandler() {
     } catch (error) {
       console.error('Failed to fetch unread suggestions', error);
     }
-  }, [isLoggedIn, isLoading, isPublicPage, showToast]);
+  }, [isLoggedIn, isLoading, isPublicPage, showToast, userRole]);
 
   // 初回マウント時と画面遷移時に再取得
   useEffect(() => {
@@ -115,13 +120,13 @@ export function GscNotificationHandler() {
 
   // ログアウト時またはパブリックページ遷移時にリセット
   useEffect(() => {
-    if ((!isLoggedIn && !isLoading) || isPublicPage) {
+    if ((!isLoggedIn && !isLoading) || isPublicPage || isOwner(userRole)) {
       toastShownRef.current = false;
       sessionStorage.removeItem(TOAST_SESSION_KEY);
       setUnreadCount(null);
       showToast(0);
     }
-  }, [isLoggedIn, isLoading, isPublicPage, showToast]);
+  }, [isLoggedIn, isLoading, isPublicPage, showToast, userRole]);
 
   // 履歴タブなどで既読にされた際の通知を受けてカウント更新
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { LineAuthService, LineTokenExpiredError } from './lineAuthService';
 import { SupabaseService } from './supabaseService';
 import type { SupabaseResult } from './supabaseService';
-import type { User, UserRole } from '@/types/user';
+import type { User, UserRole, EmployeeInvitation } from '@/types/user';
 import { toDbUser, toUser, type DbUser } from '@/types/user';
 
 /**
@@ -97,7 +97,9 @@ export class UserService {
             createResult.error.details.includes('line_user_id')
           ) {
             if (process.env.NODE_ENV === 'development') {
-              console.log('User creation failed due to duplicate key, attempting to find existing user');
+              console.log(
+                'User creation failed due to duplicate key, attempting to find existing user'
+              );
             }
             const retryData = this.unwrapResult(
               await this.supabaseService.getUserByLineId(lineProfile.userId)
@@ -307,6 +309,63 @@ export class UserService {
     }
 
     return true;
+  }
+
+  /* === スタッフ招待機能 ================================ */
+
+  async createEmployeeInvitation(
+    invitation: Omit<EmployeeInvitation, 'id' | 'createdAt'>
+  ): Promise<string> {
+    const result = await this.supabaseService.createEmployeeInvitation(invitation);
+    return this.unwrapResult(result);
+  }
+
+  async getEmployeeInvitationByToken(token: string): Promise<EmployeeInvitation | null> {
+    const result = await this.supabaseService.getEmployeeInvitationByToken(token);
+    if (!result.success) {
+      console.error('Failed to get invitation by token:', result.error);
+      return null;
+    }
+    return result.data;
+  }
+
+  async getEmployeeInvitationByOwnerId(ownerId: string): Promise<EmployeeInvitation | null> {
+    const result = await this.supabaseService.getEmployeeInvitationByOwnerId(ownerId);
+    if (!result.success) {
+      console.error('Failed to get invitation by owner:', result.error);
+      return null;
+    }
+    return result.data;
+  }
+
+  async markInvitationAsUsed(token: string, userId: string): Promise<void> {
+    const result = await this.supabaseService.markInvitationAsUsed(token, userId);
+    this.unwrapResult(result);
+  }
+
+  async deleteEmployeeInvitation(id: string): Promise<void> {
+    const result = await this.supabaseService.deleteEmployeeInvitation(id);
+    this.unwrapResult(result);
+  }
+
+  async getEmployeeByOwnerId(ownerId: string): Promise<User | null> {
+    const result = await this.supabaseService.getEmployeeByOwnerId(ownerId);
+    if (!result.success) {
+      console.error('Failed to get employee by owner id:', result.error);
+      return null;
+    }
+    return result.data ? toUser(result.data) : null;
+  }
+
+  async acceptEmployeeInvitation(
+    userId: string,
+    token: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const result = await this.supabaseService.acceptEmployeeInvitation(userId, token);
+    if (!result.success) {
+      return { success: false, error: result.error.userMessage };
+    }
+    return { success: true };
   }
 }
 
