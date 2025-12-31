@@ -98,7 +98,14 @@ if (!/^[a-zA-Z0-9.-]+$/.test(domain)) {
 
 // ngrok を実行
 try {
-  execSync(`ngrok http --domain=${domain} 3000`, {
+  // 注意: 圧縮は Next.js 側（next.config.ts）で有効化済み
+  // ngrok で圧縮を有効化する場合は Traffic Policy を使用する必要がありますが、
+  // 開発環境では Next.js 側の圧縮で十分です
+  const ngrokCommand = `ngrok http --domain=${domain} 3000`;
+
+  console.log(`ngrok を起動中: ${domain} -> localhost:3000`);
+
+  execSync(ngrokCommand, {
     stdio: 'inherit',
     env: { ...process.env, ...envVars },
   });

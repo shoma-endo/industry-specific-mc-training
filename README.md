@@ -539,35 +539,33 @@ erDiagram
     gsc_article_evaluations ||--o{ gsc_article_evaluation_history : "has history"
 ```
 
-## 📋 環境変数（18 項目: 必須12項目、オプション6項目）
+## 📋 環境変数（21 項目: 必須12項目、オプション9項目）
 
 `src/env.ts` で厳格にバリデーションされるサーバー／クライアント環境変数です。`.env.local` を手動で用意してください。
 
-| 種別   | 変数名                               | 必須                              | 用途                                                                          |
-| ------ | ------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------- |
-| Server | `SUPABASE_SERVICE_ROLE`              | ✅                                | サーバーサイド特権操作用 Service Role キー                                    |
-| Server | `STRIPE_ENABLED`                     | 任意                              | Stripe 機能の有効化フラグ（`true` / `false`）                                 |
-| Server | `STRIPE_SECRET_KEY`                  | ✅（Stripe 無効でもダミー値必須） | Stripe API 呼び出し用シークレット                                             |
-| Server | `STRIPE_PRICE_ID`                    | ✅（Stripe 無効でもダミー値必須） | サブスクリプションで使用する Price ID                                         |
-| Server | `OPENAI_API_KEY`                     | ✅                                | Fine-tuned モデル利用時の OpenAI キー                                         |
-| Server | `ANTHROPIC_API_KEY`                  | ✅                                | Claude ストリーミング用 API キー                                              |
-| Server | `LINE_CHANNEL_ID`                    | ✅                                | LINE Login 用チャネル ID                                                      |
-| Server | `LINE_CHANNEL_SECRET`                | ✅                                | LINE Login 用チャネルシークレット                                             |
-| Server | `GOOGLE_OAUTH_CLIENT_ID`             | 任意（GSC 連携利用時は必須）      | Google Search Console OAuth 用クライアント ID                                 |
-| Server | `GOOGLE_OAUTH_CLIENT_SECRET`         | 任意（GSC 連携利用時は必須）      | Google Search Console OAuth 用クライアントシークレット                        |
-| Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC 連携利用時は必須）      | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など） |
-| Client | `NEXT_PUBLIC_LIFF_ID`                | ✅                                | LIFF アプリ ID                                                                |
-| Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID`        | ✅                                | LIFF Channel ID                                                               |
-| Client | `NEXT_PUBLIC_SUPABASE_URL`           | ✅                                | Supabase プロジェクト URL                                                     |
-| Client | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | ✅                                | Supabase anon キー                                                            |
-| Client | `NEXT_PUBLIC_SITE_URL`               | ✅                                | サイトの公開 URL                                                              |
-| Client | `NEXT_PUBLIC_STRIPE_ENABLED`         | 任意                              | クライアント側での Stripe 有効化フラグ（未設定時は `STRIPE_ENABLED` を継承）  |
-
-### 追加で利用できる任意設定
-
-- `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`: WordPress.com OAuth 連携で必須
-- `COOKIE_SECRET`: WordPress / Google Search Console OAuth のセキュアな Cookie 管理
-- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI`: Google Search Console 連携を利用する場合のみ設定
+| 種別   | 変数名                               | 必須                               | 用途                                                                                   |
+| ------ | ------------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------- |
+| Server | `SUPABASE_SERVICE_ROLE`              | ✅                                 | サーバーサイド特権操作用 Service Role キー                                             |
+| Server | `STRIPE_ENABLED`                     | 任意                               | Stripe 機能の有効化フラグ（`true` / `false`）                                          |
+| Server | `STRIPE_SECRET_KEY`                  | ✅（Stripe 無効でもダミー値必須）  | Stripe API 呼び出し用シークレット                                                      |
+| Server | `STRIPE_PRICE_ID`                    | ✅（Stripe 無効でもダミー値必須）  | サブスクリプションで使用する Price ID                                                  |
+| Server | `OPENAI_API_KEY`                     | ✅                                 | Fine-tuned モデル利用時の OpenAI キー                                                  |
+| Server | `ANTHROPIC_API_KEY`                  | ✅                                 | Claude ストリーミング用 API キー                                                       |
+| Server | `LINE_CHANNEL_ID`                    | ✅                                 | LINE Login 用チャネル ID                                                               |
+| Server | `LINE_CHANNEL_SECRET`                | ✅                                 | LINE Login 用チャネルシークレット                                                      |
+| Server | `GOOGLE_OAUTH_CLIENT_ID`             | 任意（GSC 連携利用時は必須）       | Google Search Console OAuth 用クライアント ID                                          |
+| Server | `GOOGLE_OAUTH_CLIENT_SECRET`         | 任意（GSC 連携利用時は必須）       | Google Search Console OAuth 用クライアントシークレット                                 |
+| Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC 連携利用時は必須）       | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など）          |
+| Server | `WORDPRESS_COM_CLIENT_ID`            | 任意（WordPress 連携利用時は必須） | WordPress.com OAuth 用クライアント ID                                                  |
+| Server | `WORDPRESS_COM_CLIENT_SECRET`        | 任意（WordPress 連携利用時は必須） | WordPress.com OAuth 用クライアントシークレット                                         |
+| Server | `WORDPRESS_COM_REDIRECT_URI`         | 任意（WordPress 連携利用時は必須） | WordPress OAuth のリダイレクト先（`https://<host>/api/wordpress/oauth/callback` など） |
+| Server | `COOKIE_SECRET`                      | 任意                               | WordPress / Google Search Console OAuth のセキュアな Cookie 管理用シークレット         |
+| Client | `NEXT_PUBLIC_LIFF_ID`                | ✅                                 | LIFF アプリ ID                                                                         |
+| Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID`        | ✅                                 | LIFF Channel ID                                                                        |
+| Client | `NEXT_PUBLIC_SUPABASE_URL`           | ✅                                 | Supabase プロジェクト URL                                                              |
+| Client | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | ✅                                 | Supabase anon キー                                                                     |
+| Client | `NEXT_PUBLIC_SITE_URL`               | ✅                                 | サイトの公開 URL                                                                       |
+| Client | `NEXT_PUBLIC_STRIPE_ENABLED`         | 任意                               | クライアント側での Stripe 有効化フラグ（未設定時は `STRIPE_ENABLED` を継承）           |
 
 ## 🚀 セットアップ手順
 
@@ -1122,6 +1120,7 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 | `CI_WEBHOOK_URL`           | CI ビルド結果通知用 Lark Webhook URL                    | 任意                            |
 | `DB_STATS_WEBHOOK_URL`     | データベース統計レポート用 Lark Webhook URL             | 任意                            |
 | `VERCEL_STATS_WEBHOOK_URL` | Vercel 統計レポート用 Lark Webhook URL                  | 任意                            |
+| `CRON_SECRET`              | GSC 評価バッチ実行用の共有シークレット（Bearer 認証）   | GSC 評価バッチ利用時            |
 | `VERCEL_TOKEN`             | Vercel API アクセストークン（Settings → Tokens で作成） | Vercel レポート用               |
 | `VERCEL_PROJECT_ID`        | Vercel プロジェクト ID（`prj_` で始まる）               | Vercel レポート用               |
 | `VERCEL_TEAM_ID`           | Vercel チーム ID（`team_` で始まる、オプション）        | Vercel レポート用（オプション） |

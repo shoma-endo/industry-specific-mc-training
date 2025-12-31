@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  // パフォーマンス最適化: 圧縮を明示的に有効化（Next.js 15 ではデフォルトで有効だが明示的に設定）
+  compress: true,
+  // レスポンスヘッダー最適化
+  poweredByHeader: false,
+  // React Strict Mode を有効化（潜在的な問題の早期検出、開発環境で二重レンダリングによる検証）
+  reactStrictMode: true,
 };
 
 export default nextConfig;
