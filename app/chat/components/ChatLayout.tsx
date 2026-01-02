@@ -8,7 +8,6 @@ import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, AlertTriangle, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   extractBlogStepFromModel,
@@ -158,29 +157,6 @@ interface ChatLayoutProps {
   initialStep?: BlogStepId | null;
 }
 
-const SubscriptionAlert: React.FC<{
-  error: string | null;
-  onGoToSubscription: () => void;
-}> = ({ error, onGoToSubscription }) => (
-  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-3">
-    <div className="flex">
-      <div className="flex-shrink-0">
-        <AlertCircle className="h-5 w-5 text-yellow-400" />
-      </div>
-      <div className="ml-3 flex-1">
-        <p className="text-sm text-yellow-700">
-          {error || 'チャット機能を利用するにはサブスクリプションが必要です'}
-        </p>
-        <div className="mt-2">
-          <Button variant="outline" size="sm" onClick={onGoToSubscription} className="text-xs">
-            サブスクリプションに登録する
-          </Button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 const ErrorAlert: React.FC<{ error: string; onClose?: () => void }> = ({ error, onClose }) => (
   <div className="bg-red-50 border-l-4 border-red-400 p-4 m-3" role="alert" aria-live="polite">
     <div className="flex">
@@ -318,7 +294,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onLoadBlogArticle,
     initialStep,
   } = ctx;
-  const router = useRouter();
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
 
@@ -352,10 +327,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const handleManualStepChange = useCallback((targetStep: BlogStepId) => {
     setManualBlogStep(targetStep);
   }, []);
-
-  const goToSubscription = () => {
-    router.push('/subscription');
-  };
 
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
   const [isWarningDismissed, setIsWarningDismissed] = useState(false);
@@ -450,10 +421,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
       )}
 
       <div className={cn('flex-1 flex flex-col pt-16', isMobile && 'pt-16')}>
-        {subscription.requiresSubscription && (
-          <SubscriptionAlert error={subscription.error} onGoToSubscription={goToSubscription} />
-        )}
-
         {subscription.error &&
           !subscription.requiresSubscription &&
           !isSubscriptionErrorDismissed && (
