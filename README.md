@@ -77,7 +77,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 
 - `/setup/wordpress` で WordPress 連携の初期設定を案内
 - `/setup/gsc` で Google Search Console OAuth 連携とプロパティ選択を管理
-- `/subscription` でプラン購入、`/analytics` で WordPress 投稿と注釈を照合
+- `/analytics` で WordPress 投稿と注釈を照合
 
 ## 🏗️ システムアーキテクチャ
 
@@ -290,7 +290,7 @@ sequenceDiagram
 - **API**: Next.js Route Handlers & Server Actions
 - **データベース**: Supabase JS 2.75.0 (PostgreSQL + Row Level Security)
 - **バリデーション**: Zod 4.1.12
-- **ランタイム**: Node.js 22.21.1
+- **ランタイム**: Node.js（LTS 推奨）
 
 ### AI・LLM
 
@@ -318,8 +318,7 @@ sequenceDiagram
 - **型チェック**: TypeScript strict mode
 - **リンター**: ESLint 9, eslint-config-next
 - **フォーマッター**: Prettier 3.5.3
-- **ビルド**: tsc-watch 6.2.1, Turbopack
-- **Git Hooks**: Husky 9.1.7
+- **ビルド**: Turbopack（開発）/ Next.js build
 - **依存関係解析**: Knip 5.77.1
 - **ローカル公開**: ngrok (日本リージョン)
 
@@ -539,9 +538,9 @@ erDiagram
     gsc_article_evaluations ||--o{ gsc_article_evaluation_history : "has history"
 ```
 
-## 📋 環境変数（21 項目: 必須12項目、オプション9項目）
+## 📋 環境変数（22 項目: 必須12項目、オプション10項目）
 
-`src/env.ts` で厳格にバリデーションされるサーバー／クライアント環境変数です。`.env.local` を手動で用意してください。
+`src/env.ts` で厳格にバリデーションされる環境変数に加え、Route Handler で直接参照する `CRON_SECRET` を含みます。`.env.local` を手動で用意してください。
 
 | 種別   | 変数名                               | 必須                               | 用途                                                                                   |
 | ------ | ------------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------- |
@@ -560,6 +559,7 @@ erDiagram
 | Server | `WORDPRESS_COM_CLIENT_SECRET`        | 任意（WordPress 連携利用時は必須） | WordPress.com OAuth 用クライアントシークレット                                         |
 | Server | `WORDPRESS_COM_REDIRECT_URI`         | 任意（WordPress 連携利用時は必須） | WordPress OAuth のリダイレクト先（`https://<host>/api/wordpress/oauth/callback` など） |
 | Server | `COOKIE_SECRET`                      | 任意                               | WordPress / Google Search Console OAuth のセキュアな Cookie 管理用シークレット         |
+| Server | `CRON_SECRET`                         | 任意（GSC評価バッチ利用時は必須）  | `/api/cron/gsc-evaluate` の Bearer 認証用シークレット                                  |
 | Client | `NEXT_PUBLIC_LIFF_ID`                | ✅                                 | LIFF アプリ ID                                                                         |
 | Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID`        | ✅                                 | LIFF Channel ID                                                                        |
 | Client | `NEXT_PUBLIC_SUPABASE_URL`           | ✅                                 | Supabase プロジェクト URL                                                              |
@@ -571,12 +571,12 @@ erDiagram
 
 ### 必要条件
 
-- **Node.js**: 18 以上（推奨: 20.x LTS）
+- **Node.js**: LTS 推奨
 - **npm**: 9 以上
 - **Supabase 接続情報**（管理者から取得）
 - **LINE 接続情報**（管理者から取得）
 - **Stripe アカウント**（サブスクリプション利用時）
-- **ngrok アカウント**（LIFF ローカルテスト用、任意）
+- **ngrok アカウント**（LIFF ローカルテスト用、必須）
 
 ### 1. リポジトリのクローンと依存関係のインストール
 
@@ -833,8 +833,11 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback 
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-domain.com/api/gsc/oauth/callback  # 本番環境
 
 # ────────────────────────────────────────────────────────
-# 機能フラグ（任意）
+# Cron Secret（任意：GSC評価バッチ利用時は必須）
 # ────────────────────────────────────────────────────────
+# GSC 評価バッチ実行用の共有シークレット（Bearer 認証）
+# 生成方法: openssl rand -hex 32
+CRON_SECRET=your_random_32_char_secret_key
 ```
 
 **重要**: `.env.local` は `.gitignore` に含まれています。本番環境では Vercel の環境変数設定を使用してください。
@@ -842,17 +845,16 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback 
 ### 7. 開発サーバーの起動
 
 ```bash
-# TypeScript の型チェック + Next.js 開発サーバーを起動
+# Next.js 開発サーバーを起動
 npm run dev
 ```
 
 ブラウザで `http://localhost:3000` にアクセスしてアプリケーションを確認できます。
+型チェックを並行で行う場合は `npm run dev:types` を使用します。
 
-### 8. LIFF ローカル開発のための ngrok セットアップ（任意）
+### 8. LIFF ローカル開発のための ngrok セットアップ（必須）
 
-LIFF はHTTPS環境が必須のため、ローカル開発でLIFF機能をテストする場合は ngrok を使用します。
-
-**重要**: 本番環境とLINE設定を共有しているため、通常のローカル開発ではngrokは不要です。LIFF認証が必要な機能を開発・テストする場合のみ使用してください。
+LIFF はHTTPS環境が必須のため、ローカル開発では ngrok を使用します。
 
 #### 8.1 ngrok のセットアップ
 
@@ -886,7 +888,7 @@ npm run ngrok
 **注意**:
 
 - LINE Developers Console の LIFF エンドポイント URL には静的ドメインを設定してください
-- LIFF以外のAPI機能のテストには、ngrokなしでローカルホスト（`http://localhost:3000`）を使用可能です
+- ngrok の静的ドメインを使用するため、ローカルホスト（`http://localhost:3000`）は使用しません
 
 ### 9. 動作確認と検証
 
@@ -997,14 +999,13 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 
 ### ローカル開発のポイント
 
-- `npm run lint` で ESLint + Next/Tailwind ルールを検証（Husky pre-commit でも自動実行）
+- `npm run lint` で ESLint + Next/Tailwind ルールを検証
 - `npm run build` → `npm run start` で本番ビルドの健全性をチェック
 - **Supabase スキーマ変更**: 本番環境と共有しているため、スキーマ変更は必ず管理者に相談してください。変更が必要な場合は `supabase/migrations/` に SQL を追加し、ロールバック手順をコメントに残します
 - **データ操作の注意**: 本番データと同じDBを使用するため、テストデータは自分のユーザーIDに紐付けて作成し、他のユーザーデータを誤って変更・削除しないよう注意してください
 - **LINE設定の注意**: 本番環境とLINE ChannelおよびLIFFアプリを共有しているため、LINE Developers Consoleでの設定変更は絶対に行わないでください。設定変更が必要な場合は必ず管理者に相談してください
 - LIFF 機能のテストは本番環境で実施するか、管理者の指示に従ってください
 - TypeScript strict モードが有効なため、型エラーを解決してから commit する
-- コミット前に Husky が自動で lint を実行します（失敗時は commit がブロックされます）
 
 ## 📁 プロジェクト構成
 
@@ -1014,7 +1015,6 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 │   ├── analytics/           # WordPress 投稿 + 注釈ダッシュボード
 │   ├── business-info/       # 事業者情報フォーム（Server Components + Actions）
 │   ├── setup/               # WordPress / GSC 等の初期セットアップ導線
-│   ├── subscription/        # サブスクリプション購入ページ
 │   ├── login/               # ログインページ
 │   ├── home/                # パブリックホームページ（非認証可）
 │   ├── privacy/             # プライバシーポリシー（非認証可）
@@ -1073,7 +1073,6 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 | `/api/wordpress/oauth/callback`    | GET      | WordPress.com OAuth コールバック                                             | Cookie                         |
 | `/api/admin/prompts`               | GET      | プロンプトテンプレート一覧（管理者専用）                                     | Cookie + admin ロール          |
 | `/api/admin/prompts/[id]`          | POST     | テンプレート更新・バージョン生成                                             | Cookie + admin ロール          |
-| `/api/wordpress/bulk-import-posts` | POST     | WordPress 記事の一括インポート                                               | Bearer + admin ロール          |
 | `/api/gsc/status`                  | GET      | GSC連携状態確認                                                              | Cookie                         |
 | `/api/gsc/oauth/start`             | GET      | GSC OAuth リダイレクト開始                                                   | 公開（環境変数必須）           |
 | `/api/gsc/oauth/callback`          | GET      | GSC OAuth コールバック                                                       | Cookie                         |
@@ -1084,15 +1083,13 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 | `/api/gsc/import`                  | POST     | GSCデータインポート                                                          | Cookie                         |
 | `/api/gsc/evaluate`                | POST     | GSC記事評価の手動実行                                                        | Cookie                         |
 | `/api/gsc/evaluations`             | GET      | GSC評価履歴取得                                                              | Cookie                         |
-| `/api/cron/gsc-evaluate`           | POST     | GSC記事評価の定期実行（GitHub Actions などのスケジューラ経由で Bearer 認証） | Authorization ヘッダー         |
+| `/api/cron/gsc-evaluate`           | POST     | GSC記事評価の定期実行（外部スケジューラ経由で Bearer 認証）                  | Authorization ヘッダー         |
 
-### GSC 評価バッチ（GitHub Actions での実行例）
+### GSC 評価バッチ（外部スケジューラからの実行）
 
 - Vercel 環境変数: `CRON_SECRET` を設定（Cronバッチ用の共有シークレット）
-- GitHub Actions Secret: 同じ値の `CRON_SECRET` を登録
-- ワークフロー: `.github/workflows/gsc-cron.yml` の `TARGET_URL` をデプロイ先ドメインに置き換える（例: `https://your-app.vercel.app/api/cron/gsc-evaluate`）
-- 認証: GitHub Actions から `Authorization: Bearer <CRON_SECRET>` ヘッダー付きで呼び出し
-- スケジュール: デフォルト毎時0分（`0 * * * *`）、`workflow_dispatch` で手動実行も可能
+- 認証: `Authorization: Bearer <CRON_SECRET>` ヘッダー付きで `/api/cron/gsc-evaluate` を呼び出し
+- スケジュール: 運用中のスケジューラで任意に設定
 
 サーバーアクション (`src/server/actions/*`) では、ブリーフ保存・WordPress 投稿取得・注釈 upsert・Stripe セッション作成などを型安全に処理しています。
 
@@ -1110,32 +1107,6 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 - デプロイ前チェック: `npm run lint` → `npm run build`
 - 環境変数は Vercel Project Settings へ反映し、本番は Stripe 本番キー・WordPress 本番サイトに切り替え
 - Supabase マイグレーションは `npx supabase db push` で同期、ロールバック手順（コメント）を常に更新
-
-### GitHub Actions シークレット設定
-
-週次レポート用のワークフローで使用するシークレットを GitHub Repository Settings → Secrets and variables → Actions で設定してください。
-
-| シークレット名             | 用途                                                    | 必須                            |
-| -------------------------- | ------------------------------------------------------- | ------------------------------- |
-| `CI_WEBHOOK_URL`           | CI ビルド結果通知用 Lark Webhook URL                    | 任意                            |
-| `DB_STATS_WEBHOOK_URL`     | データベース統計レポート用 Lark Webhook URL             | 任意                            |
-| `VERCEL_STATS_WEBHOOK_URL` | Vercel 統計レポート用 Lark Webhook URL                  | 任意                            |
-| `CRON_SECRET`              | GSC 評価バッチ実行用の共有シークレット（Bearer 認証）   | GSC 評価バッチ利用時            |
-| `VERCEL_TOKEN`             | Vercel API アクセストークン（Settings → Tokens で作成） | Vercel レポート用               |
-| `VERCEL_PROJECT_ID`        | Vercel プロジェクト ID（`prj_` で始まる）               | Vercel レポート用               |
-| `VERCEL_TEAM_ID`           | Vercel チーム ID（`team_` で始まる、オプション）        | Vercel レポート用（オプション） |
-
-**Vercel API トークンの取得方法:**
-
-1. Vercel Dashboard → Settings → Tokens
-2. 「Create Token」をクリック
-3. トークン名を入力し、スコープを設定（`Full Account` または `Project` スコープ）
-4. 生成されたトークンを `VERCEL_TOKEN` シークレットに設定
-
-**Vercel プロジェクト ID の取得方法:**
-
-- Vercel Dashboard → プロジェクト → Settings → General の「Project ID」を確認
-- または、`.vercel/project.json` ファイルの `projectId` フィールドを確認
 
 ## 🤝 コントリビューション
 
