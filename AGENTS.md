@@ -65,7 +65,7 @@ If an error occurs during execution or the plan fails:
 
 ### ディレクトリ構成
 
-- `app/` — Next.js App Router の各機能境界。`chat`, `analytics`, `business-info`, `setup`, `subscription`, `admin`, `api` が主要な機能単位です。
+- `app/` — Next.js App Router の各機能境界。`chat`, `analytics`, `business-info`, `setup`, `admin`, `api` が主要な機能単位です。
 - `src/components/` — shadcn/ui ベースの共通 UI コンポーネント群（CanvasPanel, AnnotationFormFields など）。
 - `src/domain/` — フロント向けサービス層（`ChatService`, `SubscriptionService` など）。クライアント側のビジネスロジックを集約。
 - `src/hooks/` — カスタム React フック。
@@ -81,7 +81,8 @@ If an error occurs during execution or the plan fails:
 
 ## ビルド・テスト・開発コマンド
 
-- `npm run dev` ― `tsc-watch` + `next dev --turbopack`
+- `npm run dev` ― `next dev --turbopack`
+- `npm run dev:types` ― TypeScript 型チェック（watch）
 - `npm run build` / `npm run start` ― 本番ビルドと動作確認
 - `npm run lint` ― ESLint（Next/Tailwind）＋ Prettier 連携
 - `npm run ngrok` ― LIFF 実機検証用 HTTPS トンネル
