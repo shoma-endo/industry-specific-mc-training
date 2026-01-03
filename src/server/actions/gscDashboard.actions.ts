@@ -170,6 +170,10 @@ export async function fetchGscDetail(
         history:
           history?.map(item => ({
             ...item,
+            outcome:
+              item.outcome === 'improved' || item.outcome === 'no_change' || item.outcome === 'worse'
+                ? (item.outcome as GscEvaluationOutcome)
+                : null,
             outcomeType: item.outcome_type,
             errorCode: item.error_code,
             errorMessage: item.error_message,
