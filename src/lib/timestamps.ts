@@ -50,7 +50,16 @@ export const parseTimestampSafe = (
   }
 };
 
-export const toIsoTimestamp = (value: number | Date): string => new Date(value).toISOString();
+export const toIsoTimestamp = (value: number | Date): string => {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new Error(`Invalid timestamp number: ${value}`);
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Failed to convert to ISO timestamp: ${String(value)}`);
+  }
+  return date.toISOString();
+};
 
 /**
  * UUID v7からタイムスタンプ（ミリ秒）を抽出
