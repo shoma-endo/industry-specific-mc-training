@@ -42,15 +42,15 @@ export interface WordPressSettingsFormProps {
 }
 
 export interface ExistingWordPressSettings {
-  id?: string;
+  id?: string | undefined;
   wpType: WordPressType;
-  wpSiteId?: string;
-  wpSiteUrl?: string;
-  wpUsername?: string;
-  wpApplicationPassword?: string;
-  wpContentTypes?: string[];
-  createdAt?: string;
-  updatedAt?: string;
+  wpSiteId?: string | undefined;
+  wpSiteUrl?: string | undefined;
+  wpUsername?: string | undefined;
+  wpApplicationPassword?: string | undefined;
+  wpContentTypes?: string[] | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 export interface SetupDashboardProps {

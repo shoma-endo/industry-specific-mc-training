@@ -1,7 +1,29 @@
+import type { IsoTimestamp } from '@/lib/timestamps';
+import { parseTimestamp, parseTimestampOrNull, toIsoTimestamp } from '@/lib/timestamps';
+import type { Database } from '@/types/database.types';
+
 /**
  * ユーザーロールの型定義
  */
 export type UserRole = 'trial' | 'paid' | 'admin' | 'unavailable' | 'owner';
+
+/**
+ * 有効なUserRole値の配列
+ */
+export const VALID_USER_ROLES: readonly UserRole[] = [
+  'trial',
+  'paid',
+  'admin',
+  'unavailable',
+  'owner',
+] as const;
+
+/**
+ * 型ガード: 値が有効なUserRoleかどうかを実行時検証
+ */
+export function isValidUserRole(role: unknown): role is UserRole {
+  return typeof role === 'string' && (VALID_USER_ROLES as readonly string[]).includes(role);
+}
 
 /**
  * 管理機能（設定・コンテンツ一覧）へのアクセスを許可するロール
@@ -20,9 +42,9 @@ export function hasPaidFeatureAccess(role: UserRole | null): role is PaidFeature
 export interface User {
   // 基本情報
   id: string; // ユーザーID (Supabaseの自動生成ID等)
-  createdAt: number; // ユーザー作成日時 (タイムスタンプ)
-  updatedAt: number; // 最終更新日時 (タイムスタンプ)
-  lastLoginAt?: number | undefined; // 最終ログイン日時 (タイムスタンプ)
+  createdAt: IsoTimestamp; // ユーザー作成日時 (UTC ISO文字列)
+  updatedAt: IsoTimestamp; // 最終更新日時 (UTC ISO文字列)
+  lastLoginAt?: IsoTimestamp | undefined; // 最終ログイン日時 (UTC ISO文字列)
   fullName?: string | undefined; // フルネーム
 
   // LINE関連情報
@@ -60,62 +82,62 @@ export enum SubscriptionStatus {
 /**
  * データベースモデルへの変換用インターフェース
  */
-export interface DbUser {
-  id: string;
-  created_at: number;
-  updated_at: number;
-  last_login_at?: number | undefined;
-  full_name?: string | undefined;
-  line_user_id: string;
-  line_display_name: string;
-  line_picture_url?: string | undefined;
-  line_status_message?: string | undefined;
-  stripe_customer_id?: string | undefined;
-  stripe_subscription_id?: string | undefined;
-
-  role: UserRole;
-  owner_user_id?: string | null | undefined;
-  owner_previous_role?: UserRole | null | undefined;
-}
+export type DbUser = Database['public']['Tables']['users']['Row'];
 
 /**
  * アプリケーションモデルとデータベースモデル間の変換関数
  */
 export function toDbUser(user: User): DbUser {
+  const createdAt = toIsoTimestamp(user.createdAt);
+  const updatedAt = toIsoTimestamp(user.updatedAt);
+  const lastLoginAt = user.lastLoginAt !== undefined ? toIsoTimestamp(user.lastLoginAt) : null;
   return {
     id: user.id,
-    created_at: user.createdAt,
-    updated_at: user.updatedAt,
-    last_login_at: user.lastLoginAt,
-    full_name: user.fullName,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    last_login_at: lastLoginAt,
+    full_name: user.fullName ?? null,
     line_user_id: user.lineUserId,
     line_display_name: user.lineDisplayName,
-    line_picture_url: user.linePictureUrl,
-    line_status_message: user.lineStatusMessage,
-    stripe_customer_id: user.stripeCustomerId,
-    stripe_subscription_id: user.stripeSubscriptionId,
+    line_picture_url: user.linePictureUrl ?? null,
+    line_status_message: user.lineStatusMessage ?? null,
+    stripe_customer_id: user.stripeCustomerId ?? null,
+    stripe_subscription_id: user.stripeSubscriptionId ?? null,
 
     role: user.role,
-    owner_user_id: user.ownerUserId,
+    owner_user_id: user.ownerUserId ?? null,
     owner_previous_role: user.ownerPreviousRole ?? null,
   };
 }
 
 export function toUser(dbUser: DbUser): User {
+  if (!isValidUserRole(dbUser.role)) {
+    throw new Error(`Invalid user role: ${dbUser.role}`);
+  }
+  const role = dbUser.role;
+
+  // ownerPreviousRoleのバリデーション（null/undefined以外の場合）
+  if (dbUser.owner_previous_role != null && !isValidUserRole(dbUser.owner_previous_role)) {
+    throw new Error(`Invalid owner previous role: ${dbUser.owner_previous_role}`);
+  }
+
+  const createdAt = parseTimestamp(dbUser.created_at);
+  const updatedAt = parseTimestamp(dbUser.updated_at);
+  const lastLoginAt = parseTimestampOrNull(dbUser.last_login_at);
   return {
     id: dbUser.id,
-    createdAt: dbUser.created_at,
-    updatedAt: dbUser.updated_at,
-    lastLoginAt: dbUser.last_login_at,
-    fullName: dbUser.full_name,
+    createdAt,
+    updatedAt,
+    lastLoginAt: lastLoginAt ?? undefined,
+    fullName: dbUser.full_name ?? undefined,
     lineUserId: dbUser.line_user_id,
     lineDisplayName: dbUser.line_display_name,
-    linePictureUrl: dbUser.line_picture_url,
-    lineStatusMessage: dbUser.line_status_message,
-    stripeCustomerId: dbUser.stripe_customer_id,
-    stripeSubscriptionId: dbUser.stripe_subscription_id,
+    linePictureUrl: dbUser.line_picture_url ?? undefined,
+    lineStatusMessage: dbUser.line_status_message ?? undefined,
+    stripeCustomerId: dbUser.stripe_customer_id ?? undefined,
+    stripeSubscriptionId: dbUser.stripe_subscription_id ?? undefined,
 
-    role: dbUser.role,
+    role,
     ownerUserId: dbUser.owner_user_id,
     ownerPreviousRole: dbUser.owner_previous_role ?? null,
   };
@@ -125,8 +147,8 @@ export interface EmployeeInvitation {
   id: string;
   ownerUserId: string;
   invitationToken: string;
-  expiresAt: number;
-  usedAt?: number;
-  usedByUserId?: string;
-  createdAt: number;
+  expiresAt: IsoTimestamp;
+  usedAt?: IsoTimestamp | undefined;
+  usedByUserId?: string | undefined;
+  createdAt: IsoTimestamp;
 }

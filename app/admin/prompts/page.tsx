@@ -278,7 +278,10 @@ export default function PromptsPage() {
           <CardHeader>
             <CardTitle>{selectedTemplate.display_name}</CardTitle>
             <div className="text-xs text-gray-500 mt-1">
-              最終更新: {new Date(selectedTemplate.updated_at).toLocaleString('ja-JP')}
+              最終更新:{' '}
+              {selectedTemplate.updated_at
+                ? new Date(selectedTemplate.updated_at).toLocaleString('ja-JP')
+                : '未更新'}
             </div>
             {(promptDescription || variablesInfoText) && (
               <div className="text-sm text-gray-600 space-y-2">

@@ -170,8 +170,20 @@ export async function fetchGscDetail(
         history:
           history?.map(item => ({
             ...item,
-            outcomeType: item.outcome_type,
-            errorCode: item.error_code,
+            outcome:
+              item.outcome === 'improved' ||
+              item.outcome === 'no_change' ||
+              item.outcome === 'worse'
+                ? (item.outcome as GscEvaluationOutcome)
+                : null,
+            outcomeType:
+              item.outcome_type === 'success' || item.outcome_type === 'error'
+                ? item.outcome_type
+                : 'error',
+            errorCode:
+              item.error_code === 'import_failed' || item.error_code === 'no_metrics'
+                ? item.error_code
+                : null,
             errorMessage: item.error_message,
           })) ?? [],
         evaluation: evaluation ?? null,
@@ -529,10 +541,7 @@ export async function fetchQueryAnalysis(
     // 現状はフィルタ後の件数表示などにqueriesが必要なためこのまま。
     const totalClicks = queries.reduce((sum, q) => sum + q.clicks, 0);
     const totalImpressions = queries.reduce((sum, q) => sum + q.impressions, 0);
-    const positionNumerator = queries.reduce(
-      (sum, q) => sum + q.position * q.impressions,
-      0
-    );
+    const positionNumerator = queries.reduce((sum, q) => sum + q.position * q.impressions, 0);
     const avgPosition = totalImpressions > 0 ? positionNumerator / totalImpressions : 0;
 
     return {
@@ -560,7 +569,10 @@ export async function fetchQueryAnalysis(
   }
 }
 
-export async function runQueryImportForAnnotation(annotationId: string, options?: { days?: number }) {
+export async function runQueryImportForAnnotation(
+  annotationId: string,
+  options?: { days?: number }
+) {
   try {
     const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {

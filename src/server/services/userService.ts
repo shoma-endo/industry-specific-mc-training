@@ -1,6 +1,7 @@
 import { LineAuthService, LineTokenExpiredError } from './lineAuthService';
 import { SupabaseService } from './supabaseService';
 import type { SupabaseResult } from './supabaseService';
+import { toIsoTimestamp } from '@/lib/timestamps';
 import type { User, UserRole, EmployeeInvitation } from '@/types/user';
 import { toDbUser, toUser, type DbUser } from '@/types/user';
 
@@ -25,10 +26,10 @@ export class UserService {
 
   private buildDbUserUpdates(
     updates: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>>,
-    timestamp = Date.now()
+    timestampIso = toIsoTimestamp(new Date())
   ): Partial<DbUser> {
     const dbUpdates: Partial<DbUser> = {
-      updated_at: timestamp,
+      updated_at: timestampIso,
     };
 
     if (updates.lineDisplayName !== undefined) {
@@ -73,7 +74,7 @@ export class UserService {
       let user = existingUserData ? toUser(existingUserData) : null;
 
       if (!user) {
-        const now = Date.now();
+        const now = toIsoTimestamp(new Date());
         const newUser: User = {
           id: crypto.randomUUID(),
           createdAt: now,
@@ -116,7 +117,7 @@ export class UserService {
           throw new Error('ユーザーの作成に失敗しました');
         }
       } else {
-        const updateTimestamp = Date.now();
+        const updateTimestamp = toIsoTimestamp(new Date());
         const updateResult = await this.supabaseService.updateUserById(
           user.id,
           this.buildDbUserUpdates(
@@ -240,7 +241,7 @@ export class UserService {
   async updateStripeCustomerId(lineUserId: string, stripeCustomerId: string): Promise<boolean> {
     const result = await this.supabaseService.updateUserByLineUserId(lineUserId, {
       stripe_customer_id: stripeCustomerId,
-      updated_at: Date.now(),
+      updated_at: new Date().toISOString(),
     });
 
     if (!result.success) {
@@ -260,7 +261,7 @@ export class UserService {
   ): Promise<boolean> {
     const result = await this.supabaseService.updateUserByLineUserId(lineUserId, {
       stripe_subscription_id: stripeSubscriptionId,
-      updated_at: Date.now(),
+      updated_at: new Date().toISOString(),
     });
 
     if (!result.success) {
@@ -272,7 +273,7 @@ export class UserService {
   }
 
   async updateFullName(userId: string, fullName: string): Promise<boolean> {
-    const timestamp = Date.now();
+    const timestamp = toIsoTimestamp(new Date());
     const result = await this.supabaseService.updateUserById(
       userId,
       this.buildDbUserUpdates({ fullName }, timestamp)

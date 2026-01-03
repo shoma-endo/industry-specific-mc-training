@@ -4,6 +4,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { WPCOM_TOKEN_COOKIE_NAME } from '@/server/services/wordpressContext';
 import { verifyOAuthState } from '@/server/lib/oauth-state';
 import { isAdmin as isAdminRole } from '@/authUtils';
+import type { UserRole } from '@/types/user';
 
 const supabaseService = new SupabaseService();
 
@@ -119,7 +120,19 @@ export async function GET(request: NextRequest) {
     // state に含まれる userId でもロールを確認（バックアップ）
     if (!cookieUserId && targetUserId) {
       const userResult = await supabaseService.getUserById(targetUserId);
-      if (userResult.success && !isAdminRole(userResult.data?.role ?? null)) {
+      if (!userResult.success) {
+        console.error('[wpcom/oauth] Failed to fetch user for admin check', {
+          userId: targetUserId,
+          error: userResult.error,
+        });
+        return NextResponse.json(
+          { error: 'ユーザー情報の取得に失敗しました' },
+          { status: 500 }
+        );
+      }
+      const userRole =
+        typeof userResult.data?.role === 'string' ? (userResult.data.role as UserRole) : null;
+      if (!isAdminRole(userRole)) {
         return NextResponse.json(
           { error: 'WordPress.com 連携は管理者のみ利用できます' },
           { status: 403 }

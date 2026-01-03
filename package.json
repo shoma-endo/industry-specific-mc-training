@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "supabase:types": "supabase gen types typescript --schema public > src/types/database.types.ts",
     "ngrok": "tsx scripts/ngrok.ts",
     "db:stats": "tsx scripts/check-db-stats.ts",
     "vercel:stats": "tsx scripts/check-vercel-stats.ts",
@@ -56,6 +57,7 @@
     "stripe": "^17.7.0",
     "tailwind-merge": "^3.0.2",
     "tw-animate-css": "^1.2.4",
+    "uuidv7": "^1.1.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

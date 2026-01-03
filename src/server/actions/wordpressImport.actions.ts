@@ -7,11 +7,8 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { buildWordPressServiceFromSettings } from '@/server/services/wordpressContext';
 import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
 import { normalizeContentTypes, normalizeContentType } from '@/server/services/wordpressContentTypes';
-import type {
-  ContentAnnotationInsert,
-  ContentAnnotationUpdate,
-  WordPressNormalizedPost,
-} from '@/types/wordpress';
+import type { WordPressNormalizedPost } from '@/types/wordpress';
+import type { Database } from '@/types/database.types';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import {
   areArraysEqual,
@@ -202,8 +199,11 @@ export async function runWordpressBulkImport(accessToken: string) {
     let duplicateSkipped = 0;
     let skippedWithoutCanonical = 0;
 
-    const toInsert: ContentAnnotationInsert[] = [];
-    const toUpdate: { id: string; data: ContentAnnotationUpdate }[] = [];
+    const toInsert: Database['public']['Tables']['content_annotations']['Insert'][] = [];
+    const toUpdate: {
+      id: string;
+      data: Database['public']['Tables']['content_annotations']['Update'];
+    }[] = [];
     const batchTimestamp = new Date().toISOString();
 
     normalized.forEach(post => {
@@ -245,15 +245,15 @@ export async function runWordpressBulkImport(accessToken: string) {
         (canonical ? existingByCanonical.get(canonical) : undefined) ??
         (wpPostId !== null ? existingByPostId.get(wpPostId) : undefined);
 
-      const baseData = {
+      const baseData: Database['public']['Tables']['content_annotations']['Update'] = {
         wp_post_id: wpPostId,
         wp_post_title: nextTitle,
         canonical_url: canonical ?? null,
-        wp_post_type: nextPostType,
         wp_categories: nextCategories,
         wp_category_names: nextCategoryNames,
         wp_excerpt: nextExcerpt,
         updated_at: batchTimestamp,
+        ...(nextPostType !== null ? { wp_post_type: nextPostType } : {}),
       };
 
       if (existing) {

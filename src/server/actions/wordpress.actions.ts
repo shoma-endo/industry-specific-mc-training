@@ -36,6 +36,7 @@ import type {
   SessionAnnotationUpsertPayload,
 } from '@/types/annotation';
 import type { DbChatSession } from '@/types/chat';
+import type { Database } from '@/types/database.types';
 import {
   isViewModeEnabled,
   resolveViewModeRole,
@@ -675,7 +676,6 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
 
     // WordPress記事本文のキャッシュを取得
     let wpContentCache: string | null = null;
-    let wpContentCachedAt: string | null = null;
 
     if (resolvedWpId) {
       try {
@@ -695,7 +695,6 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
             const text = stripHtml(contentHtml).trim();
             if (text) {
               wpContentCache = text;
-              wpContentCachedAt = new Date().toISOString();
             }
           }
         }
@@ -705,7 +704,7 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
       }
     }
 
-    const upsertData: Record<string, unknown> = {
+    const upsertData: Database['public']['Tables']['content_annotations']['Insert'] = {
       user_id: userId,
       wp_post_id: resolvedWpId,
       canonical_url: canonicalProvided ? resolvedCanonicalUrl : (payload.canonical_url ?? null),
@@ -718,20 +717,16 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
       prep: payload.prep ?? null,
       basic_structure: payload.basic_structure ?? null,
       opening_proposal: payload.opening_proposal ?? null,
-      wp_content_cache: wpContentCache,
-      wp_content_cached_at: wpContentCachedAt,
+      wp_content_text: wpContentCache ?? null,
       updated_at: new Date().toISOString(),
+      ...(canonicalProvided
+        ? {
+            wp_post_title: resolvedWpTitle ?? null,
+            ...(resolvedWpCategories !== null ? { wp_categories: resolvedWpCategories } : {}),
+            ...(resolvedWpCategoryNames !== null ? { wp_category_names: resolvedWpCategoryNames } : {}),
+          }
+        : {}),
     };
-
-    if (canonicalProvided) {
-      upsertData.wp_post_title = resolvedWpTitle ?? null;
-      if (resolvedWpCategories !== null) {
-        upsertData.wp_categories = resolvedWpCategories;
-      }
-      if (resolvedWpCategoryNames !== null) {
-        upsertData.wp_category_names = resolvedWpCategoryNames;
-      }
-    }
 
     const { error } = await client
       .from('content_annotations')
@@ -1068,7 +1063,7 @@ export async function upsertContentAnnotationBySession(
       }
     }
 
-    const upsertPayload: Record<string, unknown> = {
+    const upsertPayload: Database['public']['Tables']['content_annotations']['Insert'] = {
       user_id: userId,
       session_id: payload.session_id,
       main_kw: payload.main_kw ?? null,
@@ -1081,19 +1076,20 @@ export async function upsertContentAnnotationBySession(
       basic_structure: payload.basic_structure ?? null,
       opening_proposal: payload.opening_proposal ?? null,
       updated_at: new Date().toISOString(),
+      ...(canonicalProvided
+        ? {
+            canonical_url: resolvedCanonicalUrl ?? null,
+            wp_post_id: resolvedWpId ?? null,
+            wp_post_title: resolvedWpTitle ?? null,
+            ...(resolvedWpCategories !== null && resolvedWpCategories !== undefined
+              ? { wp_categories: resolvedWpCategories }
+              : {}),
+            ...(resolvedWpCategoryNames !== null && resolvedWpCategoryNames !== undefined
+              ? { wp_category_names: resolvedWpCategoryNames }
+              : {}),
+          }
+        : {}),
     };
-
-    if (canonicalProvided) {
-      upsertPayload.canonical_url = resolvedCanonicalUrl ?? null;
-      upsertPayload.wp_post_id = resolvedWpId ?? null;
-      upsertPayload.wp_post_title = resolvedWpTitle ?? null;
-      if (resolvedWpCategories !== undefined) {
-        upsertPayload.wp_categories = resolvedWpCategories ?? null;
-      }
-      if (resolvedWpCategoryNames !== undefined) {
-        upsertPayload.wp_category_names = resolvedWpCategoryNames ?? null;
-      }
-    }
 
     const { error } = await client
       .from('content_annotations')
@@ -1176,8 +1172,7 @@ export async function ensureAnnotationChatSession(
       }
     }
 
-    const now = Date.now();
-    const nowIso = new Date(now).toISOString();
+    const nowIso = new Date().toISOString();
 
     if (!sessionId) {
       sessionId = randomUUID();
@@ -1190,8 +1185,10 @@ export async function ensureAnnotationChatSession(
         id: sessionId,
         user_id: userId,
         title: baseTitle.length > 60 ? `${baseTitle.slice(0, 57)}...` : baseTitle,
-        created_at: now,
-        last_message_at: now,
+        created_at: nowIso,
+        last_message_at: nowIso,
+        system_prompt: null,
+        search_vector: null,
       };
 
       const createResult = await service.createChatSession(session);
@@ -1238,7 +1235,7 @@ export async function ensureAnnotationChatSession(
         .from('content_annotations')
         .select('session_id')
         .eq('user_id', userId)
-        .eq('wp_post_id', payload.wpPostId)
+        .eq('wp_post_id', payload.wpPostId as number)
         .maybeSingle();
 
       if (fetchByWpError) {
@@ -1251,7 +1248,7 @@ export async function ensureAnnotationChatSession(
           .from('content_annotations')
           .update(annotationUpdate)
           .eq('user_id', userId)
-          .eq('wp_post_id', payload.wpPostId);
+          .eq('wp_post_id', payload.wpPostId as number);
         if (updateError) {
           return { success: false as const, error: updateError.message };
         }
@@ -1280,7 +1277,7 @@ export async function ensureAnnotationChatSession(
           return { success: false as const, error: updateError.message };
         }
       } else {
-        const insertPayload: Record<string, unknown> = {
+        const insertPayload: Database['public']['Tables']['content_annotations']['Insert'] = {
           user_id: userId,
           session_id: sessionId,
           ...annotationUpdate,

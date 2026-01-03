@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       if (!stage) return true;
       const evalRow = (evals ?? []).find(e => e.content_annotation_id === a.id);
       if (!evalRow) return false;
-      return String(evalRow.current_stage) === stage;
+      return String(evalRow.current_suggestion_stage) === stage;
     });
 
     const items = stageFiltered.map(a => {

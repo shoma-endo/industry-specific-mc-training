@@ -12,6 +12,7 @@ import {
   PromptTemplateWithVersions,
 } from '@/types/prompt';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import { toUser } from '@/types/user';
 
 const promptVariableSchema = z.object({
   name: z.string().min(1, '変数名は必須です'),
@@ -55,10 +56,14 @@ async function checkAdminPermission(liffAccessToken: string) {
       return { success: false, error: userResult.error.userMessage };
     }
 
-    const user = userResult.data;
-    if (!user) {
+    const dbUser = userResult.data;
+    if (!dbUser) {
       return { success: false, error: 'ユーザー情報が見つかりません' };
     }
+
+    // toUser関数でランタイム検証を含むUserオブジェクトに変換
+    // （toUser関数内でisValidUserRoleによる検証が実行される）
+    const user = toUser(dbUser);
 
     // unavailableユーザーのサービス利用制限チェック
     if (isUnavailable(user.role)) {

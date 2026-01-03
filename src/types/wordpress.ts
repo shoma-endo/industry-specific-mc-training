@@ -7,24 +7,24 @@ export type WordPressType = 'wordpress_com' | 'self_hosted';
  * WordPress設定（統合型）
  */
 export interface WordPressSettings {
-  id?: string;
+  id?: string | undefined;
   userId: string;
   wpType: WordPressType;
   // WordPress.com用
-  wpClientId?: string;
-  wpClientSecret?: string;
-  wpSiteId?: string;
+  wpClientId?: string | undefined;
+  wpClientSecret?: string | undefined;
+  wpSiteId?: string | undefined;
   // セルフホスト用
-  wpSiteUrl?: string;
-  wpUsername?: string;
-  wpApplicationPassword?: string;
+  wpSiteUrl?: string | undefined;
+  wpUsername?: string | undefined;
+  wpApplicationPassword?: string | undefined;
   // 共通（トークン）
-  wpAccessToken?: string | null;
-  wpRefreshToken?: string | null;
-  wpTokenExpiresAt?: string | null;
-  wpContentTypes?: string[];
-  createdAt?: string;
-  updatedAt?: string;
+  wpAccessToken?: string | null | undefined;
+  wpRefreshToken?: string | null | undefined;
+  wpTokenExpiresAt?: string | null | undefined;
+  wpContentTypes?: string[] | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 /**

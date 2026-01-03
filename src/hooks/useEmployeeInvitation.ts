@@ -7,7 +7,7 @@ const employeeInfoSchema = z.object({
   id: z.string(),
   lineDisplayName: z.string(),
   linePictureUrl: z.string().optional(),
-  createdAt: z.number(),
+  createdAt: z.string(),
 });
 
 const employeeResponseSchema = z.object({
@@ -17,7 +17,7 @@ const employeeResponseSchema = z.object({
 
 const invitationInfoSchema = z.object({
   token: z.string(),
-  expiresAt: z.number(),
+  expiresAt: z.string(),
   url: z.string(),
 });
 
@@ -28,7 +28,7 @@ const invitationStatusSchema = z.object({
 
 const createInvitationResponseSchema = z.object({
   token: z.string(),
-  expiresAt: z.number(),
+  expiresAt: z.string(),
   invitationUrl: z.string(),
 });
 

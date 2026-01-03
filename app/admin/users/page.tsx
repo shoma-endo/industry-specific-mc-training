@@ -16,8 +16,13 @@ import type { User, UserRole } from '@/types/user';
 import { clearAuthCache } from '@/server/actions/adminUsers.actions';
 import { toast } from 'sonner';
 
-const formatDateTime = (timestamp: number | undefined) => {
+const formatDateTime = (timestamp: string | undefined) => {
   if (!timestamp) return '未ログイン';
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return '未ログイン';
+  }
 
   return new Intl.DateTimeFormat('ja-JP', {
     year: 'numeric',
@@ -27,7 +32,7 @@ const formatDateTime = (timestamp: number | undefined) => {
     minute: '2-digit',
     second: '2-digit',
     timeZone: 'Asia/Tokyo',
-  }).format(new Date(timestamp));
+  }).format(date);
 };
 
 const getRoleColor = (role: UserRole | null) => {
