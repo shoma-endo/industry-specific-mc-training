@@ -38,26 +38,6 @@ comment on column public.employee_invitations.expires_at is '招待の有効期�
 comment on column public.employee_invitations.used_at is '招待使用時刻（UTC）';
 comment on column public.employee_invitations.created_at is '招待作成時刻（UTC）';
 
--- Refresh cron cleanup schedule for timestamptz columns
-create extension if not exists pg_cron;
-do $$
-begin
-  perform cron.unschedule('cleanup-employee-invitations-ttl');
-exception
-  when others then null;
-end;
-$$;
-
-select cron.schedule(
-  'cleanup-employee-invitations-ttl',
-  '0 0 * * *',
-  $$
-  delete from employee_invitations
-   where (used_at is not null and used_at < now() - interval '30 days')
-      or (used_at is null and expires_at < now() - interval '30 days');
-  $$
-);
-
 -- Update invitation RPC for timestamptz
 create or replace function public.accept_employee_invitation(
   p_user_id uuid,
