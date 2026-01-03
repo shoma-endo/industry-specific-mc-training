@@ -1,3 +1,4 @@
+import type { IsoTimestamp } from '@/lib/timestamps';
 import { parseTimestampStrict } from '@/lib/timestamps';
 import type { Database } from '@/types/database.types';
 
@@ -11,7 +12,7 @@ export interface ChatMessage {
   role: ChatRole; // メッセージの役割 ('user'/'assistant'/'system')
   content: string; // メッセージの内容
   model?: string | undefined; // 使用されたAIモデル (assistantの場合)
-  createdAt: number; // 作成日時 (タイムスタンプ)
+  createdAt: IsoTimestamp; // 作成日時 (UTC ISO文字列)
 }
 
 /**
@@ -22,8 +23,8 @@ export interface ChatSession {
   userId: string; // セッションの所有者ID
   title: string; // セッションのタイトル
   systemPrompt?: string | undefined; // システムプロンプト
-  lastMessageAt: number; // 最後のメッセージ日時
-  createdAt: number; // 作成日時
+  lastMessageAt: IsoTimestamp; // 最後のメッセージ日時 (UTC ISO文字列)
+  createdAt: IsoTimestamp; // 作成日時 (UTC ISO文字列)
 }
 
 export interface ChatResponse {
@@ -60,7 +61,7 @@ export interface DbChatSessionSearchRow {
   title: string;
   canonical_url?: string | null;
   wp_post_title?: string | null;
-  last_message_at: number;
+  last_message_at: IsoTimestamp;
   similarity_score: number;
 }
 
@@ -72,7 +73,7 @@ export interface ChatSessionSearchMatch {
   title: string;
   canonicalUrl: string | null;
   wordpressTitle: string | null;
-  lastMessageAt: number;
+  lastMessageAt: IsoTimestamp;
   similarityScore: number;
 }
 
@@ -125,7 +126,7 @@ export interface ServerChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  created_at: string;
+  created_at: IsoTimestamp;
 }
 
 /**
@@ -134,6 +135,6 @@ export interface ServerChatMessage {
 export interface ServerChatSession {
   id: string;
   title: string;
-  last_message_at: string;
+  last_message_at: IsoTimestamp;
   messages?: ServerChatMessage[]; // RPC で埋め込む
 }

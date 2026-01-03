@@ -417,10 +417,7 @@ export class SupabaseService {
     const sessions = (Array.isArray(data) ? data : []).map((row: SessionsWithMessagesRow) => ({
       id: row.session_id,
       title: row.title,
-      last_message_at:
-        typeof row.last_message_at === 'string'
-          ? row.last_message_at
-          : toIsoTimestamp(Number(row.last_message_at ?? 0)),
+      last_message_at: parseTimestampSafe(row.last_message_at),
       messages: Array.isArray(row.messages)
         ? row.messages
             .filter((message): message is { [key: string]: Json | undefined } => {
@@ -430,16 +427,9 @@ export class SupabaseService {
               id: String(message.id ?? ''),
               role: String(message.role ?? 'user') as ServerChatMessage['role'],
               content: String(message.content ?? ''),
-              created_at: (() => {
-                const createdAt = (message as { created_at?: string | number | null }).created_at;
-                if (typeof createdAt === 'string') {
-                  return createdAt;
-                }
-                if (typeof createdAt === 'number' && Number.isFinite(createdAt)) {
-                  return toIsoTimestamp(createdAt);
-                }
-                return toIsoTimestamp(0);
-              })(),
+              created_at: parseTimestampSafe(
+                (message as { created_at?: string | number | null }).created_at
+              ),
             }))
         : [],
     }));
@@ -593,22 +583,22 @@ export class SupabaseService {
    */
   async countUserMessagesBetween(
     userId: string,
-    fromMs: number,
-    toMs: number
+    fromIso: string,
+    toIso: string
   ): Promise<SupabaseResult<number>> {
     const { count, error } = await this.supabase
       .from('chat_messages')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('role', 'user')
-      .gte('created_at', toIsoTimestamp(fromMs))
-      .lt('created_at', toIsoTimestamp(toMs));
+      .gte('created_at', toIsoTimestamp(fromIso))
+      .lt('created_at', toIsoTimestamp(toIso));
 
     if (error) {
       return this.failure('メッセージ数の取得に失敗しました', {
         error,
         developerMessage: 'Failed to count user messages in range',
-        context: { userId, fromMs, toMs },
+        context: { userId, fromIso, toIso },
       });
     }
 

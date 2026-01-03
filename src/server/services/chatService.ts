@@ -14,7 +14,7 @@ import {
 import { SupabaseService, type SupabaseResult } from './supabaseService';
 import { MODEL_CONFIGS, CHAT_HISTORY_LIMIT } from '@/lib/constants';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
-import { generateOrderedTimestamp } from '@/lib/timestamps';
+import { generateOrderedTimestamps } from '@/lib/timestamps';
 
 interface ChatResponse {
   message: string;
@@ -99,9 +99,7 @@ class ChatService {
       }
 
       const sessionId = crypto.randomUUID();
-      // UUID v7を使用して順序保証されたタイムスタンプを生成
-      const nowIso = generateOrderedTimestamp();
-      const nextIso = generateOrderedTimestamp();
+      const [nowIso, nextIso] = generateOrderedTimestamps(2);
 
       const session: DbChatSession = {
         id: sessionId,
@@ -264,9 +262,7 @@ class ChatService {
         aiResponse = { message: userMessage[1]!, error: '' };
       }
 
-      // UUID v7を使用して順序保証されたタイムスタンプを生成
-      const nowIso = generateOrderedTimestamp();
-      const nextIso = generateOrderedTimestamp();
+      const [nowIso, nextIso] = generateOrderedTimestamps(2);
 
       this.unwrapSupabaseResult(
         await this.supabaseService.updateChatSession(sessionId, userId, {

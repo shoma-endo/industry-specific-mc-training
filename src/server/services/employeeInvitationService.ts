@@ -1,3 +1,5 @@
+import type { IsoTimestamp } from '@/lib/timestamps';
+import { toIsoTimestamp } from '@/lib/timestamps';
 import type { EmployeeInvitation } from '@/types/user';
 
 const INVITATION_EXPIRY_DAYS = 7;
@@ -16,11 +18,13 @@ export async function generateInvitationToken(): Promise<string> {
     .replace(/=/g, '');
 }
 
-export function generateExpiresAt(): number {
-  return Date.now() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+export function generateExpiresAt(): IsoTimestamp {
+  const expiresAtMs = Date.now() + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+  return toIsoTimestamp(expiresAtMs);
 }
 
 // TODO: 招待ステータス取得API（/api/employee/invite/status）を用意してUIロジックを簡略化する
 export function isInvitationValid(invitation: EmployeeInvitation): boolean {
-  return invitation.usedAt == null && invitation.expiresAt > Date.now();
+  const expiresAtMs = Date.parse(invitation.expiresAt);
+  return invitation.usedAt == null && !Number.isNaN(expiresAtMs) && expiresAtMs > Date.now();
 }

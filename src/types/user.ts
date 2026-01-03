@@ -1,3 +1,4 @@
+import type { IsoTimestamp } from '@/lib/timestamps';
 import { parseTimestamp, parseTimestampOrNull, toIsoTimestamp } from '@/lib/timestamps';
 import type { Database } from '@/types/database.types';
 
@@ -41,9 +42,9 @@ export function hasPaidFeatureAccess(role: UserRole | null): role is PaidFeature
 export interface User {
   // 基本情報
   id: string; // ユーザーID (Supabaseの自動生成ID等)
-  createdAt: number; // ユーザー作成日時 (タイムスタンプ)
-  updatedAt: number; // 最終更新日時 (タイムスタンプ)
-  lastLoginAt?: number | undefined; // 最終ログイン日時 (タイムスタンプ)
+  createdAt: IsoTimestamp; // ユーザー作成日時 (UTC ISO文字列)
+  updatedAt: IsoTimestamp; // 最終更新日時 (UTC ISO文字列)
+  lastLoginAt?: IsoTimestamp | undefined; // 最終ログイン日時 (UTC ISO文字列)
   fullName?: string | undefined; // フルネーム
 
   // LINE関連情報
@@ -127,7 +128,7 @@ export function toUser(dbUser: DbUser): User {
     id: dbUser.id,
     createdAt,
     updatedAt,
-    lastLoginAt: lastLoginAt === null || Number.isNaN(lastLoginAt) ? undefined : lastLoginAt,
+    lastLoginAt: lastLoginAt ?? undefined,
     fullName: dbUser.full_name ?? undefined,
     lineUserId: dbUser.line_user_id,
     lineDisplayName: dbUser.line_display_name,
@@ -146,8 +147,8 @@ export interface EmployeeInvitation {
   id: string;
   ownerUserId: string;
   invitationToken: string;
-  expiresAt: number;
-  usedAt?: number | undefined;
+  expiresAt: IsoTimestamp;
+  usedAt?: IsoTimestamp | undefined;
   usedByUserId?: string | undefined;
-  createdAt: number;
+  createdAt: IsoTimestamp;
 }

@@ -189,7 +189,7 @@ export async function getLatestBlogStep7MessageBySession(
   liffAccessToken: string
 ): Promise<
   | { success: false; error: string }
-  | { success: true; data: { content: string; createdAt: number } | null }
+  | { success: true; data: { content: string; createdAt: string } | null }
 > {
   if (!sessionId) {
     return { success: false as const, error: 'セッションIDが必要です' };
