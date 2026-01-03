@@ -21,7 +21,7 @@ interface EmployeeInfo {
   id: string;
   lineDisplayName: string;
   linePictureUrl?: string;
-  createdAt: number;
+  createdAt: string;
 }
 
 const ProfileDisplay = () => {
