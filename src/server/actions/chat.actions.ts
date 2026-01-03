@@ -228,11 +228,20 @@ export async function getLatestBlogStep7MessageBySession(
     return { success: true as const, data: null };
   }
 
+  const createdAt = Date.parse(result.data.created_at);
+  if (Number.isNaN(createdAt)) {
+    console.error('[getLatestBlogStep7MessageBySession] Invalid created_at', {
+      sessionId,
+      createdAt: result.data.created_at,
+    });
+    return { success: false as const, error: 'タイムスタンプの解析に失敗しました' };
+  }
+
   return {
     success: true as const,
     data: {
       content: result.data.content,
-      createdAt: result.data.created_at,
+      createdAt,
     },
   };
 }

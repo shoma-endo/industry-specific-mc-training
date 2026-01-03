@@ -1,3 +1,5 @@
+import type { Database } from '@/types/database.types';
+
 /**
  * ユーザーロールの型定義
  */
@@ -60,33 +62,21 @@ export enum SubscriptionStatus {
 /**
  * データベースモデルへの変換用インターフェース
  */
-export interface DbUser {
-  id: string;
-  created_at: number;
-  updated_at: number;
-  last_login_at?: number | undefined;
-  full_name?: string | undefined;
-  line_user_id: string;
-  line_display_name: string;
-  line_picture_url?: string | undefined;
-  line_status_message?: string | undefined;
-  stripe_customer_id?: string | undefined;
-  stripe_subscription_id?: string | undefined;
-
-  role: UserRole;
-  owner_user_id?: string | null | undefined;
-  owner_previous_role?: UserRole | null | undefined;
-}
+export type DbUser = Database['public']['Tables']['users']['Row'];
 
 /**
  * アプリケーションモデルとデータベースモデル間の変換関数
  */
 export function toDbUser(user: User): DbUser {
+  const createdAt = new Date(user.createdAt).toISOString();
+  const updatedAt = new Date(user.updatedAt).toISOString();
+  const lastLoginAt =
+    user.lastLoginAt !== undefined ? new Date(user.lastLoginAt).toISOString() : null;
   return {
     id: user.id,
-    created_at: user.createdAt,
-    updated_at: user.updatedAt,
-    last_login_at: user.lastLoginAt,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    last_login_at: lastLoginAt,
     full_name: user.fullName,
     line_user_id: user.lineUserId,
     line_display_name: user.lineDisplayName,
@@ -102,11 +92,17 @@ export function toDbUser(user: User): DbUser {
 }
 
 export function toUser(dbUser: DbUser): User {
+  const role = dbUser.role as UserRole;
+  const createdAt = Date.parse(dbUser.created_at);
+  const updatedAt = Date.parse(dbUser.updated_at);
+  const lastLoginAt =
+    dbUser.last_login_at === null ? undefined : Date.parse(dbUser.last_login_at);
   return {
     id: dbUser.id,
-    createdAt: dbUser.created_at,
-    updatedAt: dbUser.updated_at,
-    lastLoginAt: dbUser.last_login_at,
+    createdAt: Number.isNaN(createdAt) ? 0 : createdAt,
+    updatedAt: Number.isNaN(updatedAt) ? 0 : updatedAt,
+    lastLoginAt:
+      lastLoginAt === undefined || Number.isNaN(lastLoginAt) ? undefined : lastLoginAt,
     fullName: dbUser.full_name,
     lineUserId: dbUser.line_user_id,
     lineDisplayName: dbUser.line_display_name,
@@ -115,7 +111,7 @@ export function toUser(dbUser: DbUser): User {
     stripeCustomerId: dbUser.stripe_customer_id,
     stripeSubscriptionId: dbUser.stripe_subscription_id,
 
-    role: dbUser.role,
+    role,
     ownerUserId: dbUser.owner_user_id,
     ownerPreviousRole: dbUser.owner_previous_role ?? null,
   };

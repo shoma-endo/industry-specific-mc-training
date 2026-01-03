@@ -1,3 +1,5 @@
+import type { Database } from '@/types/database.types';
+
 /**
  * チャットメッセージの型定義
  */
@@ -39,30 +41,29 @@ export enum ChatRole {
   SYSTEM = 'system',
 }
 
+const parseTimestamp = (value: string | number | null | undefined): number => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if (Number.isNaN(parsed)) {
+      throw new Error(`Invalid timestamp string: "${value}"`);
+    }
+    return parsed;
+  }
+  throw new Error(`Null or undefined timestamp received: ${String(value)}`);
+};
+
 /**
  * チャットメッセージのデータベースモデル
  */
-export interface DbChatMessage {
-  id: string;
-  user_id: string;
-  session_id: string;
-  role: string;
-  content: string;
-  model?: string | undefined;
-  created_at: number;
-}
+export type DbChatMessage = Database['public']['Tables']['chat_messages']['Row'];
 
 /**
  * チャットセッションのデータベースモデル
  */
-export interface DbChatSession {
-  id: string;
-  user_id: string;
-  title: string;
-  system_prompt?: string | undefined;
-  last_message_at: number;
-  created_at: number;
-}
+export type DbChatSession = Database['public']['Tables']['chat_sessions']['Row'];
 
 /**
  * チャットセッション検索結果のデータベース行
@@ -99,7 +100,7 @@ export function toChatMessage(dbMessage: DbChatMessage): ChatMessage {
     role: dbMessage.role as ChatRole,
     content: dbMessage.content,
     model: dbMessage.model,
-    createdAt: dbMessage.created_at,
+    createdAt: parseTimestamp(dbMessage.created_at),
   };
 }
 
@@ -109,8 +110,8 @@ export function toChatSession(dbSession: DbChatSession): ChatSession {
     userId: dbSession.user_id,
     title: dbSession.title,
     systemPrompt: dbSession.system_prompt,
-    lastMessageAt: dbSession.last_message_at,
-    createdAt: dbSession.created_at,
+    lastMessageAt: parseTimestamp(dbSession.last_message_at),
+    createdAt: parseTimestamp(dbSession.created_at),
   };
 }
 

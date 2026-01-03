@@ -1176,8 +1176,7 @@ export async function ensureAnnotationChatSession(
       }
     }
 
-    const now = Date.now();
-    const nowIso = new Date(now).toISOString();
+    const nowIso = new Date().toISOString();
 
     if (!sessionId) {
       sessionId = randomUUID();
@@ -1190,8 +1189,8 @@ export async function ensureAnnotationChatSession(
         id: sessionId,
         user_id: userId,
         title: baseTitle.length > 60 ? `${baseTitle.slice(0, 57)}...` : baseTitle,
-        created_at: now,
-        last_message_at: now,
+        created_at: nowIso,
+        last_message_at: nowIso,
       };
 
       const createResult = await service.createChatSession(session);

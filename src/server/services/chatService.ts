@@ -98,14 +98,16 @@ class ChatService {
       }
 
       const sessionId = crypto.randomUUID();
-      const now = Date.now();
+      const nowMs = Date.now();
+      const nowIso = new Date(nowMs).toISOString();
+      const nextIso = new Date(nowMs + 1).toISOString();
 
       const session: DbChatSession = {
         id: sessionId,
         user_id: userId,
         title: userMessageString.substring(0, 50) + (userMessageString.length > 50 ? '...' : ''),
-        created_at: now,
-        last_message_at: now,
+        created_at: nowIso,
+        last_message_at: nowIso,
         system_prompt: systemPrompt,
       };
 
@@ -121,7 +123,7 @@ class ChatService {
         session_id: sessionId,
         role: ChatRole.USER,
         content: userMessageString,
-        created_at: now,
+        created_at: nowIso,
       };
 
       this.unwrapSupabaseResult(
@@ -137,7 +139,7 @@ class ChatService {
         role: ChatRole.ASSISTANT,
         content: aiResponse.message,
         model: model,
-        created_at: now + 1, // 順序を保証するため
+        created_at: nextIso, // 順序を保証するため
       };
 
       this.unwrapSupabaseResult(
@@ -259,11 +261,13 @@ class ChatService {
         aiResponse = { message: userMessage[1]!, error: '' };
       }
 
-      const now = Date.now();
+      const nowMs = Date.now();
+      const nowIso = new Date(nowMs).toISOString();
+      const nextIso = new Date(nowMs + 1).toISOString();
 
       this.unwrapSupabaseResult(
         await this.supabaseService.updateChatSession(sessionId, userId, {
-          last_message_at: now,
+          last_message_at: nowIso,
         }),
         ChatErrorCode.SESSION_LOAD_FAILED,
         { userId, sessionId }
@@ -275,7 +279,7 @@ class ChatService {
         session_id: sessionId,
         role: ChatRole.USER,
         content: userMessageString,
-        created_at: now,
+        created_at: nowIso,
       };
 
       this.unwrapSupabaseResult(
@@ -291,7 +295,7 @@ class ChatService {
         role: ChatRole.ASSISTANT,
         content: aiResponse.message,
         model: model,
-        created_at: now + 1, // 順序を保証するため
+        created_at: nextIso, // 順序を保証するため
       };
 
       this.unwrapSupabaseResult(

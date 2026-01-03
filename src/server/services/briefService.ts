@@ -5,8 +5,8 @@ export interface Brief {
   id: string;
   user_id: string;
   data: Record<string, string>;
-  created_at: number;
-  updated_at: number;
+  created_at: number | null;
+  updated_at: number | null;
 }
 
 export class BriefService {
@@ -36,7 +36,13 @@ export class BriefService {
         return null;
       }
 
-      return data as Brief;
+      const createdAt = Date.parse(data.created_at);
+      const updatedAt = Date.parse(data.updated_at);
+      return {
+        ...data,
+        created_at: Number.isNaN(createdAt) ? null : createdAt,
+        updated_at: Number.isNaN(updatedAt) ? null : updatedAt,
+      };
     } catch (error) {
       console.error('Brief取得例外:', error);
       return null;

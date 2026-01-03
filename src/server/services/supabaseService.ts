@@ -1,5 +1,6 @@
 import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
+import type { Database } from '@/types/database.types';
 import {
   DbChatMessage,
   DbChatSession,
@@ -12,6 +13,19 @@ import type { UserRole } from '@/types/user';
 import type { GscCredential, GscPropertyType, GscSearchType } from '@/types/gsc';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
+
+const parseTimestamp = (value: string | number | null | undefined): number => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
+const toIsoTimestamp = (value: number): string => new Date(value).toISOString();
 
 export interface SupabaseErrorInfo {
   userMessage: string;
@@ -32,7 +46,7 @@ export type SupabaseResult<T> =
  * 最適化：シングルトンクライアントで接続プールを効率化
  */
 export class SupabaseService {
-  protected readonly supabase: SupabaseClient;
+  protected readonly supabase: SupabaseClient<Database>;
 
   constructor() {
     // サーバーサイドの特権操作に対応するため、Service Roleクライアントを使用
@@ -104,12 +118,12 @@ export class SupabaseService {
   /**
    * Supabaseクライアントを取得（サブクラスからのアクセス用）
    */
-  getClient(): SupabaseClient {
+  getClient(): SupabaseClient<Database> {
     return this.supabase;
   }
 
   protected static async withServiceRoleClient<T>(
-    handler: (client: SupabaseClient) => Promise<T>,
+    handler: (client: SupabaseClient<Database>) => Promise<T>,
     options?: {
       logMessage?: string | null;
       logLevel?: 'error' | 'warn' | 'info' | 'debug';
@@ -151,7 +165,7 @@ export class SupabaseService {
           line_display_name: lineProfile.displayName,
           line_picture_url: lineProfile.pictureUrl,
           line_status_message: lineProfile.statusMessage,
-          updated_at: Date.now(),
+          updated_at: new Date().toISOString(),
         },
         { onConflict: 'line_user_id' }
       )
@@ -186,7 +200,7 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data as DbUser) ?? null);
+    return this.success(data ?? null);
   }
 
   async getUserById(id: string): Promise<SupabaseResult<DbUser | null>> {
@@ -204,7 +218,7 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data as DbUser) ?? null);
+    return this.success(data ?? null);
   }
 
   async getUserByStripeCustomerId(
@@ -224,7 +238,7 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data as DbUser) ?? null);
+    return this.success(data ?? null);
   }
 
   async createUser(user: DbUser): Promise<SupabaseResult<DbUser>> {
@@ -238,7 +252,7 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data as DbUser) ?? user);
+    return this.success(data ?? user);
   }
 
   async updateUserById(
@@ -260,7 +274,7 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data as DbUser) ?? null);
+    return this.success(data ?? null);
   }
 
   async updateUserByLineUserId(
@@ -282,13 +296,13 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data as DbUser) ?? null);
+    return this.success(data ?? null);
   }
 
   async updateUserRole(userId: string, newRole: UserRole): Promise<SupabaseResult<DbUser | null>> {
     return this.updateUserById(userId, {
       role: newRole,
-      updated_at: Date.now(),
+      updated_at: new Date().toISOString(),
     });
   }
 
@@ -305,7 +319,7 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data as DbUser[]) ?? []);
+    return this.success(data ?? []);
   }
 
   async createChatSession(session: DbChatSession): Promise<SupabaseResult<string>> {
@@ -401,15 +415,20 @@ export class SupabaseService {
     type SessionsWithMessagesRow = {
       session_id: string;
       title: string;
-      last_message_at: number;
-      messages: ServerChatMessage[] | null;
+      last_message_at: string | null;
+      messages: Array<ServerChatMessage & { created_at: string | number | null }> | null;
     };
 
     const sessions = (Array.isArray(data) ? data : []).map((row: SessionsWithMessagesRow) => ({
       id: row.session_id,
       title: row.title,
-      last_message_at: row.last_message_at,
-      messages: row.messages ?? [],
+      last_message_at: parseTimestamp(row.last_message_at),
+      messages: Array.isArray(row.messages)
+        ? row.messages.map(message => ({
+            ...message,
+            created_at: parseTimestamp(message.created_at),
+          }))
+        : [],
     }));
 
     return this.success(sessions);
@@ -440,7 +459,7 @@ export class SupabaseService {
       title: string | null;
       canonical_url: string | null;
       wp_post_title: string | null;
-      last_message_at: number | string | null;
+      last_message_at: string | number | null;
       similarity_score: number | string | null;
     };
 
@@ -455,7 +474,7 @@ export class SupabaseService {
         row.wp_post_title === null || typeof row.wp_post_title === 'string'
           ? row.wp_post_title
           : null,
-      last_message_at: Number(row.last_message_at ?? 0),
+      last_message_at: parseTimestamp(row.last_message_at),
       similarity_score:
         row.similarity_score === null || row.similarity_score === undefined
           ? 0
@@ -558,7 +577,7 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data ?? null) as DbChatMessage | null);
+    return this.success(data ?? null);
   }
 
   /**
@@ -1186,7 +1205,7 @@ export class SupabaseService {
    * 事業者情報を保存
    */
   async saveBrief(userId: string, data: Record<string, unknown>): Promise<SupabaseResult<void>> {
-    const now = Date.now();
+    const now = new Date().toISOString();
     const { error } = await this.supabase
       .from('briefs')
       .upsert(
@@ -1303,8 +1322,13 @@ export class SupabaseService {
       });
     }
 
+    const rows = (data || []).map(row => ({
+      ...row,
+      created_at: parseTimestamp(row.created_at),
+    }));
+
     return this.success(
-      (data || []) as Array<{ id: string; content: string; created_at: number; session_id: string }>
+      rows as Array<{ id: string; content: string; created_at: number; session_id: string }>
     );
   }
 
@@ -1318,8 +1342,8 @@ export class SupabaseService {
       .insert({
         owner_user_id: invitation.ownerUserId,
         invitation_token: invitation.invitationToken,
-        expires_at: invitation.expiresAt,
-        created_at: Date.now(),
+        expires_at: toIsoTimestamp(invitation.expiresAt),
+        created_at: new Date().toISOString(),
       })
       .select('id')
       .single();
@@ -1348,10 +1372,10 @@ export class SupabaseService {
       id: data.id,
       ownerUserId: data.owner_user_id,
       invitationToken: data.invitation_token,
-      expiresAt: data.expires_at,
-      usedAt: data.used_at,
+      expiresAt: parseTimestamp(data.expires_at),
+      usedAt: data.used_at ? parseTimestamp(data.used_at) : undefined,
       usedByUserId: data.used_by_user_id,
-      createdAt: data.created_at,
+      createdAt: parseTimestamp(data.created_at),
     });
   }
 
@@ -1359,7 +1383,7 @@ export class SupabaseService {
     const { error } = await this.supabase
       .from('employee_invitations')
       .update({
-        used_at: Date.now(),
+        used_at: new Date().toISOString(),
         used_by_user_id: userId,
       })
       .eq('invitation_token', token);
@@ -1449,10 +1473,10 @@ export class SupabaseService {
       id: data.id,
       ownerUserId: data.owner_user_id,
       invitationToken: data.invitation_token,
-      expiresAt: data.expires_at,
-      usedAt: data.used_at,
+      expiresAt: parseTimestamp(data.expires_at),
+      usedAt: data.used_at ? parseTimestamp(data.used_at) : undefined,
       usedByUserId: data.used_by_user_id,
-      createdAt: data.created_at,
+      createdAt: parseTimestamp(data.created_at),
     });
   }
 
@@ -1491,6 +1515,6 @@ export class SupabaseService {
     if (error) {
       return this.failure('スタッフの取得に失敗しました', { error });
     }
-    return this.success((data as DbUser) ?? null);
+    return this.success(data ?? null);
   }
 }

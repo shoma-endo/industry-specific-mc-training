@@ -27,8 +27,9 @@ export class UserService {
     updates: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>>,
     timestamp = Date.now()
   ): Partial<DbUser> {
+    const updatedAt = new Date(timestamp).toISOString();
     const dbUpdates: Partial<DbUser> = {
-      updated_at: timestamp,
+      updated_at: updatedAt,
     };
 
     if (updates.lineDisplayName !== undefined) {
@@ -47,7 +48,7 @@ export class UserService {
       dbUpdates.stripe_subscription_id = updates.stripeSubscriptionId;
     }
     if (updates.lastLoginAt !== undefined) {
-      dbUpdates.last_login_at = updates.lastLoginAt;
+      dbUpdates.last_login_at = new Date(updates.lastLoginAt).toISOString();
     }
     if (updates.fullName !== undefined) {
       dbUpdates.full_name = updates.fullName;
@@ -240,7 +241,7 @@ export class UserService {
   async updateStripeCustomerId(lineUserId: string, stripeCustomerId: string): Promise<boolean> {
     const result = await this.supabaseService.updateUserByLineUserId(lineUserId, {
       stripe_customer_id: stripeCustomerId,
-      updated_at: Date.now(),
+      updated_at: new Date().toISOString(),
     });
 
     if (!result.success) {
@@ -260,7 +261,7 @@ export class UserService {
   ): Promise<boolean> {
     const result = await this.supabaseService.updateUserByLineUserId(lineUserId, {
       stripe_subscription_id: stripeSubscriptionId,
-      updated_at: Date.now(),
+      updated_at: new Date().toISOString(),
     });
 
     if (!result.success) {
