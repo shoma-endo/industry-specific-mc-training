@@ -1,5 +1,9 @@
 import { uuidv7 } from 'uuidv7';
 
+// 同一ミリ秒内での順序保証のためのシーケンス番号
+let lastTimestampMs = 0;
+let sequenceCounter = 0;
+
 export const parseTimestamp = (value: string | number | null | undefined): number => {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : 0;
@@ -75,13 +79,30 @@ export const extractTimestampFromUuidv7 = (uuidv7: string): number => {
 };
 
 /**
- * UUID v7を使用してタイムスタンプを生成
- * 注意: 同じミリ秒内で複数回呼び出された場合、同一のタイムスタンプが返されます
- * UUID v7のタイムスタンプ部分（ミリ秒精度）のみを使用するため、同一ミリ秒内での順序保証はありません
- * @returns タイムスタンプ（ISO文字列）
+ * UUID v7を使用して順序保証されたタイムスタンプを生成
+ * 同一ミリ秒内で複数回呼び出された場合でも、シーケンス番号により順序が保証されます
+ * @returns 順序保証されたタイムスタンプ（ISO文字列）
  */
 export const generateOrderedTimestamp = (): string => {
   const uuid = uuidv7();
   const timestampMs = extractTimestampFromUuidv7(uuid);
-  return toIsoTimestamp(timestampMs);
+
+  // 同一ミリ秒内での順序保証のため、シーケンス番号を使用
+  if (timestampMs === lastTimestampMs) {
+    sequenceCounter += 1;
+  } else {
+    // 新しいミリ秒の場合、シーケンス番号をリセット
+    // 時刻が逆転した場合（システム時刻調整など）もリセット
+    lastTimestampMs = timestampMs;
+    sequenceCounter = 0;
+  }
+
+  // シーケンス番号をミリ秒に追加（順序保証のため）
+  // 注意: シーケンス番号が大きくなりすぎないよう、最大999までに制限
+  // 999を超える場合は、次のミリ秒に進める
+  const maxSequence = 999;
+  const adjustedTimestampMs =
+    sequenceCounter > maxSequence ? timestampMs + 1 : timestampMs + sequenceCounter;
+
+  return toIsoTimestamp(adjustedTimestampMs);
 };
