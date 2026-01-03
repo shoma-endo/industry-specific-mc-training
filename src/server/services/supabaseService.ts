@@ -1,7 +1,7 @@
 import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
 import { parseTimestampSafe, toIsoTimestamp } from '@/lib/timestamps';
-import type { Database } from '@/types/database.types';
+import type { Database, Json } from '@/types/database.types';
 import {
   DbChatMessage,
   DbChatSession,
@@ -140,22 +140,33 @@ export class SupabaseService {
 
   /**
    * ユーザープロフィールを保存または更新
+   *
+   * upsertを使用してアトミックな操作を実現。
+   * PostgreSQLのON CONFLICT ... DO UPDATEでは、衝突時にidとcreated_atは
+   * SET句に含まれていても主キー制約により元の値が保持される。
    */
   async saveUserProfile(
     userId: string,
     lineProfile: { displayName: string; pictureUrl?: string; statusMessage?: string }
   ): Promise<SupabaseResult<unknown[]>> {
+    const now = new Date().toISOString();
+
     const { data, error } = await this.supabase
       .from('users')
       .upsert(
         {
+          id: crypto.randomUUID(), // 新規作成時のみ使用される
           line_user_id: userId,
           line_display_name: lineProfile.displayName,
-          line_picture_url: lineProfile.pictureUrl,
-          line_status_message: lineProfile.statusMessage,
-          updated_at: new Date().toISOString(),
+          line_picture_url: lineProfile.pictureUrl ?? null,
+          line_status_message: lineProfile.statusMessage ?? null,
+          created_at: now, // 新規作成時のみ使用される
+          updated_at: now,
         },
-        { onConflict: 'line_user_id' }
+        {
+          onConflict: 'line_user_id',
+          ignoreDuplicates: false,
+        }
       )
       .select();
 
@@ -412,8 +423,8 @@ export class SupabaseService {
           : toIsoTimestamp(Number(row.last_message_at ?? 0)),
       messages: Array.isArray(row.messages)
         ? row.messages
-            .filter((message): message is Record<string, unknown> => {
-              return !!message && typeof message === 'object';
+            .filter((message): message is { [key: string]: Json | undefined } => {
+              return !!message && typeof message === 'object' && !Array.isArray(message);
             })
             .map(message => ({
               id: String(message.id ?? ''),
@@ -625,18 +636,18 @@ export class SupabaseService {
       id: data.id,
       userId: data.user_id,
       wpType: data.wp_type as WordPressType,
-      wpClientId: data.wp_client_id,
-      wpClientSecret: data.wp_client_secret,
-      wpSiteId: data.wp_site_id,
-      wpSiteUrl: data.wp_site_url,
-      wpUsername: data.wp_username,
-      wpApplicationPassword: data.wp_application_password,
-      wpAccessToken: data.wp_access_token,
-      wpRefreshToken: data.wp_refresh_token,
-      wpTokenExpiresAt: data.wp_token_expires_at,
+      wpClientId: data.wp_client_id ?? undefined,
+      wpClientSecret: data.wp_client_secret ?? undefined,
+      wpSiteId: data.wp_site_id ?? undefined,
+      wpSiteUrl: data.wp_site_url ?? undefined,
+      wpUsername: data.wp_username ?? undefined,
+      wpApplicationPassword: data.wp_application_password ?? undefined,
+      wpAccessToken: data.wp_access_token ?? undefined,
+      wpRefreshToken: data.wp_refresh_token ?? undefined,
+      wpTokenExpiresAt: data.wp_token_expires_at ?? undefined,
       wpContentTypes: normalizeContentTypes(data.wp_content_types as string[] | null),
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+      createdAt: data.created_at ?? undefined,
+      updatedAt: data.updated_at ?? undefined,
     };
   }
 
@@ -655,21 +666,20 @@ export class SupabaseService {
       tokenExpiresAt?: string;
     }
   ): Promise<void> {
-    const payload: Record<string, unknown> = {
+    const payload: Database['public']['Tables']['wordpress_settings']['Insert'] = {
       user_id: userId,
       wp_type: 'wordpress_com',
       wp_client_id: wpClientId,
       wp_client_secret: wpClientSecret, // 注意: 現状は平文で保存されます
       wp_site_id: wpSiteId,
+      ...(options?.wpContentTypes && {
+        wp_content_types: normalizeContentTypes(options.wpContentTypes) ?? [],
+      }),
+      wp_access_token: options?.accessToken ?? null,
+      wp_refresh_token: options?.refreshToken ?? null,
+      wp_token_expires_at: options?.tokenExpiresAt ?? null,
       updated_at: new Date().toISOString(),
     };
-
-    if (options && 'wpContentTypes' in options) {
-      payload.wp_content_types = normalizeContentTypes(options.wpContentTypes);
-    }
-    if (options?.accessToken) payload.wp_access_token = options.accessToken;
-    if (options?.refreshToken) payload.wp_refresh_token = options.refreshToken;
-    if (options?.tokenExpiresAt) payload.wp_token_expires_at = options.tokenExpiresAt;
 
     const { error } = await this.supabase
       .from('wordpress_settings')
@@ -694,18 +704,17 @@ export class SupabaseService {
     wpApplicationPassword: string,
     options?: { wpContentTypes?: string[] }
   ): Promise<void> {
-    const payload: Record<string, unknown> = {
+    const payload: Database['public']['Tables']['wordpress_settings']['Insert'] = {
       user_id: userId,
       wp_type: 'self_hosted',
       wp_site_url: wpSiteUrl,
       wp_username: wpUsername,
       wp_application_password: wpApplicationPassword, // 注意: 現状は平文で保存されます
+      ...(options?.wpContentTypes && {
+        wp_content_types: normalizeContentTypes(options.wpContentTypes) ?? [],
+      }),
       updated_at: new Date().toISOString(),
     };
-
-    if (options && 'wpContentTypes' in options) {
-      payload.wp_content_types = normalizeContentTypes(options.wpContentTypes);
-    }
 
     const { error } = await this.supabase
       .from('wordpress_settings')
@@ -851,8 +860,8 @@ export class SupabaseService {
       permissionLevel: data.permission_level,
       verified: data.verified,
       lastSyncedAt: data.last_synced_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+      createdAt: data.created_at ?? new Date().toISOString(),
+      updatedAt: data.updated_at ?? new Date().toISOString(),
     };
   }
 
@@ -875,7 +884,7 @@ export class SupabaseService {
       lastSyncedAt?: string | null;
     }
   ): Promise<void> {
-    const record: Record<string, unknown> = {
+    const record: Database['public']['Tables']['gsc_credentials']['Insert'] = {
       user_id: userId,
       refresh_token: payload.refreshToken,
       google_account_email: payload.googleAccountEmail ?? null,
@@ -1200,7 +1209,7 @@ export class SupabaseService {
   /**
    * 事業者情報を保存
    */
-  async saveBrief(userId: string, data: Record<string, unknown>): Promise<SupabaseResult<void>> {
+  async saveBrief(userId: string, data: Json): Promise<SupabaseResult<void>> {
     const now = new Date().toISOString();
     const { error } = await this.supabase
       .from('briefs')
@@ -1239,88 +1248,6 @@ export class SupabaseService {
     }
 
     return this.success((data?.data as Record<string, unknown>) || null);
-  }
-
-  /* === メッセージ保存機能 ================================ */
-
-  /**
-   * メッセージの保存状態を更新
-   */
-  async setMessageSaved(
-    userId: string,
-    messageId: string,
-    isSaved: boolean
-  ): Promise<SupabaseResult<void>> {
-    const { error } = await this.supabase
-      .from('chat_messages')
-      .update({ is_saved: isSaved })
-      .eq('id', messageId)
-      .eq('user_id', userId);
-
-    if (error) {
-      return this.failure('メッセージの保存状態更新に失敗しました', {
-        error,
-        developerMessage: 'Failed to update is_saved flag',
-        context: { messageId, userId, isSaved },
-      });
-    }
-
-    return this.success(undefined);
-  }
-
-  /**
-   * セッション内の保存済みメッセージIDを取得
-   */
-  async getSavedMessageIdsBySession(
-    userId: string,
-    sessionId: string
-  ): Promise<SupabaseResult<string[]>> {
-    const { data, error } = await this.supabase
-      .from('chat_messages')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('session_id', sessionId)
-      .eq('is_saved', true)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      return this.failure('保存済みメッセージIDの取得に失敗しました', {
-        error,
-        developerMessage: 'Failed to fetch saved message ids by session',
-        context: { userId, sessionId },
-      });
-    }
-
-    return this.success((data || []).map(r => r.id));
-  }
-
-  /**
-   * 全保存済みメッセージを取得
-   */
-  async getAllSavedMessages(
-    userId: string
-  ): Promise<
-    SupabaseResult<Array<{ id: string; content: string; created_at: string; session_id: string }>>
-  > {
-    const { data, error } = await this.supabase
-      .from('chat_messages')
-      .select('id, content, created_at, session_id')
-      .eq('user_id', userId)
-      .eq('is_saved', true)
-      .order('created_at', { ascending: false })
-      .limit(200);
-
-    if (error) {
-      return this.failure('保存済みメッセージの取得に失敗しました', {
-        error,
-        developerMessage: 'Failed to fetch all saved messages',
-        context: { userId },
-      });
-    }
-
-    return this.success(
-      (data || []) as Array<{ id: string; content: string; created_at: string; session_id: string }>
-    );
   }
 
   /* === スタッフ招待機能 ================================ */
@@ -1365,7 +1292,7 @@ export class SupabaseService {
       invitationToken: data.invitation_token,
       expiresAt: parseTimestampSafe(data.expires_at),
       usedAt: data.used_at ? parseTimestampSafe(data.used_at) : undefined,
-      usedByUserId: data.used_by_user_id,
+      usedByUserId: data.used_by_user_id ?? undefined,
       createdAt: parseTimestampSafe(data.created_at),
     });
   }
@@ -1466,7 +1393,7 @@ export class SupabaseService {
       invitationToken: data.invitation_token,
       expiresAt: parseTimestampSafe(data.expires_at),
       usedAt: data.used_at ? parseTimestampSafe(data.used_at) : undefined,
-      usedByUserId: data.used_by_user_id,
+      usedByUserId: data.used_by_user_id ?? undefined,
       createdAt: parseTimestampSafe(data.created_at),
     });
   }

@@ -5,8 +5,11 @@ import {
   CreatePromptTemplateInput,
   UpdatePromptTemplateInput,
   PromptTemplateWithVersions,
+  PromptVariable,
+  PromptVersion,
 } from '@/types/prompt';
 import type { AnnotationRecord } from '@/types/annotation';
+import type { Database } from '@/types/database.types';
 
 /**
  * プロンプト管理サービス
@@ -59,6 +62,65 @@ export class PromptService extends SupabaseService {
         onError: () => [],
       }
     );
+  }
+
+  /**
+   * データベースから取得したJson型のvariablesをPromptVariable[]に変換
+   */
+  private static convertVariables(
+    variables: Database['public']['Tables']['prompt_templates']['Row']['variables']
+  ): PromptVariable[] {
+    if (!variables) {
+      return [];
+    }
+    if (!Array.isArray(variables)) {
+      return [];
+    }
+    return (variables as unknown[]).filter(
+      (v): v is PromptVariable =>
+        v !== null &&
+        typeof v === 'object' &&
+        'name' in v &&
+        'description' in v &&
+        typeof (v as { name: unknown; description: unknown }).name === 'string' &&
+        typeof (v as { name: unknown; description: unknown }).description === 'string'
+    );
+  }
+
+  /**
+   * データベースから取得したRow型をPromptTemplate型に変換
+   */
+  private static convertDbRowToPromptTemplate(
+    row: Database['public']['Tables']['prompt_templates']['Row']
+  ): PromptTemplate {
+    return {
+      id: row.id,
+      name: row.name,
+      display_name: row.display_name,
+      content: row.content,
+      variables: PromptService.convertVariables(row.variables),
+      version: row.version ?? 1,
+      created_by: row.created_by ?? '',
+      updated_by: row.updated_by ?? undefined,
+      created_at: row.created_at ?? '',
+      updated_at: row.updated_at ?? '',
+    };
+  }
+
+  /**
+   * データベースから取得したPromptVersionのRow型をPromptVersion型に変換
+   */
+  private static convertDbRowToPromptVersion(
+    row: Database['public']['Tables']['prompt_versions']['Row']
+  ): PromptVersion {
+    return {
+      id: row.id,
+      template_id: row.template_id ?? '',
+      version: row.version,
+      content: row.content,
+      created_by: row.created_by ?? '',
+      created_at: row.created_at ?? '',
+    };
   }
 
   /**
@@ -161,7 +223,7 @@ export class PromptService extends SupabaseService {
           throw new Error(`プロンプト取得エラー: ${error.message}`);
         }
 
-        return data || null;
+        return data ? PromptService.convertDbRowToPromptTemplate(data) : null;
       },
       {
         logMessage: 'プロンプト取得エラー:',
@@ -185,7 +247,7 @@ export class PromptService extends SupabaseService {
           throw new Error(`プロンプト一覧取得エラー: ${error.message}`);
         }
 
-        return data || [];
+        return (data || []).map(row => PromptService.convertDbRowToPromptTemplate(row));
       },
       {
         logMessage: 'プロンプト一覧取得エラー:',
@@ -210,7 +272,7 @@ export class PromptService extends SupabaseService {
           throw new Error(`プロンプト取得エラー: ${error.message}`);
         }
 
-        return data || null;
+        return data ? PromptService.convertDbRowToPromptTemplate(data) : null;
       },
       {
         logMessage: 'プロンプトID取得エラー:',
@@ -243,7 +305,7 @@ export class PromptService extends SupabaseService {
 
           return {
             ...template,
-            versions: versions || [],
+            versions: (versions || []).map(row => PromptService.convertDbRowToPromptVersion(row)),
           };
         },
         {
@@ -266,13 +328,18 @@ export class PromptService extends SupabaseService {
 
     const result = await this.withServiceRoleClient(
       async client => {
+        const insertData = {
+          name: data.name,
+          display_name: data.display_name,
+          content: data.content,
+          variables: data.variables as unknown as Database['public']['Tables']['prompt_templates']['Insert']['variables'],
+          created_by: data.created_by,
+          created_at: now,
+          updated_at: now,
+        } as Database['public']['Tables']['prompt_templates']['Insert'];
         const { data: inserted, error } = await client
           .from('prompt_templates')
-          .insert({
-            ...data,
-            created_at: now,
-            updated_at: now,
-          })
+          .insert(insertData)
           .select()
           .single();
 
@@ -280,7 +347,7 @@ export class PromptService extends SupabaseService {
           throw new Error(`プロンプト作成エラー: ${error.message}`);
         }
 
-        return inserted;
+        return PromptService.convertDbRowToPromptTemplate(inserted);
       },
       {
         logMessage: 'プロンプト作成エラー:',
@@ -318,13 +385,18 @@ export class PromptService extends SupabaseService {
     // メインテーブルを更新
     return this.withServiceRoleClient(
       async client => {
+        const { variables, ...restData } = data;
+        const updateData = {
+          ...restData,
+          ...(variables !== undefined
+            ? { variables: variables as unknown as Database['public']['Tables']['prompt_templates']['Update']['variables'] }
+            : {}),
+          version: newVersion,
+          updated_at: new Date().toISOString(),
+        } as Database['public']['Tables']['prompt_templates']['Update'];
         const { data: result, error } = await client
           .from('prompt_templates')
-          .update({
-            ...data,
-            version: newVersion,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', id)
           .select()
           .single();
@@ -333,7 +405,7 @@ export class PromptService extends SupabaseService {
           throw new Error(`プロンプト更新エラー: ${error.message}`);
         }
 
-        return result;
+        return PromptService.convertDbRowToPromptTemplate(result);
       },
       {
         logMessage: 'プロンプト更新エラー:',

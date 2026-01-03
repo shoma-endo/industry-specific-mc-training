@@ -86,7 +86,7 @@ export function toChatMessage(dbMessage: DbChatMessage): ChatMessage {
     sessionId: dbMessage.session_id,
     role: dbMessage.role as ChatRole,
     content: dbMessage.content,
-    model: dbMessage.model,
+    model: dbMessage.model ?? undefined,
     createdAt: parseTimestampStrict(dbMessage.created_at),
   };
 }
@@ -96,7 +96,7 @@ export function toChatSession(dbSession: DbChatSession): ChatSession {
     id: dbSession.id,
     userId: dbSession.user_id,
     title: dbSession.title,
-    systemPrompt: dbSession.system_prompt,
+    systemPrompt: dbSession.system_prompt ?? undefined,
     lastMessageAt: parseTimestampStrict(dbSession.last_message_at),
     createdAt: parseTimestampStrict(dbSession.created_at),
   };

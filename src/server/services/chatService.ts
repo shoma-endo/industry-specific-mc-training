@@ -109,6 +109,7 @@ class ChatService {
         created_at: nowIso,
         last_message_at: nowIso,
         system_prompt: systemPrompt,
+        search_vector: null as unknown,
       };
 
       this.unwrapSupabaseResult(
@@ -124,6 +125,7 @@ class ChatService {
         role: ChatRole.USER,
         content: userMessageString,
         created_at: nowIso,
+        model: null,
       };
 
       this.unwrapSupabaseResult(
@@ -138,7 +140,7 @@ class ChatService {
         session_id: sessionId,
         role: ChatRole.ASSISTANT,
         content: aiResponse.message,
-        model: model,
+        model: model ?? null,
         created_at: nextIso, // 順序を保証するため
       };
 
@@ -280,6 +282,7 @@ class ChatService {
         role: ChatRole.USER,
         content: userMessageString,
         created_at: nowIso,
+        model: null,
       };
 
       this.unwrapSupabaseResult(
@@ -294,7 +297,7 @@ class ChatService {
         session_id: sessionId,
         role: ChatRole.ASSISTANT,
         content: aiResponse.message,
-        model: model,
+        model: model ?? null,
         created_at: nextIso, // 順序を保証するため
       };
 

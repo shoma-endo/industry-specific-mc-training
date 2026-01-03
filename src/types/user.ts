@@ -95,16 +95,16 @@ export function toDbUser(user: User): DbUser {
     created_at: createdAt,
     updated_at: updatedAt,
     last_login_at: lastLoginAt,
-    full_name: user.fullName,
+    full_name: user.fullName ?? null,
     line_user_id: user.lineUserId,
     line_display_name: user.lineDisplayName,
-    line_picture_url: user.linePictureUrl,
-    line_status_message: user.lineStatusMessage,
-    stripe_customer_id: user.stripeCustomerId,
-    stripe_subscription_id: user.stripeSubscriptionId,
+    line_picture_url: user.linePictureUrl ?? null,
+    line_status_message: user.lineStatusMessage ?? null,
+    stripe_customer_id: user.stripeCustomerId ?? null,
+    stripe_subscription_id: user.stripeSubscriptionId ?? null,
 
     role: user.role,
-    owner_user_id: user.ownerUserId,
+    owner_user_id: user.ownerUserId ?? null,
     owner_previous_role: user.ownerPreviousRole ?? null,
   };
 }
@@ -128,13 +128,13 @@ export function toUser(dbUser: DbUser): User {
     createdAt,
     updatedAt,
     lastLoginAt: lastLoginAt === null || Number.isNaN(lastLoginAt) ? undefined : lastLoginAt,
-    fullName: dbUser.full_name,
+    fullName: dbUser.full_name ?? undefined,
     lineUserId: dbUser.line_user_id,
     lineDisplayName: dbUser.line_display_name,
-    linePictureUrl: dbUser.line_picture_url,
-    lineStatusMessage: dbUser.line_status_message,
-    stripeCustomerId: dbUser.stripe_customer_id,
-    stripeSubscriptionId: dbUser.stripe_subscription_id,
+    linePictureUrl: dbUser.line_picture_url ?? undefined,
+    lineStatusMessage: dbUser.line_status_message ?? undefined,
+    stripeCustomerId: dbUser.stripe_customer_id ?? undefined,
+    stripeSubscriptionId: dbUser.stripe_subscription_id ?? undefined,
 
     role,
     ownerUserId: dbUser.owner_user_id,
@@ -147,7 +147,7 @@ export interface EmployeeInvitation {
   ownerUserId: string;
   invitationToken: string;
   expiresAt: number;
-  usedAt?: number;
-  usedByUserId?: string;
+  usedAt?: number | undefined;
+  usedByUserId?: string | undefined;
   createdAt: number;
 }

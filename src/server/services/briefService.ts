@@ -36,8 +36,19 @@ export class BriefService {
         return null;
       }
 
+      // dataフィールドをJson型からRecord<string, string>に変換
+      const briefData: Record<string, string> =
+        data.data &&
+        typeof data.data === 'object' &&
+        !Array.isArray(data.data) &&
+        data.data !== null
+          ? (data.data as Record<string, string>)
+          : {};
+
       return {
-        ...data,
+        id: data.id,
+        user_id: data.user_id,
+        data: briefData,
         created_at: data.created_at ?? null,
         updated_at: data.updated_at ?? null,
       };
