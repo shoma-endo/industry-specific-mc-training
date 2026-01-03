@@ -32,6 +32,6 @@ export async function clearAuthCache() {
     return { success: true };
   } catch (error) {
     console.error('[admin/users] clear auth cache failed', error);
-      return { success: false, error: ERROR_MESSAGES.ADMIN.CACHE_CLEAR_FAILED };
+    return { success: false, error: ERROR_MESSAGES.ADMIN.CACHE_CLEAR_FAILED };
   }
 }
