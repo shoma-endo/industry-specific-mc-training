@@ -12,6 +12,7 @@ import {
   PromptTemplateWithVersions,
 } from '@/types/prompt';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import { isValidUserRole } from '@/types/user';
 
 const promptVariableSchema = z.object({
   name: z.string().min(1, '変数名は必須です'),
@@ -58,6 +59,11 @@ async function checkAdminPermission(liffAccessToken: string) {
     const user = userResult.data;
     if (!user) {
       return { success: false, error: 'ユーザー情報が見つかりません' };
+    }
+
+    // ロールの実行時検証
+    if (!isValidUserRole(user.role)) {
+      return { success: false, error: 'ユーザーロールが不正です' };
     }
 
     // unavailableユーザーのサービス利用制限チェック

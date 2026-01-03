@@ -7,6 +7,24 @@ import type { Database } from '@/types/database.types';
 export type UserRole = 'trial' | 'paid' | 'admin' | 'unavailable' | 'owner';
 
 /**
+ * 有効なUserRole値の配列
+ */
+export const VALID_USER_ROLES: readonly UserRole[] = [
+  'trial',
+  'paid',
+  'admin',
+  'unavailable',
+  'owner',
+] as const;
+
+/**
+ * 型ガード: 値が有効なUserRoleかどうかを実行時検証
+ */
+export function isValidUserRole(role: unknown): role is UserRole {
+  return typeof role === 'string' && (VALID_USER_ROLES as readonly string[]).includes(role);
+}
+
+/**
  * 管理機能（設定・コンテンツ一覧）へのアクセスを許可するロール
  */
 export const PAID_FEATURE_ROLES = ['paid', 'admin'] as const;
@@ -92,7 +110,16 @@ export function toDbUser(user: User): DbUser {
 }
 
 export function toUser(dbUser: DbUser): User {
-  const role = dbUser.role as UserRole;
+  if (!isValidUserRole(dbUser.role)) {
+    throw new Error(`Invalid user role: ${dbUser.role}`);
+  }
+  const role = dbUser.role;
+
+  // ownerPreviousRoleのバリデーション（null/undefined以外の場合）
+  if (dbUser.owner_previous_role != null && !isValidUserRole(dbUser.owner_previous_role)) {
+    throw new Error(`Invalid owner previous role: ${dbUser.owner_previous_role}`);
+  }
+
   const createdAt = parseTimestamp(dbUser.created_at);
   const updatedAt = parseTimestamp(dbUser.updated_at);
   const lastLoginAt = parseTimestampOrNull(dbUser.last_login_at);
@@ -100,8 +127,7 @@ export function toUser(dbUser: DbUser): User {
     id: dbUser.id,
     createdAt,
     updatedAt,
-    lastLoginAt:
-      lastLoginAt === null || Number.isNaN(lastLoginAt) ? undefined : lastLoginAt,
+    lastLoginAt: lastLoginAt === null || Number.isNaN(lastLoginAt) ? undefined : lastLoginAt,
     fullName: dbUser.full_name,
     lineUserId: dbUser.line_user_id,
     lineDisplayName: dbUser.line_display_name,
