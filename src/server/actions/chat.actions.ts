@@ -10,6 +10,7 @@ import { userService } from '@/server/services/userService';
 import type { UserRole } from '@/types/user';
 import { z } from 'zod';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { parseTimestampOrNull } from '@/lib/timestamps';
 import {
   continueChatSchema,
   startChatSchema,
@@ -228,8 +229,8 @@ export async function getLatestBlogStep7MessageBySession(
     return { success: true as const, data: null };
   }
 
-  const createdAt = Date.parse(result.data.created_at);
-  if (Number.isNaN(createdAt)) {
+  const createdAt = parseTimestampOrNull(result.data.created_at);
+  if (createdAt === null) {
     console.error('[getLatestBlogStep7MessageBySession] Invalid created_at', {
       sessionId,
       createdAt: result.data.created_at,

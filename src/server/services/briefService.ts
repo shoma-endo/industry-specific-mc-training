@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { parseTimestampOrNull } from '@/lib/timestamps';
 
 export interface Brief {
   id: string;
@@ -36,12 +37,10 @@ export class BriefService {
         return null;
       }
 
-      const createdAt = Date.parse(data.created_at);
-      const updatedAt = Date.parse(data.updated_at);
       return {
         ...data,
-        created_at: Number.isNaN(createdAt) ? null : createdAt,
-        updated_at: Number.isNaN(updatedAt) ? null : updatedAt,
+        created_at: parseTimestampOrNull(data.created_at),
+        updated_at: parseTimestampOrNull(data.updated_at),
       };
     } catch (error) {
       console.error('Brief取得例外:', error);

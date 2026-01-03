@@ -1,3 +1,4 @@
+import { parseTimestampStrict } from '@/lib/timestamps';
 import type { Database } from '@/types/database.types';
 
 /**
@@ -40,20 +41,6 @@ export enum ChatRole {
   ASSISTANT = 'assistant',
   SYSTEM = 'system',
 }
-
-const parseTimestamp = (value: string | number | null | undefined): number => {
-  if (typeof value === 'number') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value);
-    if (Number.isNaN(parsed)) {
-      throw new Error(`Invalid timestamp string: "${value}"`);
-    }
-    return parsed;
-  }
-  throw new Error(`Null or undefined timestamp received: ${String(value)}`);
-};
 
 /**
  * チャットメッセージのデータベースモデル
@@ -100,7 +87,7 @@ export function toChatMessage(dbMessage: DbChatMessage): ChatMessage {
     role: dbMessage.role as ChatRole,
     content: dbMessage.content,
     model: dbMessage.model,
-    createdAt: parseTimestamp(dbMessage.created_at),
+    createdAt: parseTimestampStrict(dbMessage.created_at),
   };
 }
 
@@ -110,8 +97,8 @@ export function toChatSession(dbSession: DbChatSession): ChatSession {
     userId: dbSession.user_id,
     title: dbSession.title,
     systemPrompt: dbSession.system_prompt,
-    lastMessageAt: parseTimestamp(dbSession.last_message_at),
-    createdAt: parseTimestamp(dbSession.created_at),
+    lastMessageAt: parseTimestampStrict(dbSession.last_message_at),
+    createdAt: parseTimestampStrict(dbSession.created_at),
   };
 }
 

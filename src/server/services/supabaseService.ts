@@ -1,5 +1,6 @@
 import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
+import { parseTimestamp, toIsoTimestamp } from '@/lib/timestamps';
 import type { Database } from '@/types/database.types';
 import {
   DbChatMessage,
@@ -13,19 +14,6 @@ import type { UserRole } from '@/types/user';
 import type { GscCredential, GscPropertyType, GscSearchType } from '@/types/gsc';
 import { WordPressSettings, WordPressType } from '@/types/wordpress';
 import { normalizeContentTypes } from '@/server/services/wordpressContentTypes';
-
-const parseTimestamp = (value: string | number | null | undefined): number => {
-  if (typeof value === 'number') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-  return 0;
-};
-
-const toIsoTimestamp = (value: number): string => new Date(value).toISOString();
 
 export interface SupabaseErrorInfo {
   userMessage: string;
@@ -412,22 +400,26 @@ export class SupabaseService {
       });
     }
 
-    type SessionsWithMessagesRow = {
-      session_id: string;
-      title: string;
-      last_message_at: string | null;
-      messages: Array<ServerChatMessage & { created_at: string | number | null }> | null;
-    };
+    type SessionsWithMessagesRow =
+      Database['public']['Functions']['get_sessions_with_messages']['Returns'][number];
 
     const sessions = (Array.isArray(data) ? data : []).map((row: SessionsWithMessagesRow) => ({
       id: row.session_id,
       title: row.title,
       last_message_at: parseTimestamp(row.last_message_at),
       messages: Array.isArray(row.messages)
-        ? row.messages.map(message => ({
-            ...message,
-            created_at: parseTimestamp(message.created_at),
-          }))
+        ? row.messages
+            .filter((message): message is Record<string, unknown> => {
+              return !!message && typeof message === 'object';
+            })
+            .map(message => ({
+              id: String(message.id ?? ''),
+              role: String(message.role ?? 'user') as ServerChatMessage['role'],
+              content: String(message.content ?? ''),
+              created_at: parseTimestamp(
+                (message as { created_at?: string | number | null }).created_at
+              ),
+            }))
         : [],
     }));
 
@@ -454,14 +446,8 @@ export class SupabaseService {
       });
     }
 
-    type SearchSessionRow = {
-      session_id: string;
-      title: string | null;
-      canonical_url: string | null;
-      wp_post_title: string | null;
-      last_message_at: string | number | null;
-      similarity_score: number | string | null;
-    };
+    type SearchSessionRow =
+      Database['public']['Functions']['search_chat_sessions']['Returns'][number];
 
     const rows = (Array.isArray(data) ? data : []).map((row: SearchSessionRow) => ({
       session_id: String(row.session_id),
@@ -594,8 +580,8 @@ export class SupabaseService {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('role', 'user')
-      .gte('created_at', fromMs)
-      .lt('created_at', toMs);
+      .gte('created_at', toIsoTimestamp(fromMs))
+      .lt('created_at', toIsoTimestamp(toMs));
 
     if (error) {
       return this.failure('メッセージ数の取得に失敗しました', {

@@ -1,3 +1,4 @@
+import { parseTimestamp, parseTimestampOrNull, toIsoTimestamp } from '@/lib/timestamps';
 import type { Database } from '@/types/database.types';
 
 /**
@@ -68,10 +69,9 @@ export type DbUser = Database['public']['Tables']['users']['Row'];
  * アプリケーションモデルとデータベースモデル間の変換関数
  */
 export function toDbUser(user: User): DbUser {
-  const createdAt = new Date(user.createdAt).toISOString();
-  const updatedAt = new Date(user.updatedAt).toISOString();
-  const lastLoginAt =
-    user.lastLoginAt !== undefined ? new Date(user.lastLoginAt).toISOString() : null;
+  const createdAt = toIsoTimestamp(user.createdAt);
+  const updatedAt = toIsoTimestamp(user.updatedAt);
+  const lastLoginAt = user.lastLoginAt !== undefined ? toIsoTimestamp(user.lastLoginAt) : null;
   return {
     id: user.id,
     created_at: createdAt,
@@ -93,16 +93,15 @@ export function toDbUser(user: User): DbUser {
 
 export function toUser(dbUser: DbUser): User {
   const role = dbUser.role as UserRole;
-  const createdAt = Date.parse(dbUser.created_at);
-  const updatedAt = Date.parse(dbUser.updated_at);
-  const lastLoginAt =
-    dbUser.last_login_at === null ? undefined : Date.parse(dbUser.last_login_at);
+  const createdAt = parseTimestamp(dbUser.created_at);
+  const updatedAt = parseTimestamp(dbUser.updated_at);
+  const lastLoginAt = parseTimestampOrNull(dbUser.last_login_at);
   return {
     id: dbUser.id,
-    createdAt: Number.isNaN(createdAt) ? 0 : createdAt,
-    updatedAt: Number.isNaN(updatedAt) ? 0 : updatedAt,
+    createdAt,
+    updatedAt,
     lastLoginAt:
-      lastLoginAt === undefined || Number.isNaN(lastLoginAt) ? undefined : lastLoginAt,
+      lastLoginAt === null || Number.isNaN(lastLoginAt) ? undefined : lastLoginAt,
     fullName: dbUser.full_name,
     lineUserId: dbUser.line_user_id,
     lineDisplayName: dbUser.line_display_name,
