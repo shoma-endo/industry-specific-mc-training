@@ -864,6 +864,35 @@ export type Database = {
         Args: { p_line_user_id: string }
         Returns: number
       }
+      upsert_brief: {
+        Args: { p_data: Json; p_now: string; p_user_id: string }
+        Returns: undefined
+      }
+      upsert_user_profile: {
+        Args: {
+          p_line_display_name: string
+          p_line_picture_url: string | null
+          p_line_status_message: string | null
+          p_line_user_id: string
+          p_now: string
+        }
+        Returns: {
+          created_at: string
+          full_name: string | null
+          id: string
+          last_login_at: string | null
+          line_display_name: string
+          line_picture_url: string | null
+          line_status_message: string | null
+          line_user_id: string
+          owner_previous_role: string | null
+          owner_user_id: string | null
+          role: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }[]
+      }
       increment_google_search_count: {
         Args: { user_id: string }
         Returns: undefined

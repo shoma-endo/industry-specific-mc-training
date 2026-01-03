@@ -140,35 +140,21 @@ export class SupabaseService {
 
   /**
    * ユーザープロフィールを保存または更新
-   *
-   * upsertを使用してアトミックな操作を実現。
-   * PostgreSQLのON CONFLICT ... DO UPDATEでは、衝突時にidとcreated_atは
-   * SET句に含まれていても主キー制約により元の値が保持される。
    */
   async saveUserProfile(
     userId: string,
     lineProfile: { displayName: string; pictureUrl?: string; statusMessage?: string }
   ): Promise<SupabaseResult<unknown[]>> {
     const now = new Date().toISOString();
-
     const { data, error } = await this.supabase
-      .from('users')
-      .upsert(
-        {
-          id: crypto.randomUUID(), // 新規作成時のみ使用される
-          line_user_id: userId,
-          line_display_name: lineProfile.displayName,
-          line_picture_url: lineProfile.pictureUrl ?? null,
-          line_status_message: lineProfile.statusMessage ?? null,
-          created_at: now, // 新規作成時のみ使用される
-          updated_at: now,
-        },
-        {
-          onConflict: 'line_user_id',
-          ignoreDuplicates: false,
-        }
-      )
-      .select();
+      .rpc('upsert_user_profile', {
+        p_line_user_id: userId,
+        p_line_display_name: lineProfile.displayName,
+        p_line_picture_url: lineProfile.pictureUrl ?? null,
+        p_line_status_message: lineProfile.statusMessage ?? null,
+        p_now: now,
+      })
+      .returns<DbUser[]>();
 
     if (error) {
       return this.failure('ユーザープロフィールの保存に失敗しました', {
@@ -1201,12 +1187,11 @@ export class SupabaseService {
    */
   async saveBrief(userId: string, data: Json): Promise<SupabaseResult<void>> {
     const now = new Date().toISOString();
-    const { error } = await this.supabase
-      .from('briefs')
-      .upsert(
-        { user_id: userId, data, created_at: now, updated_at: now },
-        { onConflict: 'user_id' }
-      );
+    const { error } = await this.supabase.rpc('upsert_brief', {
+      p_user_id: userId,
+      p_data: data,
+      p_now: now,
+    });
 
     if (error) {
       return this.failure('事業者情報の保存に失敗しました', {
