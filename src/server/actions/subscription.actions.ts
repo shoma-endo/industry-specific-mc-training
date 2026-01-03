@@ -7,6 +7,7 @@ import { userService } from '@/server/services/userService';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { isUnavailable } from '@/authUtils';
 import type { EnsureAuthorizedUserOptions, EnsureAuthorizedUserResult } from '@/types/subscription';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 // 遅延初期化でStripeServiceのインスタンスを取得
 const getStripeService = () => new StripeService();
@@ -32,7 +33,7 @@ async function ensureAuthorizedUser(
   if (authResult.viewMode) {
     return {
       success: false,
-      error: '閲覧モードでは操作できません',
+      error: ERROR_MESSAGES.USER.VIEW_MODE_OPERATION_NOT_ALLOWED,
     };
   }
 
@@ -41,7 +42,7 @@ async function ensureAuthorizedUser(
   if (user && isUnavailable(user.role)) {
     return {
       success: false,
-      error: 'サービスの利用が停止されています',
+      error: ERROR_MESSAGES.USER.SERVICE_UNAVAILABLE,
     };
   }
 
@@ -116,7 +117,7 @@ export async function getUserSubscription(liffAccessToken: string) {
     console.error('サブスクリプション情報取得エラー:', error);
     return {
       success: false,
-      error: 'サブスクリプション情報の取得に失敗しました',
+      error: ERROR_MESSAGES.SUBSCRIPTION.INFO_FETCH_FAILED,
     };
   }
 }
@@ -151,7 +152,7 @@ export async function cancelUserSubscription(
     console.error('サブスクリプション解約エラー:', error);
     return {
       success: false,
-      error: 'サブスクリプションの解約に失敗しました',
+      error: ERROR_MESSAGES.SUBSCRIPTION.CANCEL_FAILED,
     };
   }
 }
@@ -180,7 +181,7 @@ export async function resumeUserSubscription(subscriptionId: string, liffAccessT
     console.error('サブスクリプション継続エラー:', error);
     return {
       success: false,
-      error: 'サブスクリプションの継続手続きに失敗しました',
+      error: ERROR_MESSAGES.SUBSCRIPTION.RESUME_FAILED,
     };
   }
 }
@@ -204,7 +205,7 @@ export async function createCustomerPortalSession(returnUrl: string, liffAccessT
     if (!user || !user.stripeCustomerId) {
       return {
         success: false,
-        error: 'サブスクリプション情報が見つかりません',
+        error: ERROR_MESSAGES.SUBSCRIPTION.INFO_NOT_FOUND,
       };
     }
 
@@ -221,7 +222,7 @@ export async function createCustomerPortalSession(returnUrl: string, liffAccessT
     console.error('カスタマーポータルセッション作成エラー:', error);
     return {
       success: false,
-      error: 'カスタマーポータルの作成に失敗しました',
+      error: ERROR_MESSAGES.SUBSCRIPTION.PORTAL_CREATE_FAILED,
     };
   }
 }
@@ -251,7 +252,7 @@ export async function getSubscriptionPriceDetails(liffAccessToken: string) {
     console.error('サブスクリプション価格情報取得エラー:', error);
     return {
       success: false,
-      error: '価格情報の取得に失敗しました',
+      error: ERROR_MESSAGES.SUBSCRIPTION.PRICE_FETCH_FAILED,
     };
   }
 }
@@ -284,7 +285,7 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
     if (!user) {
       return {
         success: false,
-        error: 'ユーザー情報の取得に失敗しました',
+        error: ERROR_MESSAGES.USER.USER_INFO_FETCH_FAILED,
       };
     }
 
@@ -308,7 +309,7 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
     if (!url) {
       return {
         success: false,
-        error: 'チェックアウトURLの作成に失敗しました',
+        error: ERROR_MESSAGES.SUBSCRIPTION.CHECKOUT_URL_CREATE_FAILED,
       };
     }
 
@@ -321,7 +322,7 @@ export async function createSubscriptionSession(liffAccessToken: string, host: s
     console.error('サブスクリプション決済セッション作成エラー:', error);
     return {
       success: false,
-      error: '決済処理の準備中にエラーが発生しました',
+      error: ERROR_MESSAGES.SUBSCRIPTION.PAYMENT_PREP_ERROR,
     };
   }
 }
@@ -363,7 +364,7 @@ export async function getCheckoutSessionDetails(sessionId: string, liffAccessTok
     console.error('チェックアウトセッション取得エラー:', error);
     return {
       success: false,
-      error: 'セッション情報の取得に失敗しました',
+      error: ERROR_MESSAGES.SUBSCRIPTION.SESSION_INFO_FETCH_FAILED,
     };
   }
 }
@@ -378,7 +379,7 @@ export const checkUserRole = async (liffAccessToken: string) => {
     if (!user) {
       return {
         success: false,
-        error: 'ユーザー情報が見つかりません',
+        error: ERROR_MESSAGES.USER.USER_INFO_NOT_FOUND,
         role: 'trial' as const,
       };
     }
@@ -400,7 +401,7 @@ export const checkUserRole = async (liffAccessToken: string) => {
     console.error('権限チェックエラー:', error);
     return {
       success: false,
-      error: '権限の確認に失敗しました',
+      error: ERROR_MESSAGES.USER.PERMISSION_ACQUISITION_FAILED,
       role: 'trial' as const,
     };
   }

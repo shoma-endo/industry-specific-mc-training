@@ -41,11 +41,11 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 
-const DUPLICATE_CANONICAL_ERROR_MESSAGE =
-  'このWordPress記事URLは別のコンテンツで既に登録されています';
+const DUPLICATE_CANONICAL_ERROR_MESSAGE = ERROR_MESSAGES.WORDPRESS.DUPLICATE_CANONICAL;
 const DUPLICATE_CONSTRAINT_IDENTIFIERS = [
   'content_annotations_user_id_wp_post_id_key',
   'idx_content_annotations_user_canonical_unique',
@@ -261,7 +261,7 @@ async function resolveCanonicalAndWpPostId(
   try {
     targetUrl = new URL(trimmed);
   } catch {
-    return { success: false as const, error: '有効なURLを入力してください' };
+    return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.INVALID_URL };
   }
 
   const canonicalCandidate = targetUrl.toString();
@@ -281,7 +281,7 @@ async function resolveCanonicalAndWpPostId(
     }
     return {
       success: false as const,
-      error: 'WordPress設定が登録されていません。設定画面から連携を完了してください。',
+      error: ERROR_MESSAGES.WORDPRESS.SETTINGS_NOT_REGISTERED_DETAIL,
     };
   }
 
@@ -305,7 +305,7 @@ async function resolveCanonicalAndWpPostId(
     if (!byId.data) {
       return {
         success: false as const,
-        error: '指定された投稿IDがWordPressで見つかりませんでした。URLをご確認ください。',
+        error: ERROR_MESSAGES.WORDPRESS.POST_ID_NOT_FOUND,
       };
     }
     const normalized = normalizePostResponse(byId.data);
@@ -322,7 +322,7 @@ async function resolveCanonicalAndWpPostId(
   if (!slugCandidates.length) {
     return {
       success: false as const,
-      error: 'URLから投稿IDを特定できませんでした。編集URLまたは公開URLを入力してください。',
+      error: ERROR_MESSAGES.WORDPRESS.POST_ID_CANNOT_BE_RESOLVED,
     };
   }
 
@@ -391,7 +391,7 @@ async function resolveCanonicalAndWpPostId(
   if (resolvedWpId == null) {
     return {
       success: false as const,
-      error: 'WordPressで該当する投稿が見つかりませんでした。URLをご確認ください。',
+      error: ERROR_MESSAGES.WORDPRESS.POST_NOT_FOUND,
     };
   }
 
@@ -537,7 +537,7 @@ export async function getWordPressPostsForCurrentUser(page: number, perPage: num
       }
       return {
         success: false as const,
-        error: `WordPress投稿取得エラー: HTTP ${lastStatus} ${lastErrorText}`,
+        error: ERROR_MESSAGES.WORDPRESS.POSTS_FETCH_ERROR_HTTP(lastStatus, lastErrorText),
       };
     }
 
@@ -788,13 +788,13 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
     if (!liffToken || !wpType) {
       return {
         success: false as const,
-        error: 'Authentication required or required fields missing',
+        error: ERROR_MESSAGES.AUTH.AUTHENTICATION_REQUIRED,
       };
     }
 
     const authResult = await authMiddleware(liffToken, refreshToken);
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
-      return { success: false as const, error: 'Authentication failed' };
+      return { success: false as const, error: ERROR_MESSAGES.AUTH.AUTHENTICATION_FAILED };
     }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
       return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
@@ -803,14 +803,14 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
     const isAdmin = isAdminRole(authResult.userDetails.role);
 
     if (!isAdmin && wpType !== 'self_hosted') {
-      return { success: false as const, error: 'WordPress.com 連携は管理者のみ利用できます' };
+      return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.WORDPRESS_COM_ADMIN_ONLY };
     }
 
     if (wpType === 'self_hosted') {
       if (!wpSiteUrl || !wpUsername || !wpApplicationPassword) {
         return {
           success: false as const,
-          error: 'Self-hosted WordPress requires site URL, username, and application password',
+          error: ERROR_MESSAGES.WORDPRESS.SELF_HOSTED_REQUIRED_FIELDS,
         };
       }
 
@@ -823,7 +823,7 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
       );
     } else if (wpType === 'wordpress_com') {
       if (!wpSiteId) {
-        return { success: false as const, error: 'WordPress.com requires site ID' };
+        return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.WORDPRESS_COM_SITE_ID_REQUIRED };
       }
 
       await supabaseService.createOrUpdateWordPressSettings(authResult.userId, '', '', wpSiteId, {
@@ -853,7 +853,7 @@ export async function testWordPressConnectionAction() {
     const authResult = await authMiddleware(liffToken, refreshToken);
 
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
-      return { success: false as const, error: 'ユーザー認証に失敗しました' };
+      return { success: false as const, error: ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
       return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
@@ -863,7 +863,7 @@ export async function testWordPressConnectionAction() {
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
 
     if (!wpSettings) {
-      return { success: false as const, error: 'WordPress設定が登録されていません' };
+      return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.SETTINGS_NOT_REGISTERED };
     }
 
     if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
@@ -881,7 +881,7 @@ export async function testWordPressConnectionAction() {
     if (!context.success) {
       switch (context.reason) {
         case 'line_auth_missing':
-          return { success: false as const, error: 'LINE認証が必要です' };
+          return { success: false as const, error: ERROR_MESSAGES.AUTH.LINE_AUTH_REQUIRED };
         case 'line_auth_invalid':
         case 'requires_reauth':
           return {
@@ -889,7 +889,7 @@ export async function testWordPressConnectionAction() {
             error: context.message || 'ユーザー認証に失敗しました',
           };
         case 'settings_missing':
-          return { success: false as const, error: 'WordPress設定が登録されていません' };
+          return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.SETTINGS_NOT_REGISTERED };
         case 'wordpress_auth_missing':
           return {
             success: false as const,
@@ -1340,7 +1340,7 @@ export async function updateContentAnnotationFields(
 > {
   // annotationId のバリデーション
   if (!annotationId || typeof annotationId !== 'string' || annotationId.trim().length === 0) {
-    return { success: false as const, error: 'アノテーションIDが無効です' };
+    return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.INVALID_ANNOTATION_ID };
   }
 
   return withAuth(async ({ userId, cookieStore, viewModeRole }) => {
@@ -1562,7 +1562,7 @@ export async function deleteContentAnnotation(
     if (!result.success) {
       return {
         success: false,
-        error: result.error.userMessage || 'コンテンツの削除に失敗しました',
+        error: result.error.userMessage || ERROR_MESSAGES.WORDPRESS.CONTENT_DELETE_FAILED,
       };
     }
 
@@ -1571,7 +1571,7 @@ export async function deleteContentAnnotation(
     console.error('Failed to delete content annotation:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'コンテンツの削除に失敗しました',
+      error: error instanceof Error ? error.message : ERROR_MESSAGES.WORDPRESS.CONTENT_DELETE_FAILED,
     };
   }
 }

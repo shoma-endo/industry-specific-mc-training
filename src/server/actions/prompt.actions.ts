@@ -12,6 +12,7 @@ import {
   PromptTemplateWithVersions,
 } from '@/types/prompt';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const promptVariableSchema = z.object({
   name: z.string().min(1, '変数名は必須です'),
@@ -44,7 +45,7 @@ async function checkAdminPermission(liffAccessToken: string) {
   const auth = await authMiddleware(liffAccessToken);
 
   if (auth.error) {
-    return { success: false, error: auth.error || '認証エラーが発生しました' };
+    return { success: false, error: auth.error || ERROR_MESSAGES.AUTH.AUTH_ERROR };
   }
 
   // 管理者権限チェック（roleがadminかどうか）
@@ -57,22 +58,22 @@ async function checkAdminPermission(liffAccessToken: string) {
 
     const user = userResult.data;
     if (!user) {
-      return { success: false, error: 'ユーザー情報が見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.USER.USER_INFO_NOT_FOUND };
     }
 
     // unavailableユーザーのサービス利用制限チェック
     if (isUnavailable(user.role)) {
-      return { success: false, error: 'サービスの利用が停止されています' };
+      return { success: false, error: ERROR_MESSAGES.USER.SERVICE_UNAVAILABLE };
     }
 
     if (user.role !== 'admin') {
-      return { success: false, error: '管理者権限が必要です' };
+      return { success: false, error: ERROR_MESSAGES.USER.ADMIN_REQUIRED };
     }
 
     return { success: true, userId: auth.userId, user };
   } catch (error) {
     console.error('管理者権限チェックエラー:', error);
-    return { success: false, error: '権限確認中にエラーが発生しました' };
+    return { success: false, error: ERROR_MESSAGES.USER.PERMISSION_CHECK_ERROR };
   }
 }
 
@@ -87,11 +88,11 @@ export async function createPromptTemplate(
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+      return { success: false, error: adminCheck.error || ERROR_MESSAGES.USER.PERMISSION_VERIFY_FAILED };
     }
     const adminUser = adminCheck.user;
     if (!adminUser) {
-      return { success: false, error: 'ユーザー情報が見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.USER.USER_INFO_NOT_FOUND };
     }
     if (await isViewModeEnabled(adminUser.role)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -103,7 +104,7 @@ export async function createPromptTemplate(
     // 重複チェック
     const existingTemplate = await PromptService.getTemplateByName(validatedData.name);
     if (existingTemplate) {
-      return { success: false, error: '同じ名前のプロンプトが既に存在します' };
+      return { success: false, error: ERROR_MESSAGES.PROMPT.DUPLICATE_NAME };
     }
 
     // テンプレート作成
@@ -123,10 +124,10 @@ export async function createPromptTemplate(
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: `入力データが不正です: ${error.issues.map(e => e.message).join(', ')}`,
+        error: ERROR_MESSAGES.PROMPT.INVALID_INPUT(error.issues.map(e => e.message)),
       };
     }
-    return { success: false, error: 'プロンプトの作成に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.PROMPT.CREATE_FAILED };
   }
 }
 
@@ -142,11 +143,11 @@ export async function updatePromptTemplate(
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+      return { success: false, error: adminCheck.error || ERROR_MESSAGES.USER.PERMISSION_VERIFY_FAILED };
     }
     const adminUser = adminCheck.user;
     if (!adminUser) {
-      return { success: false, error: 'ユーザー情報が見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.USER.USER_INFO_NOT_FOUND };
     }
     if (await isViewModeEnabled(adminUser.role)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -158,14 +159,14 @@ export async function updatePromptTemplate(
     // 存在チェック
     const existingTemplate = await PromptService.getTemplateById(id);
     if (!existingTemplate) {
-      return { success: false, error: 'プロンプトが見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.PROMPT.NOT_FOUND };
     }
 
     // 名前の重複チェック（自分以外）
     if (validatedData.name !== existingTemplate.name) {
       const duplicateTemplate = await PromptService.getTemplateByName(validatedData.name);
       if (duplicateTemplate && duplicateTemplate.id !== id) {
-        return { success: false, error: '同じ名前のプロンプトが既に存在します' };
+        return { success: false, error: ERROR_MESSAGES.PROMPT.DUPLICATE_NAME };
       }
     }
 
@@ -190,10 +191,10 @@ export async function updatePromptTemplate(
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: `入力データが不正です: ${error.issues.map(e => e.message).join(', ')}`,
+        error: ERROR_MESSAGES.PROMPT.INVALID_INPUT(error.issues.map(e => e.message)),
       };
     }
-    return { success: false, error: 'プロンプトの更新に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.PROMPT.UPDATE_FAILED };
   }
 }
 
@@ -207,14 +208,14 @@ export async function getPromptTemplates(
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+      return { success: false, error: adminCheck.error || ERROR_MESSAGES.USER.PERMISSION_VERIFY_FAILED };
     }
 
     const templates = await PromptService.getAllTemplates();
     return { success: true, data: templates };
   } catch (error) {
     console.error('プロンプト取得エラー:', error);
-    return { success: false, error: 'プロンプトの取得に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.PROMPT.FETCH_FAILED };
   }
 }
 
@@ -229,18 +230,18 @@ export async function getPromptTemplate(
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+      return { success: false, error: adminCheck.error || ERROR_MESSAGES.USER.PERMISSION_VERIFY_FAILED };
     }
 
     const template = await PromptService.getTemplateWithVersions(id);
     if (!template) {
-      return { success: false, error: 'プロンプトが見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.PROMPT.NOT_FOUND };
     }
 
     return { success: true, data: template };
   } catch (error) {
     console.error('プロンプト詳細取得エラー:', error);
-    return { success: false, error: 'プロンプトの取得に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.PROMPT.FETCH_FAILED };
   }
 }
 
@@ -255,7 +256,7 @@ export async function validatePromptTemplate(
     // 管理者権限チェック
     const adminCheck = await checkAdminPermission(liffAccessToken);
     if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || '権限チェックに失敗しました' };
+      return { success: false, error: adminCheck.error || ERROR_MESSAGES.USER.PERMISSION_VERIFY_FAILED };
     }
 
     // データ検証
@@ -288,6 +289,6 @@ export async function validatePromptTemplate(
         },
       };
     }
-    return { success: false, error: 'プロンプトの検証に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.PROMPT.VALIDATION_FAILED };
   }
 }

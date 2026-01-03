@@ -7,6 +7,7 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export async function clearAuthCache() {
   try {
@@ -15,7 +16,7 @@ export async function clearAuthCache() {
     const refreshToken = cookieStore.get('line_refresh_token')?.value;
     const authResult = await authMiddleware(accessToken, refreshToken);
     if (authResult.error || !authResult.userId) {
-      return { success: false, error: authResult.error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -31,6 +32,6 @@ export async function clearAuthCache() {
     return { success: true };
   } catch (error) {
     console.error('[admin/users] clear auth cache failed', error);
-    return { success: false, error: 'キャッシュクリアに失敗しました' };
+      return { success: false, error: ERROR_MESSAGES.ADMIN.CACHE_CLEAR_FAILED };
   }
 }

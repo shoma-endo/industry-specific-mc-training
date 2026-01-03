@@ -159,7 +159,7 @@ export const ERROR_MESSAGES = {
    */
   CHAT: {
     /** セッションの削除に失敗した場合 */
-    SESSION_DELETE_FAILED: 'セッションの削除に失敗しました',
+    SESSION_DELETE_FAILED: 'チャットセッションの削除に失敗しました',
 
     /** チャットタイトルの更新に失敗した場合 */
     SESSION_TITLE_UPDATE_FAILED: 'チャットタイトルの更新に失敗しました',

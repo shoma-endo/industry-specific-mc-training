@@ -13,6 +13,7 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 
@@ -79,7 +80,7 @@ const getAuthUserId = async () => {
 
   const authResult = await authMiddleware(accessToken, refreshToken);
   if (authResult.error || !authResult.userId) {
-    return { error: authResult.error || 'ユーザー認証に失敗しました' };
+      return { error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
   return { userId: authResult.userId, role: resolveViewModeRole(authResult) };
 };
@@ -91,7 +92,7 @@ export async function fetchGscDetail(
   try {
     const { userId, error } = await getAuthUserId();
     if (error || !userId) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
 
     const days = Math.min(180, Math.max(7, options?.days ?? 90));
@@ -113,7 +114,7 @@ export async function fetchGscDetail(
       throw new Error(annotationError.message);
     }
     if (!annotation) {
-      return { success: false, error: '対象が見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.GSC.TARGET_NOT_FOUND };
     }
 
     const credential = await supabaseService.getGscCredentialByUserId(userId);
@@ -181,7 +182,7 @@ export async function fetchGscDetail(
     };
   } catch (error) {
     console.error('[gsc-dashboard] fetch detail failed', error);
-    const message = error instanceof Error ? error.message : '詳細の取得に失敗しました';
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GSC.DETAIL_FETCH_FAILED;
     return { success: false, error: message };
   }
 }
@@ -214,7 +215,7 @@ export async function registerEvaluation(params: {
   try {
     const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(role ?? null)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -225,27 +226,27 @@ export async function registerEvaluation(params: {
     if (!contentAnnotationId || !propertyUri || !baseEvaluationDate) {
       return {
         success: false,
-        error: 'contentAnnotationId, propertyUri, baseEvaluationDate は必須です',
+        error: ERROR_MESSAGES.GSC.REQUIRED_PARAMS_MISSING,
       };
     }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(baseEvaluationDate)) {
-      return { success: false, error: '日付は YYYY-MM-DD 形式で指定してください' };
+      return { success: false, error: ERROR_MESSAGES.GSC.INVALID_DATE_FORMAT_YYYYMMDD };
     }
     const evaluationDate = new Date(`${baseEvaluationDate}T00:00:00.000Z`);
     if (Number.isNaN(evaluationDate.getTime())) {
-      return { success: false, error: '無効な日付が指定されました' };
+      return { success: false, error: ERROR_MESSAGES.GSC.INVALID_DATE };
     }
 
     const validatedCycleDays = cycleDays ?? 30;
     if (validatedCycleDays < 1 || validatedCycleDays > 365) {
-      return { success: false, error: '評価サイクル日数は1〜365日の範囲で指定してください' };
+      return { success: false, error: ERROR_MESSAGES.GSC.CYCLE_DAYS_INVALID };
     }
 
     const validatedEvaluationHour = evaluationHour ?? 12;
     if (validatedEvaluationHour < 0 || validatedEvaluationHour > 23) {
-      return { success: false, error: '評価実行時間は0〜23の範囲で指定してください' };
+      return { success: false, error: ERROR_MESSAGES.GSC.EVALUATION_HOUR_INVALID };
     }
 
     const { data: annotation, error: annotationError } = await supabaseService
@@ -260,7 +261,7 @@ export async function registerEvaluation(params: {
       throw new Error(annotationError.message || 'アノテーションの確認に失敗しました');
     }
     if (!annotation) {
-      return { success: false, error: '指定された記事が見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_NOT_FOUND };
     }
 
     const { data: existing, error: duplicateError } = await supabaseService
@@ -275,7 +276,7 @@ export async function registerEvaluation(params: {
       throw new Error(duplicateError.message || '重複チェックに失敗しました');
     }
     if (existing) {
-      return { success: false, error: 'この記事は既に評価対象として登録されています' };
+      return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_ALREADY_REGISTERED };
     }
 
     const { error: insertError } = await supabaseService
@@ -301,7 +302,7 @@ export async function registerEvaluation(params: {
     return { success: true, data: { contentAnnotationId, baseEvaluationDate } };
   } catch (error) {
     console.error('[gsc-dashboard] register evaluation failed', error);
-    const message = error instanceof Error ? error.message : '評価対象の登録に失敗しました';
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GSC.EVALUATION_REGISTER_FAILED;
     return { success: false, error: message };
   }
 }
@@ -315,7 +316,7 @@ export async function updateEvaluation(params: {
   try {
     const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(role ?? null)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -323,24 +324,24 @@ export async function updateEvaluation(params: {
 
     const { contentAnnotationId, baseEvaluationDate, cycleDays, evaluationHour } = params;
     if (!contentAnnotationId || !baseEvaluationDate) {
-      return { success: false, error: 'contentAnnotationId, baseEvaluationDate は必須です' };
+      return { success: false, error: ERROR_MESSAGES.GSC.REQUIRED_PARAMS_MISSING };
     }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(baseEvaluationDate)) {
-      return { success: false, error: '日付は YYYY-MM-DD 形式で指定してください' };
+      return { success: false, error: ERROR_MESSAGES.GSC.INVALID_DATE_FORMAT_YYYYMMDD };
     }
     const evaluationDate = new Date(`${baseEvaluationDate}T00:00:00.000Z`);
     if (Number.isNaN(evaluationDate.getTime())) {
-      return { success: false, error: '無効な日付が指定されました' };
+      return { success: false, error: ERROR_MESSAGES.GSC.INVALID_DATE };
     }
 
     if (cycleDays !== undefined && (cycleDays < 1 || cycleDays > 365)) {
-      return { success: false, error: '評価サイクル日数は1〜365日の範囲で指定してください' };
+      return { success: false, error: ERROR_MESSAGES.GSC.CYCLE_DAYS_INVALID };
     }
 
     if (evaluationHour !== undefined && (evaluationHour < 0 || evaluationHour > 23)) {
-      return { success: false, error: '評価実行時間は0〜23の範囲で指定してください' };
+      return { success: false, error: ERROR_MESSAGES.GSC.EVALUATION_HOUR_INVALID };
     }
 
     const { data: evaluation, error: evaluationError } = await supabaseService
@@ -356,7 +357,7 @@ export async function updateEvaluation(params: {
     }
 
     if (!evaluation) {
-      return { success: false, error: '評価対象が見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.GSC.EVALUATION_NOT_FOUND };
     }
 
     const updateData: {
@@ -390,7 +391,7 @@ export async function updateEvaluation(params: {
     return { success: true, data: { contentAnnotationId, baseEvaluationDate } };
   } catch (error) {
     console.error('[gsc-dashboard] update evaluation failed', error);
-    const message = error instanceof Error ? error.message : '評価日の更新に失敗しました';
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GSC.EVALUATION_DATE_UPDATE_FAILED;
     return { success: false, error: message };
   }
 }
@@ -443,7 +444,7 @@ export async function fetchQueryAnalysis(
   try {
     const { userId, error } = await getAuthUserId();
     if (error || !userId) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
 
     // 期間計算
@@ -463,7 +464,7 @@ export async function fetchQueryAnalysis(
     // GSC Credential取得（PropertyURIが必要）
     const credential = await supabaseService.getGscCredentialByUserId(userId);
     if (!credential || !credential.propertyUri) {
-      return { success: false, error: 'GSC連携設定が見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.GSC.CREDENTIAL_NOT_FOUND };
     }
     const propertyUri = credential.propertyUri;
 
@@ -477,7 +478,7 @@ export async function fetchQueryAnalysis(
       .maybeSingle();
 
     if (annotationError || !annotation?.normalized_url) {
-      return { success: false, error: '記事が見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_NOT_FOUND_GENERIC };
     }
 
     const normalizedUrl = annotation.normalized_url;
@@ -555,7 +556,7 @@ export async function fetchQueryAnalysis(
     };
   } catch (error) {
     console.error('[gsc-dashboard] fetch query analysis failed', error);
-    const message = error instanceof Error ? error.message : 'クエリ分析の取得に失敗しました';
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GSC.QUERY_ANALYSIS_FETCH_FAILED;
     return { success: false, error: message };
   }
 }
@@ -564,14 +565,14 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
   try {
     const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(role ?? null)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
     if (!annotationId) {
-      return { success: false, error: 'annotationId は必須です' };
+      return { success: false, error: ERROR_MESSAGES.GSC.ANNOTATION_ID_REQUIRED };
     }
 
     const { data: annotation, error: annotationError } = await supabaseService
@@ -586,7 +587,7 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
       throw new Error(annotationError.message || '記事情報の取得に失敗しました');
     }
     if (!annotation?.canonical_url) {
-      return { success: false, error: '記事のURLが見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_URL_NOT_FOUND };
     }
 
     const days = Math.min(180, Math.max(7, options?.days ?? 90));
@@ -595,7 +596,7 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
     // URL変更時の整合性を守るため、インポート前に古い指標データをクリーンアップ
     const currentNormalizedUrl = normalizeUrl(annotation.canonical_url);
     if (!currentNormalizedUrl) {
-      return { success: false, error: 'URLの正規化に失敗しました' };
+      return { success: false, error: ERROR_MESSAGES.GSC.URL_NORMALIZE_FAILED };
     }
     const [hasOldQuery, hasOldPage] = await Promise.all([
       supabaseService.hasOldGscQueryMetrics(annotationId, currentNormalizedUrl),
@@ -620,7 +621,7 @@ export async function runQueryImportForAnnotation(annotationId: string, options?
     return { success: true, data: summary };
   } catch (error) {
     console.error('[gsc-dashboard] run query import failed', error);
-    const message = error instanceof Error ? error.message : 'クエリ指標の取得に失敗しました';
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GSC.QUERY_METRICS_FETCH_FAILED;
     return { success: false, error: message };
   }
 }
@@ -636,7 +637,7 @@ export async function runEvaluationNow(contentAnnotationId: string) {
   try {
     const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(role ?? null)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -666,7 +667,7 @@ export async function runEvaluationNow(contentAnnotationId: string) {
     };
   } catch (error) {
     console.error('[gsc-dashboard] run evaluation now failed', error);
-    const message = error instanceof Error ? error.message : '評価処理に失敗しました';
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GSC.EVALUATION_PROCESS_FAILED;
     return { success: false, error: message };
   }
 }

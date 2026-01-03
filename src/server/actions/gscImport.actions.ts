@@ -11,6 +11,7 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export interface GscImportParams {
   startDate: string;
@@ -28,7 +29,7 @@ export async function runGscImport(params: GscImportParams) {
 
     const authResult = await authMiddleware(accessToken, refreshToken);
     if (authResult.error || !authResult.userId) {
-      return { success: false, error: authResult.error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -38,24 +39,24 @@ export async function runGscImport(params: GscImportParams) {
       params;
 
     if (!startDate || !endDate) {
-      return { success: false, error: 'startDate と endDate は必須です' };
+      return { success: false, error: ERROR_MESSAGES.GSC.DATE_RANGE_REQUIRED };
     }
 
     if (typeof maxRows !== 'number' || maxRows < 1 || maxRows > 25000) {
-      return { success: false, error: 'maxRows は 1～25000 の範囲で指定してください' };
+      return { success: false, error: ERROR_MESSAGES.GSC.MAX_ROWS_INVALID };
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      return { success: false, error: '日付の形式が不正です' };
+      return { success: false, error: ERROR_MESSAGES.GSC.INVALID_DATE_FORMAT };
     }
     if (start > end) {
-      return { success: false, error: '開始日は終了日より前である必要があります' };
+      return { success: false, error: ERROR_MESSAGES.GSC.START_DATE_AFTER_END };
     }
     const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     if (daysDiff > 365) {
-      return { success: false, error: '期間は最大365日までです' };
+      return { success: false, error: ERROR_MESSAGES.GSC.PERIOD_TOO_LONG };
     }
 
     const importOnce = async (segmentStart: string, segmentEnd: string) =>
@@ -78,7 +79,7 @@ export async function runGscImport(params: GscImportParams) {
     return { success: true, data: summary };
   } catch (error) {
     console.error('[gsc-import] import failed', error);
-    const message = error instanceof Error ? error.message : 'インポート処理に失敗しました';
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GSC.IMPORT_FAILED;
     return { success: false, error: message };
   }
 }
