@@ -145,7 +145,7 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
     console.error('startChat failed:', e);
     return {
       message: '',
-      error: (e as Error).message || ERROR_MESSAGES.CHAT.UNEXPECTED_ERROR,
+      error: (e as Error).message || ERROR_MESSAGES.COMMON.UNEXPECTED_ERROR,
       requiresSubscription: false,
     };
   }
@@ -171,7 +171,7 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
     console.error('continueChat failed:', e);
     return {
       message: '',
-      error: (e as Error).message || ERROR_MESSAGES.CHAT.UNEXPECTED_ERROR,
+      error: (e as Error).message || ERROR_MESSAGES.COMMON.UNEXPECTED_ERROR,
       requiresSubscription: false,
     };
   }

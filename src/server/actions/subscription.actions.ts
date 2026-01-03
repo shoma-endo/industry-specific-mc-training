@@ -84,7 +84,7 @@ export async function getUserSubscription(liffAccessToken: string) {
     if (user && isUnavailable(user.role)) {
       return {
         success: false,
-        error: 'サービスの利用が停止されています',
+        error: ERROR_MESSAGES.USER.SERVICE_UNAVAILABLE,
         hasActiveSubscription: false,
       };
     }
@@ -388,7 +388,7 @@ export const checkUserRole = async (liffAccessToken: string) => {
     if (isUnavailable(user.role)) {
       return {
         success: false,
-        error: 'サービスの利用が停止されています',
+        error: ERROR_MESSAGES.USER.SERVICE_UNAVAILABLE,
         role: user.role || ('trial' as const),
       };
     }

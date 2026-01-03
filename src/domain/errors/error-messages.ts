@@ -169,9 +169,6 @@ export const ERROR_MESSAGES = {
 
     /** チャットセッションの検索に失敗した場合 */
     SESSION_SEARCH_FAILED: 'チャットセッションの検索に失敗しました',
-
-    /** 予期せぬエラーが発生した場合 */
-    UNEXPECTED_ERROR: '予期せぬエラーが発生しました',
   },
 
   /**

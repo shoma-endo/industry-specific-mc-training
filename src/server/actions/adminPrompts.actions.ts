@@ -39,7 +39,7 @@ export async function fetchPrompts() {
     return { success: true, data: result.data };
   } catch (error) {
     console.error('[admin/prompts] fetch failed', error);
-    return { success: false, error: 'プロンプトの取得に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.PROMPT.FETCH_FAILED };
   }
 }
 

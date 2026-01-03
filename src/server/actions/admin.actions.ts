@@ -40,7 +40,7 @@ export const getAllUsers = async (): Promise<{
     return { success: true, users };
   } catch (error) {
     console.error('ユーザー一覧取得エラー:', error);
-      return { success: false, error: ERROR_MESSAGES.USER.USER_LIST_FETCH_ERROR };
+    return { success: false, error: ERROR_MESSAGES.USER.USER_LIST_FETCH_ERROR };
   }
 };
 
@@ -95,6 +95,6 @@ export const updateUserRole = async (
     return { success: true };
   } catch (error) {
     console.error('ユーザー権限更新エラー:', error);
-      return { success: false, error: ERROR_MESSAGES.USER.ROLE_UPDATE_ERROR };
+    return { success: false, error: ERROR_MESSAGES.USER.ROLE_UPDATE_ERROR };
   }
 };
