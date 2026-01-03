@@ -1,6 +1,6 @@
 import { SupabaseClient, type PostgrestError } from '@supabase/supabase-js';
 import { SupabaseClientManager } from '@/lib/client-manager';
-import { parseTimestamp, toIsoTimestamp } from '@/lib/timestamps';
+import { parseTimestampSafe, toIsoTimestamp } from '@/lib/timestamps';
 import type { Database } from '@/types/database.types';
 import {
   DbChatMessage,
@@ -406,7 +406,7 @@ export class SupabaseService {
     const sessions = (Array.isArray(data) ? data : []).map((row: SessionsWithMessagesRow) => ({
       id: row.session_id,
       title: row.title,
-      last_message_at: parseTimestamp(row.last_message_at),
+      last_message_at: parseTimestampSafe(row.last_message_at),
       messages: Array.isArray(row.messages)
         ? row.messages
             .filter((message): message is Record<string, unknown> => {
@@ -416,7 +416,7 @@ export class SupabaseService {
               id: String(message.id ?? ''),
               role: String(message.role ?? 'user') as ServerChatMessage['role'],
               content: String(message.content ?? ''),
-              created_at: parseTimestamp(
+              created_at: parseTimestampSafe(
                 (message as { created_at?: string | number | null }).created_at
               ),
             }))
@@ -460,7 +460,7 @@ export class SupabaseService {
         row.wp_post_title === null || typeof row.wp_post_title === 'string'
           ? row.wp_post_title
           : null,
-      last_message_at: parseTimestamp(row.last_message_at),
+      last_message_at: parseTimestampSafe(row.last_message_at),
       similarity_score:
         row.similarity_score === null || row.similarity_score === undefined
           ? 0
@@ -1310,7 +1310,7 @@ export class SupabaseService {
 
     const rows = (data || []).map(row => ({
       ...row,
-      created_at: parseTimestamp(row.created_at),
+      created_at: parseTimestampSafe(row.created_at),
     }));
 
     return this.success(
@@ -1358,10 +1358,10 @@ export class SupabaseService {
       id: data.id,
       ownerUserId: data.owner_user_id,
       invitationToken: data.invitation_token,
-      expiresAt: parseTimestamp(data.expires_at),
-      usedAt: data.used_at ? parseTimestamp(data.used_at) : undefined,
+      expiresAt: parseTimestampSafe(data.expires_at),
+      usedAt: data.used_at ? parseTimestampSafe(data.used_at) : undefined,
       usedByUserId: data.used_by_user_id,
-      createdAt: parseTimestamp(data.created_at),
+      createdAt: parseTimestampSafe(data.created_at),
     });
   }
 
@@ -1459,10 +1459,10 @@ export class SupabaseService {
       id: data.id,
       ownerUserId: data.owner_user_id,
       invitationToken: data.invitation_token,
-      expiresAt: parseTimestamp(data.expires_at),
-      usedAt: data.used_at ? parseTimestamp(data.used_at) : undefined,
+      expiresAt: parseTimestampSafe(data.expires_at),
+      usedAt: data.used_at ? parseTimestampSafe(data.used_at) : undefined,
       usedByUserId: data.used_by_user_id,
-      createdAt: parseTimestamp(data.created_at),
+      createdAt: parseTimestampSafe(data.created_at),
     });
   }
 

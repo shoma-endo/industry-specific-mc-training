@@ -39,4 +39,15 @@ export const parseTimestampStrict = (value: string | number | null | undefined):
   throw new Error(`Null or undefined timestamp received: ${String(value)}`);
 };
 
+export const parseTimestampSafe = (
+  value: string | number | null | undefined,
+  fallback = 0
+): number => {
+  try {
+    return parseTimestampStrict(value);
+  } catch {
+    return fallback;
+  }
+};
+
 export const toIsoTimestamp = (value: number | Date): string => new Date(value).toISOString();
