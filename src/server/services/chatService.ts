@@ -14,6 +14,7 @@ import {
 import { SupabaseService, type SupabaseResult } from './supabaseService';
 import { MODEL_CONFIGS, CHAT_HISTORY_LIMIT } from '@/lib/constants';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
+import { toIsoTimestamp } from '@/lib/timestamps';
 
 interface ChatResponse {
   message: string;
@@ -99,8 +100,8 @@ class ChatService {
 
       const sessionId = crypto.randomUUID();
       const nowMs = Date.now();
-      const nowIso = new Date(nowMs).toISOString();
-      const nextIso = new Date(nowMs + 1).toISOString();
+      const nowIso = toIsoTimestamp(nowMs);
+      const nextIso = toIsoTimestamp(nowMs + 1);
 
       const session: DbChatSession = {
         id: sessionId,
