@@ -16,7 +16,7 @@ export const parseTimestampOrNull = (
     return null;
   }
   if (typeof value === 'number') {
-    return value;
+    return Number.isFinite(value) ? value : null;
   }
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? null : parsed;

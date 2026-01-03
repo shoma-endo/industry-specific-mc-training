@@ -125,7 +125,7 @@ export interface ServerChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  created_at: number;
+  created_at: string;
 }
 
 /**
@@ -134,6 +134,6 @@ export interface ServerChatMessage {
 export interface ServerChatSession {
   id: string;
   title: string;
-  last_message_at: number;
+  last_message_at: string;
   messages?: ServerChatMessage[]; // RPC で埋め込む
 }

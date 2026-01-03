@@ -406,7 +406,10 @@ export class SupabaseService {
     const sessions = (Array.isArray(data) ? data : []).map((row: SessionsWithMessagesRow) => ({
       id: row.session_id,
       title: row.title,
-      last_message_at: parseTimestampSafe(row.last_message_at),
+      last_message_at:
+        typeof row.last_message_at === 'string'
+          ? row.last_message_at
+          : toIsoTimestamp(Number(row.last_message_at ?? 0)),
       messages: Array.isArray(row.messages)
         ? row.messages
             .filter((message): message is Record<string, unknown> => {
@@ -416,9 +419,16 @@ export class SupabaseService {
               id: String(message.id ?? ''),
               role: String(message.role ?? 'user') as ServerChatMessage['role'],
               content: String(message.content ?? ''),
-              created_at: parseTimestampSafe(
-                (message as { created_at?: string | number | null }).created_at
-              ),
+              created_at: (() => {
+                const createdAt = (message as { created_at?: string | number | null }).created_at;
+                if (typeof createdAt === 'string') {
+                  return createdAt;
+                }
+                if (typeof createdAt === 'number' && Number.isFinite(createdAt)) {
+                  return toIsoTimestamp(createdAt);
+                }
+                return toIsoTimestamp(0);
+              })(),
             }))
         : [],
     }));
@@ -1290,7 +1300,7 @@ export class SupabaseService {
   async getAllSavedMessages(
     userId: string
   ): Promise<
-    SupabaseResult<Array<{ id: string; content: string; created_at: number; session_id: string }>>
+    SupabaseResult<Array<{ id: string; content: string; created_at: string; session_id: string }>>
   > {
     const { data, error } = await this.supabase
       .from('chat_messages')
@@ -1308,13 +1318,8 @@ export class SupabaseService {
       });
     }
 
-    const rows = (data || []).map(row => ({
-      ...row,
-      created_at: parseTimestampSafe(row.created_at),
-    }));
-
     return this.success(
-      rows as Array<{ id: string; content: string; created_at: number; session_id: string }>
+      (data || []) as Array<{ id: string; content: string; created_at: string; session_id: string }>
     );
   }
 
