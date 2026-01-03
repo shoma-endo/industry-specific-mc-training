@@ -13,6 +13,10 @@ security definer
 set search_path = public
 as $$
 begin
+  if auth.uid() is not null or session_user <> 'service_role' then
+    raise exception 'Not authorized';
+  end if;
+
   insert into public.users (
     id,
     line_user_id,
