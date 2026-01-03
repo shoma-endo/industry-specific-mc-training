@@ -33,7 +33,7 @@ begin
     raise exception 'Not authorized to access this user data';
   end if;
 
-  if p_limit is not null and p_limit > 0 then
+  if p_limit is not null and p_limit > 0 and p_limit <= 100 then
     v_limit := p_limit;
   end if;
 
@@ -62,66 +62,40 @@ begin
   begin
     v_tsquery := websearch_to_tsquery('simple', v_query);
     v_has_tsquery := true;
-  exception when others then
+  exception when syntax_error then
     v_tsquery := null;
     v_has_tsquery := false;
   end;
 
-  begin
-    return query
-      select cs.id,
-             cs.title,
-             ca.canonical_url,
-             ca.wp_post_title,
-             cs.last_message_at,
-             greatest(
-               case when v_has_tsquery then ts_rank_cd(cs.search_vector, v_tsquery)::double precision else 0::double precision end,
-               case
-                 when v_normalized_query is not null and ca.normalized_url = v_normalized_query then 1.0::double precision
-                 else 0::double precision
-               end,
-               case
-                 when cs.title ilike '%' || v_escaped_query || '%' escape '\\' then 0.5::double precision
-                 else 0::double precision
-               end
-             ) as similarity_score
-        from public.chat_sessions cs
-        left join public.content_annotations ca
-          on ca.session_id = cs.id
-         and ca.user_id = cs.user_id
-       where cs.user_id = p_user_id
-         and (
-           (v_has_tsquery and cs.search_vector @@ v_tsquery)
-           or (v_normalized_query is not null and ca.normalized_url = v_normalized_query)
-           or cs.title ilike '%' || v_escaped_query || '%' escape '\\'
-         )
-       order by similarity_score desc, cs.last_message_at desc
-       limit v_limit;
-  exception when others then
-    raise warning 'search_chat_sessions fallback: %', sqlerrm;
-    return query
-      select cs.id,
-             cs.title,
-             ca.canonical_url,
-             ca.wp_post_title,
-             cs.last_message_at,
+  return query
+    select cs.id,
+           cs.title,
+           ca.canonical_url,
+           ca.wp_post_title,
+           cs.last_message_at,
+           greatest(
+             case when v_has_tsquery then ts_rank_cd(cs.search_vector, v_tsquery)::double precision else 0::double precision end,
              case
                when v_normalized_query is not null and ca.normalized_url = v_normalized_query then 1.0::double precision
+               else 0::double precision
+             end,
+             case
                when cs.title ilike '%' || v_escaped_query || '%' escape '\\' then 0.5::double precision
                else 0::double precision
-             end as similarity_score
-        from public.chat_sessions cs
-        left join public.content_annotations ca
-          on ca.session_id = cs.id
-         and ca.user_id = cs.user_id
-       where cs.user_id = p_user_id
-         and (
-           (v_normalized_query is not null and ca.normalized_url = v_normalized_query)
-           or cs.title ilike '%' || v_escaped_query || '%' escape '\\'
-         )
-       order by similarity_score desc, cs.last_message_at desc
-       limit v_limit;
-  end;
+             end
+           ) as similarity_score
+      from public.chat_sessions cs
+      left join public.content_annotations ca
+        on ca.session_id = cs.id
+       and ca.user_id = cs.user_id
+     where cs.user_id = p_user_id
+       and (
+         (v_has_tsquery and cs.search_vector @@ v_tsquery)
+         or (v_normalized_query is not null and ca.normalized_url = v_normalized_query)
+         or cs.title ilike '%' || v_escaped_query || '%' escape '\\'
+       )
+     order by similarity_score desc, cs.last_message_at desc
+     limit v_limit;
 end;
 $$;
 
