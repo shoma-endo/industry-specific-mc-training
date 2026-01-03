@@ -76,7 +76,7 @@ export type Database = {
           created_at: string
           id: string
           last_message_at: string
-          search_vector: unknown
+          search_vector: string | null
           system_prompt: string | null
           title: string
           user_id: string
@@ -85,7 +85,7 @@ export type Database = {
           created_at: string
           id: string
           last_message_at: string
-          search_vector?: unknown
+          search_vector?: string | null
           system_prompt?: string | null
           title: string
           user_id: string
@@ -94,7 +94,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_message_at?: string
-          search_vector?: unknown
+          search_vector?: string | null
           system_prompt?: string | null
           title?: string
           user_id?: string

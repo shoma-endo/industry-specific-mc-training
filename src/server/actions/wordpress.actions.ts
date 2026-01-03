@@ -1188,7 +1188,7 @@ export async function ensureAnnotationChatSession(
         created_at: nowIso,
         last_message_at: nowIso,
         system_prompt: null,
-        search_vector: null as unknown,
+        search_vector: null,
       };
 
       const createResult = await service.createChatSession(session);
@@ -1231,12 +1231,11 @@ export async function ensureAnnotationChatSession(
     }
 
     if (!annotationLinked && hasValidWpId) {
-      const wpPostId = payload.wpPostId as number; // hasValidWpIdで型ガード済み
       const { error: fetchByWpError, data: existingByWp } = await client
         .from('content_annotations')
         .select('session_id')
         .eq('user_id', userId)
-        .eq('wp_post_id', wpPostId)
+        .eq('wp_post_id', payload.wpPostId as number)
         .maybeSingle();
 
       if (fetchByWpError) {
@@ -1245,12 +1244,11 @@ export async function ensureAnnotationChatSession(
 
       if (existingByWp) {
         annotationLinked = true;
-        const wpPostId = payload.wpPostId as number; // hasValidWpIdで型ガード済み
         const { error: updateError } = await client
           .from('content_annotations')
           .update(annotationUpdate)
           .eq('user_id', userId)
-          .eq('wp_post_id', wpPostId);
+          .eq('wp_post_id', payload.wpPostId as number);
         if (updateError) {
           return { success: false as const, error: updateError.message };
         }

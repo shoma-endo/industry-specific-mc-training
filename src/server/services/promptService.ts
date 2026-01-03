@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { z } from 'zod';
 import { SupabaseService } from '@/server/services/supabaseService';
 import {
   PromptTemplate,
@@ -9,7 +10,20 @@ import {
   PromptVersion,
 } from '@/types/prompt';
 import type { AnnotationRecord } from '@/types/annotation';
-import type { Database } from '@/types/database.types';
+import type { Database, Json } from '@/types/database.types';
+
+const PromptVariableSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+});
+
+const CreatePromptTemplateSchema = z.object({
+  name: z.string(),
+  display_name: z.string(),
+  content: z.string(),
+  variables: z.array(PromptVariableSchema),
+  created_by: z.string(),
+});
 
 /**
  * プロンプト管理サービス
@@ -76,15 +90,12 @@ export class PromptService extends SupabaseService {
     if (!Array.isArray(variables)) {
       return [];
     }
-    return (variables as unknown[]).filter(
-      (v): v is PromptVariable =>
-        v !== null &&
-        typeof v === 'object' &&
-        'name' in v &&
-        'description' in v &&
-        typeof (v as { name: unknown; description: unknown }).name === 'string' &&
-        typeof (v as { name: unknown; description: unknown }).description === 'string'
-    );
+    return (variables as unknown[])
+      .map(v => {
+        const result = PromptVariableSchema.safeParse(v);
+        return result.success ? result.data : null;
+      })
+      .filter((v): v is PromptVariable => v !== null);
   }
 
   /**
@@ -325,18 +336,22 @@ export class PromptService extends SupabaseService {
    */
   static async createTemplate(data: CreatePromptTemplateInput): Promise<PromptTemplate> {
     const now = new Date().toISOString();
+    const validated = CreatePromptTemplateSchema.parse(data);
 
     const result = await this.withServiceRoleClient(
       async client => {
-        const insertData = {
-          name: data.name,
-          display_name: data.display_name,
-          content: data.content,
-          variables: data.variables as unknown as Database['public']['Tables']['prompt_templates']['Insert']['variables'],
-          created_by: data.created_by,
+        // PromptVariable[] を Json 型に変換（型安全な変換）
+        const variablesJson: Json = JSON.parse(JSON.stringify(validated.variables));
+
+        const insertData: Database['public']['Tables']['prompt_templates']['Insert'] = {
+          name: validated.name,
+          display_name: validated.display_name,
+          content: validated.content,
+          variables: variablesJson,
+          created_by: validated.created_by,
           created_at: now,
           updated_at: now,
-        } as Database['public']['Tables']['prompt_templates']['Insert'];
+        };
         const { data: inserted, error } = await client
           .from('prompt_templates')
           .insert(insertData)
@@ -385,15 +400,28 @@ export class PromptService extends SupabaseService {
     // メインテーブルを更新
     return this.withServiceRoleClient(
       async client => {
-        const { variables, ...restData } = data;
-        const updateData = {
-          ...restData,
-          ...(variables !== undefined
-            ? { variables: variables as unknown as Database['public']['Tables']['prompt_templates']['Update']['variables'] }
-            : {}),
+        // 更新データを明示的に構築（型安全）
+        const updateData: Database['public']['Tables']['prompt_templates']['Update'] = {
+          updated_by: data.updated_by,
           version: newVersion,
           updated_at: new Date().toISOString(),
-        } as Database['public']['Tables']['prompt_templates']['Update'];
+        };
+
+        // オプショナルフィールドを条件付きで追加
+        if (data.name !== undefined) {
+          updateData.name = data.name;
+        }
+        if (data.display_name !== undefined) {
+          updateData.display_name = data.display_name;
+        }
+        if (data.content !== undefined) {
+          updateData.content = data.content;
+        }
+        if (data.variables !== undefined) {
+          // PromptVariable[] を Json 型に変換（型安全な変換）
+          updateData.variables = JSON.parse(JSON.stringify(data.variables)) as Json;
+        }
+
         const { data: result, error } = await client
           .from('prompt_templates')
           .update(updateData)

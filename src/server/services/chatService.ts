@@ -109,7 +109,7 @@ class ChatService {
         created_at: nowIso,
         last_message_at: nowIso,
         system_prompt: systemPrompt,
-        search_vector: null as unknown,
+        search_vector: null,
       };
 
       this.unwrapSupabaseResult(
