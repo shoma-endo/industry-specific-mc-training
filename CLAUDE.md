@@ -52,7 +52,7 @@ If an error occurs during execution or the plan fails:
 - **Risk**: None / High (explain briefly)
 
 > Ready to execute? (y/n)
-</law>
+```
 
 ---
 
@@ -91,9 +91,11 @@ If an error occurs during execution or the plan fails:
 > TIP: `ln -s AGENTS.md CLAUDE.md` を設定すると、Claude Code でも AGENTS.md の指示を参照できます。
 
 ## 命名規則
+
 プロジェクトの命名規則は、エージェントスキル（`project-naming`）に集約されています。新規ファイル作成やリネーム時は該当スキルを参照してください。
 
 ## RLS & セキュリティ
+
 Supabase の DB ポリシー、パフォーマンス、および `SECURITY DEFINER` 関数の実装指針は、エージェントスキル（`supabase-rls`）に集約されています。
 
 ## 実装指針
@@ -148,6 +150,7 @@ Supabase の DB ポリシー、パフォーマンス、および `SECURITY DEFIN
 ## 選択肢の提示方法
 
 選択肢を提示する時は、以下のように推奨度と理由を記載する。
+
 1. 選択肢A（推奨度：⭐の5段階評価）
    - 理由:
 
@@ -165,4 +168,4 @@ Supabase の DB ポリシー、パフォーマンス、および `SECURITY DEFIN
    - 使いやすさ、価値、満足度を重視
 
 各視点から率直な懸念点を述べてください。
-```
+</law>
