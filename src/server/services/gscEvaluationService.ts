@@ -68,12 +68,13 @@ export class GscEvaluationService {
     }
 
     // --- 効率化のキモ: ユーザー単位での一括インポート ---
-    // 評価対象全記事の中で、最も長い cycle_days を特定してインポート
-    const maxCycleDays = Math.max(...evaluationRows.map(e => e.cycle_days || 30));
-    const startDate = this.addDaysISO(todayJst, -maxCycleDays);
-
+    let bulkImportFailed = false;
     let batchHitLimit = false;
+
     try {
+      const maxCycleDays = Math.max(...evaluationRows.map(e => e.cycle_days || 30));
+      const startDate = this.addDaysISO(todayJst, -maxCycleDays);
+
       const importResult = await gscImportService.importMetrics(userId, {
         startDate,
         endDate: todayJst,
@@ -86,44 +87,15 @@ export class GscEvaluationService {
       );
     } catch (importError) {
       console.warn(
-        `[gscEvaluationService] Failed to pre-import data for user ${userId}. Proceeding with existing data if available.`,
+        `[gscEvaluationService] Failed to pre-import data for user ${userId}. Proceeding article-by-article.`,
         importError
       );
-
-      // インポート失敗を記録するが、続行して既存メトリクスでの評価を試みる
-      summary.skippedImportFailed = evaluationRows.length;
-
-      // 履歴にインポート失敗を記録（非同期で実行し、評価処理をブロックしない）
-      const historyClient = this.supabaseService.getClient();
-      Promise.allSettled(
-        evaluationRows.map(evaluation =>
-          historyClient.from('gsc_article_evaluation_history').insert({
-            user_id: userId,
-            content_annotation_id: evaluation.content_annotation_id,
-            evaluation_date: todayJst,
-            outcome_type: 'error',
-            error_code: 'import_failed',
-            error_message:
-              importError instanceof Error
-                ? importError.message
-                : 'Google Search Consoleからのデータ取得に失敗しました',
-            suggestion_applied: false,
-            created_at: new Date().toISOString(),
-          })
-        )
-      ).then(historyResults => {
-        const failedInserts = historyResults.filter(r => r.status === 'rejected');
-        if (failedInserts.length > 0) {
-          console.error(
-            `[gscEvaluationService] Failed to save ${failedInserts.length} error histories for user ${userId}`
-          );
-        }
-      });
+      bulkImportFailed = true;
     }
+
     // ------------------------------------------------
 
     // 記事評価を直列（シーケンシャル）に実行
-    // Promise.allSettled による並列実行は、LLM呼び出しの急増とタイムアウトの原因になるため廃止
     for (const evaluation of evaluationRows) {
       // 制限時間のチェック（記事ごと）
       if (startTime) {
@@ -141,12 +113,14 @@ export class GscEvaluationService {
           userId,
           evaluation,
           todayJst,
-          batchHitLimit
+          batchHitLimit,
+          bulkImportFailed
         );
 
         if (evalResult.status === 'skipped_no_metrics') {
           summary.skippedNoMetrics += 1;
-          if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
+        } else if (evalResult.status === 'skipped_import_failed') {
+          summary.skippedImportFailed += 1;
         } else if (evalResult.status === 'success') {
           summary.processed += 1;
           if (evalResult.outcome === 'improved') {
@@ -154,12 +128,10 @@ export class GscEvaluationService {
           } else {
             summary.advanced += 1;
           }
-          if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
         }
       } catch (error) {
         console.error('[gscEvaluationService] System error during evaluation:', error);
         summary.skippedSystemError += 1;
-        if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
 
         // システムエラーを履歴に記録（並列・待機しない）
         this.supabaseService
@@ -196,16 +168,17 @@ export class GscEvaluationService {
     userId: string,
     evaluation: GscEvaluationRow,
     today: string,
-    batchHitLimit: boolean = false
+    batchHitLimit: boolean = false, // この引数は使われなくなるが、互換性のため残す
+    bulkImportFailed: boolean = false
   ): Promise<
     | { status: 'success'; outcome: GscEvaluationOutcome }
     | { status: 'skipped_import_failed' }
     | { status: 'skipped_no_metrics' }
   > {
-    // データインポートは runDueEvaluationsForUser で実行済みなので、まずは fetchLatestMetric を試行
+    // 1. 最新メトリクスの取得試行
     let metric = await this.fetchLatestMetric(userId, evaluation);
 
-    // メトリクスが見つからず、かつ一括インポートで上限に達していた場合は、個別URLで再試行
+    // 2. メトリクスが見つからず、かつバッチ上限に達していた場合はフォールバック
     if (!metric && batchHitLimit) {
       console.log(
         `[gscEvaluationService] Metric missing and batch limit hit. Fetching targeted data for: ${evaluation.id}`
@@ -214,7 +187,6 @@ export class GscEvaluationService {
       const startDate = this.addDaysISO(today, -cycleDays);
 
       try {
-        // コンテンツアノテーションに対応するURLを取得（あれば）
         const { data: annotation } = await this.supabaseService
           .getClient()
           .from('content_annotations')
@@ -239,9 +211,15 @@ export class GscEvaluationService {
       }
     }
 
+    // 3. 最終的なメトリクスチェック
     if (!metric) {
-      // 履歴にエラーを記録
-      const { error: historyInsertError } = await this.supabaseService
+      // インポート一括失敗フラグが立っている場合は import_failed、そうでなければ no_metrics
+      const errorCode = bulkImportFailed ? 'import_failed' : 'no_metrics';
+      const errorMessage = bulkImportFailed
+        ? 'GSCデータの一括インポートに失敗したため、最新の指標を取得できませんでした。'
+        : 'この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。';
+
+      const { error: historyError } = await this.supabaseService
         .getClient()
         .from('gsc_article_evaluation_history')
         .insert({
@@ -249,21 +227,20 @@ export class GscEvaluationService {
           content_annotation_id: evaluation.content_annotation_id,
           evaluation_date: today,
           outcome_type: 'error',
-          error_code: 'no_metrics',
-          error_message:
-            'この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。',
+          error_code: errorCode,
+          error_message: errorMessage,
           suggestion_applied: false,
           created_at: new Date().toISOString(),
         });
 
-      if (historyInsertError) {
+      if (historyError) {
         console.error(
-          `[gscEvaluationService] Failed to save error history for evaluation ${evaluation.id}:`,
-          historyInsertError
+          `[gscEvaluationService] Failed to save error history for ${evaluation.id}:`,
+          historyError
         );
       }
 
-      return { status: 'skipped_no_metrics' };
+      return { status: bulkImportFailed ? 'skipped_import_failed' : 'skipped_no_metrics' };
     }
 
     const lastSeen = this.toNumberOrNull(evaluation.last_seen_position);
