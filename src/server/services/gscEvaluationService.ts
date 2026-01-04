@@ -14,6 +14,9 @@ interface EvaluationResultSummary {
 
 interface BatchResultSummary {
   usersProcessed: number;
+  usersAttempted: number; // 試行したユーザー数
+  usersSkippedDueToLimit: number; // 制限によりスキップされたユーザー数
+  stoppedReason: 'completed' | 'time_limit' | 'max_users';
   totalEvaluations: number;
   totalImproved: number;
   totalAdvanced: number;
@@ -50,6 +53,10 @@ interface RunEvaluationOptions {
 
 export class GscEvaluationService {
   private readonly supabaseService = new SupabaseService();
+
+  // バッチ処理の制限定数
+  private static readonly BATCH_TIME_LIMIT_MS = 50 * 1000; // 50秒
+  private static readonly MAX_USERS_PER_BATCH = 10;
 
   async runDueEvaluationsForUser(
     userId: string,
@@ -430,6 +437,9 @@ export class GscEvaluationService {
   async runAllDueEvaluations(): Promise<BatchResultSummary> {
     const summary: BatchResultSummary = {
       usersProcessed: 0,
+      usersAttempted: 0,
+      usersSkippedDueToLimit: 0,
+      stoppedReason: 'completed',
       totalEvaluations: 0,
       totalImproved: 0,
       totalAdvanced: 0,
@@ -440,8 +450,6 @@ export class GscEvaluationService {
     };
 
     const startTime = Date.now();
-    const TIME_LIMIT_MS = 50 * 1000; // 50秒でタイムアウト（Vercelのデフォルト60秒を想定）
-    const MAX_USERS_PER_BATCH = 10; // 1回のリクエストで最大10ユーザー
 
     // 現在の日本時間を取得
     const nowJst = this.getNowJst();
@@ -495,25 +503,38 @@ export class GscEvaluationService {
     }
 
     // 各ユーザーの評価を実行
-    let usersAttempted = 0;
     for (const userId of userIds) {
       // 制限時間のチェック
       const elapsed = Date.now() - startTime;
-      if (elapsed > TIME_LIMIT_MS) {
-        console.warn(`[gscEvaluationService] Time limit reached (${elapsed}ms). Stopping batch.`);
+      if (elapsed > GscEvaluationService.BATCH_TIME_LIMIT_MS) {
+        const remaining = userIds.length - summary.usersAttempted;
+        console.warn(
+          `[gscEvaluationService] Time limit reached (${elapsed}ms). ` +
+            `Stopping batch. Remaining: ${remaining} users.`
+        );
+        summary.stoppedReason = 'time_limit';
+        summary.usersSkippedDueToLimit = remaining;
         break;
       }
 
       // 処理ユーザー数のチェック（試行回数で判定）
-      if (usersAttempted >= MAX_USERS_PER_BATCH) {
+      if (summary.usersAttempted >= GscEvaluationService.MAX_USERS_PER_BATCH) {
+        const remaining = userIds.length - summary.usersAttempted;
         console.log(
-          `[gscEvaluationService] Max users per batch (${MAX_USERS_PER_BATCH}) reached. Stopping batch.`
+          `[gscEvaluationService] Max users per batch (${GscEvaluationService.MAX_USERS_PER_BATCH}) reached. ` +
+            `Stopping batch. Remaining: ${remaining} users.`
         );
+        summary.stoppedReason = 'max_users';
+        summary.usersSkippedDueToLimit = remaining;
         break;
       }
 
-      usersAttempted++;
-      const userEvaluations = evaluationsByUserMap.get(userId)!;
+      summary.usersAttempted++;
+      const userEvaluations = evaluationsByUserMap.get(userId);
+      if (!userEvaluations || userEvaluations.length === 0) {
+        continue;
+      }
+
       try {
         console.log(
           `[gscEvaluationService] Processing user ${userId} with ${userEvaluations.length} evaluations`
