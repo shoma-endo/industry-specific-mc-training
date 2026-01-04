@@ -105,7 +105,7 @@ If an error occurs during execution or the plan fails:
 - Stripe を扱う処理では `env.STRIPE_ENABLED` を必ずチェックし、無効時の例外を投げるパターンを踏襲。
 - Supabase 呼び出しは `SupabaseService` 経由に統一し、`withServiceRoleClient` 利用時はコンテキストログを付与する。
 - **一般ユーザー向けページ（`/home`, `/privacy`）ではログインユーザー情報（通知トースト、ユーザー名、認証状態など）を一切表示しない。** これらは非認証ユーザーも閲覧可能なパブリックページです。
-- **コーディング完了後はセルフレビューと改善を2回繰り返してから返信すること。**
+- **セルフレビュー**: コーディング完了後は、エージェントスキル（`self-review-protocol`）の 2 パス手順に従って品質確認を徹底し、実施結果を報告すること。
 
 ## テストと検証
 
