@@ -1,5 +1,5 @@
 ---
-name: self-review-protocol
+name: self-review
 description: コーディング完了後の「2回のセルフレビュー」手順。品質、型安全、命名規則、プロジェクト規約の遵守を保証。
 ---
 
