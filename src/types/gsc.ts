@@ -197,3 +197,53 @@ export const GSC_EVALUATION_OUTCOME_CONFIG: Record<
     className: 'bg-red-50 text-red-700 ring-red-600/20',
   },
 } as const;
+
+export interface EvaluationResultSummary {
+  processed: number;
+  improved: number;
+  advanced: number;
+  skippedNoMetrics: number;
+  skippedImportFailed: number;
+  skippedSystemError: number;
+}
+
+export interface BatchResultSummary {
+  usersProcessed: number;
+  usersAttempted: number;
+  usersSkippedDueToLimit: number;
+  stoppedReason: 'completed' | 'time_limit' | 'max_users';
+  totalEvaluations: number;
+  totalImproved: number;
+  totalAdvanced: number;
+  totalSkipped: number;
+  totalImportFailed: number;
+  totalSystemError: number;
+  errors: string[];
+}
+
+export interface GscEvaluationRow {
+  id: string;
+  user_id: string;
+  content_annotation_id: string;
+  property_uri: string;
+  current_suggestion_stage?: number | null;
+  last_evaluated_on?: string | null;
+  base_evaluation_date: string;
+  cycle_days: number;
+  evaluation_hour: number;
+  last_seen_position?: number | null;
+  status: string;
+}
+
+export interface RunEvaluationOptions {
+  /** true の場合、評価期限チェックをスキップして全評価対象を処理（手動実行用） */
+  force?: boolean;
+  /** 特定の記事のみ手動評価する場合に指定 */
+  contentAnnotationId?: string;
+  /** すでに取得済みの評価レコードを渡す場合に使用（再フェッチを避ける） */
+  evaluations?: GscEvaluationRow[];
+  /** 既に取得した現在のJST日時を渡す場合に使用（バッチと同じ基準時刻で判定するため） */
+  nowJst?: Date;
+  /** バッチ処理全体の開始時刻（タイムアウト判定用） */
+  startTime?: number;
+}

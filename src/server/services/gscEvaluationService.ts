@@ -1,55 +1,14 @@
 import { SupabaseService } from '@/server/services/supabaseService';
-import type { GscEvaluationOutcome, GscPageMetric } from '@/types/gsc';
+import type {
+  GscEvaluationOutcome,
+  GscPageMetric,
+  EvaluationResultSummary,
+  BatchResultSummary,
+  GscEvaluationRow,
+  RunEvaluationOptions,
+} from '@/types/gsc';
 import { gscSuggestionService } from '@/server/services/gscSuggestionService';
 import { gscImportService } from '@/server/services/gscImportService';
-
-interface EvaluationResultSummary {
-  processed: number;
-  improved: number;
-  advanced: number;
-  skippedNoMetrics: number;
-  skippedImportFailed: number;
-  skippedSystemError: number;
-}
-
-interface BatchResultSummary {
-  usersProcessed: number;
-  usersAttempted: number; // 試行したユーザー数
-  usersSkippedDueToLimit: number; // 制限によりスキップされたユーザー数
-  stoppedReason: 'completed' | 'time_limit' | 'max_users';
-  totalEvaluations: number;
-  totalImproved: number;
-  totalAdvanced: number;
-  totalSkipped: number;
-  totalImportFailed: number;
-  totalSystemError: number;
-  errors: string[];
-}
-
-interface EvaluationRow {
-  id: string;
-  user_id: string;
-  content_annotation_id: string;
-  property_uri: string;
-  current_suggestion_stage?: number | null;
-  last_evaluated_on?: string | null;
-  base_evaluation_date: string;
-  cycle_days: number;
-  evaluation_hour: number;
-  last_seen_position?: number | null;
-  status: string;
-}
-
-interface RunEvaluationOptions {
-  /** true の場合、評価期限チェックをスキップして全評価対象を処理（手動実行用） */
-  force?: boolean;
-  /** 特定の記事のみ手動評価する場合に指定 */
-  contentAnnotationId?: string;
-  /** すでに取得済みの評価レコードを渡す場合に使用（再フェッチを避ける） */
-  evaluations?: EvaluationRow[];
-  /** 既に取得した現在のJST日時を渡す場合に使用（バッチと同じ基準時刻で判定するため） */
-  nowJst?: Date;
-}
 
 export class GscEvaluationService {
   private readonly supabaseService = new SupabaseService();
@@ -57,12 +16,13 @@ export class GscEvaluationService {
   // バッチ処理の制限定数
   private static readonly BATCH_TIME_LIMIT_MS = 50 * 1000; // 50秒
   private static readonly MAX_USERS_PER_BATCH = 10;
+  private static readonly EVALUATION_CONCURRENCY = 3;
 
   async runDueEvaluationsForUser(
     userId: string,
     options: RunEvaluationOptions = {}
   ): Promise<EvaluationResultSummary> {
-    const { force = false, contentAnnotationId, evaluations, nowJst } = options;
+    const { force = false, contentAnnotationId, evaluations, nowJst, startTime } = options;
     const currentJst = nowJst ?? this.getNowJst();
     const todayJst = this.formatDateISO(currentJst);
     const currentHourJst = currentJst.getHours();
@@ -77,7 +37,7 @@ export class GscEvaluationService {
     };
 
     // 取得済みがあればそれを利用。なければDBからフェッチ
-    let allEvaluations: EvaluationRow[];
+    let allEvaluations: GscEvaluationRow[];
     if (evaluations) {
       allEvaluations = contentAnnotationId
         ? evaluations.filter(e => e.content_annotation_id === contentAnnotationId)
@@ -95,7 +55,7 @@ export class GscEvaluationService {
         throw new Error(evalError.message || '評価対象の取得に失敗しました');
       }
 
-      allEvaluations = (fetchedEvaluations ?? []) as EvaluationRow[];
+      allEvaluations = (fetchedEvaluations || []) as GscEvaluationRow[];
     }
 
     // force: true の場合はフィルタリングをスキップ（手動実行用）
@@ -109,12 +69,13 @@ export class GscEvaluationService {
     }
 
     // --- 効率化のキモ: ユーザー単位での一括インポート ---
-    // 評価対象全記事の中で、最も長い cycle_days を特定してインポート
-    const maxCycleDays = Math.max(...evaluationRows.map(e => e.cycle_days || 30));
-    const startDate = this.addDaysISO(todayJst, -maxCycleDays);
-
+    let bulkImportFailed = false;
     let batchHitLimit = false;
+
     try {
+      const maxCycleDays = Math.max(...evaluationRows.map(e => e.cycle_days || 30));
+      const startDate = this.addDaysISO(todayJst, -maxCycleDays);
+
       const importResult = await gscImportService.importMetrics(userId, {
         startDate,
         endDate: todayJst,
@@ -127,57 +88,54 @@ export class GscEvaluationService {
       );
     } catch (importError) {
       console.warn(
-        `[gscEvaluationService] Failed to pre-import data for user ${userId}. Proceeding with existing data if available.`,
+        `[gscEvaluationService] Failed to pre-import data for user ${userId}. Proceeding article-by-article.`,
         importError
       );
-
-      // インポート失敗を記録するが、続行して既存メトリクスでの評価を試みる
-      summary.skippedImportFailed = evaluationRows.length;
-
-      // 履歴にインポート失敗を記録（非同期で実行し、評価処理をブロックしない）
-      const historyClient = this.supabaseService.getClient();
-      Promise.allSettled(
-        evaluationRows.map(evaluation =>
-          historyClient.from('gsc_article_evaluation_history').insert({
-            user_id: userId,
-            content_annotation_id: evaluation.content_annotation_id,
-            evaluation_date: todayJst,
-            outcome_type: 'error',
-            error_code: 'import_failed',
-            error_message:
-              importError instanceof Error
-                ? importError.message
-                : 'Google Search Consoleからのデータ取得に失敗しました',
-            suggestion_applied: false,
-            created_at: new Date().toISOString(),
-          })
-        )
-      ).then(historyResults => {
-        const failedInserts = historyResults.filter(r => r.status === 'rejected');
-        if (failedInserts.length > 0) {
-          console.error(
-            `[gscEvaluationService] Failed to save ${failedInserts.length} error histories for user ${userId}`
-          );
-        }
-      });
+      bulkImportFailed = true;
     }
+
     // ------------------------------------------------
 
-    // 全ての評価を並列実行
-    const results = await Promise.allSettled(
-      evaluationRows.map(evaluation =>
-        this.processEvaluation(userId, evaluation, todayJst, batchHitLimit)
-      )
-    );
+    // 記事評価をチャンク単位で並列実行
+    // 完全な直列よりスループットを上げつつ、同時LLM呼び出し数を制御（並列数: 3）
+    const CONCURRENCY = GscEvaluationService.EVALUATION_CONCURRENCY;
+    for (let i = 0; i < evaluationRows.length; i += CONCURRENCY) {
+      // 制限時間のチェック（チャンクごと）
+      if (startTime) {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > GscEvaluationService.BATCH_TIME_LIMIT_MS) {
+          console.warn(
+            `[gscEvaluationService] Time limit reached during user ${userId} articles (${elapsed}ms). Interrupting at chunk ${i / CONCURRENCY}.`
+          );
+          break;
+        }
+      }
 
-    // 結果を集約
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        const evalResult = result.value;
+      const chunk = evaluationRows.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(
+        chunk.map(async evaluation => {
+          try {
+            return await this.processEvaluation(
+              userId,
+              evaluation,
+              todayJst,
+              batchHitLimit,
+              bulkImportFailed
+            );
+          } catch (error) {
+            console.error('[gscEvaluationService] System error during evaluation:', error);
+            void this.logSystemError(userId, evaluation.content_annotation_id, todayJst, error);
+            return { status: 'system_error' as const };
+          }
+        })
+      );
+
+      // チャンクの結果を集計
+      for (const evalResult of results) {
         if (evalResult.status === 'skipped_no_metrics') {
           summary.skippedNoMetrics += 1;
-          // インポート失敗かつメトリクスなしの場合、インポート失敗カウントを差し引く（二重カウント防止）
-          if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
+        } else if (evalResult.status === 'skipped_import_failed') {
+          summary.skippedImportFailed += 1;
         } else if (evalResult.status === 'success') {
           summary.processed += 1;
           if (evalResult.outcome === 'improved') {
@@ -185,15 +143,9 @@ export class GscEvaluationService {
           } else {
             summary.advanced += 1;
           }
-          // インポート失敗だが既存データで成功した場合、インポート失敗カウントを差し引く
-          if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
+        } else if (evalResult.status === 'system_error') {
+          summary.skippedSystemError += 1;
         }
-      } else {
-        // Promise が reject された場合（DBエラー、ロジックエラー等のシステムエラー）
-        console.error('[gscEvaluationService] System error during evaluation:', result.reason);
-        summary.skippedSystemError += 1;
-        // 分類不能なエラー発生時、インポート失敗カウントを差し引く
-        if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
       }
     }
 
@@ -201,22 +153,55 @@ export class GscEvaluationService {
   }
 
   /**
+   * システムエラーを履歴に記録（並行・待機しない）
+   */
+  private async logSystemError(
+    userId: string,
+    contentAnnotationId: string,
+    evaluationDate: string,
+    error: unknown
+  ): Promise<void> {
+    try {
+      const { error: insertError } = await this.supabaseService
+        .getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: contentAnnotationId,
+          evaluation_date: evaluationDate,
+          outcome_type: 'error',
+          error_code: 'system_error',
+          error_message: error instanceof Error ? error.message : 'システムエラーが発生しました',
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (insertError) {
+        console.error('[gscEvaluationService] Failed to save system error history:', insertError);
+      }
+    } catch (err) {
+      console.error('[gscEvaluationService] Unexpected error saving system error history:', err);
+    }
+  }
+
+  /**
    * 単一の評価を処理（並列実行用）
    */
   private async processEvaluation(
     userId: string,
-    evaluation: EvaluationRow,
+    evaluation: GscEvaluationRow,
     today: string,
-    batchHitLimit: boolean = false
+    batchHitLimit: boolean = false,
+    bulkImportFailed: boolean = false
   ): Promise<
     | { status: 'success'; outcome: GscEvaluationOutcome }
     | { status: 'skipped_import_failed' }
     | { status: 'skipped_no_metrics' }
   > {
-    // データインポートは runDueEvaluationsForUser で実行済みなので、まずは fetchLatestMetric を試行
+    // 1. 最新メトリクスの取得試行
     let metric = await this.fetchLatestMetric(userId, evaluation);
 
-    // メトリクスが見つからず、かつ一括インポートで上限に達していた場合は、個別URLで再試行
+    // 2. メトリクスが見つからず、かつバッチ上限に達していた場合はフォールバック
     if (!metric && batchHitLimit) {
       console.log(
         `[gscEvaluationService] Metric missing and batch limit hit. Fetching targeted data for: ${evaluation.id}`
@@ -225,7 +210,6 @@ export class GscEvaluationService {
       const startDate = this.addDaysISO(today, -cycleDays);
 
       try {
-        // コンテンツアノテーションに対応するURLを取得（あれば）
         const { data: annotation } = await this.supabaseService
           .getClient()
           .from('content_annotations')
@@ -250,9 +234,15 @@ export class GscEvaluationService {
       }
     }
 
+    // 3. 最終的なメトリクスチェック
     if (!metric) {
-      // 履歴にエラーを記録
-      const { error: historyInsertError } = await this.supabaseService
+      // インポート一括失敗フラグが立っている場合は import_failed、そうでなければ no_metrics
+      const errorCode = bulkImportFailed ? 'import_failed' : 'no_metrics';
+      const errorMessage = bulkImportFailed
+        ? 'GSCデータの一括インポートに失敗したため、最新の指標を取得できませんでした。'
+        : 'この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。';
+
+      const { error: historyError } = await this.supabaseService
         .getClient()
         .from('gsc_article_evaluation_history')
         .insert({
@@ -260,21 +250,20 @@ export class GscEvaluationService {
           content_annotation_id: evaluation.content_annotation_id,
           evaluation_date: today,
           outcome_type: 'error',
-          error_code: 'no_metrics',
-          error_message:
-            'この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。',
+          error_code: errorCode,
+          error_message: errorMessage,
           suggestion_applied: false,
           created_at: new Date().toISOString(),
         });
 
-      if (historyInsertError) {
+      if (historyError) {
         console.error(
-          `[gscEvaluationService] Failed to save error history for evaluation ${evaluation.id}:`,
-          historyInsertError
+          `[gscEvaluationService] Failed to save error history for ${evaluation.id}:`,
+          historyError
         );
       }
 
-      return { status: 'skipped_no_metrics' };
+      return { status: bulkImportFailed ? 'skipped_import_failed' : 'skipped_no_metrics' };
     }
 
     const lastSeen = this.toNumberOrNull(evaluation.last_seen_position);
@@ -382,7 +371,7 @@ export class GscEvaluationService {
   /** 最新の日次メトリクスを取得（content_annotation_id で直接紐付け） */
   private async fetchLatestMetric(
     userId: string,
-    evaluation: EvaluationRow
+    evaluation: GscEvaluationRow
   ): Promise<Pick<GscPageMetric, 'position' | 'date'> | null> {
     // 評価日は固定せず「最新取得済みの指標」を採用する。
     // 直近日が欠損/nullでも、最終取得日で判定できるよう null position は除外。
@@ -404,28 +393,6 @@ export class GscEvaluationService {
 
     if (!data) return null;
     return data as Pick<GscPageMetric, 'position' | 'date'>;
-  }
-
-  private judgeOutcome(lastSeen: number | null, currentPos: number): GscEvaluationOutcome {
-    if (lastSeen === null) return 'no_change';
-    if (currentPos < lastSeen) return 'improved';
-    if (currentPos > lastSeen) return 'worse';
-    return 'no_change';
-  }
-
-  private todayISO(): string {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  private addDaysISO(baseISO: string, days: number): string {
-    const base = new Date(`${baseISO}T00:00:00.000Z`);
-    base.setUTCDate(base.getUTCDate() + days);
-    return base.toISOString().slice(0, 10);
-  }
-
-  private toNumberOrNull(value: unknown): number | null {
-    const num = typeof value === 'number' ? value : Number(value);
-    return Number.isFinite(num) ? num : null;
   }
 
   /**
@@ -459,7 +426,7 @@ export class GscEvaluationService {
     console.log(`[gscEvaluationService] Running batch at JST: ${todayJst} ${currentHourJst}:00`);
 
     // 全てのアクティブな評価対象を取得
-    const { data: allEvaluations, error: evalError } = await this.supabaseService
+    const { data: fetchedData, error: evalError } = await this.supabaseService
       .getClient()
       .from('gsc_article_evaluations')
       .select('*')
@@ -469,7 +436,7 @@ export class GscEvaluationService {
       throw new Error(evalError.message || '評価対象の取得に失敗しました');
     }
 
-    const evaluations = (allEvaluations ?? []) as EvaluationRow[];
+    const evaluations = (fetchedData || []) as GscEvaluationRow[];
 
     // 次回評価予定日時に達しているものをフィルタリング
     const dueEvaluations = evaluations.filter(evaluation => {
@@ -486,11 +453,12 @@ export class GscEvaluationService {
     );
 
     // ユーザーIDでグルーピング
-    const evaluationsByUserMap = new Map<string, EvaluationRow[]>();
+    const evaluationsByUserMap = new Map<string, GscEvaluationRow[]>();
     for (const evaluation of dueEvaluations) {
-      const existing = evaluationsByUserMap.get(evaluation.user_id) ?? [];
+      const userId = evaluation.user_id;
+      const existing = evaluationsByUserMap.get(userId) || [];
       existing.push(evaluation);
-      evaluationsByUserMap.set(evaluation.user_id, existing);
+      evaluationsByUserMap.set(userId, existing);
     }
 
     // ユーザーリストを配列にしてシャッフル
@@ -541,6 +509,7 @@ export class GscEvaluationService {
         const result = await this.runDueEvaluationsForUser(userId, {
           evaluations: userEvaluations,
           nowJst,
+          startTime,
         });
 
         summary.usersProcessed += 1;
@@ -564,7 +533,7 @@ export class GscEvaluationService {
   /**
    * 評価が予定日時に達しているかどうかを判定
    */
-  private isDue(evaluation: EvaluationRow, todayJst: string, currentHourJst: number): boolean {
+  private isDue(evaluation: GscEvaluationRow, todayJst: string, currentHourJst: number): boolean {
     const cycleDays = evaluation.cycle_days || 30;
     const evaluationHour = evaluation.evaluation_hour ?? 12;
     const baseDate = evaluation.last_evaluated_on ?? evaluation.base_evaluation_date;
@@ -600,6 +569,28 @@ export class GscEvaluationService {
    */
   private formatDateISO(date: Date): string {
     return date.toISOString().slice(0, 10);
+  }
+
+  private judgeOutcome(lastSeen: number | null, currentPos: number): GscEvaluationOutcome {
+    if (lastSeen === null) return 'no_change';
+    if (currentPos < lastSeen) return 'improved';
+    if (currentPos > lastSeen) return 'worse';
+    return 'no_change';
+  }
+
+  private todayISO(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  private addDaysISO(baseISO: string, days: number): string {
+    const base = new Date(`${baseISO}T00:00:00.000Z`);
+    base.setUTCDate(base.getUTCDate() + days);
+    return base.toISOString().slice(0, 10);
+  }
+
+  private toNumberOrNull(value: unknown): number | null {
+    const num = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(num) ? num : null;
   }
 }
 
