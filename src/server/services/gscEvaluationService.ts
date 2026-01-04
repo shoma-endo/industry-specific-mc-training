@@ -14,6 +14,9 @@ interface EvaluationResultSummary {
 
 interface BatchResultSummary {
   usersProcessed: number;
+  usersAttempted: number; // 試行したユーザー数
+  usersSkippedDueToLimit: number; // 制限によりスキップされたユーザー数
+  stoppedReason: 'completed' | 'time_limit' | 'max_users';
   totalEvaluations: number;
   totalImproved: number;
   totalAdvanced: number;
@@ -50,6 +53,10 @@ interface RunEvaluationOptions {
 
 export class GscEvaluationService {
   private readonly supabaseService = new SupabaseService();
+
+  // バッチ処理の制限定数
+  private static readonly BATCH_TIME_LIMIT_MS = 50 * 1000; // 50秒
+  private static readonly MAX_USERS_PER_BATCH = 10;
 
   async runDueEvaluationsForUser(
     userId: string,
@@ -430,6 +437,9 @@ export class GscEvaluationService {
   async runAllDueEvaluations(): Promise<BatchResultSummary> {
     const summary: BatchResultSummary = {
       usersProcessed: 0,
+      usersAttempted: 0,
+      usersSkippedDueToLimit: 0,
+      stoppedReason: 'completed',
       totalEvaluations: 0,
       totalImproved: 0,
       totalAdvanced: 0,
@@ -438,6 +448,8 @@ export class GscEvaluationService {
       totalSystemError: 0,
       errors: [],
     };
+
+    const startTime = Date.now();
 
     // 現在の日本時間を取得
     const nowJst = this.getNowJst();
@@ -464,20 +476,63 @@ export class GscEvaluationService {
       return this.isDue(evaluation, todayJst, currentHourJst);
     });
 
+    if (dueEvaluations.length === 0) {
+      console.log('[gscEvaluationService] No evaluations due at this time.');
+      return summary;
+    }
+
     console.log(
       `[gscEvaluationService] Found ${dueEvaluations.length} due evaluations out of ${evaluations.length} total`
     );
 
     // ユーザーIDでグルーピング
-    const evaluationsByUser = new Map<string, EvaluationRow[]>();
+    const evaluationsByUserMap = new Map<string, EvaluationRow[]>();
     for (const evaluation of dueEvaluations) {
-      const existing = evaluationsByUser.get(evaluation.user_id) ?? [];
+      const existing = evaluationsByUserMap.get(evaluation.user_id) ?? [];
       existing.push(evaluation);
-      evaluationsByUser.set(evaluation.user_id, existing);
+      evaluationsByUserMap.set(evaluation.user_id, existing);
+    }
+
+    // ユーザーリストを配列にしてシャッフル
+    const userIds = Array.from(evaluationsByUserMap.keys());
+    for (let i = userIds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [userIds[i], userIds[j]] = [userIds[j]!, userIds[i]!];
     }
 
     // 各ユーザーの評価を実行
-    for (const [userId, userEvaluations] of evaluationsByUser) {
+    for (const userId of userIds) {
+      // 制限時間のチェック
+      const elapsed = Date.now() - startTime;
+      if (elapsed > GscEvaluationService.BATCH_TIME_LIMIT_MS) {
+        const remaining = userIds.length - summary.usersAttempted;
+        console.warn(
+          `[gscEvaluationService] Time limit reached (${elapsed}ms). ` +
+            `Stopping batch. Remaining: ${remaining} users.`
+        );
+        summary.stoppedReason = 'time_limit';
+        summary.usersSkippedDueToLimit = remaining;
+        break;
+      }
+
+      // 処理ユーザー数のチェック（試行回数で判定）
+      if (summary.usersAttempted >= GscEvaluationService.MAX_USERS_PER_BATCH) {
+        const remaining = userIds.length - summary.usersAttempted;
+        console.log(
+          `[gscEvaluationService] Max users per batch (${GscEvaluationService.MAX_USERS_PER_BATCH}) reached. ` +
+            `Stopping batch. Remaining: ${remaining} users.`
+        );
+        summary.stoppedReason = 'max_users';
+        summary.usersSkippedDueToLimit = remaining;
+        break;
+      }
+
+      summary.usersAttempted++;
+      const userEvaluations = evaluationsByUserMap.get(userId);
+      if (!userEvaluations || userEvaluations.length === 0) {
+        continue;
+      }
+
       try {
         console.log(
           `[gscEvaluationService] Processing user ${userId} with ${userEvaluations.length} evaluations`
@@ -502,6 +557,7 @@ export class GscEvaluationService {
       }
     }
 
+    console.log('[gscEvaluationService] Batch completed summary:', summary);
     return summary;
   }
 
