@@ -497,9 +497,7 @@ export class GscEvaluationService {
     const userIds = Array.from(evaluationsByUserMap.keys());
     for (let i = userIds.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      const temp = userIds[i];
-      userIds[i] = userIds[j]!;
-      userIds[j] = temp!;
+      [userIds[i], userIds[j]] = [userIds[j], userIds[i]] as [string, string];
     }
 
     // 各ユーザーの評価を実行
