@@ -9,6 +9,7 @@ interface EvaluationResultSummary {
   advanced: number;
   skippedNoMetrics: number;
   skippedImportFailed: number;
+  skippedSystemError: number;
 }
 
 interface BatchResultSummary {
@@ -18,10 +19,11 @@ interface BatchResultSummary {
   totalAdvanced: number;
   totalSkipped: number;
   totalImportFailed: number;
+  totalSystemError: number;
   errors: string[];
 }
 
-type EvaluationRow = {
+interface EvaluationRow {
   id: string;
   user_id: string;
   content_annotation_id: string;
@@ -33,7 +35,7 @@ type EvaluationRow = {
   evaluation_hour: number;
   last_seen_position?: number | null;
   status: string;
-};
+}
 
 interface RunEvaluationOptions {
   /** true の場合、評価期限チェックをスキップして全評価対象を処理（手動実行用） */
@@ -64,6 +66,7 @@ export class GscEvaluationService {
       advanced: 0,
       skippedNoMetrics: 0,
       skippedImportFailed: 0,
+      skippedSystemError: 0,
     };
 
     // 取得済みがあればそれを利用。なければDBからフェッチ
@@ -114,14 +117,17 @@ export class GscEvaluationService {
         `[gscEvaluationService] Pre-imported ${maxCycleDays} days of data for user ${userId} (${evaluationRows.length} articles)`
       );
     } catch (importError) {
-      console.error(
-        `[gscEvaluationService] Failed to pre-import data for user ${userId}:`,
+      console.warn(
+        `[gscEvaluationService] Failed to pre-import data for user ${userId}. Proceeding with existing data if available.`,
         importError
       );
 
-      // 全記事に対してエラーを記録
+      // インポート失敗を記録するが、続行して既存メトリクスでの評価を試みる
+      summary.skippedImportFailed = evaluationRows.length;
+
+      // 履歴にインポート失敗を記録（非同期で実行し、評価処理をブロックしない）
       const historyClient = this.supabaseService.getClient();
-      const historyResults = await Promise.allSettled(
+      Promise.allSettled(
         evaluationRows.map(evaluation =>
           historyClient.from('gsc_article_evaluation_history').insert({
             user_id: userId,
@@ -137,17 +143,14 @@ export class GscEvaluationService {
             created_at: new Date().toISOString(),
           })
         )
-      );
-
-      const failedInserts = historyResults.filter(r => r.status === 'rejected');
-      if (failedInserts.length > 0) {
-        console.error(
-          `[gscEvaluationService] Failed to save ${failedInserts.length} error histories for user ${userId}`
-        );
-      }
-
-      summary.skippedImportFailed = evaluationRows.length;
-      return summary;
+      ).then(historyResults => {
+        const failedInserts = historyResults.filter(r => r.status === 'rejected');
+        if (failedInserts.length > 0) {
+          console.error(
+            `[gscEvaluationService] Failed to save ${failedInserts.length} error histories for user ${userId}`
+          );
+        }
+      });
     }
     // ------------------------------------------------
 
@@ -161,9 +164,12 @@ export class GscEvaluationService {
       if (result.status === 'fulfilled') {
         const evalResult = result.value;
         if (evalResult.status === 'skipped_import_failed') {
+          // ここには来ない想定（runDueEvaluationsForUser で判定済みのため）
           summary.skippedImportFailed += 1;
         } else if (evalResult.status === 'skipped_no_metrics') {
           summary.skippedNoMetrics += 1;
+          // インポート失敗かつメトリクスなしの場合、インポート失敗カウントを差し引く（二重カウント防止）
+          if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
         } else if (evalResult.status === 'success') {
           summary.processed += 1;
           if (evalResult.outcome === 'improved') {
@@ -171,11 +177,15 @@ export class GscEvaluationService {
           } else {
             summary.advanced += 1;
           }
+          // インポート失敗だが既存データで成功した場合、インポート失敗カウントを差し引く
+          if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
         }
       } else {
-        // Promise が reject された場合（想定外のエラー）
-        console.error('[gscEvaluationService] Evaluation failed:', result.reason);
-        summary.skippedImportFailed += 1;
+        // Promise が reject された場合（DBエラー、ロジックエラー等のシステムエラー）
+        console.error('[gscEvaluationService] System error during evaluation:', result.reason);
+        summary.skippedSystemError += 1;
+        // 分類不能なエラー発生時、インポート失敗カウントを差し引く
+        if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
       }
     }
 
@@ -389,6 +399,7 @@ export class GscEvaluationService {
       totalAdvanced: 0,
       totalSkipped: 0,
       totalImportFailed: 0,
+      totalSystemError: 0,
       errors: [],
     };
 
@@ -447,6 +458,7 @@ export class GscEvaluationService {
         summary.totalAdvanced += result.advanced;
         summary.totalSkipped += result.skippedNoMetrics;
         summary.totalImportFailed += result.skippedImportFailed;
+        summary.totalSystemError += result.skippedSystemError;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[gscEvaluationService] Error processing user ${userId}:`, message);
