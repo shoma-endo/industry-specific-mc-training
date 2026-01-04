@@ -78,7 +78,7 @@ const getAuthUserId = async () => {
 export async function fetchGscStatus() {
   const { userId, error } = await getAuthUserId();
   if (error || !userId) {
-    return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
   const credential = await supabaseService.getGscCredentialByUserId(userId);
   const status = toGscConnectionStatus(credential);
