@@ -495,6 +495,7 @@ export class GscEvaluationService {
     }
 
     // 各ユーザーの評価を実行
+    let usersAttempted = 0;
     for (const userId of userIds) {
       // 制限時間のチェック
       const elapsed = Date.now() - startTime;
@@ -503,14 +504,15 @@ export class GscEvaluationService {
         break;
       }
 
-      // 処理ユーザー数のチェック
-      if (summary.usersProcessed >= MAX_USERS_PER_BATCH) {
+      // 処理ユーザー数のチェック（試行回数で判定）
+      if (usersAttempted >= MAX_USERS_PER_BATCH) {
         console.log(
           `[gscEvaluationService] Max users per batch (${MAX_USERS_PER_BATCH}) reached. Stopping batch.`
         );
         break;
       }
 
+      usersAttempted++;
       const userEvaluations = evaluationsByUserMap.get(userId)!;
       try {
         console.log(
