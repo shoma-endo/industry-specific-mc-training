@@ -1,55 +1,14 @@
 import { SupabaseService } from '@/server/services/supabaseService';
-import type { GscEvaluationOutcome, GscPageMetric } from '@/types/gsc';
+import type {
+  GscEvaluationOutcome,
+  GscPageMetric,
+  EvaluationResultSummary,
+  BatchResultSummary,
+  GscEvaluationRow,
+  RunEvaluationOptions,
+} from '@/types/gsc';
 import { gscSuggestionService } from '@/server/services/gscSuggestionService';
 import { gscImportService } from '@/server/services/gscImportService';
-
-interface EvaluationResultSummary {
-  processed: number;
-  improved: number;
-  advanced: number;
-  skippedNoMetrics: number;
-  skippedImportFailed: number;
-  skippedSystemError: number;
-}
-
-interface BatchResultSummary {
-  usersProcessed: number;
-  usersAttempted: number; // 試行したユーザー数
-  usersSkippedDueToLimit: number; // 制限によりスキップされたユーザー数
-  stoppedReason: 'completed' | 'time_limit' | 'max_users';
-  totalEvaluations: number;
-  totalImproved: number;
-  totalAdvanced: number;
-  totalSkipped: number;
-  totalImportFailed: number;
-  totalSystemError: number;
-  errors: string[];
-}
-
-interface EvaluationRow {
-  id: string;
-  user_id: string;
-  content_annotation_id: string;
-  property_uri: string;
-  current_suggestion_stage?: number | null;
-  last_evaluated_on?: string | null;
-  base_evaluation_date: string;
-  cycle_days: number;
-  evaluation_hour: number;
-  last_seen_position?: number | null;
-  status: string;
-}
-
-interface RunEvaluationOptions {
-  /** true の場合、評価期限チェックをスキップして全評価対象を処理（手動実行用） */
-  force?: boolean;
-  /** 特定の記事のみ手動評価する場合に指定 */
-  contentAnnotationId?: string;
-  /** すでに取得済みの評価レコードを渡す場合に使用（再フェッチを避ける） */
-  evaluations?: EvaluationRow[];
-  /** 既に取得した現在のJST日時を渡す場合に使用（バッチと同じ基準時刻で判定するため） */
-  nowJst?: Date;
-}
 
 export class GscEvaluationService {
   private readonly supabaseService = new SupabaseService();
@@ -62,7 +21,7 @@ export class GscEvaluationService {
     userId: string,
     options: RunEvaluationOptions = {}
   ): Promise<EvaluationResultSummary> {
-    const { force = false, contentAnnotationId, evaluations, nowJst } = options;
+    const { force = false, contentAnnotationId, evaluations, nowJst, startTime } = options;
     const currentJst = nowJst ?? this.getNowJst();
     const todayJst = this.formatDateISO(currentJst);
     const currentHourJst = currentJst.getHours();
@@ -77,7 +36,7 @@ export class GscEvaluationService {
     };
 
     // 取得済みがあればそれを利用。なければDBからフェッチ
-    let allEvaluations: EvaluationRow[];
+    let allEvaluations: GscEvaluationRow[];
     if (evaluations) {
       allEvaluations = contentAnnotationId
         ? evaluations.filter(e => e.content_annotation_id === contentAnnotationId)
@@ -95,7 +54,7 @@ export class GscEvaluationService {
         throw new Error(evalError.message || '評価対象の取得に失敗しました');
       }
 
-      allEvaluations = (fetchedEvaluations ?? []) as EvaluationRow[];
+      allEvaluations = (fetchedEvaluations ?? []) as GscEvaluationRow[];
     }
 
     // force: true の場合はフィルタリングをスキップ（手動実行用）
@@ -163,20 +122,30 @@ export class GscEvaluationService {
     }
     // ------------------------------------------------
 
-    // 全ての評価を並列実行
-    const results = await Promise.allSettled(
-      evaluationRows.map(evaluation =>
-        this.processEvaluation(userId, evaluation, todayJst, batchHitLimit)
-      )
-    );
+    // 記事評価を直列（シーケンシャル）に実行
+    // Promise.allSettled による並列実行は、LLM呼び出しの急増とタイムアウトの原因になるため廃止
+    for (const evaluation of evaluationRows) {
+      // 制限時間のチェック（記事ごと）
+      if (startTime) {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > GscEvaluationService.BATCH_TIME_LIMIT_MS) {
+          console.warn(
+            `[gscEvaluationService] Time limit reached during user ${userId} articles (${elapsed}ms). Interrupting.`
+          );
+          break;
+        }
+      }
 
-    // 結果を集約
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        const evalResult = result.value;
+      try {
+        const evalResult = await this.processEvaluation(
+          userId,
+          evaluation,
+          todayJst,
+          batchHitLimit
+        );
+
         if (evalResult.status === 'skipped_no_metrics') {
           summary.skippedNoMetrics += 1;
-          // インポート失敗かつメトリクスなしの場合、インポート失敗カウントを差し引く（二重カウント防止）
           if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
         } else if (evalResult.status === 'success') {
           summary.processed += 1;
@@ -185,15 +154,35 @@ export class GscEvaluationService {
           } else {
             summary.advanced += 1;
           }
-          // インポート失敗だが既存データで成功した場合、インポート失敗カウントを差し引く
           if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
         }
-      } else {
-        // Promise が reject された場合（DBエラー、ロジックエラー等のシステムエラー）
-        console.error('[gscEvaluationService] System error during evaluation:', result.reason);
+      } catch (error) {
+        console.error('[gscEvaluationService] System error during evaluation:', error);
         summary.skippedSystemError += 1;
-        // 分類不能なエラー発生時、インポート失敗カウントを差し引く
         if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
+
+        // システムエラーを履歴に記録（並列・待機しない）
+        this.supabaseService
+          .getClient()
+          .from('gsc_article_evaluation_history')
+          .insert({
+            user_id: userId,
+            content_annotation_id: evaluation.content_annotation_id,
+            evaluation_date: todayJst,
+            outcome_type: 'error',
+            error_code: 'system_error',
+            error_message: error instanceof Error ? error.message : 'システムエラーが発生しました',
+            suggestion_applied: false,
+            created_at: new Date().toISOString(),
+          })
+          .then(({ error: insertError }) => {
+            if (insertError) {
+              console.error(
+                '[gscEvaluationService] Failed to save system error history:',
+                insertError
+              );
+            }
+          });
       }
     }
 
@@ -205,7 +194,7 @@ export class GscEvaluationService {
    */
   private async processEvaluation(
     userId: string,
-    evaluation: EvaluationRow,
+    evaluation: GscEvaluationRow,
     today: string,
     batchHitLimit: boolean = false
   ): Promise<
@@ -382,7 +371,7 @@ export class GscEvaluationService {
   /** 最新の日次メトリクスを取得（content_annotation_id で直接紐付け） */
   private async fetchLatestMetric(
     userId: string,
-    evaluation: EvaluationRow
+    evaluation: GscEvaluationRow
   ): Promise<Pick<GscPageMetric, 'position' | 'date'> | null> {
     // 評価日は固定せず「最新取得済みの指標」を採用する。
     // 直近日が欠損/nullでも、最終取得日で判定できるよう null position は除外。
@@ -469,7 +458,7 @@ export class GscEvaluationService {
       throw new Error(evalError.message || '評価対象の取得に失敗しました');
     }
 
-    const evaluations = (allEvaluations ?? []) as EvaluationRow[];
+    const evaluations = (allEvaluations ?? []) as GscEvaluationRow[];
 
     // 次回評価予定日時に達しているものをフィルタリング
     const dueEvaluations = evaluations.filter(evaluation => {
@@ -486,7 +475,7 @@ export class GscEvaluationService {
     );
 
     // ユーザーIDでグルーピング
-    const evaluationsByUserMap = new Map<string, EvaluationRow[]>();
+    const evaluationsByUserMap = new Map<string, GscEvaluationRow[]>();
     for (const evaluation of dueEvaluations) {
       const existing = evaluationsByUserMap.get(evaluation.user_id) ?? [];
       existing.push(evaluation);
@@ -541,6 +530,7 @@ export class GscEvaluationService {
         const result = await this.runDueEvaluationsForUser(userId, {
           evaluations: userEvaluations,
           nowJst,
+          startTime,
         });
 
         summary.usersProcessed += 1;
@@ -564,7 +554,7 @@ export class GscEvaluationService {
   /**
    * 評価が予定日時に達しているかどうかを判定
    */
-  private isDue(evaluation: EvaluationRow, todayJst: string, currentHourJst: number): boolean {
+  private isDue(evaluation: GscEvaluationRow, todayJst: string, currentHourJst: number): boolean {
     const cycleDays = evaluation.cycle_days || 30;
     const evaluationHour = evaluation.evaluation_hour ?? 12;
     const baseDate = evaluation.last_evaluated_on ?? evaluation.base_evaluation_date;
