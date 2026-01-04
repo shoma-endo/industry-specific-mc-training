@@ -16,6 +16,7 @@ export class GscEvaluationService {
   // バッチ処理の制限定数
   private static readonly BATCH_TIME_LIMIT_MS = 50 * 1000; // 50秒
   private static readonly MAX_USERS_PER_BATCH = 10;
+  private static readonly EVALUATION_CONCURRENCY = 3;
 
   async runDueEvaluationsForUser(
     userId: string,
@@ -54,7 +55,7 @@ export class GscEvaluationService {
         throw new Error(evalError.message || '評価対象の取得に失敗しました');
       }
 
-      allEvaluations = (fetchedEvaluations ?? []) as GscEvaluationRow[];
+      allEvaluations = (fetchedEvaluations || []) as GscEvaluationRow[];
     }
 
     // force: true の場合はフィルタリングをスキップ（手動実行用）
@@ -97,7 +98,7 @@ export class GscEvaluationService {
 
     // 記事評価をチャンク単位で並列実行
     // 完全な直列よりスループットを上げつつ、同時LLM呼び出し数を制御（並列数: 3）
-    const CONCURRENCY = 3;
+    const CONCURRENCY = GscEvaluationService.EVALUATION_CONCURRENCY;
     for (let i = 0; i < evaluationRows.length; i += CONCURRENCY) {
       // 制限時間のチェック（チャンクごと）
       if (startTime) {
@@ -123,37 +124,7 @@ export class GscEvaluationService {
             );
           } catch (error) {
             console.error('[gscEvaluationService] System error during evaluation:', error);
-            // システムエラーを履歴に記録（並列・待機しない）
-            void (async () => {
-              try {
-                const { error: insertError } = await this.supabaseService
-                  .getClient()
-                  .from('gsc_article_evaluation_history')
-                  .insert({
-                    user_id: userId,
-                    content_annotation_id: evaluation.content_annotation_id,
-                    evaluation_date: todayJst,
-                    outcome_type: 'error',
-                    error_code: 'system_error',
-                    error_message:
-                      error instanceof Error ? error.message : 'システムエラーが発生しました',
-                    suggestion_applied: false,
-                    created_at: new Date().toISOString(),
-                  });
-
-                if (insertError) {
-                  console.error(
-                    '[gscEvaluationService] Failed to save system error history:',
-                    insertError
-                  );
-                }
-              } catch (err) {
-                console.error(
-                  '[gscEvaluationService] Unexpected error saving system error history:',
-                  err
-                );
-              }
-            })();
+            void this.logSystemError(userId, evaluation.content_annotation_id, todayJst, error);
             return { status: 'system_error' as const };
           }
         })
@@ -179,6 +150,38 @@ export class GscEvaluationService {
     }
 
     return summary;
+  }
+
+  /**
+   * システムエラーを履歴に記録（並行・待機しない）
+   */
+  private async logSystemError(
+    userId: string,
+    contentAnnotationId: string,
+    evaluationDate: string,
+    error: unknown
+  ): Promise<void> {
+    try {
+      const { error: insertError } = await this.supabaseService
+        .getClient()
+        .from('gsc_article_evaluation_history')
+        .insert({
+          user_id: userId,
+          content_annotation_id: contentAnnotationId,
+          evaluation_date: evaluationDate,
+          outcome_type: 'error',
+          error_code: 'system_error',
+          error_message: error instanceof Error ? error.message : 'システムエラーが発生しました',
+          suggestion_applied: false,
+          created_at: new Date().toISOString(),
+        });
+
+      if (insertError) {
+        console.error('[gscEvaluationService] Failed to save system error history:', insertError);
+      }
+    } catch (err) {
+      console.error('[gscEvaluationService] Unexpected error saving system error history:', err);
+    }
   }
 
   /**
@@ -392,28 +395,6 @@ export class GscEvaluationService {
     return data as Pick<GscPageMetric, 'position' | 'date'>;
   }
 
-  private judgeOutcome(lastSeen: number | null, currentPos: number): GscEvaluationOutcome {
-    if (lastSeen === null) return 'no_change';
-    if (currentPos < lastSeen) return 'improved';
-    if (currentPos > lastSeen) return 'worse';
-    return 'no_change';
-  }
-
-  private todayISO(): string {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  private addDaysISO(baseISO: string, days: number): string {
-    const base = new Date(`${baseISO}T00:00:00.000Z`);
-    base.setUTCDate(base.getUTCDate() + days);
-    return base.toISOString().slice(0, 10);
-  }
-
-  private toNumberOrNull(value: unknown): number | null {
-    const num = typeof value === 'number' ? value : Number(value);
-    return Number.isFinite(num) ? num : null;
-  }
-
   /**
    * 次回評価予定日時に達した全ユーザーの評価を実行（Cron バッチ用）
    *
@@ -445,7 +426,7 @@ export class GscEvaluationService {
     console.log(`[gscEvaluationService] Running batch at JST: ${todayJst} ${currentHourJst}:00`);
 
     // 全てのアクティブな評価対象を取得
-    const { data: allEvaluations, error: evalError } = await this.supabaseService
+    const { data: fetchedData, error: evalError } = await this.supabaseService
       .getClient()
       .from('gsc_article_evaluations')
       .select('*')
@@ -455,7 +436,7 @@ export class GscEvaluationService {
       throw new Error(evalError.message || '評価対象の取得に失敗しました');
     }
 
-    const evaluations = (allEvaluations ?? []) as GscEvaluationRow[];
+    const evaluations = (fetchedData || []) as GscEvaluationRow[];
 
     // 次回評価予定日時に達しているものをフィルタリング
     const dueEvaluations = evaluations.filter(evaluation => {
@@ -474,9 +455,10 @@ export class GscEvaluationService {
     // ユーザーIDでグルーピング
     const evaluationsByUserMap = new Map<string, GscEvaluationRow[]>();
     for (const evaluation of dueEvaluations) {
-      const existing = evaluationsByUserMap.get(evaluation.user_id) ?? [];
+      const userId = evaluation.user_id;
+      const existing = evaluationsByUserMap.get(userId) || [];
       existing.push(evaluation);
-      evaluationsByUserMap.set(evaluation.user_id, existing);
+      evaluationsByUserMap.set(userId, existing);
     }
 
     // ユーザーリストを配列にしてシャッフル
@@ -587,6 +569,28 @@ export class GscEvaluationService {
    */
   private formatDateISO(date: Date): string {
     return date.toISOString().slice(0, 10);
+  }
+
+  private judgeOutcome(lastSeen: number | null, currentPos: number): GscEvaluationOutcome {
+    if (lastSeen === null) return 'no_change';
+    if (currentPos < lastSeen) return 'improved';
+    if (currentPos > lastSeen) return 'worse';
+    return 'no_change';
+  }
+
+  private todayISO(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  private addDaysISO(baseISO: string, days: number): string {
+    const base = new Date(`${baseISO}T00:00:00.000Z`);
+    base.setUTCDate(base.getUTCDate() + days);
+    return base.toISOString().slice(0, 10);
+  }
+
+  private toNumberOrNull(value: unknown): number | null {
+    const num = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(num) ? num : null;
   }
 }
 
