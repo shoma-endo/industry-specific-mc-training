@@ -439,6 +439,10 @@ export class GscEvaluationService {
       errors: [],
     };
 
+    const startTime = Date.now();
+    const TIME_LIMIT_MS = 50 * 1000; // 50秒でタイムアウト（Vercelのデフォルト60秒を想定）
+    const MAX_USERS_PER_BATCH = 10; // 1回のリクエストで最大10ユーザー
+
     // 現在の日本時間を取得
     const nowJst = this.getNowJst();
     const todayJst = this.formatDateISO(nowJst);
@@ -464,20 +468,48 @@ export class GscEvaluationService {
       return this.isDue(evaluation, todayJst, currentHourJst);
     });
 
+    if (dueEvaluations.length === 0) {
+      console.log('[gscEvaluationService] No evaluations due at this time.');
+      return summary;
+    }
+
     console.log(
       `[gscEvaluationService] Found ${dueEvaluations.length} due evaluations out of ${evaluations.length} total`
     );
 
     // ユーザーIDでグルーピング
-    const evaluationsByUser = new Map<string, EvaluationRow[]>();
+    const evaluationsByUserMap = new Map<string, EvaluationRow[]>();
     for (const evaluation of dueEvaluations) {
-      const existing = evaluationsByUser.get(evaluation.user_id) ?? [];
+      const existing = evaluationsByUserMap.get(evaluation.user_id) ?? [];
       existing.push(evaluation);
-      evaluationsByUser.set(evaluation.user_id, existing);
+      evaluationsByUserMap.set(evaluation.user_id, existing);
+    }
+
+    // ユーザーリストを配列にしてシャッフル
+    const userIds = Array.from(evaluationsByUserMap.keys());
+    for (let i = userIds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [userIds[i], userIds[j]] = [userIds[j], userIds[i]];
     }
 
     // 各ユーザーの評価を実行
-    for (const [userId, userEvaluations] of evaluationsByUser) {
+    for (const userId of userIds) {
+      // 制限時間のチェック
+      const elapsed = Date.now() - startTime;
+      if (elapsed > TIME_LIMIT_MS) {
+        console.warn(`[gscEvaluationService] Time limit reached (${elapsed}ms). Stopping batch.`);
+        break;
+      }
+
+      // 処理ユーザー数のチェック
+      if (summary.usersProcessed >= MAX_USERS_PER_BATCH) {
+        console.log(
+          `[gscEvaluationService] Max users per batch (${MAX_USERS_PER_BATCH}) reached. Stopping batch.`
+        );
+        break;
+      }
+
+      const userEvaluations = evaluationsByUserMap.get(userId)!;
       try {
         console.log(
           `[gscEvaluationService] Processing user ${userId} with ${userEvaluations.length} evaluations`
@@ -502,6 +534,7 @@ export class GscEvaluationService {
       }
     }
 
+    console.log('[gscEvaluationService] Batch completed summary:', summary);
     return summary;
   }
 
