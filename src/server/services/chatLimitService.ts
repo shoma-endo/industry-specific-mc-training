@@ -20,7 +20,10 @@ function getCurrentJstRange() {
   const fromUtcMs = startOfJstUtcMs - JST_OFFSET_MS;
   const toUtcMs = fromUtcMs + 24 * 60 * 60 * 1000;
 
-  return { fromUtcMs, toUtcMs };
+  return {
+    fromUtcIso: new Date(fromUtcMs).toISOString(),
+    toUtcIso: new Date(toUtcMs).toISOString(),
+  };
 }
 
 /**
@@ -32,8 +35,8 @@ export async function checkTrialDailyLimit(role: UserRole, userId: string): Prom
   }
 
   const supabase = new SupabaseService();
-  const { fromUtcMs, toUtcMs } = getCurrentJstRange();
-  const sentCountResult = await supabase.countUserMessagesBetween(userId, fromUtcMs, toUtcMs);
+  const { fromUtcIso, toUtcIso } = getCurrentJstRange();
+  const sentCountResult = await supabase.countUserMessagesBetween(userId, fromUtcIso, toUtcIso);
 
   if (!sentCountResult.success) {
     console.warn('[ChatLimitService] Daily limit check failed:', sentCountResult.error);

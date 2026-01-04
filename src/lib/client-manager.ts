@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { env } from '@/env';
+import type { Database } from '@/types/database.types';
 
 /**
  * SupabaseClientManager: Supabaseクライアントをシングルトンで管理
@@ -7,8 +8,8 @@ import { env } from '@/env';
  */
 export class SupabaseClientManager {
   private static instance: SupabaseClientManager;
-  private client: SupabaseClient | null = null;
-  private serviceRoleClient: SupabaseClient | null = null;
+  private client: SupabaseClient<Database> | null = null;
+  private serviceRoleClient: SupabaseClient<Database> | null = null;
 
   private constructor() {}
 
@@ -27,9 +28,9 @@ export class SupabaseClientManager {
    * 接続プール設定とパフォーマンス最適化を含む
    * 注意: クライアントサイドではANON_KEYを使用（SERVICE_ROLEは使用不可）
    */
-  public getClient(): SupabaseClient {
+  public getClient(): SupabaseClient<Database> {
     if (!this.client) {
-      this.client = createClient(
+      this.client = createClient<Database>(
         env.NEXT_PUBLIC_SUPABASE_URL,
         env.NEXT_PUBLIC_SUPABASE_ANON_KEY, // SERVICE_ROLEではなくANON_KEYを使用
         {
@@ -62,13 +63,13 @@ export class SupabaseClientManager {
    * 管理者機能でのみ使用（RLSをバイパス）
    * 注意: サーバーサイドでのみ使用可能
    */
-  public getServiceRoleClient(): SupabaseClient {
+  public getServiceRoleClient(): SupabaseClient<Database> {
     if (typeof window !== 'undefined') {
       throw new Error('Service role client cannot be used on the client side');
     }
 
     if (!this.serviceRoleClient) {
-      this.serviceRoleClient = createClient(
+      this.serviceRoleClient = createClient<Database>(
         env.NEXT_PUBLIC_SUPABASE_URL,
         env.SUPABASE_SERVICE_ROLE,
         {

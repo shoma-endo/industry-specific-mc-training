@@ -10,6 +10,7 @@ import { userService } from '@/server/services/userService';
 import type { UserRole } from '@/types/user';
 import { z } from 'zod';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { parseTimestampOrNull } from '@/lib/timestamps';
 import {
   continueChatSchema,
   startChatSchema,
@@ -25,19 +26,6 @@ import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 async function isOwnerViewMode(): Promise<boolean> {
   return (await cookies()).get('owner_view_mode')?.value === '1';
 }
-
-// メッセージ保存関連のスキーマ
-const saveMessageSchema = z.object({
-  messageId: z.string(),
-  liffAccessToken: z.string(),
-});
-
-const unsaveMessageSchema = saveMessageSchema;
-
-const getSavedIdsSchema = z.object({
-  sessionId: z.string(),
-  liffAccessToken: z.string(),
-});
 
 const updateChatSessionTitleSchema = z.object({
   sessionId: z.string(),
@@ -202,7 +190,7 @@ export async function getLatestBlogStep7MessageBySession(
   liffAccessToken: string
 ): Promise<
   | { success: false; error: string }
-  | { success: true; data: { content: string; createdAt: number } | null }
+  | { success: true; data: { content: string; createdAt: string } | null }
 > {
   if (!sessionId) {
     return { success: false as const, error: ERROR_MESSAGES.CHAT.SESSION_ID_REQUIRED };
@@ -229,11 +217,20 @@ export async function getLatestBlogStep7MessageBySession(
     return { success: true as const, data: null };
   }
 
+  const createdAt = parseTimestampOrNull(result.data.created_at);
+  if (createdAt === null) {
+    console.error('[getLatestBlogStep7MessageBySession] Invalid created_at', {
+      sessionId,
+      createdAt: result.data.created_at,
+    });
+    return { success: false as const, error: 'タイムスタンプの解析に失敗しました' };
+  }
+
   return {
     success: true as const,
     data: {
       content: result.data.content,
-      createdAt: result.data.created_at,
+      createdAt,
     },
   };
 }
@@ -323,83 +320,6 @@ export async function updateChatSessionTitle(
   return { success: true, error: null };
 }
 
-// === メッセージ保存関連のサーバーアクション ===
-
-export async function saveMessage(data: z.infer<typeof saveMessageSchema>) {
-  const { messageId, liffAccessToken } = saveMessageSchema.parse(data);
-  const auth = await checkAuth(liffAccessToken);
-  if (auth.isError) {
-    return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
-  }
-
-  const supabase = new SupabaseService();
-  const saveResult = await supabase.setMessageSaved(auth.userId, messageId, true);
-
-  if (!saveResult.success) {
-    return { success: false, error: saveResult.error.userMessage };
-  }
-
-  return { success: true };
-}
-
-export async function unsaveMessage(data: z.infer<typeof unsaveMessageSchema>) {
-  const { messageId, liffAccessToken } = unsaveMessageSchema.parse(data);
-  const auth = await checkAuth(liffAccessToken);
-  if (auth.isError) {
-    return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
-  }
-
-  const supabase = new SupabaseService();
-  const unsaveResult = await supabase.setMessageSaved(auth.userId, messageId, false);
-
-  if (!unsaveResult.success) {
-    return { success: false, error: unsaveResult.error.userMessage };
-  }
-
-  return { success: true };
-}
-
-export async function getSavedMessageIds(data: z.infer<typeof getSavedIdsSchema>) {
-  const { sessionId, liffAccessToken } = getSavedIdsSchema.parse(data);
-  const isViewMode = await isOwnerViewMode();
-  const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
-  if (auth.isError) {
-    return { ids: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
-  }
-
-  const supabase = new SupabaseService();
-  const idsResult = await supabase.getSavedMessageIdsBySession(auth.userId, sessionId);
-
-  if (!idsResult.success) {
-    return {
-      ids: [],
-      error: idsResult.error.userMessage,
-    };
-  }
-
-  return { ids: idsResult.data, error: null };
-}
-
-export async function getAllSavedMessages(liffAccessToken: string) {
-  const isViewMode = await isOwnerViewMode();
-  const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
-  if (auth.isError) {
-    return { items: [], error: auth.error, requiresSubscription: auth.requiresSubscription };
-  }
-
-  const supabase = new SupabaseService();
-  const itemsResult = await supabase.getAllSavedMessages(auth.userId);
-
-  if (!itemsResult.success) {
-    return {
-      items: [],
-      error: itemsResult.error.userMessage,
-    };
-  }
-
-  return { items: itemsResult.data, error: null };
-}
-
 // === Server Action aliases (for client-side import) ===
 export const startChatSA = startChat;
 export const continueChatSA = continueChat;
@@ -408,7 +328,3 @@ export const getSessionMessagesSA = getSessionMessages;
 export const deleteChatSessionSA = deleteChatSession;
 export const updateChatSessionTitleSA = updateChatSessionTitle;
 export const searchChatSessionsSA = searchChatSessions;
-export const saveMessageSA = saveMessage;
-export const unsaveMessageSA = unsaveMessage;
-export const getSavedMessageIdsSA = getSavedMessageIds;
-export const getAllSavedMessagesSA = getAllSavedMessages;

@@ -49,7 +49,7 @@ If an error occurs during execution or the plan fails:
 
 必ず日本語で回答してください。作業完了前にローカルで可能な検証（`npm run lint` 等）を実行し、必要に応じて `npx ccusage@latest` で Anthropic API のコストを確認してください。
 
-**主要スタック**: Next.js 15.5.7 (App Router) / React 19.2.1 / TypeScript 5.9.3 / Tailwind CSS v4 / Supabase / Stripe / Anthropic Claude Sonnet 4.5
+**主要スタック**: Next.js 15.5.9 (App Router) / React 19.2.3 / TypeScript 5.9.3 / Tailwind CSS v4 / Supabase / Stripe / Anthropic Claude Sonnet 4.5
 
 ---
 
@@ -160,7 +160,7 @@ If an error occurs during execution or the plan fails:
 ## テストと検証
 
 - 自動テストは未整備。動作確認は `npm run dev` での手動検証と API 叩きで行う。
-- auth や Stripe 周りの改修では `/app/page.tsx` や `/subscription` の UI フローまで確認する。
+- auth や Stripe 周りの改修では `/app/page.tsx` と購入導線の UI フローまで確認する。
 - WordPress 連携変更時は `/app/analytics` と `AnnotationPanel` の表示・保存動作を手動で確認。
 - GSC 連携変更時は `/app/gsc-dashboard` と `/app/gsc-import` の表示・動作を手動で確認。
 - マイグレーション追加時は `supabase db push` 実行とロールバック方針を README / PR で共有する。
@@ -178,11 +178,10 @@ If an error occurs during execution or the plan fails:
 
 ## 外部サービスと環境変数
 
-- `.env.local` に 18 個の環境変数を設定（必須14、オプション4。詳細は README 参照）。Stripe を無効化したい場合もダミー値を入れる。
-- WordPress.com OAuth を使う場合は `WORDPRESS_COM_*`, `COOKIE_SECRET`, `OAUTH_*` を忘れずに。
-- GSC 連携を使う場合は `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` を設定。
-- `GSC_EVALUATION_INTERVAL_DAYS` で記事評価の実行間隔（日数）を設定可能（デフォルト: 30日）。
-- `FEATURE_RPC_V2=true` で新しい Supabase RPC を有効化。デフォルトは `false`。
+- `.env.local` に 22 個の環境変数を設定（必須12、オプション10。詳細は README 参照）。Stripe を無効化したい場合もダミー値を入れる。
+- WordPress.com OAuth を使う場合は `WORDPRESS_COM_CLIENT_ID`, `WORDPRESS_COM_CLIENT_SECRET`, `WORDPRESS_COM_REDIRECT_URI`, `COOKIE_SECRET` を設定する。
+- GSC 連携を使う場合は `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` を設定する。
+- `CRON_SECRET` を設定して `/api/cron/gsc-evaluate` を外部スケジューラから実行する。
 - LIFF と Stripe は sandbox／本番でキーを切り替える。
 
 ## トラブルシューティングのヒント

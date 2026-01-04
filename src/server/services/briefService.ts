@@ -5,8 +5,8 @@ export interface Brief {
   id: string;
   user_id: string;
   data: Record<string, string>;
-  created_at: number;
-  updated_at: number;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export class BriefService {
@@ -36,7 +36,22 @@ export class BriefService {
         return null;
       }
 
-      return data as Brief;
+      // dataフィールドをJson型からRecord<string, string>に変換
+      const briefData: Record<string, string> =
+        data.data &&
+        typeof data.data === 'object' &&
+        !Array.isArray(data.data) &&
+        data.data !== null
+          ? (data.data as Record<string, string>)
+          : {};
+
+      return {
+        id: data.id,
+        user_id: data.user_id,
+        data: briefData,
+        created_at: data.created_at ?? null,
+        updated_at: data.updated_at ?? null,
+      };
     } catch (error) {
       console.error('Brief取得例外:', error);
       return null;

@@ -214,9 +214,9 @@ export async function POST(request: NextRequest) {
 
     const assistantContent = markdown.trim();
 
-    const now = Date.now();
+    const nowIso = new Date().toISOString();
     const updateSessionResult = await supabaseService.updateChatSession(sessionId, userId, {
-      last_message_at: now,
+      last_message_at: nowIso,
     });
 
     if (!updateSessionResult.success) {
@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
       role: 'assistant' as const,
       content: assistantContent,
       model: 'blog_creation_step7',
-      created_at: now,
+      created_at: nowIso,
     };
 
     const createAssistantResult = await supabaseService.createChatMessage(assistantDbMessage);
