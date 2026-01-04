@@ -108,7 +108,7 @@ If an error occurs during execution or the plan fails:
 - Tailwind CSS でスタイルを記述し、冗長なユーティリティクラスは `cva` などで整理します。
 - React コンポーネント・カスタムフックは PascalCase / camelCase を徹底。サーバー専用ファイルは `.server.ts` / `.actions.ts` を語尾に付けます。
 - 既存の hooks/service クラス（`ChatService`, `SubscriptionService` 等）を流用し、重複実装を避けてください。
-- Supabase 呼び出しは `src/server/services/SupabaseService` 経由に統一し、直接 `createClient` を増やさないこと。
+- **Supabase 実装**: アプリ全域の Supabase 利用ルール（サービス層の統一、Service Role の使い分け、ログ付与等）は、エージェントスキル（`supabase-service-usage`）に集約されています。直接の `createClient` 等は避け、常にスキルに従ってください。
 - **一般ユーザー向けページ（`/home`, `/privacy`）ではログインユーザー情報（通知トースト、ユーザー名、認証状態など）を一切表示しない。** これらは非認証ユーザーも閲覧可能なパブリックページです。
 - **セルフレビュー**: コーディング完了後は、エージェントスキル（`self-review-protocol`）の 2 パス手順に従って品質確認を徹底し、実施結果を報告すること。
 
