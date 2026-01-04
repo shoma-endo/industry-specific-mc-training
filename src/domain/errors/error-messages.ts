@@ -37,7 +37,7 @@ export const ERROR_MESSAGES = {
       'WordPress投稿の取得に失敗しました。設定ダッシュボードで接続設定を確認してください。',
 
     /** WordPress投稿取得エラー（HTTPステータス付き） */
-    POSTS_FETCH_ERROR_HTTP: (status: number, errorText: string) =>
+    POSTS_FETCH_ERROR_HTTP: (status: number, errorText: string): string =>
       `WordPress投稿取得エラー: HTTP ${status} ${errorText}`,
 
     /** 接続テスト中のエラー */
@@ -78,7 +78,7 @@ export const ERROR_MESSAGES = {
       'このWordPress記事URLは別のコンテンツで既に登録されています',
 
     /** 既存アノテーション取得エラー */
-    ANNOTATION_FETCH_ERROR: (message: string) => `既存アノテーション取得エラー: ${message}`,
+    ANNOTATION_FETCH_ERROR: (message: string): string => `既存アノテーション取得エラー: ${message}`,
 
     /** WordPressコンテンツの取得中にエラーが発生 */
     CONTENT_FETCH_ERROR: 'WordPressコンテンツの取得中にエラーが発生しました',
@@ -87,7 +87,7 @@ export const ERROR_MESSAGES = {
     IMPORT_ERROR: 'インポート処理中にエラーが発生しました',
 
     /** 全ての更新が失敗した場合 */
-    ALL_UPDATES_FAILED: (failures: string[]) =>
+    ALL_UPDATES_FAILED: (failures: string[]): string =>
       `全ての更新が失敗しました: ${failures.slice(0, 3).join('; ')}${
         failures.length > 3 ? '...' : ''
       }`,
@@ -393,7 +393,7 @@ export const ERROR_MESSAGES = {
     VALIDATION_FAILED: 'プロンプトの検証に失敗しました',
 
     /** 入力データが不正な場合 */
-    INVALID_INPUT: (errors: string[]) => `入力データが不正です: ${errors.join(', ')}`,
+    INVALID_INPUT: (errors: string[]): string => `入力データが不正です: ${errors.join(', ')}`,
   },
 
   /**
@@ -401,7 +401,7 @@ export const ERROR_MESSAGES = {
    */
   BRIEF: {
     /** 入力エラーが発生した場合 */
-    INPUT_ERROR: (fieldErrors: string) => `入力エラー: ${fieldErrors}`,
+    INPUT_ERROR: (fieldErrors: string): string => `入力エラー: ${fieldErrors}`,
 
     /** 事業者情報の保存に失敗した場合 */
     SAVE_FAILED: '事業者情報の保存に失敗しました',
