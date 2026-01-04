@@ -6,6 +6,7 @@ import { checkUserRole } from './subscription.actions';
 import { isUnavailable } from '@/authUtils';
 import type { User, UserRole } from '@/types/user';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export const getAllUsers = async (): Promise<{
   success: boolean;
@@ -17,29 +18,29 @@ export const getAllUsers = async (): Promise<{
     const lineAccessToken = cookieStore.get('line_access_token')?.value;
 
     if (!lineAccessToken) {
-      return { success: false, error: 'ログインしていません' };
+      return { success: false, error: ERROR_MESSAGES.AUTH.NOT_LOGGED_IN };
     }
 
     // 管理者権限チェック
     const roleResult = await checkUserRole(lineAccessToken);
     if (!roleResult.success) {
-      return { success: false, error: roleResult.error || '権限の取得に失敗しました' };
+      return { success: false, error: roleResult.error || ERROR_MESSAGES.USER.PERMISSION_ACQUISITION_FAILED };
     }
 
     // unavailableユーザーのサービス利用制限チェック
     if (isUnavailable(roleResult.role)) {
-      return { success: false, error: 'サービスの利用が停止されています' };
+      return { success: false, error: ERROR_MESSAGES.USER.SERVICE_UNAVAILABLE };
     }
 
     if (roleResult.role !== 'admin') {
-      return { success: false, error: '管理者権限が必要です' };
+      return { success: false, error: ERROR_MESSAGES.USER.ADMIN_REQUIRED };
     }
 
     const users = await userService.getAllUsers();
     return { success: true, users };
   } catch (error) {
     console.error('ユーザー一覧取得エラー:', error);
-    return { success: false, error: 'ユーザー一覧の取得中にエラーが発生しました' };
+    return { success: false, error: ERROR_MESSAGES.USER.USER_LIST_FETCH_ERROR };
   }
 };
 
@@ -55,13 +56,13 @@ export const updateUserRole = async (
     const lineAccessToken = cookieStore.get('line_access_token')?.value;
 
     if (!lineAccessToken) {
-      return { success: false, error: 'ログインしていません' };
+      return { success: false, error: ERROR_MESSAGES.AUTH.NOT_LOGGED_IN };
     }
 
     // 管理者権限チェック
     const roleResult = await checkUserRole(lineAccessToken);
     if (!roleResult.success) {
-      return { success: false, error: roleResult.error || '権限の取得に失敗しました' };
+      return { success: false, error: roleResult.error || ERROR_MESSAGES.USER.PERMISSION_ACQUISITION_FAILED };
     }
     if (await isViewModeEnabled(roleResult.role)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -69,23 +70,23 @@ export const updateUserRole = async (
 
     // unavailableユーザーのサービス利用制限チェック
     if (isUnavailable(roleResult.role)) {
-      return { success: false, error: 'サービスの利用が停止されています' };
+      return { success: false, error: ERROR_MESSAGES.USER.SERVICE_UNAVAILABLE };
     }
 
     if (roleResult.role !== 'admin') {
-      return { success: false, error: '管理者権限が必要です' };
+      return { success: false, error: ERROR_MESSAGES.USER.ADMIN_REQUIRED };
     }
 
     // バリデーション: 有効なロールかチェック
     const validRoles: UserRole[] = ['trial', 'paid', 'admin', 'unavailable'];
     if (!validRoles.includes(newRole)) {
-      return { success: false, error: '無効な権限が指定されました' };
+      return { success: false, error: ERROR_MESSAGES.USER.INVALID_ROLE };
     }
 
     // ユーザーの存在確認
     const targetUser = await userService.getUserById(userId);
     if (!targetUser) {
-      return { success: false, error: 'ユーザーが見つかりません' };
+      return { success: false, error: ERROR_MESSAGES.USER.USER_NOT_FOUND };
     }
 
     // 権限更新の実行
@@ -94,6 +95,6 @@ export const updateUserRole = async (
     return { success: true };
   } catch (error) {
     console.error('ユーザー権限更新エラー:', error);
-    return { success: false, error: 'ユーザー権限の更新中にエラーが発生しました' };
+    return { success: false, error: ERROR_MESSAGES.USER.ROLE_UPDATE_ERROR };
   }
 };

@@ -139,10 +139,10 @@ export async function runWordpressBulkImport(accessToken: string) {
       console.error('Failed to fetch WordPress content:', error);
       return {
         success: false,
-        error:
+          error:
           error instanceof Error
             ? error.message
-            : 'WordPressコンテンツの取得中にエラーが発生しました',
+            : ERROR_MESSAGES.WORDPRESS.CONTENT_FETCH_ERROR,
       };
     }
 
@@ -154,7 +154,7 @@ export async function runWordpressBulkImport(accessToken: string) {
       .eq('user_id', userId);
 
     if (existingError) {
-      return { success: false, error: '既存アノテーション取得エラー: ' + existingError.message };
+      return { success: false, error: ERROR_MESSAGES.WORDPRESS.ANNOTATION_FETCH_ERROR(existingError.message) };
     }
 
     interface ExistingAnnotation {
@@ -369,7 +369,7 @@ export async function runWordpressBulkImport(accessToken: string) {
         if (failures.length === toUpdate.length) {
           return {
             success: false,
-            error: `全ての更新が失敗しました: ${failures.slice(0, 3).join('; ')}${failures.length > 3 ? '...' : ''}`,
+            error: ERROR_MESSAGES.WORDPRESS.ALL_UPDATES_FAILED(failures),
           };
         }
       }
@@ -421,7 +421,7 @@ export async function runWordpressBulkImport(accessToken: string) {
     console.error('[wordpress-import] bulk import failed', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'インポート処理中にエラーが発生しました',
+      error: error instanceof Error ? error.message : ERROR_MESSAGES.WORDPRESS.IMPORT_ERROR,
     };
   }
 }

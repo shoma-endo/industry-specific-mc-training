@@ -9,6 +9,7 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const getAccessTokenOrError = async () => {
   const cookieStore = await cookies();
@@ -16,10 +17,10 @@ const getAccessTokenOrError = async () => {
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
   const authResult = await authMiddleware(accessToken, refreshToken);
   if (authResult.error || !authResult.userId) {
-    return { error: authResult.error || 'ユーザー認証に失敗しました' };
+    return { error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
   if (authResult.userDetails?.role !== 'admin') {
-    return { error: '権限がありません' };
+    return { error: ERROR_MESSAGES.USER.INSUFFICIENT_PERMISSIONS };
   }
   return { accessToken: accessToken ?? '', authResult };
 };
@@ -33,12 +34,12 @@ export async function fetchPrompts() {
 
     const result = await getPromptTemplates(auth.accessToken);
     if (!result.success) {
-      return { success: false, error: result.error || 'プロンプトの取得に失敗しました' };
+      return { success: false, error: result.error || ERROR_MESSAGES.PROMPT.FETCH_FAILED };
     }
     return { success: true, data: result.data };
   } catch (error) {
     console.error('[admin/prompts] fetch failed', error);
-    return { success: false, error: 'プロンプトの取得に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.PROMPT.FETCH_FAILED };
   }
 }
 
@@ -76,13 +77,13 @@ export async function savePrompt(params: {
     });
 
     if (!result.success) {
-      return { success: false, error: result.error || '保存に失敗しました' };
+      return { success: false, error: result.error || ERROR_MESSAGES.COMMON.SAVE_FAILED };
     }
 
     revalidatePath('/admin/prompts');
     return { success: true };
   } catch (error) {
     console.error('[admin/prompts] save failed', error);
-    return { success: false, error: '保存に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.COMMON.SAVE_FAILED };
   }
 }

@@ -6,6 +6,7 @@ import { briefInputSchema, type BriefInput } from '@/server/schemas/brief.schema
 import { cookies } from 'next/headers';
 import type { ZodIssue } from 'zod';
 import { isOwner } from '@/authUtils';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 
@@ -30,19 +31,19 @@ export const saveBrief = async (
       const fieldErrors = validationResult.error.issues
         .map((issue: ZodIssue) => `${issue.path.join('.')}: ${issue.message}`)
         .join(', ');
-      return { success: false, error: `入力エラー: ${fieldErrors}` };
+      return { success: false, error: ERROR_MESSAGES.BRIEF.INPUT_ERROR(fieldErrors) };
     }
 
     // 認証
     const auth = await authMiddleware(liffAccessToken);
     if (auth.error || !auth.userId) {
-      return { success: false, error: auth.error || '認証エラー' };
+      return { success: false, error: auth.error || ERROR_MESSAGES.AUTH.AUTH_ERROR_GENERIC };
     }
     if (auth.viewMode) {
-      return { success: false, error: '閲覧モードでは操作できません' };
+      return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_OPERATION_NOT_ALLOWED };
     }
     if (isOwner(auth.userDetails?.role ?? null)) {
-      return { success: false, error: '閲覧権限では利用できません' };
+      return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
     }
 
     // 事業者情報を保存
@@ -57,7 +58,7 @@ export const saveBrief = async (
     console.error('事業者情報の保存エラー:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : '事業者情報の保存に失敗しました',
+      error: error instanceof Error ? error.message : ERROR_MESSAGES.BRIEF.SAVE_FAILED,
     };
   }
 };
@@ -74,10 +75,10 @@ export const getBrief = async (
     // 認証
     const auth = await authMiddleware(liffAccessToken);
     if (auth.error || !auth.userId) {
-      return { success: false, error: auth.error || '認証エラー' };
+      return { success: false, error: auth.error || ERROR_MESSAGES.AUTH.AUTH_ERROR_GENERIC };
     }
     if (isOwner(auth.userDetails?.role ?? null) && !isViewMode) {
-      return { success: false, error: '閲覧権限では利用できません' };
+      return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
     }
 
     // 事業者情報を取得
@@ -92,7 +93,7 @@ export const getBrief = async (
     console.error('事業者情報の取得エラー:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : '事業者情報の取得に失敗しました',
+      error: error instanceof Error ? error.message : ERROR_MESSAGES.BRIEF.FETCH_FAILED,
     };
   }
 };
@@ -107,7 +108,7 @@ export const getBriefServer = async (): Promise<ActionResult<BriefInput | null>>
     const accessToken = cookieStore.get('line_access_token')?.value;
 
     if (!accessToken) {
-      return { success: false, error: 'ログインが必要です' };
+      return { success: false, error: ERROR_MESSAGES.BRIEF.LOGIN_REQUIRED };
     }
 
     // 実際のデータ取得はClient Componentで実行
@@ -116,7 +117,7 @@ export const getBriefServer = async (): Promise<ActionResult<BriefInput | null>>
     console.error('事業者情報の取得エラー:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : '事業者情報の取得に失敗しました',
+      error: error instanceof Error ? error.message : ERROR_MESSAGES.BRIEF.FETCH_FAILED,
     };
   }
 };
