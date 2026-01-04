@@ -95,28 +95,72 @@ export class GscEvaluationService {
 
     // ------------------------------------------------
 
-    // 記事評価を直列（シーケンシャル）に実行
-    for (const evaluation of evaluationRows) {
-      // 制限時間のチェック（記事ごと）
+    // 記事評価をチャンク単位で並列実行
+    // 完全な直列よりスループットを上げつつ、同時LLM呼び出し数を制御（並列数: 3）
+    const CONCURRENCY = 3;
+    for (let i = 0; i < evaluationRows.length; i += CONCURRENCY) {
+      // 制限時間のチェック（チャンクごと）
       if (startTime) {
         const elapsed = Date.now() - startTime;
         if (elapsed > GscEvaluationService.BATCH_TIME_LIMIT_MS) {
           console.warn(
-            `[gscEvaluationService] Time limit reached during user ${userId} articles (${elapsed}ms). Interrupting.`
+            `[gscEvaluationService] Time limit reached during user ${userId} articles (${elapsed}ms). Interrupting at chunk ${i / CONCURRENCY}.`
           );
           break;
         }
       }
 
-      try {
-        const evalResult = await this.processEvaluation(
-          userId,
-          evaluation,
-          todayJst,
-          batchHitLimit,
-          bulkImportFailed
-        );
+      const chunk = evaluationRows.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(
+        chunk.map(async evaluation => {
+          try {
+            return await this.processEvaluation(
+              userId,
+              evaluation,
+              todayJst,
+              batchHitLimit,
+              bulkImportFailed
+            );
+          } catch (error) {
+            console.error('[gscEvaluationService] System error during evaluation:', error);
+            // システムエラーを履歴に記録（並列・待機しない）
+            void (async () => {
+              try {
+                const { error: insertError } = await this.supabaseService
+                  .getClient()
+                  .from('gsc_article_evaluation_history')
+                  .insert({
+                    user_id: userId,
+                    content_annotation_id: evaluation.content_annotation_id,
+                    evaluation_date: todayJst,
+                    outcome_type: 'error',
+                    error_code: 'system_error',
+                    error_message:
+                      error instanceof Error ? error.message : 'システムエラーが発生しました',
+                    suggestion_applied: false,
+                    created_at: new Date().toISOString(),
+                  });
 
+                if (insertError) {
+                  console.error(
+                    '[gscEvaluationService] Failed to save system error history:',
+                    insertError
+                  );
+                }
+              } catch (err) {
+                console.error(
+                  '[gscEvaluationService] Unexpected error saving system error history:',
+                  err
+                );
+              }
+            })();
+            return { status: 'system_error' as const };
+          }
+        })
+      );
+
+      // チャンクの結果を集計
+      for (const evalResult of results) {
         if (evalResult.status === 'skipped_no_metrics') {
           summary.skippedNoMetrics += 1;
         } else if (evalResult.status === 'skipped_import_failed') {
@@ -128,33 +172,9 @@ export class GscEvaluationService {
           } else {
             summary.advanced += 1;
           }
+        } else if (evalResult.status === 'system_error') {
+          summary.skippedSystemError += 1;
         }
-      } catch (error) {
-        console.error('[gscEvaluationService] System error during evaluation:', error);
-        summary.skippedSystemError += 1;
-
-        // システムエラーを履歴に記録（並列・待機しない）
-        this.supabaseService
-          .getClient()
-          .from('gsc_article_evaluation_history')
-          .insert({
-            user_id: userId,
-            content_annotation_id: evaluation.content_annotation_id,
-            evaluation_date: todayJst,
-            outcome_type: 'error',
-            error_code: 'system_error',
-            error_message: error instanceof Error ? error.message : 'システムエラーが発生しました',
-            suggestion_applied: false,
-            created_at: new Date().toISOString(),
-          })
-          .then(({ error: insertError }) => {
-            if (insertError) {
-              console.error(
-                '[gscEvaluationService] Failed to save system error history:',
-                insertError
-              );
-            }
-          });
       }
     }
 
@@ -168,7 +188,7 @@ export class GscEvaluationService {
     userId: string,
     evaluation: GscEvaluationRow,
     today: string,
-    batchHitLimit: boolean = false, // この引数は使われなくなるが、互換性のため残す
+    batchHitLimit: boolean = false,
     bulkImportFailed: boolean = false
   ): Promise<
     | { status: 'success'; outcome: GscEvaluationOutcome }
