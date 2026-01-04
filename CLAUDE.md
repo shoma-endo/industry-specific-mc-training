@@ -108,6 +108,7 @@ Supabase の DB ポリシー、パフォーマンス、および `SECURITY DEFIN
 - WordPress 連携は WordPress.com / Self-hosted の両方を考慮し、URL 正規化とエラーハンドリングを追加する。
 - Stripe を扱う処理では `env.STRIPE_ENABLED` を必ずチェックし、無効時の例外を投げるパターンを踏襲。
 - **Supabase 実装**: アプリ全域の Supabase 利用ルール（サービス層の統一、Service Role の安全な使い分け、ログ付与等）は、エージェントスキル（`supabase-service-usage`）に集約されています。直接の `createClient` 等は避け、常にスキルに従ってください。
+- **サーバー通信指針**: Server Actions（`use server`）と Route Handlers の使い分け、および機密情報露出防止のプロトコルは、エージェントスキル（`server-actions-and-routes`）に集約されています。
 - **一般ユーザー向けページ（`/home`, `/privacy`）ではログインユーザー情報（通知トースト、ユーザー名、認証状態など）を一切表示しない。** これらは非認証ユーザーも閲覧可能なパブリックページです。
 - **セルフレビュー**: コーディング完了後は、エージェントスキル（`self-review-protocol`）の 2 パス手順に従って品質確認を徹底し、実施結果を報告すること。
 
