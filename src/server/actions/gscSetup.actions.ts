@@ -14,6 +14,7 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 const gscService = new GscService();
@@ -69,7 +70,7 @@ const getAuthUserId = async () => {
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
   const authResult = await authMiddleware(accessToken, refreshToken);
   if (authResult.error || !authResult.userId) {
-    return { error: authResult.error || 'ユーザー認証に失敗しました' };
+    return { error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
   return { userId: authResult.userId, role: resolveViewModeRole(authResult) };
 };
@@ -77,7 +78,7 @@ const getAuthUserId = async () => {
 export async function fetchGscStatus() {
   const { userId, error } = await getAuthUserId();
   if (error || !userId) {
-    return { success: false, error: error || 'ユーザー認証に失敗しました' };
+    return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
   const credential = await supabaseService.getGscCredentialByUserId(userId);
   const status = toGscConnectionStatus(credential);
@@ -88,7 +89,7 @@ export async function fetchGscProperties() {
   try {
     const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(role ?? null)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -96,7 +97,7 @@ export async function fetchGscProperties() {
 
     const credential = await supabaseService.getGscCredentialByUserId(userId);
     if (!credential) {
-      return { success: false, error: 'Google Search Consoleが未接続です' };
+      return { success: false, error: ERROR_MESSAGES.GSC.NOT_CONNECTED };
     }
 
     const accessToken = await ensureAccessToken(userId, credential);
@@ -112,12 +113,12 @@ export async function fetchGscProperties() {
     if (isTokenExpiredError(error)) {
       return {
         success: false,
-        error: 'Googleアカウントの認証が期限切れまたは取り消されています',
+        error: ERROR_MESSAGES.GSC.AUTH_EXPIRED_OR_REVOKED,
         needsReauth: true,
       };
     }
     
-    return { success: false, error: 'プロパティ一覧の取得に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.GSC.PROPERTIES_FETCH_FAILED };
   }
 }
 
@@ -125,18 +126,18 @@ export async function saveGscProperty(params: { propertyUri: string; permissionL
   try {
     const { userId, role, error } = await getAuthUserId();
     if (error || !userId) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(role ?? null)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
     const propertyUri = params.propertyUri?.trim();
     if (!propertyUri) {
-      return { success: false, error: 'propertyUriは必須です' };
+      return { success: false, error: ERROR_MESSAGES.GSC.PROPERTY_URI_REQUIRED };
     }
     const credential = await supabaseService.getGscCredentialByUserId(userId);
     if (!credential) {
-      return { success: false, error: 'Google Search Consoleが未接続です' };
+      return { success: false, error: ERROR_MESSAGES.GSC.NOT_CONNECTED };
     }
 
     const propertyType = propertyTypeFromUri(propertyUri);
@@ -159,7 +160,7 @@ export async function saveGscProperty(params: { propertyUri: string; permissionL
     return { success: true, data: toGscConnectionStatus(updatedCredential) };
   } catch (error) {
     console.error('[GSC Setup] save property failed', error);
-    return { success: false, error: 'プロパティの保存に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.GSC.PROPERTY_SAVE_FAILED };
   }
 }
 
@@ -169,7 +170,7 @@ export async function disconnectGsc() {
 
     if (error || !userId) {
       console.error('[GSC Setup] disconnectGsc: ユーザー認証失敗', { error });
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(role ?? null)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -186,7 +187,7 @@ export async function disconnectGsc() {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return { success: false, error: '連携解除に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.GSC.DISCONNECT_FAILED };
   }
 }
 
@@ -201,7 +202,7 @@ export async function refetchGscStatusWithValidation(): Promise<
   try {
     const { role, error } = await getAuthUserId();
     if (error) {
-      return { success: false, error: error || 'ユーザー認証に失敗しました' };
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     if (await isViewModeEnabled(role ?? null)) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
@@ -209,7 +210,7 @@ export async function refetchGscStatusWithValidation(): Promise<
     // ステータスを取得
     const statusResult = await fetchGscStatus();
     if (!statusResult.success || !statusResult.data) {
-      return { success: false, error: statusResult.error || 'ステータスの取得に失敗しました' };
+      return { success: false, error: statusResult.error || ERROR_MESSAGES.GSC.STATUS_FETCH_FAILED };
     }
 
     const status = statusResult.data as GscConnectionStatus;
@@ -233,6 +234,6 @@ export async function refetchGscStatusWithValidation(): Promise<
     };
   } catch (error) {
     console.error('GSCステータス取得エラー:', error);
-    return { success: false, error: 'GSCステータス取得エラーが発生しました' };
+    return { success: false, error: ERROR_MESSAGES.GSC.STATUS_FETCH_FAILED };
   }
 }

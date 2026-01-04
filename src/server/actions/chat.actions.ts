@@ -17,6 +17,7 @@ import {
   type ContinueChatInput,
   type StartChatInput,
 } from '@/server/schemas/chat.schema';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 /**
  * オーナーの閲覧モードが有効かどうかを判定
@@ -63,7 +64,7 @@ async function checkAuth(
     if (user && isUnavailable(user.role)) {
       return {
         isError: true as const,
-        error: 'サービスの利用が停止されています',
+        error: ERROR_MESSAGES.USER.SERVICE_UNAVAILABLE,
         requiresSubscription: false,
       };
     }
@@ -72,7 +73,7 @@ async function checkAuth(
         if (!authResult.userId) {
           return {
             isError: true as const,
-            error: '認証に失敗しました',
+            error: ERROR_MESSAGES.AUTH.USER_AUTH_FAILED,
             requiresSubscription: false,
           };
         }
@@ -85,14 +86,14 @@ async function checkAuth(
       }
       return {
         isError: true as const,
-        error: '閲覧権限では利用できません',
+        error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED,
         requiresSubscription: false,
       };
     }
     if (!authResult.userId) {
       return {
         isError: true as const,
-        error: '認証に失敗しました',
+        error: ERROR_MESSAGES.AUTH.USER_AUTH_FAILED,
         requiresSubscription: false,
       };
     }
@@ -106,7 +107,7 @@ async function checkAuth(
     console.error('User role check failed in checkAuth:', error);
     return {
       isError: true as const,
-      error: 'ユーザー情報の確認に失敗しました',
+      error: ERROR_MESSAGES.USER.USER_INFO_VERIFY_FAILED,
       requiresSubscription: false,
     };
   }
@@ -132,7 +133,7 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
     console.error('startChat failed:', e);
     return {
       message: '',
-      error: (e as Error).message || '予期せぬエラーが発生しました',
+      error: (e as Error).message || ERROR_MESSAGES.COMMON.UNEXPECTED_ERROR,
       requiresSubscription: false,
     };
   }
@@ -158,7 +159,7 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
     console.error('continueChat failed:', e);
     return {
       message: '',
-      error: (e as Error).message || '予期せぬエラーが発生しました',
+      error: (e as Error).message || ERROR_MESSAGES.COMMON.UNEXPECTED_ERROR,
       requiresSubscription: false,
     };
   }
@@ -192,13 +193,13 @@ export async function getLatestBlogStep7MessageBySession(
   | { success: true; data: { content: string; createdAt: string } | null }
 > {
   if (!sessionId) {
-    return { success: false as const, error: 'セッションIDが必要です' };
+    return { success: false as const, error: ERROR_MESSAGES.CHAT.SESSION_ID_REQUIRED };
   }
 
   const isViewMode = await isOwnerViewMode();
   const auth = await checkAuth(liffAccessToken, { allowOwner: isViewMode });
   if (auth.isError) {
-    return { success: false as const, error: auth.error ?? '認証に失敗しました' };
+    return { success: false as const, error: auth.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
 
   const supabase = new SupabaseService();
@@ -267,7 +268,7 @@ export async function searchChatSessions(data: z.infer<typeof searchChatSessions
     console.error('Failed to search chat sessions:', error);
     return {
       results: [],
-      error: error instanceof Error ? error.message : 'チャットセッションの検索に失敗しました',
+      error: error instanceof Error ? error.message : ERROR_MESSAGES.CHAT.SESSION_SEARCH_FAILED,
       requiresSubscription: false,
     };
   }
@@ -286,7 +287,7 @@ export async function deleteChatSession(sessionId: string, liffAccessToken: stri
     console.error('Failed to delete chat session:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'チャットセッションの削除に失敗しました',
+      error: error instanceof Error ? error.message : ERROR_MESSAGES.CHAT.SESSION_DELETE_FAILED,
     };
   }
 }

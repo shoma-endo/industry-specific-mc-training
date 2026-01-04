@@ -17,6 +17,13 @@ export const ERROR_MESSAGES = {
     SETTINGS_INCOMPLETE:
       'WordPress設定が未完了です。設定ダッシュボードで接続設定を確認してください。',
 
+    /** WordPress設定が登録されていない場合 */
+    SETTINGS_NOT_REGISTERED: 'WordPress設定が登録されていません',
+
+    /** WordPress設定が登録されていない場合（詳細） */
+    SETTINGS_NOT_REGISTERED_DETAIL:
+      'WordPress設定が登録されていません。設定画面から連携を完了してください。',
+
     /** WordPress投稿タイプの取得に失敗した場合 */
     CONTENT_TYPE_FETCH_FAILED:
       'WordPressの投稿タイプを取得できませんでした。設定ダッシュボードでWordPress接続設定を確認してください。',
@@ -29,6 +36,10 @@ export const ERROR_MESSAGES = {
     POSTS_FETCH_FAILED:
       'WordPress投稿の取得に失敗しました。設定ダッシュボードで接続設定を確認してください。',
 
+    /** WordPress投稿取得エラー（HTTPステータス付き） */
+    POSTS_FETCH_ERROR_HTTP: (status: number, errorText: string): string =>
+      `WordPress投稿取得エラー: HTTP ${status} ${errorText}`,
+
     /** 接続テスト中のエラー */
     CONNECTION_TEST_ERROR: '接続テスト中に予期せぬエラーが発生しました',
 
@@ -37,6 +48,55 @@ export const ERROR_MESSAGES = {
 
     /** サーバーエラー（WordPress関連） */
     SERVER_ERROR: 'サーバーエラーが発生しました',
+
+    /** WordPress.com連携は管理者のみ利用可能 */
+    WORDPRESS_COM_ADMIN_ONLY: 'WordPress.com 連携は管理者のみ利用できます',
+
+    /** セルフホストWordPressに必要な情報が不足している場合 */
+    SELF_HOSTED_REQUIRED_FIELDS:
+      'セルフホストWordPressには、サイトURL、ユーザー名、およびアプリケーションパスワードが必要です',
+
+    /** WordPress.comにサイトIDが必要な場合 */
+    WORDPRESS_COM_SITE_ID_REQUIRED: 'WordPress.com連携にはサイトIDが必要です',
+
+    /** 有効なURLを入力してください */
+    INVALID_URL: '有効なURLを入力してください',
+
+    /** 指定された投稿IDがWordPressで見つからない場合 */
+    POST_ID_NOT_FOUND:
+      '指定された投稿IDがWordPressで見つかりませんでした。URLをご確認ください。',
+
+    /** URLから投稿IDを特定できない場合 */
+    POST_ID_CANNOT_BE_RESOLVED:
+      'URLから投稿IDを特定できませんでした。編集URLまたは公開URLを入力してください。',
+
+    /** WordPressで該当する投稿が見つからない場合 */
+    POST_NOT_FOUND: 'WordPressで該当する投稿が見つかりませんでした。URLをご確認ください。',
+
+    /** 重複するcanonical URLエラー */
+    DUPLICATE_CANONICAL:
+      'このWordPress記事URLは別のコンテンツで既に登録されています',
+
+    /** 既存アノテーション取得エラー */
+    ANNOTATION_FETCH_ERROR: (message: string): string => `既存アノテーション取得エラー: ${message}`,
+
+    /** WordPressコンテンツの取得中にエラーが発生 */
+    CONTENT_FETCH_ERROR: 'WordPressコンテンツの取得中にエラーが発生しました',
+
+    /** インポート処理中にエラーが発生 */
+    IMPORT_ERROR: 'インポート処理中にエラーが発生しました',
+
+    /** 全ての更新が失敗した場合 */
+    ALL_UPDATES_FAILED: (failures: string[]): string =>
+      `全ての更新が失敗しました: ${failures.slice(0, 3).join('; ')}${
+        failures.length > 3 ? '...' : ''
+      }`,
+
+    /** コンテンツの削除に失敗 */
+    CONTENT_DELETE_FAILED: 'コンテンツの削除に失敗しました',
+
+    /** アノテーションIDが無効 */
+    INVALID_ANNOTATION_ID: 'アノテーションIDが無効です',
   },
 
   /**
@@ -45,6 +105,30 @@ export const ERROR_MESSAGES = {
   AUTH: {
     /** LINE認証に失敗した場合 */
     LIFF_AUTH_FAILED: 'LINE認証に失敗しました。LIFFから再ログインしてください。',
+
+    /** ログインしていない場合 */
+    NOT_LOGGED_IN: 'ログインしていません',
+
+    /** ユーザー認証に失敗した場合 */
+    USER_AUTH_FAILED: 'ユーザー認証に失敗しました',
+
+    /** 認証エラーが発生した場合 */
+    AUTH_ERROR: '認証エラーが発生しました',
+
+    /** 認証エラー（汎用） */
+    AUTH_ERROR_GENERIC: '認証エラー',
+
+    /** LINE認証が必要な場合 */
+    LINE_AUTH_REQUIRED: 'LINE認証が必要です',
+
+    /** 認証が必要な場合 */
+    AUTHENTICATION_REQUIRED: '認証が必要か、必須項目が不足しています',
+
+    /** 認証に失敗した場合 */
+    AUTHENTICATION_FAILED: '認証に失敗しました',
+
+    /** 未認証エラー */
+    UNAUTHORIZED: '権限がありません',
   },
 
   /**
@@ -75,10 +159,16 @@ export const ERROR_MESSAGES = {
    */
   CHAT: {
     /** セッションの削除に失敗した場合 */
-    SESSION_DELETE_FAILED: 'セッションの削除に失敗しました',
+    SESSION_DELETE_FAILED: 'チャットセッションの削除に失敗しました',
 
     /** チャットタイトルの更新に失敗した場合 */
     SESSION_TITLE_UPDATE_FAILED: 'チャットタイトルの更新に失敗しました',
+
+    /** セッションIDが必要な場合 */
+    SESSION_ID_REQUIRED: 'セッションIDが必要です',
+
+    /** チャットセッションの検索に失敗した場合 */
+    SESSION_SEARCH_FAILED: 'チャットセッションの検索に失敗しました',
   },
 
   /**
@@ -90,5 +180,244 @@ export const ERROR_MESSAGES = {
 
     /** 価格情報の取得に失敗した場合（再試行を促す） */
     PRICE_FETCH_FAILED_RETRY: '価格情報の取得に失敗しました。時間を置いて再度お試しください。',
+
+    /** サブスクリプション情報の取得に失敗した場合 */
+    INFO_FETCH_FAILED: 'サブスクリプション情報の取得に失敗しました',
+
+    /** サブスクリプションの解約に失敗した場合 */
+    CANCEL_FAILED: 'サブスクリプションの解約に失敗しました',
+
+    /** サブスクリプションの継続手続きに失敗した場合 */
+    RESUME_FAILED: 'サブスクリプションの継続手続きに失敗しました',
+
+    /** サブスクリプション情報が見つからない場合 */
+    INFO_NOT_FOUND: 'サブスクリプション情報が見つかりません',
+
+    /** カスタマーポータルの作成に失敗した場合 */
+    PORTAL_CREATE_FAILED: 'カスタマーポータルの作成に失敗しました',
+
+    /** チェックアウトURLの作成に失敗した場合 */
+    CHECKOUT_URL_CREATE_FAILED: 'チェックアウトURLの作成に失敗しました',
+
+    /** 決済処理の準備中にエラーが発生した場合 */
+    PAYMENT_PREP_ERROR: '決済処理の準備中にエラーが発生しました',
+
+    /** セッション情報の取得に失敗した場合 */
+    SESSION_INFO_FETCH_FAILED: 'セッション情報の取得に失敗しました',
+  },
+
+  /**
+   * ユーザー関連のエラーメッセージ
+   */
+  USER: {
+    /** ユーザーが見つからない場合 */
+    USER_NOT_FOUND: 'ユーザーが見つかりません',
+
+    /** ユーザー情報が見つからない場合 */
+    USER_INFO_NOT_FOUND: 'ユーザー情報が見つかりません',
+
+    /** ユーザー情報の取得に失敗した場合 */
+    USER_INFO_FETCH_FAILED: 'ユーザー情報の取得に失敗しました',
+
+    /** ユーザー情報の確認に失敗した場合 */
+    USER_INFO_VERIFY_FAILED: 'ユーザー情報の確認に失敗しました',
+
+    /** フルネームの更新に失敗した場合 */
+    FULL_NAME_UPDATE_FAILED: 'フルネームの更新に失敗しました',
+
+    /** フルネームの更新中にエラーが発生した場合 */
+    FULL_NAME_UPDATE_ERROR: 'フルネームの更新中にエラーが発生しました',
+
+    /** サービスの利用が停止されている場合 */
+    SERVICE_UNAVAILABLE: 'サービスの利用が停止されています',
+
+    /** 閲覧権限では利用できない場合 */
+    VIEW_MODE_NOT_ALLOWED: '閲覧権限では利用できません',
+
+    /** 閲覧モードでは操作できない場合 */
+    VIEW_MODE_OPERATION_NOT_ALLOWED: '閲覧モードでは操作できません',
+
+    /** 権限が不足している場合 */
+    INSUFFICIENT_PERMISSIONS: '権限がありません',
+
+    /** 管理者権限が必要な場合 */
+    ADMIN_REQUIRED: '管理者権限が必要です',
+
+    /** 権限の取得に失敗した場合 */
+    PERMISSION_ACQUISITION_FAILED: '権限の取得に失敗しました',
+
+    /** 権限チェックに失敗した場合 */
+    PERMISSION_VERIFY_FAILED: '権限チェックに失敗しました',
+
+    /** 権限確認中にエラーが発生した場合 */
+    PERMISSION_CHECK_ERROR: '権限確認中にエラーが発生しました',
+
+    /** 無効な権限が指定された場合 */
+    INVALID_ROLE: '無効な権限が指定されました',
+
+    /** ユーザー権限の更新中にエラーが発生した場合 */
+    ROLE_UPDATE_ERROR: 'ユーザー権限の更新中にエラーが発生しました',
+
+    /** ユーザー一覧の取得中にエラーが発生した場合 */
+    USER_LIST_FETCH_ERROR: 'ユーザー一覧の取得中にエラーが発生しました',
+  },
+
+  /**
+   * Google Search Console関連のエラーメッセージ
+   */
+  GSC: {
+    /** Google Search Consoleが未接続の場合 */
+    NOT_CONNECTED: 'Google Search Consoleが未接続です',
+
+    /** Googleアカウントの認証が期限切れまたは取り消されている場合 */
+    AUTH_EXPIRED_OR_REVOKED: 'Googleアカウントの認証が期限切れまたは取り消されています',
+
+    /** プロパティ一覧の取得に失敗した場合 */
+    PROPERTIES_FETCH_FAILED: 'プロパティ一覧の取得に失敗しました',
+
+    /** propertyUriが必須の場合 */
+    PROPERTY_URI_REQUIRED: 'propertyUriは必須です',
+
+    /** プロパティの保存に失敗した場合 */
+    PROPERTY_SAVE_FAILED: 'プロパティの保存に失敗しました',
+
+    /** 連携解除に失敗した場合 */
+    DISCONNECT_FAILED: '連携解除に失敗しました',
+
+    /** ステータスの取得に失敗した場合 */
+    STATUS_FETCH_FAILED: 'ステータスの取得に失敗しました',
+
+    /** startDateとendDateが必須の場合 */
+    DATE_RANGE_REQUIRED: 'startDate と endDate は必須です',
+
+    /** maxRowsの範囲が不正な場合 */
+    MAX_ROWS_INVALID: 'maxRows は 1～25000 の範囲で指定してください',
+
+    /** 日付の形式が不正な場合 */
+    INVALID_DATE_FORMAT: '日付の形式が不正です',
+
+    /** 開始日が終了日より後になっている場合 */
+    START_DATE_AFTER_END: '開始日は終了日より前である必要があります',
+
+    /** 期間が最大値を超えている場合 */
+    PERIOD_TOO_LONG: '期間は最大365日までです',
+
+    /** インポート処理に失敗した場合 */
+    IMPORT_FAILED: 'インポート処理に失敗しました',
+
+    /** 対象が見つからない場合 */
+    TARGET_NOT_FOUND: '対象が見つかりません',
+
+    /** 詳細の取得に失敗した場合 */
+    DETAIL_FETCH_FAILED: '詳細の取得に失敗しました',
+
+    /** 必須パラメータが不足している場合 */
+    REQUIRED_PARAMS_MISSING:
+      'contentAnnotationId, propertyUri, baseEvaluationDate は必須です',
+
+    /** 日付形式が不正な場合（YYYY-MM-DD形式） */
+    INVALID_DATE_FORMAT_YYYYMMDD: '日付は YYYY-MM-DD 形式で指定してください',
+
+    /** 無効な日付が指定された場合 */
+    INVALID_DATE: '無効な日付が指定されました',
+
+    /** 評価サイクル日数の範囲が不正な場合 */
+    CYCLE_DAYS_INVALID: '評価サイクル日数は1〜365日の範囲で指定してください',
+
+    /** 評価実行時間の範囲が不正な場合 */
+    EVALUATION_HOUR_INVALID: '評価実行時間は0〜23の範囲で指定してください',
+
+    /** 指定された記事が見つからない場合 */
+    ARTICLE_NOT_FOUND: '指定された記事が見つかりません',
+
+    /** 記事が既に評価対象として登録されている場合 */
+    ARTICLE_ALREADY_REGISTERED: 'この記事は既に評価対象として登録されています',
+
+    /** 評価対象の登録に失敗した場合 */
+    EVALUATION_REGISTER_FAILED: '評価対象の登録に失敗しました',
+
+    /** 評価対象が見つからない場合 */
+    EVALUATION_NOT_FOUND: '評価対象が見つかりません',
+
+    /** 評価日の更新に失敗した場合 */
+    EVALUATION_DATE_UPDATE_FAILED: '評価日の更新に失敗しました',
+
+    /** GSC連携設定が見つからない場合 */
+    CREDENTIAL_NOT_FOUND: 'GSC連携設定が見つかりません',
+
+    /** 記事が見つからない場合 */
+    ARTICLE_NOT_FOUND_GENERIC: '記事が見つかりません',
+
+    /** クエリ分析の取得に失敗した場合 */
+    QUERY_ANALYSIS_FETCH_FAILED: 'クエリ分析の取得に失敗しました',
+
+    /** annotationIdが必須の場合 */
+    ANNOTATION_ID_REQUIRED: 'annotationId は必須です',
+
+    /** 記事情報の取得に失敗した場合 */
+    ARTICLE_INFO_FETCH_FAILED: '記事情報の取得に失敗しました',
+
+    /** 記事のURLが見つからない場合 */
+    ARTICLE_URL_NOT_FOUND: '記事のURLが見つかりません',
+
+    /** URLの正規化に失敗した場合 */
+    URL_NORMALIZE_FAILED: 'URLの正規化に失敗しました',
+
+    /** クエリ指標の取得に失敗した場合 */
+    QUERY_METRICS_FETCH_FAILED: 'クエリ指標の取得に失敗しました',
+
+    /** 評価処理に失敗した場合 */
+    EVALUATION_PROCESS_FAILED: '評価処理に失敗しました',
+  },
+
+  /**
+   * プロンプト関連のエラーメッセージ
+   */
+  PROMPT: {
+    /** 同じ名前のプロンプトが既に存在する場合 */
+    DUPLICATE_NAME: '同じ名前のプロンプトが既に存在します',
+
+    /** プロンプトの作成に失敗した場合 */
+    CREATE_FAILED: 'プロンプトの作成に失敗しました',
+
+    /** プロンプトが見つからない場合 */
+    NOT_FOUND: 'プロンプトが見つかりません',
+
+    /** プロンプトの更新に失敗した場合 */
+    UPDATE_FAILED: 'プロンプトの更新に失敗しました',
+
+    /** プロンプトの取得に失敗した場合 */
+    FETCH_FAILED: 'プロンプトの取得に失敗しました',
+
+    /** プロンプトの検証に失敗した場合 */
+    VALIDATION_FAILED: 'プロンプトの検証に失敗しました',
+
+    /** 入力データが不正な場合 */
+    INVALID_INPUT: (errors: string[]): string => `入力データが不正です: ${errors.join(', ')}`,
+  },
+
+  /**
+   * 事業者情報（Brief）関連のエラーメッセージ
+   */
+  BRIEF: {
+    /** 入力エラーが発生した場合 */
+    INPUT_ERROR: (fieldErrors: string): string => `入力エラー: ${fieldErrors}`,
+
+    /** 事業者情報の保存に失敗した場合 */
+    SAVE_FAILED: '事業者情報の保存に失敗しました',
+
+    /** 事業者情報の取得に失敗した場合 */
+    FETCH_FAILED: '事業者情報の取得に失敗しました',
+
+    /** ログインが必要な場合 */
+    LOGIN_REQUIRED: 'ログインが必要です',
+  },
+
+  /**
+   * 管理者関連のエラーメッセージ
+   */
+  ADMIN: {
+    /** キャッシュクリアに失敗した場合 */
+    CACHE_CLEAR_FAILED: 'キャッシュクリアに失敗しました',
   },
 } as const;
