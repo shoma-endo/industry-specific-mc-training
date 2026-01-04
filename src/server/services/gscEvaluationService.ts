@@ -106,15 +106,17 @@ export class GscEvaluationService {
     const maxCycleDays = Math.max(...evaluationRows.map(e => e.cycle_days || 30));
     const startDate = this.addDaysISO(todayJst, -maxCycleDays);
 
+    let batchHitLimit = false;
     try {
-      await gscImportService.importMetrics(userId, {
+      const importResult = await gscImportService.importMetrics(userId, {
         startDate,
         endDate: todayJst,
         searchType: 'web',
         maxRows: 5000,
       });
+      batchHitLimit = importResult.pageMetricsHitLimit;
       console.log(
-        `[gscEvaluationService] Pre-imported ${maxCycleDays} days of data for user ${userId} (${evaluationRows.length} articles)`
+        `[gscEvaluationService] Pre-imported ${maxCycleDays} days of data for user ${userId} (${evaluationRows.length} articles). Hit limit: ${batchHitLimit}`
       );
     } catch (importError) {
       console.warn(
@@ -156,7 +158,9 @@ export class GscEvaluationService {
 
     // 全ての評価を並列実行
     const results = await Promise.allSettled(
-      evaluationRows.map(evaluation => this.processEvaluation(userId, evaluation, todayJst))
+      evaluationRows.map(evaluation =>
+        this.processEvaluation(userId, evaluation, todayJst, batchHitLimit)
+      )
     );
 
     // 結果を集約
@@ -198,14 +202,49 @@ export class GscEvaluationService {
   private async processEvaluation(
     userId: string,
     evaluation: EvaluationRow,
-    today: string
+    today: string,
+    batchHitLimit: boolean = false
   ): Promise<
     | { status: 'success'; outcome: GscEvaluationOutcome }
     | { status: 'skipped_import_failed' }
     | { status: 'skipped_no_metrics' }
   > {
-    // データインポートは runDueEvaluationsForUser で実行済みなので、ここでは fetchLatestMetric から開始
-    const metric = await this.fetchLatestMetric(userId, evaluation);
+    // データインポートは runDueEvaluationsForUser で実行済みなので、まずは fetchLatestMetric を試行
+    let metric = await this.fetchLatestMetric(userId, evaluation);
+
+    // メトリクスが見つからず、かつ一括インポートで上限に達していた場合は、個別URLで再試行
+    if (!metric && batchHitLimit) {
+      console.log(
+        `[gscEvaluationService] Metric missing and batch limit hit. Fetching targeted data for: ${evaluation.id}`
+      );
+      const cycleDays = evaluation.cycle_days || 30;
+      const startDate = this.addDaysISO(today, -cycleDays);
+
+      try {
+        // コンテンツアノテーションに対応するURLを取得（あれば）
+        const { data: annotation } = await this.supabaseService
+          .getClient()
+          .from('content_annotations')
+          .select('canonical_url')
+          .eq('id', evaluation.content_annotation_id)
+          .maybeSingle();
+
+        if (annotation?.canonical_url) {
+          await gscImportService.importPageAndQueryForUrlWithSplit(userId, {
+            startDate,
+            endDate: today,
+            pageUrl: annotation.canonical_url,
+            contentAnnotationId: evaluation.content_annotation_id,
+            searchType: 'web',
+            segmentDays: cycleDays,
+          });
+          // 再フェッチ
+          metric = await this.fetchLatestMetric(userId, evaluation);
+        }
+      } catch (err) {
+        console.error(`[gscEvaluationService] Fallback import failed for ${evaluation.id}:`, err);
+      }
+    }
 
     if (!metric) {
       // 履歴にエラーを記録

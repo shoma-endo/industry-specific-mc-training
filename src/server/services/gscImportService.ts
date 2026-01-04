@@ -65,8 +65,7 @@ export class GscImportService {
     const { upserted, skipped, unmatched } = await this.upsertPageMetrics({
       userId,
       metrics,
-      resolveAnnotationId: normalized =>
-        normalized ? (matchMap.get(normalized) ?? null) : null,
+      resolveAnnotationId: normalized => (normalized ? (matchMap.get(normalized) ?? null) : null),
       countUnmatched: true,
     });
 
@@ -87,6 +86,7 @@ export class GscImportService {
       skipped,
       unmatched,
       evaluated: 0,
+      pageMetricsHitLimit: rows.length >= maxRows,
       querySummary,
     };
   }
