@@ -54,10 +54,10 @@ export const ERROR_MESSAGES = {
 
     /** セルフホストWordPressに必要な情報が不足している場合 */
     SELF_HOSTED_REQUIRED_FIELDS:
-      'Self-hosted WordPress requires site URL, username, and application password',
+      'セルフホストWordPressには、サイトURL、ユーザー名、およびアプリケーションパスワードが必要です',
 
     /** WordPress.comにサイトIDが必要な場合 */
-    WORDPRESS_COM_SITE_ID_REQUIRED: 'WordPress.com requires site ID',
+    WORDPRESS_COM_SITE_ID_REQUIRED: 'WordPress.com連携にはサイトIDが必要です',
 
     /** 有効なURLを入力してください */
     INVALID_URL: '有効なURLを入力してください',
@@ -121,14 +121,14 @@ export const ERROR_MESSAGES = {
     /** LINE認証が必要な場合 */
     LINE_AUTH_REQUIRED: 'LINE認証が必要です',
 
-    /** 認証が必要な場合（英語） */
-    AUTHENTICATION_REQUIRED: 'Authentication required or required fields missing',
+    /** 認証が必要な場合 */
+    AUTHENTICATION_REQUIRED: '認証が必要か、必須項目が不足しています',
 
-    /** 認証に失敗した場合（英語） */
-    AUTHENTICATION_FAILED: 'Authentication failed',
+    /** 認証に失敗した場合 */
+    AUTHENTICATION_FAILED: '認証に失敗しました',
 
     /** 未認証エラー */
-    UNAUTHORIZED: 'Unauthorized',
+    UNAUTHORIZED: '権限がありません',
   },
 
   /**
