@@ -287,9 +287,6 @@ export const ERROR_MESSAGES = {
     /** ステータスの取得に失敗した場合 */
     STATUS_FETCH_FAILED: 'ステータスの取得に失敗しました',
 
-    /** GSCステータス取得エラーが発生した場合 */
-    STATUS_FETCH_ERROR: 'GSCステータス取得エラーが発生しました',
-
     /** startDateとendDateが必須の場合 */
     DATE_RANGE_REQUIRED: 'startDate と endDate は必須です',
 

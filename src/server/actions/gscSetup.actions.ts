@@ -234,6 +234,6 @@ export async function refetchGscStatusWithValidation(): Promise<
     };
   } catch (error) {
     console.error('GSCステータス取得エラー:', error);
-    return { success: false, error: ERROR_MESSAGES.GSC.STATUS_FETCH_ERROR };
+    return { success: false, error: ERROR_MESSAGES.GSC.STATUS_FETCH_FAILED };
   }
 }
