@@ -27,21 +27,33 @@ description: アプリ全域の Supabase 利用ルール。サービス層の統
   - **特権が必要な内部 API**: LINE 認証紐付け、システム整合性チェックなど。
 - [WARNING] RLS が効かないため、**アプリケーション層での明示的な ID チェックを省略してはなりません**。
   - クエリに `.eq('user_id', userId)` 等を含め、操作対象がそのユーザーの所有物であることを必ず保証してください。
-- **標準ユーティリティ**: 静的な特権操作が必要な場合は、実在する `SupabaseService.withServiceRoleClient()` ユーティリティを活用し、適切な `logMessage` を付与してください。
+- **推奨パターン**: 静的な特権操作が必要な場合は、`SupabaseService` を継承し、実在する `protected static withServiceRoleClient()` ユーティリティを活用してください（自動的に詳細なログが付与されます）。
 
 ## 4. エラーハンドリングとログ (Error Handling)
 
 - **統一フォーマット**: 実在する `SupabaseService.failure()` メソッドを必ず使用し、ユーザー向けメッセージとエンジニア向け詳細ログ（`PostgrestError`, `context`）を適切に分離・記録してください。
 
-## 5. Server Actions / Route Handlers での利用方針
+## 5. 実装パターン (Recommended Pattern)
 
-- **利用パターン**: 適切なサービスクラス（例: `AnalyticsContentService`）を通じて `SupabaseService` の機能にアクセスします。
+- Server Actions / Route Handlers 等からは、ドメイン固有のサービスを通じて `SupabaseService` の機能を呼び出します。
   ```typescript
-  // 実装例
-  const supabaseService = new SupabaseService();
-  const client = supabaseService.getClient(); // 特権クライアントの取得
+  // 推奨される実装例 (サブクラス経由)
+  export class AnalyticsContentService extends SupabaseService {
+    static async getSomething(userId: string) {
+      return this.withServiceRoleClient(
+        async client => {
+          const { data, error } = await client
+            .from('content_annotations')
+            .select('*')
+            .eq('user_id', userId); // 権限チェックの必須化
+          if (error) throw error;
+          return data;
+        },
+        { logMessage: 'データ取得エラー:' }
+      );
+    }
+  }
   ```
-- **機密情報の保護**: サーバーサイドのみで動作を完結させ、クライアント側へ機密データ（Service Role で取得した過剰な情報等）が漏洩しないよう厳重に配慮してください。
 
 ## 運用ルール
 
