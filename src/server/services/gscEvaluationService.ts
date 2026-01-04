@@ -167,10 +167,7 @@ export class GscEvaluationService {
     for (const result of results) {
       if (result.status === 'fulfilled') {
         const evalResult = result.value;
-        if (evalResult.status === 'skipped_import_failed') {
-          // ここには来ない想定（runDueEvaluationsForUser で判定済みのため）
-          summary.skippedImportFailed += 1;
-        } else if (evalResult.status === 'skipped_no_metrics') {
+        if (evalResult.status === 'skipped_no_metrics') {
           summary.skippedNoMetrics += 1;
           // インポート失敗かつメトリクスなしの場合、インポート失敗カウントを差し引く（二重カウント防止）
           if (summary.skippedImportFailed > 0) summary.skippedImportFailed -= 1;
