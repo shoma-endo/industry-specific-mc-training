@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import type { User, UserRole } from '@/types/user';
 import { userService } from '@/server/services/userService';
 import { getUserRoleWithRefresh } from '@/authUtils';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 type AuthHeaderSuccess = {
   ok: true;
@@ -28,21 +29,21 @@ export async function getUserFromAuthHeader(req: NextRequest): Promise<AuthHeade
   const rawToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
   if (!rawToken) {
-    return { ok: false, response: NextResponse.json({ error: '未認証' }, { status: 401 }) };
+    return { ok: false, response: NextResponse.json({ error: ERROR_MESSAGES.AUTH.UNAUTHENTICATED }, { status: 401 }) };
   }
 
   const { role, needsReauth, newAccessToken } = await getUserRoleWithRefresh(rawToken);
   if (needsReauth) {
     return {
       ok: false,
-      response: NextResponse.json({ error: '再認証が必要です' }, { status: 401 }),
+      response: NextResponse.json({ error: ERROR_MESSAGES.AUTH.REAUTHENTICATION_REQUIRED }, { status: 401 }),
     };
   }
 
   const effectiveToken = newAccessToken ?? rawToken;
   const user = await userService.getUserFromLiffToken(effectiveToken);
   if (!user) {
-    return { ok: false, response: NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 401 }) };
+    return { ok: false, response: NextResponse.json({ error: ERROR_MESSAGES.USER.USER_NOT_FOUND }, { status: 401 }) };
   }
 
   return {
