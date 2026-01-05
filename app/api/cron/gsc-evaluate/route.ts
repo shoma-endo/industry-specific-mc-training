@@ -48,4 +48,4 @@ export async function GET(request: NextRequest) {
 
 // Vercel Cron は GET リクエストを使用
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // 最大60秒（Vercel Pro プラン）
+export const maxDuration = 300; // 300秒（Vercel Pro は最大800秒まで対応）
