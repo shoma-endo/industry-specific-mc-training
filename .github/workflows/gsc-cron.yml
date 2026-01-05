@@ -8,6 +8,7 @@ on:
 jobs:
   run-gsc-evaluate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Call GSC evaluate endpoint
         env:
