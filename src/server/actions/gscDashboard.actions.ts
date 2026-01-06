@@ -83,6 +83,26 @@ const getAuthUserId = async () => {
   return { userId: authResult.userId, role: resolveViewModeRole(authResult) };
 };
 
+interface AccessibleUserIdsResult {
+  accessibleIds: string[] | null;
+  error: string | null;
+}
+
+const getAccessibleUserIds = async (userId: string): Promise<AccessibleUserIdsResult> => {
+  const { data: accessibleIds, error: accessError } = await supabaseService
+    .getClient()
+    .rpc('get_accessible_user_ids', { p_user_id: userId });
+
+  if (accessError || !accessibleIds) {
+    return {
+      accessibleIds: null,
+      error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED,
+    };
+  }
+
+  return { accessibleIds, error: null };
+};
+
 export async function fetchGscDetail(
   annotationId: string,
   options?: { days?: number }
@@ -93,12 +113,9 @@ export async function fetchGscDetail(
     return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
 
-  const { data: accessibleIds, error: accessError } = await supabaseService
-    .getClient()
-    .rpc('get_accessible_user_ids', { p_user_id: userId });
-
-  if (accessError || !accessibleIds) {
-    return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
+  const { accessibleIds, error: accessCheckError } = await getAccessibleUserIds(userId);
+  if (accessCheckError || !accessibleIds) {
+    return { success: false, error: accessCheckError || ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
   }
 
   const days = Math.min(180, Math.max(7, options?.days ?? 90));
@@ -240,12 +257,9 @@ export async function registerEvaluation(params: {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
-    const { data: accessibleIds, error: accessError } = await supabaseService
-      .getClient()
-      .rpc('get_accessible_user_ids', { p_user_id: userId });
-
-    if (accessError || !accessibleIds) {
-      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
+    const { accessibleIds, error: accessCheckError } = await getAccessibleUserIds(userId);
+    if (accessCheckError || !accessibleIds) {
+      return { success: false, error: accessCheckError || ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays, evaluationHour } =
@@ -351,12 +365,9 @@ export async function updateEvaluation(params: {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
-    const { data: accessibleIds, error: accessError } = await supabaseService
-      .getClient()
-      .rpc('get_accessible_user_ids', { p_user_id: userId });
-
-    if (accessError || !accessibleIds) {
-      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
+    const { accessibleIds, error: accessCheckError } = await getAccessibleUserIds(userId);
+    if (accessCheckError || !accessibleIds) {
+      return { success: false, error: accessCheckError || ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     const { contentAnnotationId, baseEvaluationDate, cycleDays, evaluationHour } = params;
@@ -501,12 +512,9 @@ export async function fetchQueryAnalysis(
       return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
 
-    const { data: accessibleIds, error: accessError } = await supabaseService
-      .getClient()
-      .rpc('get_accessible_user_ids', { p_user_id: userId });
-
-    if (accessError || !accessibleIds) {
-      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
+    const { accessibleIds, error: accessCheckError } = await getAccessibleUserIds(userId);
+    if (accessCheckError || !accessibleIds) {
+      return { success: false, error: accessCheckError || ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     // 期間計算
@@ -635,12 +643,9 @@ export async function runQueryImportForAnnotation(
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
-    const { data: accessibleIds, error: accessError } = await supabaseService
-      .getClient()
-      .rpc('get_accessible_user_ids', { p_user_id: userId });
-
-    if (accessError || !accessibleIds) {
-      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
+    const { accessibleIds, error: accessCheckError } = await getAccessibleUserIds(userId);
+    if (accessCheckError || !accessibleIds) {
+      return { success: false, error: accessCheckError || ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     if (!annotationId) {
@@ -716,12 +721,9 @@ export async function runEvaluationNow(contentAnnotationId: string) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
-    const { data: accessibleIds, error: accessError } = await supabaseService
-      .getClient()
-      .rpc('get_accessible_user_ids', { p_user_id: userId });
-
-    if (accessError || !accessibleIds) {
-      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
+    const { accessibleIds, error: accessCheckError } = await getAccessibleUserIds(userId);
+    if (accessCheckError || !accessibleIds) {
+      return { success: false, error: accessCheckError || ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     if (!contentAnnotationId) {
