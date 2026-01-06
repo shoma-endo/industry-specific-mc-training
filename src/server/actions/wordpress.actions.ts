@@ -866,6 +866,7 @@ export async function testWordPressConnectionAction() {
       };
     }
 
+    const cookieStore = await cookies();
     const context = await resolveWordPressContext(name => cookieStore.get(name)?.value, {
       supabaseService,
     });
