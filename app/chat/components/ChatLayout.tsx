@@ -22,8 +22,11 @@ import CanvasPanel from './CanvasPanel';
 import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/types/canvas';
 import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
+import { ServiceSelector } from './ServiceSelector';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
+import { getBrief } from '@/server/actions/brief.actions';
+import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
@@ -261,6 +264,9 @@ interface ChatLayoutCtx {
   isGenerateTitleMetaLoading: boolean;
   onLoadBlogArticle?: (() => Promise<void>) | null | undefined;
   initialStep?: BlogStepId | null;
+  services: Service[];
+  selectedServiceId: string | null;
+  onServiceChange: (serviceId: string) => void;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -293,6 +299,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     isGenerateTitleMetaLoading,
     onLoadBlogArticle,
     initialStep,
+    services,
+    selectedServiceId,
+    onServiceChange,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
@@ -420,6 +429,18 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
         </Sheet>
       )}
 
+      {/* サービス選択ツールバー（新規チャット時のみ表示） */}
+      {!chatSession.state.currentSessionId && services.length > 0 && (
+        <div className="absolute top-16 right-4 z-10 bg-background/80 backdrop-blur-sm p-2 rounded-lg border shadow-sm">
+          <ServiceSelector
+            services={services}
+            selectedServiceId={selectedServiceId}
+            onServiceChange={onServiceChange}
+            disabled={chatSession.state.isLoading}
+          />
+        </div>
+      )}
+
       <div className={cn('flex-1 flex flex-col pt-16', isMobile && 'pt-16')}>
         {subscription.error &&
           !subscription.requiresSubscription &&
@@ -536,6 +557,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [nextStepForPlaceholder, setNextStepForPlaceholder] = useState<BlogStepId | null>(null);
   const [canvasStreamingContent, setCanvasStreamingContent] = useState<string>('');
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [isCanvasStreaming, setIsCanvasStreaming] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
@@ -590,6 +613,25 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       isActive = false;
     };
   }, [chatSession.state.currentSessionId]);
+
+  // 事業者情報（サービス一覧）の取得
+  useEffect(() => {
+    let isActive = true;
+    const loadBrief = async () => {
+      const accessToken = await getAccessToken();
+      const res = await getBrief(accessToken);
+      if (isActive && res.success && res.data) {
+        setServices(res.data.services || []);
+        if (res.data.services?.length > 0 && res.data.services[0]) {
+          setSelectedServiceId(res.data.services[0].id);
+        }
+      }
+    };
+    loadBrief();
+    return () => {
+      isActive = false;
+    };
+  }, [getAccessToken]);
 
   const handleLoadBlogArticle = useCallback(async () => {
     if (!chatSession.state.currentSessionId) {
@@ -962,12 +1004,25 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   }, [latestBlogStep, selectedModel]);
 
   // ✅ メッセージ送信時に初期化を実行
-  const handleSendMessage = async (content: string, model: string) => {
-    // 新規メッセージ送信時はプレースホルダー状態をリセット
-    setNextStepForPlaceholder(null);
-    // メッセージ送信（エラーハンドリングは上位に委譲）
-    await chatSession.actions.sendMessage(content, model);
-  };
+  const handleSendMessage = useCallback(
+    async (content: string, model: string) => {
+      // 新規メッセージ送信時はプレースホルダー状態をリセット
+      setNextStepForPlaceholder(null);
+      // 新規セッションの場合は選択中のサービスIDを渡す
+      const options =
+        !chatSession.state.currentSessionId && selectedServiceId
+          ? { serviceId: selectedServiceId }
+          : undefined;
+
+      await chatSession.actions.sendMessage(content, model, options);
+    },
+    [
+      chatSession.state.currentSessionId,
+      chatSession.actions,
+      selectedServiceId,
+      setNextStepForPlaceholder,
+    ]
+  );
 
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
   const handleShowCanvas = useCallback(
@@ -1414,7 +1469,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           chatSession,
           subscription,
           isMobile,
-          initialStep,
           blogFlowActive,
           optimisticMessages,
           isCanvasStreaming,
@@ -1428,8 +1482,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
               open: annotationOpen,
               loading: annotationLoading,
               data: annotationData,
-              openWith: handleOpenAnnotation,
               setOpen: setAnnotationOpen,
+              openWith: handleOpenAnnotation,
             },
           },
           onSendMessage: handleSendMessage,
@@ -1449,9 +1503,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onGenerateTitleMeta: handleGenerateTitleMeta,
           isGenerateTitleMetaLoading: isGeneratingTitleMeta,
           onLoadBlogArticle: handleLoadBlogArticle,
+          initialStep,
+          services,
+          selectedServiceId,
+          onServiceChange: setSelectedServiceId,
         }}
       />
-
       {canvasPanelOpen && (
         <CanvasPanel
           onClose={() => {

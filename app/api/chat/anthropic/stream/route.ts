@@ -19,6 +19,7 @@ interface StreamRequest {
   userMessage: string;
   model: string;
   systemPrompt?: string;
+  serviceId?: string;
   enableWebSearch?: boolean;
   webSearchConfig?: {
     maxUses?: number;
@@ -50,8 +51,9 @@ export async function POST(req: NextRequest) {
       userMessage,
       model,
       systemPrompt: systemPromptOverride,
+      serviceId,
       enableWebSearch = false,
-      webSearchConfig = {}
+      webSearchConfig = {},
     }: StreamRequest = await req.json();
 
     // 認証チェック
@@ -158,7 +160,7 @@ export async function POST(req: NextRequest) {
 
           const systemPrompt = systemPromptOverride?.trim()
             ? systemPromptOverride
-            : await getSystemPrompt(model, liffAccessToken || undefined, sessionId);
+            : await getSystemPrompt(model, liffAccessToken || undefined, sessionId, serviceId);
 
           // Web検索ツールの設定
           const streamParams = {
@@ -184,12 +186,9 @@ export async function POST(req: NextRequest) {
             }),
           };
 
-          const anthropicStream = await anthropic.messages.stream(
-            streamParams,
-            {
-              signal: abortController.signal,
-            }
-          );
+          const anthropicStream = await anthropic.messages.stream(streamParams, {
+            signal: abortController.signal,
+          });
 
           // クライアント切断時のクリーンアップ
           const onAbort = () => {
@@ -208,7 +207,10 @@ export async function POST(req: NextRequest) {
 
             // Web検索関連イベントのログ出力（デバッグ用）
             if (chunk.type === 'content_block_start') {
-              console.log('[Web Search Debug] content_block_start:', JSON.stringify(chunk.content_block));
+              console.log(
+                '[Web Search Debug] content_block_start:',
+                JSON.stringify(chunk.content_block)
+              );
             }
 
             if (chunk.type === 'content_block_delta') {
@@ -255,7 +257,8 @@ export async function POST(req: NextRequest) {
                     userId,
                     'あなたは優秀なAIアシスタントです。',
                     [userMessage, fullMessage],
-                    model
+                    model,
+                    serviceId
                   );
                 }
 

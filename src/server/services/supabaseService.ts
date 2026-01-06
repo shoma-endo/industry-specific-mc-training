@@ -376,6 +376,34 @@ export class SupabaseService {
   }
 
   /**
+   * チャットセッションに紐づくサービスIDを取得
+   */
+  async getSessionServiceId(
+    sessionId: string,
+    userId: string
+  ): Promise<SupabaseResult<string | null>> {
+    const { data, error } = await this.supabase
+      .from('chat_sessions')
+      .select('service_id')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return this.success(null);
+      }
+      return this.failure('セッションのサービスID取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get session service_id',
+        context: { sessionId, userId },
+      });
+    }
+
+    return this.success((data as unknown as { service_id: string | null })?.service_id || null);
+  }
+
+  /**
    * セッションとメッセージを一括取得（RPC関数を使用）
    * N+1問題を解消し、パフォーマンスを向上
    */

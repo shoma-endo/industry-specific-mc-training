@@ -45,6 +45,7 @@ interface StreamingParams {
   currentSessionId: string;
   recentMessages: SerializableMessage[];
   systemPrompt?: string;
+  serviceId?: string; // 追加
 }
 
 export const useChatSession = (
@@ -61,6 +62,7 @@ export const useChatSession = (
       currentSessionId,
       recentMessages,
       systemPrompt,
+      serviceId, // 追加
     }: StreamingParams) => {
       const { userMessage, assistantMessage } = createStreamingMessagePair(content, model);
 
@@ -87,6 +89,7 @@ export const useChatSession = (
             userMessage: content,
             model,
             ...(systemPrompt ? { systemPrompt } : {}),
+            ...(serviceId ? { serviceId } : {}), // 追加
           }),
         });
 
@@ -96,7 +99,8 @@ export const useChatSession = (
 
           setState(prev => {
             const updatedMessages =
-              prev.messages.length > 0 && prev.messages[prev.messages.length - 1]?.role === 'assistant'
+              prev.messages.length > 0 &&
+              prev.messages[prev.messages.length - 1]?.role === 'assistant'
                 ? prev.messages.slice(0, -1)
                 : prev.messages;
 
@@ -229,7 +233,11 @@ export const useChatSession = (
   );
 
   const sendMessage = useCallback(
-    async (content: string, model: string, options?: { systemPrompt?: string }) => {
+    async (
+      content: string,
+      model: string,
+      options?: { systemPrompt?: string; serviceId?: string }
+    ) => {
       setState(prev => ({ ...prev, isLoading: true, error: null, warning: null }));
 
       try {
@@ -244,6 +252,10 @@ export const useChatSession = (
 
         if (options?.systemPrompt) {
           streamingParams.systemPrompt = options.systemPrompt;
+        }
+
+        if (options?.serviceId) {
+          streamingParams.serviceId = options.serviceId;
         }
 
         await handleStreamingMessage(streamingParams);

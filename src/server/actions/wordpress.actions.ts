@@ -206,7 +206,7 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
       result.title = rendered;
     }
   }
-  
+
   // カテゴリーIDを取得
   if (Array.isArray(record.categories)) {
     const categoryIds = record.categories
@@ -216,11 +216,9 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
       result.categories = categoryIds;
     }
   }
-  
+
   // カテゴリー名を取得（_embedded['wp:term']から）
-  const embedded = record._embedded as
-    | { 'wp:term'?: Array<Array<WordPressRestTerm>> }
-    | undefined;
+  const embedded = record._embedded as { 'wp:term'?: Array<Array<WordPressRestTerm>> } | undefined;
   if (embedded?.['wp:term'] && Array.isArray(embedded['wp:term'])) {
     const termsNested = embedded['wp:term'];
     const firstTaxonomy =
@@ -230,7 +228,7 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
       result.categoryNames = categoryNames;
     }
   }
-  
+
   return result;
 };
 
@@ -723,7 +721,9 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
         ? {
             wp_post_title: resolvedWpTitle ?? null,
             ...(resolvedWpCategories !== null ? { wp_categories: resolvedWpCategories } : {}),
-            ...(resolvedWpCategoryNames !== null ? { wp_category_names: resolvedWpCategoryNames } : {}),
+            ...(resolvedWpCategoryNames !== null
+              ? { wp_category_names: resolvedWpCategoryNames }
+              : {}),
           }
         : {}),
     };
@@ -818,7 +818,10 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
       );
     } else if (wpType === 'wordpress_com') {
       if (!wpSiteId) {
-        return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.WORDPRESS_COM_SITE_ID_REQUIRED };
+        return {
+          success: false as const,
+          error: ERROR_MESSAGES.WORDPRESS.WORDPRESS_COM_SITE_ID_REQUIRED,
+        };
       }
 
       await supabaseService.createOrUpdateWordPressSettings(authResult.userId, '', '', wpSiteId, {
@@ -884,7 +887,10 @@ export async function testWordPressConnectionAction() {
             error: context.message || 'ユーザー認証に失敗しました',
           };
         case 'settings_missing':
-          return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.SETTINGS_NOT_REGISTERED };
+          return {
+            success: false as const,
+            error: ERROR_MESSAGES.WORDPRESS.SETTINGS_NOT_REGISTERED,
+          };
         case 'wordpress_auth_missing':
           return {
             success: false as const,
@@ -1189,6 +1195,7 @@ export async function ensureAnnotationChatSession(
         last_message_at: nowIso,
         system_prompt: null,
         search_vector: null,
+        service_id: null,
       };
 
       const createResult = await service.createChatSession(session);
@@ -1551,10 +1558,7 @@ export async function deleteContentAnnotation(
 
   try {
     const supabaseService = new SupabaseService();
-    const result = await supabaseService.deleteContentAnnotation(
-      annotationId,
-      authResult.userId!
-    );
+    const result = await supabaseService.deleteContentAnnotation(annotationId, authResult.userId!);
 
     if (!result.success) {
       return {
@@ -1568,7 +1572,8 @@ export async function deleteContentAnnotation(
     console.error('Failed to delete content annotation:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : ERROR_MESSAGES.WORDPRESS.CONTENT_DELETE_FAILED,
+      error:
+        error instanceof Error ? error.message : ERROR_MESSAGES.WORDPRESS.CONTENT_DELETE_FAILED,
     };
   }
 }

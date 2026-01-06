@@ -65,7 +65,7 @@ export interface ChatSessionActions {
   sendMessage: (
     content: string,
     model: string,
-    options?: { systemPrompt?: string }
+    options?: { systemPrompt?: string; serviceId?: string }
   ) => Promise<void>;
   setError: (message: string | null) => void;
   loadSessions: () => Promise<void>;

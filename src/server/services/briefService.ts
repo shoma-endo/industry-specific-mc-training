@@ -1,16 +1,64 @@
 import { cache } from 'react';
 import { SupabaseService } from '@/server/services/supabaseService';
+import type { BriefInput, Payment } from '@/server/schemas/brief.schema';
 
 export interface Brief {
   id: string;
   user_id: string;
-  data: Record<string, string>;
+  data: BriefInput;
   created_at: string | null;
   updated_at: string | null;
 }
 
 export class BriefService {
   private static readonly supabaseService = new SupabaseService();
+
+  /**
+   * 旧形式のデータを新形式に変換
+   */
+  private static migrateOldBriefToNew(oldData: unknown): BriefInput {
+    // すでに新形式（servicesキーがある）ならそのまま
+    const data = oldData as Record<string, unknown>;
+    if (data && data.services) {
+      return data as unknown as BriefInput;
+    }
+
+    return {
+      profile: {
+        company: data.company as string | undefined,
+        address: data.address as string | undefined,
+        ceo: data.ceo as string | undefined,
+        hobby: data.hobby as string | undefined,
+        staff: data.staff as string | undefined,
+        staffHobby: data.staffHobby as string | undefined,
+        businessHours: data.businessHours as string | undefined,
+        holiday: data.holiday as string | undefined,
+        tel: data.tel as string | undefined,
+        license: data.license as string | undefined,
+        qualification: data.qualification as string | undefined,
+        capital: data.capital as string | undefined,
+        email: data.email as string | undefined,
+        payments: data.payments as Payment[] | undefined,
+        benchmarkUrl: data.benchmarkUrl as string | undefined,
+        competitorCopy: data.competitorCopy as string | undefined,
+      },
+      persona: data.persona as string | undefined,
+      services: [
+        {
+          id: crypto.randomUUID(),
+          name: (data.service as string) || 'サービス1',
+          strength: data.strength as string | undefined,
+          when: data.when as string | undefined,
+          where: data.where as string | undefined,
+          who: data.who as string | undefined,
+          why: data.why as string | undefined,
+          what: data.what as string | undefined,
+          how: data.how as string | undefined,
+          price: data.price as string | undefined,
+        },
+      ],
+    };
+  }
 
   /**
    * ユーザーIDで事業者情報を取得
@@ -36,14 +84,8 @@ export class BriefService {
         return null;
       }
 
-      // dataフィールドをJson型からRecord<string, string>に変換
-      const briefData: Record<string, string> =
-        data.data &&
-        typeof data.data === 'object' &&
-        !Array.isArray(data.data) &&
-        data.data !== null
-          ? (data.data as Record<string, string>)
-          : {};
+      // dataフィールドをJson型から新形式に変換（必要に応じてマイグレーション）
+      const briefData = this.migrateOldBriefToNew(data.data || {});
 
       return {
         id: data.id,
@@ -70,9 +112,9 @@ export class BriefService {
    * 事業者情報のデータ部分のみを取得
    * テンプレート変数置換用
    */
-  static async getVariablesByUserId(userId: string): Promise<Record<string, string>> {
+  static async getVariablesByUserId(userId: string): Promise<BriefInput | null> {
     const brief = await this.getCachedByUserId(userId);
-    return brief?.data ?? {};
+    return brief?.data ?? null;
   }
 
   /**

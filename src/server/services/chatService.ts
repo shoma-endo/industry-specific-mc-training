@@ -54,7 +54,8 @@ class ChatService {
     userId: string,
     systemPrompt: string,
     userMessage: string | string[],
-    model?: string
+    model?: string,
+    serviceId?: string
   ): Promise<{
     message: string;
     error?: string;
@@ -108,6 +109,7 @@ class ChatService {
         created_at: nowIso,
         last_message_at: nowIso,
         system_prompt: systemPrompt,
+        service_id: serviceId ?? null,
         search_vector: null,
       };
 
