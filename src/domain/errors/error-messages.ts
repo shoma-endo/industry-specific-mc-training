@@ -135,6 +135,9 @@ export const ERROR_MESSAGES = {
 
     /** 権限がない場合 */
     UNAUTHORIZED: '権限がありません',
+
+    /** アクセス権の確認に失敗した場合 */
+    ACCESS_CHECK_FAILED: 'アクセス権の確認に失敗しました',
   },
 
   /**

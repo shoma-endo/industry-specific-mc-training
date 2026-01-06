@@ -98,7 +98,7 @@ export async function fetchGscDetail(
     .rpc('get_accessible_user_ids', { p_user_id: userId });
 
   if (accessError || !accessibleIds) {
-    return { success: false, error: 'アクセス権の確認に失敗しました' };
+    return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
   }
 
   const days = Math.min(180, Math.max(7, options?.days ?? 90));
@@ -245,7 +245,7 @@ export async function registerEvaluation(params: {
       .rpc('get_accessible_user_ids', { p_user_id: userId });
 
     if (accessError || !accessibleIds) {
-      return { success: false, error: 'アクセス権の確認に失敗しました' };
+      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays, evaluationHour } =
@@ -356,7 +356,7 @@ export async function updateEvaluation(params: {
       .rpc('get_accessible_user_ids', { p_user_id: userId });
 
     if (accessError || !accessibleIds) {
-      return { success: false, error: 'アクセス権の確認に失敗しました' };
+      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     const { contentAnnotationId, baseEvaluationDate, cycleDays, evaluationHour } = params;
@@ -506,7 +506,7 @@ export async function fetchQueryAnalysis(
       .rpc('get_accessible_user_ids', { p_user_id: userId });
 
     if (accessError || !accessibleIds) {
-      return { success: false, error: 'アクセス権の確認に失敗しました' };
+      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     // 期間計算
@@ -640,7 +640,7 @@ export async function runQueryImportForAnnotation(
       .rpc('get_accessible_user_ids', { p_user_id: userId });
 
     if (accessError || !accessibleIds) {
-      return { success: false, error: 'アクセス権の確認に失敗しました' };
+      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     if (!annotationId) {
@@ -721,7 +721,7 @@ export async function runEvaluationNow(contentAnnotationId: string) {
       .rpc('get_accessible_user_ids', { p_user_id: userId });
 
     if (accessError || !accessibleIds) {
-      return { success: false, error: 'アクセス権の確認に失敗しました' };
+      return { success: false, error: ERROR_MESSAGES.AUTH.ACCESS_CHECK_FAILED };
     }
 
     if (!contentAnnotationId) {

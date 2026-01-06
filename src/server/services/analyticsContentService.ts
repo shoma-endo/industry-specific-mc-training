@@ -1,7 +1,6 @@
-import { cookies } from 'next/headers';
-
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 import type { AnnotationRecord } from '@/types/annotation';
 import type {
   AnalyticsContentItem,
@@ -80,10 +79,8 @@ export class AnalyticsContentService {
     }
   }
 
-  private async resolveUser(): Promise<{ userId: string; ownerUserId?: string | null }> {
-    const cookieStore = await cookies();
-    const liffAccessToken = cookieStore.get('line_access_token')?.value;
-    const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  private async resolveUser(): Promise<{ userId: string }> {
+    const { accessToken: liffAccessToken, refreshToken } = await getLiffTokensFromCookies();
 
     const authResult = await authMiddleware(liffAccessToken, refreshToken);
 
@@ -91,7 +88,7 @@ export class AnalyticsContentService {
       throw new Error(authResult.error || 'ユーザー認証に失敗しました');
     }
 
-    return { userId: authResult.userId, ownerUserId: authResult.ownerUserId ?? null };
+    return { userId: authResult.userId };
   }
 
   private buildAnnotationRowKey(annotation: AnnotationRecord, fallbackIndex: number): string {
