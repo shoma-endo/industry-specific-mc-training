@@ -1,6 +1,7 @@
 'use server';
 
 import { randomUUID } from 'crypto';
+import { cookies } from 'next/headers';
 import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { withAuth } from '@/server/middleware/withAuth.middleware';
