@@ -1,12 +1,12 @@
 'use server';
 
 import { userService } from '@/server/services/userService';
-import { cookies } from 'next/headers';
 import { checkUserRole } from './subscription.actions';
 import { isUnavailable } from '@/authUtils';
 import type { User, UserRole } from '@/types/user';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
 export const getAllUsers = async (): Promise<{
   success: boolean;
@@ -14,8 +14,7 @@ export const getAllUsers = async (): Promise<{
   error?: string;
 }> => {
   try {
-    const cookieStore = await cookies();
-    const lineAccessToken = cookieStore.get('line_access_token')?.value;
+    const { accessToken: lineAccessToken } = await getLiffTokensFromCookies();
 
     if (!lineAccessToken) {
       return { success: false, error: ERROR_MESSAGES.AUTH.NOT_LOGGED_IN };
@@ -52,8 +51,7 @@ export const updateUserRole = async (
   newRole: UserRole
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const cookieStore = await cookies();
-    const lineAccessToken = cookieStore.get('line_access_token')?.value;
+    const { accessToken: lineAccessToken } = await getLiffTokensFromCookies();
 
     if (!lineAccessToken) {
       return { success: false, error: ERROR_MESSAGES.AUTH.NOT_LOGGED_IN };
