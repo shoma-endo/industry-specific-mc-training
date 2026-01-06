@@ -843,6 +843,10 @@ export type Database = {
           total_queries: number
         }[]
       }
+      get_accessible_user_ids: {
+        Args: { p_user_id: string }
+        Returns: string[]
+      }
       get_sessions_with_messages: {
         Args: { p_limit?: number; p_user_id: string }
         Returns: {

@@ -15,8 +15,17 @@ import { Color } from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
-import { createLowlight } from 'lowlight';
-import { X, ClipboardCheck, List, Loader2, Info, SearchCheck, PenLine, RotateCw } from 'lucide-react';
+import { createLowlight, common } from 'lowlight';
+import {
+  X,
+  ClipboardCheck,
+  List,
+  Loader2,
+  Info,
+  SearchCheck,
+  PenLine,
+  RotateCw,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -59,7 +68,7 @@ interface CanvasPanelProps {
   streamingContent?: string; // ストリーミング中のコンテンツ
 }
 
-const lowlight = createLowlight();
+const lowlight = createLowlight(common);
 
 // ✅ プレーンテキストからマークダウンへの変換
 const parseAsMarkdown = (text: string): string => {
@@ -258,7 +267,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const links: Array<{ text: string; url: string; index: number }> = [];
       // パターン 1: Markdown リンク形式 [text](url)
       // パターン 2: URL テキスト形式 https://... または /...
-      const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/)([^\s)]*)\)|((https?:\/\/|\/)[^\s]+)/g;
+      const markdownLinkRegex =
+        /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/)([^\s)]*)\)|((https?:\/\/|\/)[^\s]+)/g;
       let match;
       let index = 0;
 
@@ -491,7 +501,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const scrollTop = container.scrollTop;
       const scrollLeft = container.scrollLeft;
       const mode = modeOverride ?? selectionMode ?? 'menu';
-      const size = mode === 'choice' ? { width: 200, height: 90 } : MENU_SIZE[mode as keyof typeof MENU_SIZE];
+      const size =
+        mode === 'choice' ? { width: 200, height: 90 } : MENU_SIZE[mode as keyof typeof MENU_SIZE];
 
       const minTop = scrollTop + 8;
       const minLeft = scrollLeft + 8;
@@ -550,7 +561,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     editorProps: {
       attributes: {
         class:
-          'tiptap prose prose-lg max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2',
+          'tiptap prose prose-lg max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-100 prose-pre:text-gray-900 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2',
       },
     },
   });
@@ -763,9 +774,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       ].join('');
 
       const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
-      const combinedInstruction = [selectionPrompt, instruction]
-        .filter(Boolean)
-        .join('\n\n');
+      const combinedInstruction = [selectionPrompt, instruction].filter(Boolean).join('\n\n');
 
       const payload: CanvasSelectionEditPayload & { freeFormUserPrompt?: string } = {
         instruction: combinedInstruction,
@@ -790,7 +799,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       setIsApplyingSelectionEdit(false);
     }
   }, [activeSelection, editor, extractLinksFromText, markdownContent, onSelectionEdit]);
-
 
   const handleApplySelectionEdit = useCallback(
     async (instructionOverride?: string) => {
@@ -1242,11 +1250,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         <div className="relative min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4">
           <EditorContent
             editor={editor}
-            className="prose prose-lg max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2"
+            className="prose max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-100 prose-pre:text-gray-900 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2"
             style={{
               // ChatGPT風の追加スタイル
               lineHeight: '1.7',
-              fontSize: '16px',
             }}
           />
 

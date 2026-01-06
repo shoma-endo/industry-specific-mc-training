@@ -9,14 +9,14 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
 
 const supabaseService = new SupabaseService();
 
 // WordPress接続状態をGETメソッドで確認（WordPress.comとセルフホスト両対応）
 export async function GET(request: NextRequest) {
   try {
-    const liffToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const { accessToken: liffToken, refreshToken } = getLiffTokensFromRequest(request);
     const authResult = await authMiddleware(liffToken, refreshToken);
 
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
@@ -113,8 +113,7 @@ export async function GET(request: NextRequest) {
 // POSTメソッドも統合接続テストに対応
 export async function POST(request: NextRequest) {
   try {
-    const liffToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const { accessToken: liffToken, refreshToken } = getLiffTokensFromRequest(request);
     const authResult = await authMiddleware(liffToken, refreshToken);
 
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {

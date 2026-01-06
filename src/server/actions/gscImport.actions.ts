@@ -1,6 +1,5 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { gscImportService } from '@/server/services/gscImportService';
@@ -12,6 +11,7 @@ import {
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
 export interface GscImportParams {
   startDate: string;
@@ -23,9 +23,7 @@ export interface GscImportParams {
 
 export async function runGscImport(params: GscImportParams) {
   try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get('line_access_token')?.value;
-    const refreshToken = cookieStore.get('line_refresh_token')?.value;
+    const { accessToken, refreshToken } = await getLiffTokensFromCookies();
 
     const authResult = await authMiddleware(accessToken, refreshToken);
     if (authResult.error || !authResult.userId) {

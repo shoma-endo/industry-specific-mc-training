@@ -5,6 +5,7 @@ import { WPCOM_TOKEN_COOKIE_NAME } from '@/server/services/wordpressContext';
 import { verifyOAuthState } from '@/server/lib/oauth-state';
 import { isAdmin as isAdminRole } from '@/authUtils';
 import type { UserRole } from '@/types/user';
+import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
 
 const supabaseService = new SupabaseService();
 
@@ -86,8 +87,7 @@ export async function GET(request: NextRequest) {
 
     let targetUserId: string | null = null;
     let cookieUserId: string | null = null;
-    const liffAccessToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const { accessToken: liffAccessToken, refreshToken } = getLiffTokensFromRequest(request);
 
     if (liffAccessToken) {
       const authResult = await authMiddleware(liffAccessToken, refreshToken);

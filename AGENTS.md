@@ -60,6 +60,7 @@ If an error occurs during execution or the plan fails:
 - Supabase がユーザー・セッション・注釈・プロンプトなどのデータを保持し、WordPress 連携で既存記事を取り込みます。
 - Stripe サブスクリプションとロール（`trial` / `paid` / `admin` / `unavailable`）により機能制御を行い、Anthropic Claude Sonnet 4.5 と OpenAI モデルを用途に応じて切替します。
 - チャット履歴検索は Supabase RPC `search_chat_sessions`（`pg_trgm` + `tsvector`）を利用し、サイドバーの検索バーからタイトルや正規化済み URL を横断検索できます。
+- `search_chat_sessions` は `get_accessible_user_ids` によるオーナー/スタッフ共有アクセスを考慮します。
 
 ## 開発ワークフローの原則
 
@@ -104,6 +105,7 @@ If an error occurs during execution or the plan fails:
 ## RLS & セキュリティ
 
 Supabase の DB ポリシー、パフォーマンス、および `SECURITY DEFINER` 関数の実装指針は、エージェントスキル（`supabase-rls`）に集約されています。
+オーナー/スタッフ共有アクセスは `get_accessible_user_ids` を前提にし、オーナーは読み取り専用とします。
 
 ## コーディングスタイル
 
@@ -122,6 +124,7 @@ Supabase の DB ポリシー、パフォーマンス、および `SECURITY DEFIN
 - 重要フロー（LIFF 認証、Stripe、WordPress 投稿取得、Canvas 編集、GSC 連携）はローカルで手動検証し、手順や想定結果を PR に記述します。
 - Stripe・WordPress・LIFF・GSC は本番キーとサンドボックスで環境変数が変わるため、変更時は README と `.env.local` 用のメモを更新します。
 - GSC 連携の変更時は `/app/gsc-dashboard` と `/app/gsc-import` の表示・動作を手動で確認してください。
+- スタッフ招待ユーザーの参照/削除と、オーナーの書き込み不可を確認してください。
 
 ## ドキュメントとナレッジ
 

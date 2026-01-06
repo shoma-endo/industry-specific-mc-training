@@ -95,10 +95,7 @@ const createEmptyForm = (): Record<AnnotationFieldKey, string> =>
     string
   >;
 
-export default function AnalyticsTable({
-  items,
-  unreadAnnotationIds,
-}: Props) {
+export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const router = useRouter();
   const { getAccessToken, isOwnerViewMode } = useLiffContext();
   const isReadOnly = isOwnerViewMode;
@@ -178,7 +175,10 @@ export default function AnalyticsTable({
       if (typeof window !== 'undefined') {
         localStorage.setItem(
           ANALYTICS_STORAGE_KEYS.CATEGORY_FILTER,
-          JSON.stringify({ selectedCategoryNames: selectedNames, includeUncategorized: includeUncat })
+          JSON.stringify({
+            selectedCategoryNames: selectedNames,
+            includeUncategorized: includeUncat,
+          })
         );
       }
     },
@@ -301,24 +301,21 @@ export default function AnalyticsTable({
     setIsOpsExpanded(prev => !prev);
   }, []);
 
-  const openEdit = React.useCallback(
-    async (item: AnalyticsContentItem) => {
-      const annotation = item.annotation;
-      const nextForm = Object.fromEntries(
-        ANNOTATION_FIELD_KEYS.map(key => [
-          key,
-          annotation?.[key] ? String(annotation[key] ?? '') : '',
-        ])
-      ) as Record<AnnotationFieldKey, string>;
-      setForm(nextForm);
-      setCanonicalUrl(annotation?.canonical_url ?? '');
-      setWpPostTitle(annotation?.wp_post_title ?? '');
-      setFormError('');
-      setCanonicalUrlError('');
-      setEditingRowKey(item.rowKey);
-    },
-    []
-  );
+  const openEdit = React.useCallback(async (item: AnalyticsContentItem) => {
+    const annotation = item.annotation;
+    const nextForm = Object.fromEntries(
+      ANNOTATION_FIELD_KEYS.map(key => [
+        key,
+        annotation?.[key] ? String(annotation[key] ?? '') : '',
+      ])
+    ) as Record<AnnotationFieldKey, string>;
+    setForm(nextForm);
+    setCanonicalUrl(annotation?.canonical_url ?? '');
+    setWpPostTitle(annotation?.wp_post_title ?? '');
+    setFormError('');
+    setCanonicalUrlError('');
+    setEditingRowKey(item.rowKey);
+  }, []);
 
   const closeEdit = React.useCallback(() => {
     setEditingRowKey(null);
@@ -366,25 +363,28 @@ export default function AnalyticsTable({
     [canonicalUrl, closeEdit, form, router]
   );
 
-  const handleDeleteClick = React.useCallback((item: AnalyticsContentItem) => {
-    if (isReadOnly) return;
-    const annotation = item.annotation;
-    const sessionId = annotation?.session_id;
-    const annotationId = annotation?.id;
+  const handleDeleteClick = React.useCallback(
+    (item: AnalyticsContentItem) => {
+      if (isReadOnly) return;
+      const annotation = item.annotation;
+      const sessionId = annotation?.session_id;
+      const annotationId = annotation?.id;
 
-    if (!sessionId && !annotationId) {
-      toast.error('削除対象のIDが見つかりません');
-      return;
-    }
+      if (!sessionId && !annotationId) {
+        toast.error('削除対象のIDが見つかりません');
+        return;
+      }
 
-    const title = annotation?.wp_post_title || annotation?.main_kw || 'コンテンツ';
-    setDeleteTargetTitle(title);
-    setDeleteTargetSessionId(sessionId ?? null);
-    setDeleteTargetAnnotationId(annotationId ?? null);
-    setHasOrphanContent(!sessionId);
-    setDeletingRowKey(item.rowKey);
-    setDeleteDialogOpen(true);
-  }, [isReadOnly]);
+      const title = annotation?.wp_post_title || annotation?.main_kw || 'コンテンツ';
+      setDeleteTargetTitle(title);
+      setDeleteTargetSessionId(sessionId ?? null);
+      setDeleteTargetAnnotationId(annotationId ?? null);
+      setHasOrphanContent(!sessionId);
+      setDeletingRowKey(item.rowKey);
+      setDeleteDialogOpen(true);
+    },
+    [isReadOnly]
+  );
 
   const handleDeleteConfirm = React.useCallback(async () => {
     setIsDeleting(true);
@@ -399,8 +399,7 @@ export default function AnalyticsTable({
         await chatServiceRef.current.deleteSession(deleteTargetSessionId);
       } else if (deleteTargetAnnotationId) {
         // session_id がない場合: コンテンツのみ削除
-        const accessToken = await getAccessToken();
-        const result = await deleteContentAnnotation(deleteTargetAnnotationId, accessToken);
+        const result = await deleteContentAnnotation(deleteTargetAnnotationId);
         if (!result.success) {
           throw new Error(result.error || 'コンテンツの削除に失敗しました');
         }
@@ -422,7 +421,7 @@ export default function AnalyticsTable({
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteTargetSessionId, deleteTargetAnnotationId, getAccessToken, router]);
+  }, [deleteTargetSessionId, deleteTargetAnnotationId, router]);
 
   return (
     <>
@@ -490,399 +489,404 @@ export default function AnalyticsTable({
             </div>
 
             <div className="overflow-x-auto">
-            <table className="min-w-[2200px] divide-y divide-gray-200">
-              <thead className="bg-gray-50 analytics-head">
-                <tr>
-                  <th
-                    className="analytics-ops-cell px-2 py-3 text-center text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap relative group/th"
-                    style={{
-                      width: `${opsWidth}px`,
-                      minWidth: `${opsWidth}px`,
-                      maxWidth: `${opsWidth}px`,
-                      transition: 'width 0.2s ease-in-out',
-                    }}
-                  >
-                    <div className="flex items-center justify-center relative w-full">
-                      <span>操作</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-6 w-6 ml-2 text-gray-500 hover:text-gray-700 bg-white border-gray-300 shadow-sm"
-                        onClick={toggleOpsExpanded}
-                        title={isOpsExpanded ? '操作列を折りたたむ' : '操作列を展開する'}
-                      >
-                        {isOpsExpanded ? (
-                          <ChevronsLeft className="h-4 w-4" />
-                        ) : (
-                          <ChevronsRight className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </th>
-                  {orderedIds
-                    .filter(id => visibleSet.has(id))
-                    .map(id => (
-                      <th
-                        key={id}
-                        className={`px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap ${
-                          id === 'impressions' ? 'text-right min-w-[120px]' : ''
-                        } ${id === 'categories' ? 'min-w-[200px]' : ''} ${
-                          id === 'wp_post_title' || id === 'wp_excerpt' ? 'min-w-[360px]' : ''
-                        } ${id === 'url' ? 'min-w-[300px]' : ''} ${
-                          ['main_kw', 'kw'].includes(id) ? 'min-w-[180px]' : ''
-                        } ${['needs', 'persona', 'goal', 'prep', 'basic_structure', 'opening_proposal'].includes(id) ? 'min-w-[220px]' : ''} ${
-                          id === 'date' ? 'min-w-[120px]' : ''
-                        }`}
-                      >
-                        {columnLabelMap[id]}
-                      </th>
-                    ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredItems.map(item => {
-                  const annotation = item.annotation;
-                  const wpPostId =
-                    annotation?.wp_post_id != null && Number.isFinite(annotation.wp_post_id)
-                      ? annotation.wp_post_id
+              <table className="min-w-[2200px] divide-y divide-gray-200">
+                <thead className="bg-gray-50 analytics-head">
+                  <tr>
+                    <th
+                      className="analytics-ops-cell px-2 py-3 text-center text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap relative group/th"
+                      style={{
+                        width: `${opsWidth}px`,
+                        minWidth: `${opsWidth}px`,
+                        maxWidth: `${opsWidth}px`,
+                        transition: 'width 0.2s ease-in-out',
+                      }}
+                    >
+                      <div className="flex items-center justify-center relative w-full">
+                        <span>操作</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6 ml-2 text-gray-500 hover:text-gray-700 bg-white border-gray-300 shadow-sm"
+                          onClick={toggleOpsExpanded}
+                          title={isOpsExpanded ? '操作列を折りたたむ' : '操作列を展開する'}
+                        >
+                          {isOpsExpanded ? (
+                            <ChevronsLeft className="h-4 w-4" />
+                          ) : (
+                            <ChevronsRight className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </th>
+                    {orderedIds
+                      .filter(id => visibleSet.has(id))
+                      .map(id => (
+                        <th
+                          key={id}
+                          className={`px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap ${
+                            id === 'impressions' ? 'text-right min-w-[120px]' : ''
+                          } ${id === 'categories' ? 'min-w-[200px]' : ''} ${
+                            id === 'wp_post_title' || id === 'wp_excerpt' ? 'min-w-[360px]' : ''
+                          } ${id === 'url' ? 'min-w-[300px]' : ''} ${
+                            ['main_kw', 'kw'].includes(id) ? 'min-w-[180px]' : ''
+                          } ${['needs', 'persona', 'goal', 'prep', 'basic_structure', 'opening_proposal'].includes(id) ? 'min-w-[220px]' : ''} ${
+                            id === 'date' ? 'min-w-[120px]' : ''
+                          }`}
+                        >
+                          {columnLabelMap[id]}
+                        </th>
+                      ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredItems.map(item => {
+                    const annotation = item.annotation;
+                    const wpPostId =
+                      annotation?.wp_post_id != null && Number.isFinite(annotation.wp_post_id)
+                        ? annotation.wp_post_id
+                        : null;
+                    const fallbackTitle =
+                      annotation?.wp_post_title || annotation?.main_kw || 'コンテンツチャット';
+                    const rowCanonicalUrl = annotation?.canonical_url ?? null;
+                    const updatedAt = annotation?.updated_at
+                      ? new Date(annotation.updated_at).toLocaleDateString('ja-JP')
                       : null;
-                  const fallbackTitle =
-                    annotation?.wp_post_title || annotation?.main_kw || 'コンテンツチャット';
-                  const rowCanonicalUrl = annotation?.canonical_url ?? null;
-                  const updatedAt = annotation?.updated_at
-                    ? new Date(annotation.updated_at).toLocaleDateString('ja-JP')
-                    : null;
-                  const hasUnreadSuggestion = annotation?.id
-                    ? (unreadAnnotationIds?.has(annotation.id) ?? false)
-                    : false;
+                    const hasUnreadSuggestion = annotation?.id
+                      ? (unreadAnnotationIds?.has(annotation.id) ?? false)
+                      : false;
 
-                  return (
-                    <tr key={item.rowKey} className="analytics-row group">
-                      <td
-                        className="analytics-ops-cell px-2 py-4 whitespace-nowrap text-sm text-center relative"
-                        style={{
-                          width: `${opsWidth}px`,
-                          minWidth: `${opsWidth}px`,
-                          maxWidth: `${opsWidth}px`,
-                        }}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <LaunchChatButton
-                            label="チャット"
-                            isPending={pendingRowKey === item.rowKey}
-                            onClick={() => {
-                              const hasExistingBlog =
-                                (rowCanonicalUrl && rowCanonicalUrl.trim().length > 0) ||
-                                (typeof wpPostId === 'number' && Number.isFinite(wpPostId));
-                              handleLaunch({
-                                rowKey: item.rowKey,
-                                sessionId: annotation?.session_id ?? null,
-                                annotationId: annotation?.id ?? null,
-                                wpPostId,
-                                wpPostTitle: annotation?.wp_post_title ?? null,
-                                canonicalUrl: rowCanonicalUrl,
-                                fallbackTitle,
-                                initialStep: hasExistingBlog ? 'step7' : null,
-                              });
-                            }}
-                          />
+                    return (
+                      <tr key={item.rowKey} className="analytics-row group">
+                        <td
+                          className="analytics-ops-cell px-2 py-4 whitespace-nowrap text-sm text-center relative"
+                          style={{
+                            width: `${opsWidth}px`,
+                            minWidth: `${opsWidth}px`,
+                            maxWidth: `${opsWidth}px`,
+                          }}
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <LaunchChatButton
+                              label="チャット"
+                              isPending={pendingRowKey === item.rowKey}
+                              onClick={() => {
+                                const hasExistingBlog =
+                                  (rowCanonicalUrl && rowCanonicalUrl.trim().length > 0) ||
+                                  (typeof wpPostId === 'number' && Number.isFinite(wpPostId));
+                                handleLaunch({
+                                  rowKey: item.rowKey,
+                                  sessionId: annotation?.session_id ?? null,
+                                  annotationId: annotation?.id ?? null,
+                                  wpPostId,
+                                  wpPostTitle: annotation?.wp_post_title ?? null,
+                                  canonicalUrl: rowCanonicalUrl,
+                                  fallbackTitle,
+                                  initialStep: hasExistingBlog ? 'step7' : null,
+                                });
+                              }}
+                            />
 
-                          {isOpsExpanded && (
-                            <>
-                              <Dialog
-                                open={editingRowKey === item.rowKey}
-                                onOpenChange={open => {
-                                  if (open) {
-                                    openEdit(item);
-                                  } else {
-                                    closeEdit();
-                                  }
-                                }}
-                              >
-                                <DialogTrigger asChild>
+                            {isOpsExpanded && (
+                              <>
+                                <Dialog
+                                  open={editingRowKey === item.rowKey}
+                                  onOpenChange={open => {
+                                    if (open) {
+                                      openEdit(item);
+                                    } else {
+                                      closeEdit();
+                                    }
+                                  }}
+                                >
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                      編集
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                                    <DialogHeader>
+                                      <DialogTitle>コンテンツ情報を編集</DialogTitle>
+                                      <DialogDescription>
+                                        テーブルの各フィールドを直接編集し、保存できます。
+                                      </DialogDescription>
+                                    </DialogHeader>
+
+                                    {formError ? (
+                                      <Alert variant="destructive" className="mb-4">
+                                        <AlertTitle className="text-sm font-semibold">
+                                          保存に失敗しました
+                                        </AlertTitle>
+                                        <AlertDescription className="text-sm">
+                                          {formError}
+                                        </AlertDescription>
+                                      </Alert>
+                                    ) : null}
+
+                                    <AnnotationFormFields
+                                      form={form}
+                                      onFormChange={(key, value) =>
+                                        setForm(prev => ({ ...prev, [key]: value }))
+                                      }
+                                      canonicalUrl={canonicalUrl}
+                                      onCanonicalUrlChange={value => {
+                                        setCanonicalUrl(value);
+                                        if (canonicalUrlError) setCanonicalUrlError('');
+                                      }}
+                                      canonicalUrlError={canonicalUrlError}
+                                      wpPostTitle={wpPostTitle}
+                                    />
+
+                                    <DialogFooter>
+                                      <Button
+                                        variant="ghost"
+                                        onClick={closeEdit}
+                                        disabled={isPendingEdit}
+                                      >
+                                        キャンセル
+                                      </Button>
+                                      <Button
+                                        onClick={() => handleSave(annotation?.id)}
+                                        disabled={isPendingEdit}
+                                      >
+                                        {isPendingEdit ? (
+                                          <>
+                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                            保存中...
+                                          </>
+                                        ) : (
+                                          '保存'
+                                        )}
+                                      </Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+
+                                {annotation?.id ? (
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     className="flex items-center gap-2"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                    編集
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-                                  <DialogHeader>
-                                    <DialogTitle>コンテンツ情報を編集</DialogTitle>
-                                    <DialogDescription>
-                                      テーブルの各フィールドを直接編集し、保存できます。
-                                    </DialogDescription>
-                                  </DialogHeader>
-
-                                  {formError ? (
-                                    <Alert variant="destructive" className="mb-4">
-                                      <AlertTitle className="text-sm font-semibold">
-                                        保存に失敗しました
-                                      </AlertTitle>
-                                      <AlertDescription className="text-sm">
-                                        {formError}
-                                      </AlertDescription>
-                                    </Alert>
-                                  ) : null}
-
-                                  <AnnotationFormFields
-                                    form={form}
-                                    onFormChange={(key, value) =>
-                                      setForm(prev => ({ ...prev, [key]: value }))
-                                    }
-                                    canonicalUrl={canonicalUrl}
-                                    onCanonicalUrlChange={value => {
-                                      setCanonicalUrl(value);
-                                      if (canonicalUrlError) setCanonicalUrlError('');
+                                    onClick={() => {
+                                      const target = new URLSearchParams();
+                                      target.set('annotationId', annotation.id ?? '');
+                                      window.open(
+                                        `/gsc-dashboard?${target.toString()}`,
+                                        '_blank',
+                                        'noopener,noreferrer'
+                                      );
                                     }}
-                                    canonicalUrlError={canonicalUrlError}
-                                    wpPostTitle={wpPostTitle}
-                                  />
-
-                                  <DialogFooter>
-                                    <Button
-                                      variant="ghost"
-                                      onClick={closeEdit}
-                                      disabled={isPendingEdit}
-                                    >
-                                      キャンセル
-                                    </Button>
-                                    <Button
-                                      onClick={() => handleSave(annotation?.id)}
-                                      disabled={isPendingEdit}
-                                    >
-                                      {isPendingEdit ? (
-                                        <>
-                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                          保存中...
-                                        </>
+                                  >
+                                    <span className="inline-flex h-3 w-3 items-center justify-center">
+                                      {hasUnreadSuggestion ? (
+                                        <span
+                                          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-600 animate-pulse"
+                                          title="改善提案があります"
+                                        >
+                                          <Bell className="h-3.5 w-3.5" />
+                                        </span>
                                       ) : (
-                                        '保存'
+                                        <FileText
+                                          className="h-3.5 w-3.5 text-gray-500"
+                                          aria-hidden
+                                        />
                                       )}
-                                    </Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
+                                    </span>
+                                    <span>詳細</span>
+                                  </Button>
+                                ) : null}
 
-                              {annotation?.id ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="flex items-center gap-2"
-                                  onClick={() => {
-                                    const target = new URLSearchParams();
-                                    target.set('annotationId', annotation.id ?? '');
-                                    window.open(
-                                      `/gsc-dashboard?${target.toString()}`,
-                                      '_blank',
-                                      'noopener,noreferrer'
-                                    );
-                                  }}
+                                  className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                  onClick={() => handleDeleteClick(item)}
+                                  disabled={
+                                    isReadOnly || (isDeleting && deletingRowKey === item.rowKey)
+                                  }
                                 >
-                                  <span className="inline-flex h-3 w-3 items-center justify-center">
-                                    {hasUnreadSuggestion ? (
-                                      <span
-                                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-600 animate-pulse"
-                                        title="改善提案があります"
-                                      >
-                                        <Bell className="h-3.5 w-3.5" />
-                                      </span>
-                                    ) : (
-                                      <FileText className="h-3.5 w-3.5 text-gray-500" aria-hidden />
-                                    )}
-                                  </span>
-                                  <span>詳細</span>
+                                  <Trash2 className="h-4 w-4" />
+                                  削除
                                 </Button>
-                              ) : null}
-
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                                onClick={() => handleDeleteClick(item)}
-                                disabled={isReadOnly || (isDeleting && deletingRowKey === item.rowKey)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                削除
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                      {orderedIds
-                        .filter(id => visibleSet.has(id))
-                        .map(id => {
-                          switch (id) {
-                            case 'main_kw':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.main_kw ? (
-                                    <TruncatedText text={annotation.main_kw} lines={2} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'kw':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.kw ? (
-                                    <TruncatedText text={annotation.kw} lines={2} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'impressions':
-                              return (
-                                <td
-                                  key={id}
-                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right"
-                                >
-                                  {annotation?.impressions ?? '—'}
-                                </td>
-                              );
-                            case 'needs':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.needs ? (
-                                    <TruncatedText text={annotation.needs} lines={3} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'persona':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.persona ? (
-                                    <TruncatedText text={annotation.persona} lines={3} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'goal':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.goal ? (
-                                    <TruncatedText text={annotation.goal} lines={3} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'prep':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.prep ? (
-                                    <TruncatedText text={annotation.prep} lines={3} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'basic_structure':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.basic_structure ? (
-                                    <TruncatedText text={annotation.basic_structure} lines={3} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'opening_proposal':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.opening_proposal ? (
-                                    <TruncatedText text={annotation.opening_proposal} lines={3} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'categories': {
-                              const itemCats = annotation?.wp_category_names ?? [];
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm">
-                                  {itemCats.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                      {itemCats.map(cat => (
-                                        <span
-                                          key={cat}
-                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-gray-700 bg-gray-100"
-                                        >
-                                          {cat}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-400">未分類</span>
-                                  )}
-                                </td>
-                              );
+                              </>
+                            )}
+                          </div>
+                        </td>
+                        {orderedIds
+                          .filter(id => visibleSet.has(id))
+                          .map(id => {
+                            switch (id) {
+                              case 'main_kw':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.main_kw ? (
+                                      <TruncatedText text={annotation.main_kw} lines={2} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'kw':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.kw ? (
+                                      <TruncatedText text={annotation.kw} lines={2} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'impressions':
+                                return (
+                                  <td
+                                    key={id}
+                                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right"
+                                  >
+                                    {annotation?.impressions ?? '—'}
+                                  </td>
+                                );
+                              case 'needs':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.needs ? (
+                                      <TruncatedText text={annotation.needs} lines={3} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'persona':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.persona ? (
+                                      <TruncatedText text={annotation.persona} lines={3} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'goal':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.goal ? (
+                                      <TruncatedText text={annotation.goal} lines={3} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'prep':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.prep ? (
+                                      <TruncatedText text={annotation.prep} lines={3} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'basic_structure':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.basic_structure ? (
+                                      <TruncatedText text={annotation.basic_structure} lines={3} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'opening_proposal':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.opening_proposal ? (
+                                      <TruncatedText text={annotation.opening_proposal} lines={3} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'categories': {
+                                const itemCats = annotation?.wp_category_names ?? [];
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm">
+                                    {itemCats.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {itemCats.map(cat => (
+                                          <span
+                                            key={cat}
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-gray-700 bg-gray-100"
+                                          >
+                                            {cat}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400">未分類</span>
+                                    )}
+                                  </td>
+                                );
+                              }
+                              case 'date':
+                                return (
+                                  <td
+                                    key={id}
+                                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                                  >
+                                    {updatedAt ?? '—'}
+                                  </td>
+                                );
+                              case 'wp_post_title':
+                                return (
+                                  <td
+                                    key={id}
+                                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                                  >
+                                    {annotation?.wp_post_title || '—'}
+                                  </td>
+                                );
+                              case 'wp_excerpt':
+                                return (
+                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
+                                    {annotation?.wp_excerpt ? (
+                                      <TruncatedText text={annotation.wp_excerpt} lines={3} />
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              case 'url':
+                                return (
+                                  <td
+                                    key={id}
+                                    className="px-6 py-4 whitespace-nowrap text-sm text-blue-600"
+                                  >
+                                    {rowCanonicalUrl ? (
+                                      <a
+                                        href={rowCanonicalUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline"
+                                      >
+                                        {rowCanonicalUrl}
+                                      </a>
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                );
+                              default:
+                                return null;
                             }
-                            case 'date':
-                              return (
-                                <td
-                                  key={id}
-                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                                >
-                                  {updatedAt ?? '—'}
-                                </td>
-                              );
-                            case 'wp_post_title':
-                              return (
-                                <td
-                                  key={id}
-                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                                >
-                                  {annotation?.wp_post_title || '—'}
-                                </td>
-                              );
-                            case 'wp_excerpt':
-                              return (
-                                <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                  {annotation?.wp_excerpt ? (
-                                    <TruncatedText text={annotation.wp_excerpt} lines={3} />
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            case 'url':
-                              return (
-                                <td
-                                  key={id}
-                                  className="px-6 py-4 whitespace-nowrap text-sm text-blue-600"
-                                >
-                                  {rowCanonicalUrl ? (
-                                    <a
-                                      href={rowCanonicalUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="underline"
-                                    >
-                                      {rowCanonicalUrl}
-                                    </a>
-                                  ) : (
-                                    '—'
-                                  )}
-                                </td>
-                              );
-                            default:
-                              return null;
-                          }
-                        })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

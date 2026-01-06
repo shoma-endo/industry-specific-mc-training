@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
 
 const supabaseService = new SupabaseService();
 
@@ -9,8 +10,7 @@ export async function GET(
   context: { params: Promise<{ annotationId: string }> }
 ) {
   try {
-    const liffAccessToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const { accessToken: liffAccessToken, refreshToken } = getLiffTokensFromRequest(request);
 
     if (!liffAccessToken) {
       return NextResponse.json({ success: false, error: 'LINE認証が必要です' }, { status: 401 });

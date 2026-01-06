@@ -84,16 +84,17 @@ export async function GET() {
     // レスポンスを一度だけ作成（最小限のユーザー情報を含める）
     const response = NextResponse.json({
       userId: user?.id ?? null,
-          user: user
-            ? {
-                id: user.id,
-                fullName: user.fullName ?? null,
-                role: user.role,
-                lineUserId: user.lineUserId,
-                lineDisplayName: user.lineDisplayName,
-                linePictureUrl: user.linePictureUrl ?? null,
-              }
-            : null,
+      user: user
+        ? {
+            id: user.id,
+            fullName: user.fullName ?? null,
+            role: user.role,
+            lineUserId: user.lineUserId,
+            lineDisplayName: user.lineDisplayName,
+            linePictureUrl: user.linePictureUrl ?? null,
+            ownerUserId: user.ownerUserId ?? null,
+          }
+        : null,
       viewMode: Boolean(authResult.viewMode),
       tokenRefreshed: Boolean(authResult.newAccessToken),
     });

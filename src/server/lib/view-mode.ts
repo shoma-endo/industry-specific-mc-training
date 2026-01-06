@@ -4,16 +4,13 @@ import type { UserRole } from '@/types/user';
 
 export const VIEW_MODE_ERROR_MESSAGE = '閲覧モードでは操作できません';
 
-const getViewModeCookieEnabled = async (): Promise<boolean> => {
-  const cookieStore = await cookies();
-  return cookieStore.get('owner_view_mode')?.value === '1';
-};
-
-export const isViewModeEnabledByRole = (
-  role: UserRole | null,
-  hasViewModeCookie: boolean
-): boolean => {
-  return role === 'owner' && hasViewModeCookie;
+/**
+ * 閲覧モード判定の内部共通ロジック
+ */
+export const isViewModeEnabledByRole = (role: UserRole | null): boolean => {
+  // オーナーは常に閲覧モードとして扱う
+  if (role === 'owner') return true;
+  return false;
 };
 
 export const resolveViewModeRole = (authResult: {
@@ -49,15 +46,10 @@ const resolveRoleFromCookies = async (): Promise<UserRole | null> => {
 };
 
 export const isViewModeEnabled = async (role?: UserRole | null): Promise<boolean> => {
-  const hasViewModeCookie = await getViewModeCookieEnabled();
-  if (!hasViewModeCookie) {
-    return false;
-  }
-
   if (role !== undefined) {
-    return isViewModeEnabledByRole(role ?? null, hasViewModeCookie);
+    return isViewModeEnabledByRole(role ?? null);
   }
 
   const resolvedRole = await resolveRoleFromCookies();
-  return isViewModeEnabledByRole(resolvedRole, hasViewModeCookie);
+  return isViewModeEnabledByRole(resolvedRole);
 };

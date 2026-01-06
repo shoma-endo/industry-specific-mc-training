@@ -29,6 +29,7 @@ export interface AuthenticatedUser {
   viewModeUserId?: string;
   actorUserId?: string;
   actorRole?: UserRole | null;
+  ownerUserId?: string | null;
   error?: string;
   newAccessToken?: string;
   newRefreshToken?: string;
@@ -63,19 +64,23 @@ export async function ensureAuthenticated({
   allowDevelopmentBypass = true,
   skipSubscriptionCheck = false,
 }: EnsureAuthenticatedOptions): Promise<AuthenticatedUser> {
-const withTokens = (
-  result: AuthenticatedUser,
-  tokens: { accessToken?: string | null; refreshToken?: string | null }
-): AuthenticatedUser => {
-  if (tokens.accessToken != null) {
-    result.newAccessToken = tokens.accessToken;
-  }
-  if (tokens.refreshToken != null) {
-    result.newRefreshToken = tokens.refreshToken;
-  }
-  return result;
-};
-  if (allowDevelopmentBypass && process.env.NODE_ENV === 'development' && accessToken === 'dummy-token') {
+  const withTokens = (
+    result: AuthenticatedUser,
+    tokens: { accessToken?: string | null; refreshToken?: string | null }
+  ): AuthenticatedUser => {
+    if (tokens.accessToken != null) {
+      result.newAccessToken = tokens.accessToken;
+    }
+    if (tokens.refreshToken != null) {
+      result.newRefreshToken = tokens.refreshToken;
+    }
+    return result;
+  };
+  if (
+    allowDevelopmentBypass &&
+    process.env.NODE_ENV === 'development' &&
+    accessToken === 'dummy-token'
+  ) {
     return {
       lineUserId: 'dummy-line-user-id',
       userId: 'dummy-app-user-id',
@@ -103,7 +108,10 @@ const withTokens = (
   let latestRefreshToken: string | undefined;
 
   try {
-    const verificationResult = await lineAuthService.verifyLineTokenWithRefresh(accessToken, refreshToken);
+    const verificationResult = await lineAuthService.verifyLineTokenWithRefresh(
+      accessToken,
+      refreshToken
+    );
 
     if (!verificationResult.isValid || verificationResult.needsReauth) {
       return withTokens(
@@ -179,12 +187,13 @@ const withTokens = (
 
     const viewModeInfo: Pick<
       AuthenticatedUser,
-      'viewMode' | 'viewModeUserId' | 'actorUserId' | 'actorRole'
+      'viewMode' | 'viewModeUserId' | 'actorUserId' | 'actorRole' | 'ownerUserId'
     > = {
       ...(isViewMode ? { viewMode: true } : {}),
       ...(viewModeUserIdResolved ? { viewModeUserId: viewModeUserIdResolved } : {}),
       ...(actorUserId ? { actorUserId } : {}),
       ...(actorRole ? { actorRole } : {}),
+      ownerUserId: user.ownerUserId ?? null,
     };
 
     if (isUnavailable(user.role)) {
@@ -253,10 +262,7 @@ const withTokens = (
             }
           }
         } catch (roleUpdateError) {
-          console.error(
-            '[Auth Middleware] Failed to promote user role to paid:',
-            roleUpdateError
-          );
+          console.error('[Auth Middleware] Failed to promote user role to paid:', roleUpdateError);
         }
       }
     } else {

@@ -30,6 +30,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - `MODEL_CONFIGS` に定義した 7 ステップのブログ作成フロー（ニーズ整理〜本文作成）と広告／LP テンプレートを提供
 - `POST /api/chat/anthropic/stream` による SSE で Claude 応答をリアルタイム描画
 - セッションサイドバーに検索バーを追加し、`search_chat_sessions` RPC（全文検索 + `pg_trgm` 類似検索）でタイトルや正規化済み WordPress URL を横断検索
+- `search_chat_sessions` は `get_accessible_user_ids` によるオーナー/スタッフ共有アクセスを考慮
 - ステップ毎のプロンプト変数へ `content_annotations` と 事業者ブリーフ (`briefs`) をマージし、文脈の再利用を最小化
 
 ### キャンバス編集と選択範囲リライト
@@ -61,6 +62,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - `SubscriptionService` とカスタムフック `useSubscriptionStatus` で UI 側から有効プランを判定
 - `authMiddleware` が `requiresSubscription` を返し、有料機能へアクセス制御を適用
 - ユーザー権限（`trial` / `paid` / `admin` / `unavailable`）を Supabase 側で管理し、LIFF ログイン時に自動同期（`trial` はチャット送信が1日3回まで、`paid` は無制限）
+- オーナー/スタッフ共有アクセスでは、オーナーは読み取り専用、スタッフはオーナーの参照を許可
 
 ### 管理者ダッシュボード
 
@@ -613,6 +615,11 @@ npm install
 - 本番データと同じデータベースを使用するため、データ操作には十分注意してください
 - テスト用のデータ作成時は、自分のユーザーIDに紐付けて作成し、他のユーザーのデータを誤って変更・削除しないようにしてください
 - スキーマ変更が必要な場合は、必ずプロジェクト管理者に相談してください
+- 直近のマイグレーション概要:
+  - スタッフ招待ユーザーのチャット/注釈の所有者移行
+  - `get_accessible_user_ids` 追加と `search_chat_sessions` / `get_sessions_with_messages` 更新
+  - オーナー/スタッフ共有アクセス向け RLS 更新、オーナーの書き込み禁止
+  - `content_annotations.session_id` の制約見直し（UNIQUE へ変更）
 
 ### 3. LINE の設定
 
@@ -1097,6 +1104,7 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 
 - Supabase では主要テーブルに RLS を適用済み（開発ポリシーが残る箇所は運用前に見直す）
 - `authMiddleware` がロール・サブスクリプションを検証し、`requiresSubscription` でプレミアム機能を保護
+- `get_accessible_user_ids` と RLS により、オーナー/スタッフの共有アクセスとオーナー読み取り専用を担保
 - WordPress アプリケーションパスワードや OAuth トークンは HTTP-only Cookie に保存（本番では安全な KMS / Secrets 管理を推奨）
 - SSE は 20 秒ごとの ping と 5 分アイドルタイムアウトで接続維持を調整
 - `AnnotationPanel` の URL 正規化で内部／ローカルホストへの誤登録を防止
