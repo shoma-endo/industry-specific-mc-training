@@ -97,7 +97,11 @@ If an error occurs during execution or the plan fails:
 ## RLS & セキュリティ
 
 Supabase の DB ポリシー、パフォーマンス、および `SECURITY DEFINER` 関数の実装指針は、エージェントスキル（`supabase-rls`）に集約されています。
-オーナー/スタッフ共有アクセスは `get_accessible_user_ids` を前提にし、オーナーは読み取り専用とする方針です。
+オーナー/スタッフ共有アクセスは `get_accessible_user_ids` を前提にし、以下の権限モデルを採用します：
+
+- **オーナー**: 自身のデータに加え、配下スタッフのデータを**読み取り専用**で参照可能。
+- **スタッフ**: 自身のデータに加え、オーナーのデータを参照可能（操作は自身のデータのみ）。
+  ※ `get_accessible_user_ids(user_id)` は、オーナー実行時は「自分 + 全スタッフ」、スタッフ実行時は「自分 + オーナー」の ID リストを返却し、これを RLS のフィルター条件 (`user_id = ANY(...)`) として利用します。
 
 ## 実装指針
 
