@@ -6,6 +6,7 @@ import {
   GscService,
   formatGscPropertyDisplayName,
 } from '@/server/services/gscService';
+import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
 
 const supabaseService = new SupabaseService();
 const gscService = new GscService();
@@ -53,8 +54,7 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL('/setup/gsc?connected=1', request.url));
   response.cookies.delete(stateCookieName);
 
-  const liffAccessToken = request.cookies.get('line_access_token')?.value;
-  const refreshToken = request.cookies.get('line_refresh_token')?.value;
+  const { accessToken: liffAccessToken, refreshToken } = getLiffTokensFromRequest(request);
 
   let targetUserId: string | null = stateVerification.payload.userId;
 

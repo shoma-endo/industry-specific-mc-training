@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { userService } from '@/server/services/userService';
 import { canInviteEmployee } from '@/authUtils';
 import { env } from '@/env';
-import { getUserFromAuthHeader } from '@/server/lib/auth-header';
+import { getUserFromAuthHeader } from '@/server/lib/auth-helpers';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 import {
   generateExpiresAt,

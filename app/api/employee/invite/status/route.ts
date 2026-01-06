@@ -3,7 +3,7 @@ import { userService } from '@/server/services/userService';
 import { canInviteEmployee } from '@/authUtils';
 import { env } from '@/env';
 import { isInvitationValid } from '@/server/services/employeeInvitationService';
-import { getUserFromAuthHeader } from '@/server/lib/auth-header';
+import { getUserFromAuthHeader } from '@/server/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
   try {
