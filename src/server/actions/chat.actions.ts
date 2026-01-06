@@ -367,8 +367,7 @@ export async function updateChatSessionTitle(
   }
 
   const supabase = new SupabaseService();
-  const targetUserId = auth.ownerUserId || auth.userId;
-  const updateResult = await supabase.updateChatSession(parsed.sessionId, targetUserId, {
+  const updateResult = await supabase.updateChatSession(parsed.sessionId, auth.userId, {
     title: parsed.title.trim(),
   });
 
