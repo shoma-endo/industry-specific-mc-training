@@ -188,8 +188,7 @@ export async function continueChat(data: ContinueChatInput): Promise<ChatRespons
     }
 
     // モデル処理に委譲
-    const targetUserId = auth.ownerUserId || auth.userId;
-    return await modelHandler.handleContinue(targetUserId, validatedData);
+    return await modelHandler.handleContinue(auth.userId, validatedData);
   } catch (e: unknown) {
     console.error('continueChat failed:', e);
     return {
