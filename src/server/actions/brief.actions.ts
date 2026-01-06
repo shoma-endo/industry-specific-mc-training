@@ -7,6 +7,7 @@ import { cookies } from 'next/headers';
 import type { ZodIssue } from 'zod';
 import { isOwner } from '@/authUtils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
 const supabaseService = new SupabaseService();
 
@@ -104,8 +105,7 @@ export const getBrief = async (
  */
 export const getBriefServer = async (): Promise<ActionResult<BriefInput | null>> => {
   try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get('line_access_token')?.value;
+    const { accessToken } = await getLiffTokensFromCookies();
 
     if (!accessToken) {
       return { success: false, error: ERROR_MESSAGES.BRIEF.LOGIN_REQUIRED };

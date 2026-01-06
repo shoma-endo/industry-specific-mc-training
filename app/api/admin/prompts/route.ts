@@ -3,11 +3,11 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { getUserRole, isAdmin } from '@/authUtils';
 import { PromptService } from '@/server/services/promptService';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
   try {
-    const liffAccessToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const { accessToken: liffAccessToken, refreshToken } = getLiffTokensFromRequest(request);
 
     if (!liffAccessToken) {
       return NextResponse.json({ success: false, error: 'LINE認証が必要です' }, { status: 401 });

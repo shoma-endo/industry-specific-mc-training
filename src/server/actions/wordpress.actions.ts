@@ -1,7 +1,8 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
+import { cookies } from 'next/headers';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { withAuth } from '@/server/middleware/withAuth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
@@ -770,15 +771,13 @@ export async function getContentAnnotationsForUser(): Promise<
 // ==========================================
 
 export async function saveWordPressSettingsAction(params: SaveWordPressSettingsParams) {
-  const cookieStore = await cookies();
   try {
     const { wpType, wpSiteId, wpSiteUrl, wpUsername, wpApplicationPassword, wpContentTypes } =
       params;
     const contentTypes = normalizeContentTypes(wpContentTypes);
 
     // 認証情報はCookieから取得（セキュリティベストプラクティス）
-    const liffToken = cookieStore.get('line_access_token')?.value;
-    const refreshToken = cookieStore.get('line_refresh_token')?.value;
+    const { accessToken: liffToken, refreshToken } = await getLiffTokensFromCookies();
 
     if (!liffToken || !wpType) {
       return {
@@ -841,10 +840,8 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
 // ==========================================
 
 export async function testWordPressConnectionAction() {
-  const cookieStore = await cookies();
   try {
-    const liffToken = cookieStore.get('line_access_token')?.value;
-    const refreshToken = cookieStore.get('line_refresh_token')?.value;
+    const { accessToken: liffToken, refreshToken } = await getLiffTokensFromCookies();
     const authResult = await authMiddleware(liffToken, refreshToken);
 
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
@@ -869,6 +866,7 @@ export async function testWordPressConnectionAction() {
       };
     }
 
+    const cookieStore = await cookies();
     const context = await resolveWordPressContext(name => cookieStore.get(name)?.value, {
       supabaseService,
     });
