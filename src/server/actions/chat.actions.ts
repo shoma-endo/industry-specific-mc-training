@@ -334,8 +334,7 @@ export async function deleteChatSession(sessionId: string, liffAccessToken: stri
   }
 
   try {
-    const targetUserId = auth.ownerUserId || auth.userId;
-    await chatService.deleteChatSession(sessionId, targetUserId);
+    await chatService.deleteChatSession(sessionId, auth.userId);
     return { success: true, error: null };
   } catch (error) {
     console.error('Failed to delete chat session:', error);
