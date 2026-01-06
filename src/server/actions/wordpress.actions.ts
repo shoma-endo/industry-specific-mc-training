@@ -206,7 +206,7 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
       result.title = rendered;
     }
   }
-  
+
   // カテゴリーIDを取得
   if (Array.isArray(record.categories)) {
     const categoryIds = record.categories
@@ -216,11 +216,9 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
       result.categories = categoryIds;
     }
   }
-  
+
   // カテゴリー名を取得（_embedded['wp:term']から）
-  const embedded = record._embedded as
-    | { 'wp:term'?: Array<Array<WordPressRestTerm>> }
-    | undefined;
+  const embedded = record._embedded as { 'wp:term'?: Array<Array<WordPressRestTerm>> } | undefined;
   if (embedded?.['wp:term'] && Array.isArray(embedded['wp:term'])) {
     const termsNested = embedded['wp:term'];
     const firstTaxonomy =
@@ -230,7 +228,7 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
       result.categoryNames = categoryNames;
     }
   }
-  
+
   return result;
 };
 
@@ -723,7 +721,9 @@ export async function upsertContentAnnotation(payload: ContentAnnotationPayload)
         ? {
             wp_post_title: resolvedWpTitle ?? null,
             ...(resolvedWpCategories !== null ? { wp_categories: resolvedWpCategories } : {}),
-            ...(resolvedWpCategoryNames !== null ? { wp_category_names: resolvedWpCategoryNames } : {}),
+            ...(resolvedWpCategoryNames !== null
+              ? { wp_category_names: resolvedWpCategoryNames }
+              : {}),
           }
         : {}),
     };
@@ -818,7 +818,10 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
       );
     } else if (wpType === 'wordpress_com') {
       if (!wpSiteId) {
-        return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.WORDPRESS_COM_SITE_ID_REQUIRED };
+        return {
+          success: false as const,
+          error: ERROR_MESSAGES.WORDPRESS.WORDPRESS_COM_SITE_ID_REQUIRED,
+        };
       }
 
       await supabaseService.createOrUpdateWordPressSettings(authResult.userId, '', '', wpSiteId, {
@@ -884,7 +887,10 @@ export async function testWordPressConnectionAction() {
             error: context.message || 'ユーザー認証に失敗しました',
           };
         case 'settings_missing':
-          return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.SETTINGS_NOT_REGISTERED };
+          return {
+            success: false as const,
+            error: ERROR_MESSAGES.WORDPRESS.SETTINGS_NOT_REGISTERED,
+          };
         case 'wordpress_auth_missing':
           return {
             success: false as const,
@@ -933,10 +939,21 @@ export async function getContentAnnotationBySession(
 ): Promise<{ success: false; error: string } | { success: true; data: AnnotationRecord | null }> {
   return withAuth(async ({ userId }) => {
     const client = new SupabaseService().getClient();
+
+    // アクセス可能なユーザーIDを取得（オーナー/従業員の相互閲覧対応）
+    const { data: accessibleIds, error: accessError } = await client.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return { success: false as const, error: 'アクセス権の確認に失敗しました' };
+    }
+
     const { data, error } = await client
       .from('content_annotations')
       .select('*')
-      .eq('user_id', userId)
+      .in('user_id', accessibleIds)
       .eq('session_id', session_id)
       .maybeSingle();
 
@@ -959,12 +976,46 @@ export async function upsertContentAnnotationBySession(
       wp_post_title?: string | null;
     }
 > {
-  return withAuth(async ({ userId, cookieStore, viewModeRole }) => {
+  return withAuth(async ({ userId, cookieStore, viewModeRole, ownerUserId }) => {
     if (await isViewModeEnabled(viewModeRole ?? null)) {
       return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
     }
+
+    // オーナーは編集不可（閲覧のみ）
+    if (!ownerUserId) {
+      return { success: false as const, error: 'オーナーはコンテンツの編集ができません。従業員のみ編集可能です。' };
+    }
+
     const supabaseServiceLocal = new SupabaseService();
     const client = supabaseServiceLocal.getClient();
+
+    // アクセス可能なユーザーIDを取得（従業員: 自分＋オーナー）
+    const { data: accessibleIds, error: accessError } = await client.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return { success: false as const, error: 'アクセス権の確認に失敗しました' };
+    }
+
+    // セッションの所有者を確認
+    const { data: sessionData, error: sessionError } = await client
+      .from('chat_sessions')
+      .select('user_id')
+      .eq('id', payload.session_id)
+      .maybeSingle();
+
+    if (sessionError || !sessionData) {
+      return { success: false as const, error: 'セッション情報の取得に失敗しました' };
+    }
+
+    const sessionOwnerId = sessionData.user_id;
+
+    // セッション所有者がアクセス可能かチェック
+    if (!accessibleIds.includes(sessionOwnerId)) {
+      return { success: false as const, error: 'このセッションを編集する権限がありません' };
+    }
 
     const canonicalProvided = Object.prototype.hasOwnProperty.call(payload, 'canonical_url');
     const nextCanonicalRaw = (payload.canonical_url ?? '').trim();
@@ -975,7 +1026,7 @@ export async function upsertContentAnnotationBySession(
       const { data: existingData, error: existingError } = await client
         .from('content_annotations')
         .select('canonical_url, wp_post_id, wp_post_title')
-        .eq('user_id', userId)
+        .eq('user_id', sessionOwnerId)
         .eq('session_id', payload.session_id)
         .maybeSingle();
       if (!existingError && existingData) {
@@ -1013,7 +1064,7 @@ export async function upsertContentAnnotationBySession(
       const resolution = await resolveCanonicalAndWpPostId({
         canonicalUrl: payload.canonical_url,
         supabaseService: supabaseServiceLocal,
-        userId,
+        userId: sessionOwnerId, // セッション所有者のWordPress設定を使用
         cookieStore,
       });
       if (!resolution.success) {
@@ -1037,7 +1088,7 @@ export async function upsertContentAnnotationBySession(
       const { data: duplicateRows, error: duplicateError } = await client
         .from('content_annotations')
         .select('session_id, wp_post_id')
-        .eq('user_id', userId)
+        .eq('user_id', sessionOwnerId)
         .eq('canonical_url', resolvedCanonicalUrl);
 
       if (duplicateError) {
@@ -1064,7 +1115,7 @@ export async function upsertContentAnnotationBySession(
     }
 
     const upsertPayload: Database['public']['Tables']['content_annotations']['Insert'] = {
-      user_id: userId,
+      user_id: sessionOwnerId, // セッション所有者のIDで保存
       session_id: payload.session_id,
       main_kw: payload.main_kw ?? null,
       kw: payload.kw ?? null,
@@ -1093,7 +1144,7 @@ export async function upsertContentAnnotationBySession(
 
     const { error } = await client
       .from('content_annotations')
-      .upsert(upsertPayload, { onConflict: 'user_id,session_id' });
+      .upsert(upsertPayload, { onConflict: 'session_id' });
 
     if (error) {
       if (isDuplicateCanonicalConstraint(error)) {
@@ -1126,10 +1177,11 @@ export interface EnsureAnnotationChatSessionPayload {
 export async function ensureAnnotationChatSession(
   payload: EnsureAnnotationChatSessionPayload
 ): Promise<{ success: true; sessionId: string } | { success: false; error: string }> {
-  return withAuth(async ({ userId, viewModeRole }) => {
+  return withAuth(async ({ userId, ownerUserId, viewModeRole }) => {
     if (await isViewModeEnabled(viewModeRole ?? null)) {
       return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
     }
+    const targetUserId = ownerUserId || userId;
     const service = new SupabaseService();
     const client = service.getClient();
 
@@ -1145,7 +1197,7 @@ export async function ensureAnnotationChatSession(
       const { data, error } = await client
         .from('content_annotations')
         .select('id, session_id, wp_post_id')
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
         .eq('id', annotationId)
         .maybeSingle();
 
@@ -1163,7 +1215,7 @@ export async function ensureAnnotationChatSession(
     }
 
     if (sessionId) {
-      const existingSession = await service.getChatSessionById(sessionId, userId);
+      const existingSession = await service.getChatSessionById(sessionId, targetUserId);
       if (!existingSession.success) {
         return { success: false as const, error: existingSession.error.userMessage };
       }
@@ -1183,7 +1235,7 @@ export async function ensureAnnotationChatSession(
 
       const session: DbChatSession = {
         id: sessionId,
-        user_id: userId,
+        user_id: targetUserId,
         title: baseTitle.length > 60 ? `${baseTitle.slice(0, 57)}...` : baseTitle,
         created_at: nowIso,
         last_message_at: nowIso,
@@ -1222,7 +1274,7 @@ export async function ensureAnnotationChatSession(
       const { error: updateByIdError } = await client
         .from('content_annotations')
         .update(annotationUpdate)
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
         .eq('id', annotationId);
       if (updateByIdError) {
         return { success: false as const, error: updateByIdError.message };
@@ -1234,7 +1286,7 @@ export async function ensureAnnotationChatSession(
       const { error: fetchByWpError, data: existingByWp } = await client
         .from('content_annotations')
         .select('session_id')
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
         .eq('wp_post_id', payload.wpPostId as number)
         .maybeSingle();
 
@@ -1247,7 +1299,7 @@ export async function ensureAnnotationChatSession(
         const { error: updateError } = await client
           .from('content_annotations')
           .update(annotationUpdate)
-          .eq('user_id', userId)
+          .eq('user_id', targetUserId)
           .eq('wp_post_id', payload.wpPostId as number);
         if (updateError) {
           return { success: false as const, error: updateError.message };
@@ -1259,7 +1311,7 @@ export async function ensureAnnotationChatSession(
       const { error: fetchBySessionError, data: existingBySession } = await client
         .from('content_annotations')
         .select('id')
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
         .eq('session_id', sessionId)
         .maybeSingle();
 
@@ -1271,14 +1323,14 @@ export async function ensureAnnotationChatSession(
         const { error: updateError } = await client
           .from('content_annotations')
           .update(annotationUpdate)
-          .eq('user_id', userId)
+          .eq('user_id', targetUserId)
           .eq('session_id', sessionId);
         if (updateError) {
           return { success: false as const, error: updateError.message };
         }
       } else {
         const insertPayload: Database['public']['Tables']['content_annotations']['Insert'] = {
-          user_id: userId,
+          user_id: targetUserId,
           session_id: sessionId,
           ...annotationUpdate,
         };
@@ -1340,7 +1392,8 @@ export async function updateContentAnnotationFields(
     return { success: false as const, error: ERROR_MESSAGES.WORDPRESS.INVALID_ANNOTATION_ID };
   }
 
-  return withAuth(async ({ userId, cookieStore, viewModeRole }) => {
+  return withAuth(async ({ userId, ownerUserId, cookieStore, viewModeRole }) => {
+    const targetUserId = ownerUserId || userId;
     if (await isViewModeEnabled(viewModeRole ?? null)) {
       return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
     }
@@ -1427,7 +1480,7 @@ export async function updateContentAnnotationFields(
       .from('content_annotations')
       .update(updateData)
       .eq('id', annotationId)
-      .eq('user_id', userId);
+      .eq('user_id', targetUserId);
 
     if (error) {
       return { success: false as const, error: error.message };
@@ -1531,30 +1584,14 @@ export async function fetchWordPressStatusAction(): Promise<
  * コンテンツ注釈を直接削除（孤立したコンテンツの削除用）
  */
 export async function deleteContentAnnotation(
-  annotationId: string,
-  liffAccessToken: string
+  annotationId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const authResult = await authMiddleware(liffAccessToken);
-
-  if (authResult.error || authResult.requiresSubscription) {
-    return {
-      success: false,
-      error: authResult.error || 'サブスクリプションが必要です',
-    };
-  }
-  if (authResult.viewMode) {
-    return {
-      success: false,
-      error: VIEW_MODE_ERROR_MESSAGE,
-    };
-  }
-
-  try {
-    const supabaseService = new SupabaseService();
-    const result = await supabaseService.deleteContentAnnotation(
-      annotationId,
-      authResult.userId!
-    );
+  return withAuth(async ({ userId, ownerUserId, viewModeRole }) => {
+    if (await isViewModeEnabled(viewModeRole ?? null)) {
+      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    }
+    const targetUserId = ownerUserId || userId;
+    const result = await supabaseService.deleteContentAnnotation(annotationId, targetUserId);
 
     if (!result.success) {
       return {
@@ -1562,13 +1599,6 @@ export async function deleteContentAnnotation(
         error: result.error.userMessage || ERROR_MESSAGES.WORDPRESS.CONTENT_DELETE_FAILED,
       };
     }
-
     return { success: true };
-  } catch (error) {
-    console.error('Failed to delete content annotation:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : ERROR_MESSAGES.WORDPRESS.CONTENT_DELETE_FAILED,
-    };
-  }
+  });
 }

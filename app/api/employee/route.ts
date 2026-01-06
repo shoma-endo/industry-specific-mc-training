@@ -3,7 +3,6 @@ import { userService } from '@/server/services/userService';
 import { EmployeeDeletionService } from '@/server/services/employeeDeletionService';
 import { canInviteEmployee, isOwner } from '@/authUtils';
 import { getUserFromAuthHeader } from '@/server/lib/auth-header';
-import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 
 export async function GET(req: NextRequest) {
   try {
@@ -48,10 +47,9 @@ export async function DELETE(req: NextRequest) {
     if (!authResult.ok) {
       return authResult.response;
     }
-    if (await isViewModeEnabled(authResult.role)) {
-      return NextResponse.json({ error: VIEW_MODE_ERROR_MESSAGE }, { status: 403 });
-    }
 
+    // 注意: スタッフの削除（権限剥奪）はオーナーの正当な管理権限であるため、
+    // 閲覧モード（オーナー制限）の対象外として意図的に許可しています。
     // owner role check using authUtils
     if (!isOwner(authResult.role)) {
       return NextResponse.json({ error: '削除権限がありません' }, { status: 403 });

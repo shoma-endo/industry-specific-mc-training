@@ -39,15 +39,13 @@ export const saveBrief = async (
     if (auth.error || !auth.userId) {
       return { success: false, error: auth.error || ERROR_MESSAGES.AUTH.AUTH_ERROR_GENERIC };
     }
-    if (auth.viewMode) {
+    if (auth.viewMode || isOwner(auth.userDetails?.role ?? null)) {
       return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_OPERATION_NOT_ALLOWED };
     }
-    if (isOwner(auth.userDetails?.role ?? null)) {
-      return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
-    }
 
-    // 事業者情報を保存
-    const saveResult = await supabaseService.saveBrief(auth.userId, validationResult.data);
+    // 事業者情報を保存（スタッフの場合はオーナーのレコードを更新）
+    const targetUserId = auth.ownerUserId || auth.userId;
+    const saveResult = await supabaseService.saveBrief(targetUserId, validationResult.data);
 
     if (!saveResult.success) {
       return { success: false, error: saveResult.error.userMessage };
@@ -81,8 +79,11 @@ export const getBrief = async (
       return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
     }
 
+    // スタッフの場合はオーナーの事業者情報を取得
+    const targetUserId = auth.ownerUserId || auth.userId;
+
     // 事業者情報を取得
-    const briefResult = await supabaseService.getBrief(auth.userId);
+    const briefResult = await supabaseService.getBrief(targetUserId);
 
     if (!briefResult.success) {
       return { success: false, error: briefResult.error.userMessage };

@@ -90,25 +90,33 @@ export async function fetchGscDetail(
   options?: { days?: number }
 ): Promise<GscDetailResponse> {
   try {
-    const { userId, error } = await getAuthUserId();
-    if (error || !userId) {
-      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
-    }
+  const { userId, error } = await getAuthUserId();
+  if (error || !userId) {
+    return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+  }
 
-    const days = Math.min(180, Math.max(7, options?.days ?? 90));
-    const startDate = new Date();
-    startDate.setUTCDate(startDate.getUTCDate() - days);
-    const startIso = startDate.toISOString().slice(0, 10);
+  const { data: accessibleIds, error: accessError } = await supabaseService
+    .getClient()
+    .rpc('get_accessible_user_ids', { p_user_id: userId });
 
-    const { data: annotation, error: annotationError } = await supabaseService
-      .getClient()
-      .from('content_annotations')
-      .select(
-        'id, wp_post_id, wp_post_title, canonical_url, opening_proposal, wp_content_text, wp_excerpt, persona, needs'
-      )
-      .eq('user_id', userId)
-      .eq('id', annotationId)
-      .maybeSingle();
+  if (accessError || !accessibleIds) {
+    return { success: false, error: 'アクセス権の確認に失敗しました' };
+  }
+
+  const days = Math.min(180, Math.max(7, options?.days ?? 90));
+  const startDate = new Date();
+  startDate.setUTCDate(startDate.getUTCDate() - days);
+  const startIso = startDate.toISOString().slice(0, 10);
+
+  const { data: annotation, error: annotationError } = await supabaseService
+    .getClient()
+    .from('content_annotations')
+    .select(
+      'id, user_id, wp_post_id, wp_post_title, canonical_url, opening_proposal, wp_content_text, wp_excerpt, persona, needs'
+    )
+    .in('user_id', accessibleIds)
+    .eq('id', annotationId)
+    .maybeSingle();
 
     if (annotationError) {
       throw new Error(annotationError.message);
@@ -117,16 +125,17 @@ export async function fetchGscDetail(
       return { success: false, error: ERROR_MESSAGES.GSC.TARGET_NOT_FOUND };
     }
 
-    const credential = await supabaseService.getGscCredentialByUserId(userId);
+  const ownerUserId = annotation.user_id;
+  const credential = await supabaseService.getGscCredentialByUserId(ownerUserId);
 
-    let metricsQuery = supabaseService
-      .getClient()
-      .from('gsc_page_metrics')
-      .select('date, position, ctr, clicks, impressions')
-      .eq('user_id', userId)
-      .eq('content_annotation_id', annotationId)
-      .gte('date', startIso)
-      .order('date', { ascending: true });
+  let metricsQuery = supabaseService
+    .getClient()
+    .from('gsc_page_metrics')
+    .select('date, position, ctr, clicks, impressions')
+    .eq('user_id', ownerUserId)
+    .eq('content_annotation_id', annotationId)
+    .gte('date', startIso)
+    .order('date', { ascending: true });
 
     if (credential?.propertyUri) {
       metricsQuery = metricsQuery.eq('property_uri', credential.propertyUri);
@@ -139,25 +148,25 @@ export async function fetchGscDetail(
     }
 
     const { data: history, error: historyError } = await supabaseService
-      .getClient()
-      .from('gsc_article_evaluation_history')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('content_annotation_id', annotationId)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    .getClient()
+    .from('gsc_article_evaluation_history')
+    .select('*')
+    .eq('user_id', ownerUserId)
+    .eq('content_annotation_id', annotationId)
+    .order('created_at', { ascending: false })
+    .limit(100);
 
     if (historyError) {
       throw new Error(historyError.message);
     }
 
     const { data: evaluation, error: evaluationError } = await supabaseService
-      .getClient()
-      .from('gsc_article_evaluations')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('content_annotation_id', annotationId)
-      .maybeSingle();
+    .getClient()
+    .from('gsc_article_evaluations')
+    .select('*')
+    .eq('user_id', ownerUserId)
+    .eq('content_annotation_id', annotationId)
+    .maybeSingle();
 
     if (evaluationError) {
       throw new Error(evaluationError.message);
@@ -233,6 +242,14 @@ export async function registerEvaluation(params: {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
+    const { data: accessibleIds, error: accessError } = await supabaseService
+      .getClient()
+      .rpc('get_accessible_user_ids', { p_user_id: userId });
+
+    if (accessError || !accessibleIds) {
+      return { success: false, error: 'アクセス権の確認に失敗しました' };
+    }
+
     const { contentAnnotationId, propertyUri, baseEvaluationDate, cycleDays, evaluationHour } =
       params;
     if (!contentAnnotationId || !propertyUri || !baseEvaluationDate) {
@@ -264,9 +281,9 @@ export async function registerEvaluation(params: {
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id')
+      .select('id, user_id')
       .eq('id', contentAnnotationId)
-      .eq('user_id', userId)
+      .in('user_id', accessibleIds)
       .maybeSingle();
 
     if (annotationError) {
@@ -276,11 +293,13 @@ export async function registerEvaluation(params: {
       return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_NOT_FOUND };
     }
 
+    const ownerUserId = annotation.user_id;
+
     const { data: existing, error: duplicateError } = await supabaseService
       .getClient()
       .from('gsc_article_evaluations')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', ownerUserId)
       .eq('content_annotation_id', contentAnnotationId)
       .maybeSingle();
 
@@ -295,7 +314,7 @@ export async function registerEvaluation(params: {
       .getClient()
       .from('gsc_article_evaluations')
       .insert({
-        user_id: userId,
+        user_id: ownerUserId,
         content_annotation_id: contentAnnotationId,
         property_uri: propertyUri,
         base_evaluation_date: baseEvaluationDate,
@@ -334,6 +353,14 @@ export async function updateEvaluation(params: {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
+    const { data: accessibleIds, error: accessError } = await supabaseService
+      .getClient()
+      .rpc('get_accessible_user_ids', { p_user_id: userId });
+
+    if (accessError || !accessibleIds) {
+      return { success: false, error: 'アクセス権の確認に失敗しました' };
+    }
+
     const { contentAnnotationId, baseEvaluationDate, cycleDays, evaluationHour } = params;
     if (!contentAnnotationId || !baseEvaluationDate) {
       return { success: false, error: ERROR_MESSAGES.GSC.REQUIRED_PARAMS_MISSING };
@@ -356,11 +383,28 @@ export async function updateEvaluation(params: {
       return { success: false, error: ERROR_MESSAGES.GSC.EVALUATION_HOUR_INVALID };
     }
 
+    const { data: annotation, error: annotationError } = await supabaseService
+      .getClient()
+      .from('content_annotations')
+      .select('user_id')
+      .eq('id', contentAnnotationId)
+      .in('user_id', accessibleIds)
+      .maybeSingle();
+
+    if (annotationError) {
+      throw new Error(annotationError.message || '記事情報の取得に失敗しました');
+    }
+    if (!annotation) {
+      return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_NOT_FOUND };
+    }
+
+    const ownerUserId = annotation.user_id;
+
     const { data: evaluation, error: evaluationError } = await supabaseService
       .getClient()
       .from('gsc_article_evaluations')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', ownerUserId)
       .eq('content_annotation_id', contentAnnotationId)
       .maybeSingle();
 
@@ -393,7 +437,7 @@ export async function updateEvaluation(params: {
       .from('gsc_article_evaluations')
       .update(updateData)
       .eq('id', evaluation.id)
-      .eq('user_id', userId);
+      .eq('user_id', ownerUserId);
 
     if (updateError) {
       throw new Error(updateError.message || '評価基準日の更新に失敗しました');
@@ -459,6 +503,14 @@ export async function fetchQueryAnalysis(
       return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
 
+    const { data: accessibleIds, error: accessError } = await supabaseService
+      .getClient()
+      .rpc('get_accessible_user_ids', { p_user_id: userId });
+
+    if (accessError || !accessibleIds) {
+      return { success: false, error: 'アクセス権の確認に失敗しました' };
+    }
+
     // 期間計算
     const days = dateRange === '7d' ? 7 : dateRange === '28d' ? 28 : 90;
 
@@ -473,25 +525,27 @@ export async function fetchQueryAnalysis(
     const compStartIso = compStartDate.toISOString().slice(0, 10);
     const compEndIso = compEndDate.toISOString().slice(0, 10);
 
-    // GSC Credential取得（PropertyURIが必要）
-    const credential = await supabaseService.getGscCredentialByUserId(userId);
-    if (!credential || !credential.propertyUri) {
-      return { success: false, error: ERROR_MESSAGES.GSC.CREDENTIAL_NOT_FOUND };
-    }
-    const propertyUri = credential.propertyUri;
-
     // annotationのnormalized_urlを取得（DBで自動生成された正規化済みURL）
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('normalized_url')
+      .select('user_id, normalized_url')
       .eq('id', annotationId)
-      .eq('user_id', userId)
+      .in('user_id', accessibleIds)
       .maybeSingle();
 
     if (annotationError || !annotation?.normalized_url) {
       return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_NOT_FOUND_GENERIC };
     }
+
+    const ownerUserId = annotation.user_id;
+
+    // GSC Credential取得（PropertyURIが必要）
+    const credential = await supabaseService.getGscCredentialByUserId(ownerUserId);
+    if (!credential || !credential.propertyUri) {
+      return { success: false, error: ERROR_MESSAGES.GSC.CREDENTIAL_NOT_FOUND };
+    }
+    const propertyUri = credential.propertyUri;
 
     const normalizedUrl = annotation.normalized_url;
 
@@ -499,7 +553,7 @@ export async function fetchQueryAnalysis(
     const { data: rpcData, error: rpcError } = await supabaseService
       .getClient()
       .rpc('get_gsc_query_analysis', {
-        p_user_id: userId,
+        p_user_id: ownerUserId,
         p_property_uri: propertyUri,
         p_normalized_url: normalizedUrl,
         p_start_date: startIso,
@@ -583,6 +637,14 @@ export async function runQueryImportForAnnotation(
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
+    const { data: accessibleIds, error: accessError } = await supabaseService
+      .getClient()
+      .rpc('get_accessible_user_ids', { p_user_id: userId });
+
+    if (accessError || !accessibleIds) {
+      return { success: false, error: 'アクセス権の確認に失敗しました' };
+    }
+
     if (!annotationId) {
       return { success: false, error: ERROR_MESSAGES.GSC.ANNOTATION_ID_REQUIRED };
     }
@@ -590,9 +652,9 @@ export async function runQueryImportForAnnotation(
     const { data: annotation, error: annotationError } = await supabaseService
       .getClient()
       .from('content_annotations')
-      .select('id, canonical_url')
+      .select('id, user_id, canonical_url')
       .eq('id', annotationId)
-      .eq('user_id', userId)
+      .in('user_id', accessibleIds)
       .maybeSingle();
 
     if (annotationError) {
@@ -621,7 +683,8 @@ export async function runQueryImportForAnnotation(
       await supabaseService.cleanupOldGscPageMetrics(annotationId, currentNormalizedUrl);
     }
 
-    const summary = await gscImportService.importPageAndQueryForUrlWithSplit(userId, {
+    const ownerUserId = annotation.user_id;
+    const summary = await gscImportService.importPageAndQueryForUrlWithSplit(ownerUserId, {
       startDate: startIso,
       endDate: endIso,
       pageUrl: annotation.canonical_url,
@@ -655,11 +718,40 @@ export async function runEvaluationNow(contentAnnotationId: string) {
       return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
+    const { data: accessibleIds, error: accessError } = await supabaseService
+      .getClient()
+      .rpc('get_accessible_user_ids', { p_user_id: userId });
+
+    if (accessError || !accessibleIds) {
+      return { success: false, error: 'アクセス権の確認に失敗しました' };
+    }
+
+    if (!contentAnnotationId) {
+      return { success: false, error: ERROR_MESSAGES.GSC.ANNOTATION_ID_REQUIRED };
+    }
+
+    const { data: annotation, error: annotationError } = await supabaseService
+      .getClient()
+      .from('content_annotations')
+      .select('user_id')
+      .eq('id', contentAnnotationId)
+      .in('user_id', accessibleIds)
+      .maybeSingle();
+
+    if (annotationError) {
+      throw new Error(annotationError.message || '記事情報の取得に失敗しました');
+    }
+    if (!annotation) {
+      return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_NOT_FOUND };
+    }
+
     // 動的インポートで循環参照を回避
     const { gscEvaluationService } = await import('@/server/services/gscEvaluationService');
 
+    const ownerUserId = annotation.user_id;
+
     // 手動実行なので force: true で評価期限をスキップ
-    const summary = await gscEvaluationService.runDueEvaluationsForUser(userId, {
+    const summary = await gscEvaluationService.runDueEvaluationsForUser(ownerUserId, {
       force: true,
       contentAnnotationId,
     });

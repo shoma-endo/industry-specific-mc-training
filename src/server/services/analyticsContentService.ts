@@ -33,10 +33,21 @@ export class AnalyticsContentService {
       const to = from + perPage - 1;
 
       const client = supabaseService.getClient();
+
+      // アクセス可能なユーザーIDを取得（オーナー/従業員の相互閲覧対応）
+      const { data: accessibleIds, error: accessError } = await client.rpc(
+        'get_accessible_user_ids',
+        { p_user_id: userId }
+      );
+
+      if (accessError || !accessibleIds) {
+        throw new Error('アクセス権の確認に失敗しました');
+      }
+
       const { data, error, count } = await client
         .from('content_annotations')
         .select('*', { count: 'exact', head: false })
-        .eq('user_id', userId)
+        .in('user_id', accessibleIds)
         .order('updated_at', { ascending: false, nullsFirst: false })
         .range(from, to);
 
@@ -61,8 +72,7 @@ export class AnalyticsContentService {
         perPage,
       };
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'ページデータの取得に失敗しました';
+      const message = error instanceof Error ? error.message : 'ページデータの取得に失敗しました';
       return {
         ...baseline,
         error: message,
@@ -70,7 +80,7 @@ export class AnalyticsContentService {
     }
   }
 
-  private async resolveUser(): Promise<{ userId: string }> {
+  private async resolveUser(): Promise<{ userId: string; ownerUserId?: string | null }> {
     const cookieStore = await cookies();
     const liffAccessToken = cookieStore.get('line_access_token')?.value;
     const refreshToken = cookieStore.get('line_refresh_token')?.value;
@@ -81,7 +91,7 @@ export class AnalyticsContentService {
       throw new Error(authResult.error || 'ユーザー認証に失敗しました');
     }
 
-    return { userId: authResult.userId };
+    return { userId: authResult.userId, ownerUserId: authResult.ownerUserId ?? null };
   }
 
   private buildAnnotationRowKey(annotation: AnnotationRecord, fallbackIndex: number): string {

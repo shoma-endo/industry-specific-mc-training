@@ -12,6 +12,7 @@ export interface AuthContext {
   cookieStore: ReadonlyRequestCookies;
   userDetails?: User | null;
   viewModeRole?: UserRole | null;
+  ownerUserId?: string | null | undefined;
 }
 
 /**
@@ -34,9 +35,7 @@ export interface AuthContext {
  *   });
  * }
  */
-export async function withAuth<T>(
-  handler: (context: AuthContext) => Promise<T>
-): Promise<T> {
+export async function withAuth<T>(handler: (context: AuthContext) => Promise<T>): Promise<T> {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
@@ -52,5 +51,6 @@ export async function withAuth<T>(
     cookieStore,
     userDetails: authResult.userDetails ?? null,
     viewModeRole: resolveViewModeRole(authResult),
+    ownerUserId: authResult.ownerUserId,
   });
 }
