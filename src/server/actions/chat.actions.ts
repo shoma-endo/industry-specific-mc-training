@@ -153,8 +153,7 @@ export async function startChat(data: StartChatInput): Promise<ChatResponse> {
     }
 
     // モデル処理に委譲
-    const targetUserId = auth.ownerUserId || auth.userId;
-    return await modelHandler.handleStart(targetUserId, validatedData);
+    return await modelHandler.handleStart(auth.userId, validatedData);
   } catch (e: unknown) {
     console.error('startChat failed:', e);
     return {
