@@ -1,6 +1,5 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
@@ -15,6 +14,7 @@ import {
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
 const supabaseService = new SupabaseService();
 const gscService = new GscService();
@@ -65,9 +65,7 @@ const ensureAccessToken = async (userId: string, credential: GscCredential): Pro
 };
 
 const getAuthUserId = async () => {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  const { accessToken, refreshToken } = await getLiffTokensFromCookies();
   const authResult = await authMiddleware(accessToken, refreshToken);
   if (authResult.error || !authResult.userId) {
     return { error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };

@@ -128,6 +128,12 @@ export const ERROR_MESSAGES = {
     AUTHENTICATION_FAILED: '認証に失敗しました',
 
     /** 未認証エラー */
+    UNAUTHENTICATED: '未認証',
+
+    /** 再認証が必要な場合 */
+    REAUTHENTICATION_REQUIRED: '再認証が必要です',
+
+    /** 権限がない場合 */
     UNAUTHORIZED: '権限がありません',
   },
 

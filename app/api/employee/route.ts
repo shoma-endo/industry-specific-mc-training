@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { userService } from '@/server/services/userService';
 import { EmployeeDeletionService } from '@/server/services/employeeDeletionService';
 import { canInviteEmployee, isOwner } from '@/authUtils';
-import { getUserFromAuthHeader } from '@/server/lib/auth-header';
+import { getUserFromAuthHeader } from '@/server/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
   try {

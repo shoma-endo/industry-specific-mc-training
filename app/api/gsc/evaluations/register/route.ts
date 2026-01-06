@@ -6,6 +6,7 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
 
 const supabaseService = new SupabaseService();
 
@@ -20,8 +21,7 @@ interface RegisterEvaluationRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    const liffAccessToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const { accessToken: liffAccessToken, refreshToken } = getLiffTokensFromRequest(request);
 
     if (!liffAccessToken) {
       return NextResponse.json({ success: false, error: 'LINE認証が必要です' }, { status: 401 });
