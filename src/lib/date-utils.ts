@@ -1,5 +1,5 @@
 /**
- * 日付フォーマット関連のユーティリティ関数
+ * 日付・時刻ユーティリティ関数
  */
 
 /**
@@ -59,16 +59,57 @@ export function formatDate(value?: string | null): string | null {
 }
 
 /**
- * GSCの取得レンジを算出（GSCは2日前まで）
+ * JST（日本標準時）の現在日時を取得する
+ * @returns Date オブジェクト
  */
-export function buildGscDateRange(days: number) {
+export function getNowJst(): Date {
+  return new Date();
+}
+
+/**
+ * Date オブジェクトを YYYY-MM-DD 形式の ISO 日付文字列に変換する
+ * @param date - Date オブジェクト
+ * @returns YYYY-MM-DD 形式の日付文字列
+ */
+export function formatDateISO(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * ISO日付文字列に指定日数を加算する
+ * @param isoDate - YYYY-MM-DD 形式の日付文字列
+ * @param days - 加算する日数
+ * @returns YYYY-MM-DD 形式の日付文字列
+ */
+export function addDaysISO(isoDate: string, days: number): string {
+  const date = new Date(isoDate);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatDateISO(date);
+}
+
+/**
+ * OAuth の expires_in（秒）を ISO 形式の日時文字列に変換する
+ * @param expiresIn - 有効期限（秒）
+ * @returns ISO 8601 形式の日時文字列
+ */
+export function expiresInToISOString(expiresIn: number): string {
+  return new Date(Date.now() + expiresIn * 1000).toISOString();
+}
+
+/**
+ * GSCの取得レンジを算出（GSCは2日前まで）
+ * @param days - 取得する日数
+ * @returns { startIso, endIso } - YYYY-MM-DD 形式の開始日と終了日
+ */
+export function buildGscDateRange(days: number): { startIso: string; endIso: string } {
   const endDate = new Date();
   endDate.setUTCDate(endDate.getUTCDate() - 2);
-  const startDate = new Date(endDate);
-  startDate.setUTCDate(startDate.getUTCDate() - days + 1);
+  const endIso = formatDateISO(endDate);
+  const startIso = addDaysISO(endIso, -(days - 1));
 
   return {
-    startIso: startDate.toISOString().slice(0, 10),
-    endIso: endDate.toISOString().slice(0, 10),
+    startIso,
+    endIso,
   };
 }
+
