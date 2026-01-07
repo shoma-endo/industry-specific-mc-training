@@ -86,10 +86,16 @@ export function formatDate(value?: string | null): string | null {
 
 /**
  * JST（日本標準時）の現在日時を取得する
- * @returns Date オブジェクト
+ * サーバーのタイムゾーンに関わらず、JST の Date オブジェクトを返します。
+ * 返された Date の getHours(), getDate() などは JST の値を返します。
+ * @returns Date オブジェクト（JST として扱える）
  */
 export function getNowJst(): Date {
-  return new Date();
+  const now = new Date();
+  const jstOffset = 9 * 60; // JST = UTC+9（分単位）
+  const localOffset = now.getTimezoneOffset(); // ローカルとUTCの差（分）
+  const diff = jstOffset + localOffset;
+  return new Date(now.getTime() + diff * 60 * 1000);
 }
 
 /**
