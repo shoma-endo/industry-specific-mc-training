@@ -15,25 +15,7 @@ import { getRoleDisplayName } from '@/authUtils';
 import type { User, UserRole } from '@/types/user';
 import { clearAuthCache } from '@/server/actions/adminUsers.actions';
 import { toast } from 'sonner';
-
-const formatDateTime = (timestamp: string | undefined) => {
-  if (!timestamp) return '未ログイン';
-
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
-    return '未ログイン';
-  }
-
-  return new Intl.DateTimeFormat('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    timeZone: 'Asia/Tokyo',
-  }).format(date);
-};
+import { formatDateTimeWithSeconds } from '@/lib/date-utils';
 
 const getRoleColor = (role: UserRole | null) => {
   switch (role) {
@@ -272,10 +254,10 @@ export default function UsersPage() {
                             {user.lineDisplayName}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDateTime(user.lastLoginAt)}
+                            {formatDateTimeWithSeconds(user.lastLoginAt)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDateTime(user.createdAt)}
+                            {formatDateTimeWithSeconds(user.createdAt)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {editingUserId === user.id ? (
@@ -407,10 +389,10 @@ export default function UsersPage() {
                               {ownerLabel}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDateTime(user.lastLoginAt)}
+                              {formatDateTimeWithSeconds(user.lastLoginAt)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDateTime(user.createdAt)}
+                              {formatDateTimeWithSeconds(user.createdAt)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <span

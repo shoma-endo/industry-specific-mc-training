@@ -24,6 +24,32 @@ export function formatDateTime(isoString: string): string {
 }
 
 /**
+ * 最終ログイン日時などの詳細表示用フォーマット（秒付き）
+ * @param timestamp - ISO形式の日時文字列（オプショナル）
+ * @param fallback - 日時が無効な場合の表示文字列
+ * @returns フォーマット済みの日時文字列、または fallback
+ */
+export function formatDateTimeWithSeconds(
+  timestamp?: string | null,
+  fallback: string = '未ログイン'
+): string {
+  if (!timestamp) return fallback;
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return fallback;
+
+  return new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  }).format(date);
+}
+
+/**
  * 相対日付フォーマット（今日/昨日/日付）
  * SessionListContent で使用
  */
