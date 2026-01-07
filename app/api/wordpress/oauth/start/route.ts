@@ -37,6 +37,9 @@ export async function GET() {
       { status: 401 }
     );
   }
+  if (authResult.ownerUserId) {
+    return NextResponse.json({ error: 'この操作はオーナーのみ利用できます' }, { status: 403 });
+  }
 
   if (!isAdminRole(authResult.userDetails?.role ?? null)) {
     return NextResponse.json(

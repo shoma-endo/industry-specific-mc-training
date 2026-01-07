@@ -48,6 +48,12 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+    if (authResult.ownerUserId) {
+      return NextResponse.json(
+        { success: false, error: 'この操作はオーナーのみ利用できます。' },
+        { status: 403 }
+      );
+    }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
       return NextResponse.json(
         { success: false, error: VIEW_MODE_ERROR_MESSAGE },

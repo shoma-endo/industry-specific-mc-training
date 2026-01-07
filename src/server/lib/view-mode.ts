@@ -6,9 +6,10 @@ export const VIEW_MODE_ERROR_MESSAGE = '閲覧モードでは操作できませ�
 
 /**
  * 閲覧モード判定の内部共通ロジック
+ * 注意: 'owner'ロールはスタッフ（閲覧権限）を指す。オーナー本人はadmin/paidロール
  */
 export const isViewModeEnabledByRole = (role: UserRole | null): boolean => {
-  // オーナーは常に閲覧モードとして扱う
+  // 'owner'ロール（スタッフ・閲覧権限）は常に閲覧モードとして扱う
   if (role === 'owner') return true;
   return false;
 };

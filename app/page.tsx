@@ -276,6 +276,7 @@ export default function Home() {
   const { isLoading, isLoggedIn, user, isOwnerViewMode } = useLiffContext();
   const userRole = user?.role ?? null;
   const isRoleLoading = isLoggedIn && !user;
+  const isStaffUser = Boolean(user?.ownerUserId);
 
   // フルネーム関連ステート
   const [showFullNameDialog, setShowFullNameDialog] = useState(false);
@@ -283,6 +284,8 @@ export default function Home() {
   const isAdmin = userRole === 'admin';
   const isOwnerRole = isOwner(userRole);
   const hasManagementAccess = hasPaidFeatureAccess(userRole);
+  const canManageIntegrations =
+    !isOwnerViewMode && !isStaffUser && (isOwnerRole || hasManagementAccess);
   const canInvite =
     !isOwnerViewMode && (userRole === 'admin' || userRole === 'paid') && !user?.ownerUserId;
 
@@ -335,7 +338,7 @@ export default function Home() {
           />
 
           {/* 有料/管理者向け 設定ページ導線 */}
-          {isLoggedIn && hasManagementAccess && !isRoleLoading && (
+          {isLoggedIn && canManageIntegrations && !isRoleLoading && (
             <Card className="w-full max-w-md mb-6">
               <CardHeader>
                 <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">

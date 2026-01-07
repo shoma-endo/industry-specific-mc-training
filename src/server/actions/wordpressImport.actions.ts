@@ -6,7 +6,10 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { buildWordPressServiceFromSettings } from '@/server/services/wordpressContext';
 import { normalizeWordPressRestPosts } from '@/server/services/wordpressService';
-import { normalizeContentTypes, normalizeContentType } from '@/server/services/wordpressContentTypes';
+import {
+  normalizeContentTypes,
+  normalizeContentType,
+} from '@/server/services/wordpressContentTypes';
 import type { WordPressNormalizedPost } from '@/types/wordpress';
 import type { Database } from '@/types/database.types';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
@@ -17,11 +20,6 @@ import {
   normalizeText,
   parseWpPostId,
 } from '@/lib/utils';
-import {
-  isViewModeEnabled,
-  resolveViewModeRole,
-  VIEW_MODE_ERROR_MESSAGE,
-} from '@/server/lib/view-mode';
 
 export async function runWordpressBulkImport(accessToken: string) {
   try {
@@ -29,9 +27,10 @@ export async function runWordpressBulkImport(accessToken: string) {
     if (authResult.error || !authResult.userId) {
       return { success: false, error: authResult.error || ERROR_MESSAGES.AUTH.LIFF_AUTH_FAILED };
     }
-    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
-      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    if (authResult.ownerUserId) {
+      return { success: false, error: 'この操作はオーナーのみ利用できます。' };
     }
+    // View Modeは制限対象外（オーナー管理画面）
 
     const supabaseService = new SupabaseService();
     const supabaseClient = supabaseService.getClient();
@@ -65,8 +64,7 @@ export async function runWordpressBulkImport(accessToken: string) {
       if (!fetchedTypesResult.success || !Array.isArray(fetchedTypesResult.data)) {
         return {
           success: false,
-          error:
-            fetchedTypesResult.error || ERROR_MESSAGES.WORDPRESS.CONTENT_TYPE_FETCH_FAILED,
+          error: fetchedTypesResult.error || ERROR_MESSAGES.WORDPRESS.CONTENT_TYPE_FETCH_FAILED,
         };
       }
 
@@ -139,10 +137,8 @@ export async function runWordpressBulkImport(accessToken: string) {
       console.error('Failed to fetch WordPress content:', error);
       return {
         success: false,
-          error:
-          error instanceof Error
-            ? error.message
-            : ERROR_MESSAGES.WORDPRESS.CONTENT_FETCH_ERROR,
+        error:
+          error instanceof Error ? error.message : ERROR_MESSAGES.WORDPRESS.CONTENT_FETCH_ERROR,
       };
     }
 
@@ -154,7 +150,10 @@ export async function runWordpressBulkImport(accessToken: string) {
       .eq('user_id', userId);
 
     if (existingError) {
-      return { success: false, error: ERROR_MESSAGES.WORDPRESS.ANNOTATION_FETCH_ERROR(existingError.message) };
+      return {
+        success: false,
+        error: ERROR_MESSAGES.WORDPRESS.ANNOTATION_FETCH_ERROR(existingError.message),
+      };
     }
 
     interface ExistingAnnotation {

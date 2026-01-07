@@ -70,8 +70,15 @@ function isDuplicateCanonicalConstraint(error: {
  * WordPress設定を取得
  */
 export async function getWordPressSettings(): Promise<WordPressSettings | null> {
-  return withAuth(async ({ userId }) => {
-    return await supabaseService.getWordPressSettingsByUserId(userId);
+  return withAuth(async ({ userId, ownerUserId, actorUserId }) => {
+    // View Modeの場合は本来のユーザー（オーナー）を使用
+    const realUserId = actorUserId || userId;
+    const isRealOwner = !!actorUserId;
+
+    if (!isRealOwner && ownerUserId) {
+      return null;
+    }
+    return await supabaseService.getWordPressSettingsByUserId(realUserId);
   });
 }
 
@@ -766,10 +773,6 @@ export async function getContentAnnotationsForUser(): Promise<
   });
 }
 
-// ==========================================
-// WordPress 設定の保存（サーバーアクション）
-// ==========================================
-
 export async function saveWordPressSettingsAction(params: SaveWordPressSettingsParams) {
   try {
     const { wpType, wpSiteId, wpSiteUrl, wpUsername, wpApplicationPassword, wpContentTypes } =
@@ -790,8 +793,14 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return { success: false as const, error: ERROR_MESSAGES.AUTH.AUTHENTICATION_FAILED };
     }
-    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
-      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
+
+    // View Modeの場合でも、本来のユーザー（オーナー）として実行する
+    const realUserId = authResult.actorUserId || authResult.userId;
+    const isRealOwner = !!authResult.actorUserId;
+    const effectiveOwnerId = isRealOwner ? null : (authResult.ownerUserId ?? null);
+
+    if (effectiveOwnerId) {
+      return { success: false as const, error: 'この操作はオーナーのみ利用できます。' };
     }
 
     const isAdmin = isAdminRole(authResult.userDetails.role);
@@ -850,8 +859,8 @@ export async function testWordPressConnectionAction() {
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return { success: false as const, error: ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
-    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
-      return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
+    if (authResult.ownerUserId) {
+      return { success: false as const, error: 'この操作はオーナーのみ利用できます。' };
     }
 
     const isAdmin = isAdminRole(authResult.userDetails.role);
@@ -981,7 +990,10 @@ export async function upsertContentAnnotationBySession(
 
     // オーナーは編集不可（閲覧のみ）
     if (!ownerUserId) {
-      return { success: false as const, error: 'オーナーはコンテンツの編集ができません。従業員のみ編集可能です。' };
+      return {
+        success: false as const,
+        error: 'オーナーはコンテンツの編集ができません。従業員のみ編集可能です。',
+      };
     }
 
     const supabaseServiceLocal = new SupabaseService();
@@ -1495,87 +1507,94 @@ export async function updateContentAnnotationFields(
 export async function fetchWordPressStatusAction(): Promise<
   { success: true; data: WordPressConnectionStatus } | { success: false; error: string }
 > {
-  return withAuth(async ({ userId, cookieStore, userDetails, viewModeRole }) => {
-    if (await isViewModeEnabled(viewModeRole ?? null)) {
-      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
-    }
-    const wpSettings = await supabaseService.getWordPressSettingsByUserId(userId);
-    const isAdmin = isAdminRole(userDetails?.role ?? null);
+  return withAuth(
+    async ({ userId, cookieStore, userDetails, viewModeRole, ownerUserId, actorUserId }) => {
+      // View Modeの場合は本来のユーザー（オーナー）を使用
+      const realUserId = actorUserId || userId;
+      const isRealOwner = !!actorUserId;
+      const effectiveOwnerId = isRealOwner ? null : ownerUserId;
 
-    // 設定が未完了の場合
-    if (!wpSettings) {
-      return {
-        success: true,
-        data: {
-          connected: false,
-          status: 'not_configured' as const,
-          message: 'WordPress設定が未完了です',
-        },
-      };
-    }
+      if (effectiveOwnerId) {
+        return { success: false, error: 'この操作はオーナーのみ利用できます。' };
+      }
+      const wpSettings = await supabaseService.getWordPressSettingsByUserId(realUserId);
+      const isAdmin = isAdminRole(userDetails?.role ?? null);
 
-    if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
-      return {
-        success: true,
-        data: {
-          connected: false,
-          status: 'error' as const,
-          message:
-            'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で再設定してください。',
-          wpType: wpSettings.wpType,
-          lastUpdated: wpSettings.updatedAt ?? null,
-        },
-      };
-    }
+      // 設定が未完了の場合
+      if (!wpSettings) {
+        return {
+          success: true,
+          data: {
+            connected: false,
+            status: 'not_configured' as const,
+            message: 'WordPress設定が未完了です',
+          },
+        };
+      }
 
-    // WordPress コンテキストを解決
-    const getCookie = (name: string) => cookieStore.get(name)?.value;
-    const context = await resolveWordPressContext(getCookie);
-
-    if (!context.success) {
-      if (context.reason === 'wordpress_auth_missing' && context.wpSettings) {
+      if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
         return {
           success: true,
           data: {
             connected: false,
             status: 'error' as const,
-            message: context.message,
+            message:
+              'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で再設定してください。',
+            wpType: wpSettings.wpType,
+            lastUpdated: wpSettings.updatedAt ?? null,
+          },
+        };
+      }
+
+      // WordPress コンテキストを解決
+      const getCookie = (name: string) => cookieStore.get(name)?.value;
+      const context = await resolveWordPressContext(getCookie);
+
+      if (!context.success) {
+        if (context.reason === 'wordpress_auth_missing' && context.wpSettings) {
+          return {
+            success: true,
+            data: {
+              connected: false,
+              status: 'error' as const,
+              message: context.message,
+              wpType: context.wpSettings.wpType,
+              lastUpdated: context.wpSettings.updatedAt ?? null,
+            },
+          };
+        }
+
+        return { success: false, error: context.message };
+      }
+
+      // 接続テスト
+      const testResult = await context.service.testConnection();
+
+      if (!testResult.success) {
+        return {
+          success: true,
+          data: {
+            connected: false,
+            status: 'error' as const,
+            message: testResult.error || 'WordPress接続に失敗しました',
             wpType: context.wpSettings.wpType,
             lastUpdated: context.wpSettings.updatedAt ?? null,
           },
         };
       }
 
-      return { success: false, error: context.message };
-    }
-
-    // 接続テスト
-    const testResult = await context.service.testConnection();
-
-    if (!testResult.success) {
       return {
         success: true,
         data: {
-          connected: false,
-          status: 'error' as const,
-          message: testResult.error || 'WordPress接続に失敗しました',
+          connected: true,
+          status: 'connected' as const,
+          message: `WordPress (${context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'}) に接続済み`,
           wpType: context.wpSettings.wpType,
           lastUpdated: context.wpSettings.updatedAt ?? null,
         },
       };
     }
-
-    return {
-      success: true,
-      data: {
-        connected: true,
-        status: 'connected' as const,
-        message: `WordPress (${context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'}) に接続済み`,
-        wpType: context.wpSettings.wpType,
-        lastUpdated: context.wpSettings.updatedAt ?? null,
-      },
-    };
-  });
+  );
 }
 
 /**

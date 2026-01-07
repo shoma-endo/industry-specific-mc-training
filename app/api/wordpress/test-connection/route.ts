@@ -22,6 +22,12 @@ export async function GET(request: NextRequest) {
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return NextResponse.json({ success: false, connected: false, message: 'ユーザー認証に失敗しました' }, { status: 401 });
     }
+    if (authResult.ownerUserId) {
+      return NextResponse.json(
+        { success: false, connected: false, message: 'この操作はオーナーのみ利用できます。' },
+        { status: 403 }
+      );
+    }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
       return NextResponse.json(
         { success: false, connected: false, message: VIEW_MODE_ERROR_MESSAGE },
@@ -120,6 +126,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'ユーザー認証に失敗しました' },
         { status: 401 }
+      );
+    }
+    if (authResult.ownerUserId) {
+      return NextResponse.json(
+        { success: false, error: 'この操作はオーナーのみ利用できます。' },
+        { status: 403 }
       );
     }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {

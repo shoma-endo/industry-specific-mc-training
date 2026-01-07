@@ -61,6 +61,9 @@ export async function GET(request: NextRequest) {
   if (liffAccessToken) {
     const authResult = await authMiddleware(liffAccessToken, refreshToken);
     if (!authResult.error && authResult.userId) {
+      if (authResult.ownerUserId) {
+        return buildJsonResponse({ error: 'この操作はオーナーのみ利用できます。' }, { status: 403 });
+      }
       if (targetUserId && targetUserId !== authResult.userId) {
         console.error('LINE user mismatch between cookie and OAuth state', {
           cookieUser: authResult.userId,
@@ -74,6 +77,14 @@ export async function GET(request: NextRequest) {
 
   if (!targetUserId) {
     return buildJsonResponse({ error: 'LINE認証が必要です' }, { status: 401 });
+  }
+
+  const userResult = await supabaseService.getUserById(targetUserId);
+  if (!userResult.success) {
+    return buildJsonResponse({ error: userResult.error.userMessage }, { status: 500 });
+  }
+  if (userResult.data?.owner_user_id) {
+    return buildJsonResponse({ error: 'この操作はオーナーのみ利用できます。' }, { status: 403 });
   }
 
   try {

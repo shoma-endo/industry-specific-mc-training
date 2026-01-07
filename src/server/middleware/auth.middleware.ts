@@ -174,7 +174,10 @@ export async function ensureAuthenticated({
     let actorRole: UserRole | null | undefined;
     let viewModeUserIdResolved: string | undefined;
 
-    if (isViewModeEnabled && viewModeUserId && user.role === 'owner') {
+    // View Mode: ownerロール（ownerUserId=null）のみ許可する
+    const isActualOwner = user.role === 'owner' && !user.ownerUserId;
+
+    if (isViewModeEnabled && viewModeUserId && isActualOwner) {
       const viewUser = await userService.getUserById(viewModeUserId);
       if (viewUser && viewUser.ownerUserId === user.id) {
         actorUserId = user.id;

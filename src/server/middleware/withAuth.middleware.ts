@@ -13,27 +13,12 @@ export interface AuthContext {
   userDetails?: User | null;
   viewModeRole?: UserRole | null;
   ownerUserId?: string | null | undefined;
+  actorUserId?: string | undefined;
 }
 
 /**
  * Server Actions/Route Handlers用の認証ラッパー
- *
- * 25ファイルで重複していた認証パターンを統一的に処理します。
- *
- * @example
- * export async function getWordPressSettings() {
- *   return withAuth(async ({ userId }) => {
- *     return await supabaseService.getWordPressSettingsByUserId(userId);
- *   });
- * }
- *
- * @example cookieStoreも使用する場合
- * export async function someAction() {
- *   return withAuth(async ({ userId, cookieStore }) => {
- *     const token = cookieStore.get('some_token')?.value;
- *     return await doSomething(userId, token);
- *   });
- * }
+ * ... (snip) ...
  */
 export async function withAuth<T>(handler: (context: AuthContext) => Promise<T>): Promise<T> {
   const cookieStore = await cookies();
@@ -52,5 +37,6 @@ export async function withAuth<T>(handler: (context: AuthContext) => Promise<T>)
     userDetails: authResult.userDetails ?? null,
     viewModeRole: resolveViewModeRole(authResult),
     ownerUserId: authResult.ownerUserId,
+    actorUserId: authResult.actorUserId,
   });
 }

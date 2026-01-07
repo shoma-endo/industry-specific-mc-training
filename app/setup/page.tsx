@@ -23,6 +23,8 @@ export default async function SetupPage() {
   if (authResult.error || !authResult.userId) {
     redirect('/login');
   }
+  // Setup page should be accessible to owners at all times
+  // for configuration and error resolution (e.g., GSC re-auth).
 
   // WordPress設定をチェック（WordPress.comとセルフホスト両対応）
   let hasWordPressSettings = false;
@@ -36,8 +38,7 @@ export default async function SetupPage() {
           wordpressSettings.wpSiteUrl)
       ) // セルフホスト
     );
-  } catch {
-  }
+  } catch {}
 
   const gscCredential = await supabaseService.getGscCredentialByUserId(authResult.userId);
   const gscStatus = toGscConnectionStatus(gscCredential);

@@ -34,7 +34,10 @@ export async function GET(request: NextRequest) {
 
   const storedState = request.cookies.get(stateCookieName)?.value;
   if (storedState && state !== storedState) {
-    console.error('State mismatch between cookie and query.', { receivedState: state, storedState });
+    console.error('State mismatch between cookie and query.', {
+      receivedState: state,
+      storedState,
+    });
     return NextResponse.json({ error: 'Invalid state. CSRF attack?' }, { status: 400 });
   }
 
@@ -94,6 +97,12 @@ export async function GET(request: NextRequest) {
       if (!authResult.error && authResult.userId) {
         cookieUserId = authResult.userId;
         targetUserId = authResult.userId;
+        if (authResult.ownerUserId) {
+          return NextResponse.json(
+            { error: 'この操作はオーナーのみ利用できます。' },
+            { status: 403 }
+          );
+        }
         if (!isAdminRole(authResult.userDetails?.role ?? null)) {
           return NextResponse.json(
             { error: 'WordPress.com 連携は管理者のみ利用できます' },
@@ -125,9 +134,12 @@ export async function GET(request: NextRequest) {
           userId: targetUserId,
           error: userResult.error,
         });
+        return NextResponse.json({ error: 'ユーザー情報の取得に失敗しました' }, { status: 500 });
+      }
+      if (userResult.data?.owner_user_id) {
         return NextResponse.json(
-          { error: 'ユーザー情報の取得に失敗しました' },
-          { status: 500 }
+          { error: 'この操作はオーナーのみ利用できます。' },
+          { status: 403 }
         );
       }
       const userRole =
