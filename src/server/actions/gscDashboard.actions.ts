@@ -5,7 +5,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { gscImportService } from '@/server/services/gscImportService';
 import { normalizeUrl } from '@/lib/normalize-url';
-import { buildGscDateRange } from '@/lib/date-formatter';
+import { buildGscDateRange } from '@/lib/date-utils';
 import type { GscEvaluationOutcome } from '@/types/gsc';
 import {
   isViewModeEnabled,
