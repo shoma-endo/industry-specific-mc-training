@@ -22,9 +22,13 @@ export async function GET(request: NextRequest) {
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return NextResponse.json({ success: false, connected: false, message: 'ユーザー認証に失敗しました' }, { status: 401 });
     }
-    if (authResult.ownerUserId) {
+    if (authResult.viewMode || authResult.ownerUserId) {
       return NextResponse.json(
-        { success: false, connected: false, message: 'この操作はオーナーのみ利用できます。' },
+        {
+          success: false,
+          connected: false,
+          message: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
+        },
         { status: 403 }
       );
     }
@@ -128,9 +132,12 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    if (authResult.ownerUserId) {
+    if (authResult.viewMode || authResult.ownerUserId) {
       return NextResponse.json(
-        { success: false, error: 'この操作はオーナーのみ利用できます。' },
+        {
+          success: false,
+          error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
+        },
         { status: 403 }
       );
     }

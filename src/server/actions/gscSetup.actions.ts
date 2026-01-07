@@ -13,7 +13,7 @@ const supabaseService = new SupabaseService();
 const gscService = new GscService();
 
 const ACCESS_TOKEN_SAFETY_MARGIN_MS = 60 * 1000; // 1 minute
-const OWNER_ONLY_ERROR_MESSAGE = 'この操作はオーナーのみ利用できます。';
+const OWNER_ONLY_ERROR_MESSAGE = ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED;
 
 /** トークン期限切れ/取り消しエラーかどうかを判定 */
 const isTokenExpiredError = (error: unknown): boolean => {
@@ -66,11 +66,13 @@ const getAuthUserId = async () => {
   }
   // View Modeの場合でも、Setup画面の操作は本来のユーザー（オーナー）として実行する
   const realUserId = authResult.actorUserId || authResult.userId;
-  const isRealOwner = !!authResult.actorUserId; // actorUserIdがある＝本来はオーナー
+  // actorUserIdがある = View Modeでオーナーとして操作中
+  const isViewModeAsOwner = !!authResult.actorUserId;
 
   return {
     userId: realUserId,
-    ownerUserId: isRealOwner ? null : (authResult.ownerUserId ?? null),
+    // スタッフユーザーの場合のみownerUserIdを返す（制限対象）
+    ownerUserId: isViewModeAsOwner ? null : (authResult.ownerUserId ?? null),
   };
 };
 
@@ -209,14 +211,7 @@ export async function refetchGscStatusWithValidation(): Promise<
   | { success: false; error: string; needsReauth?: boolean }
 > {
   try {
-    const { ownerUserId, error } = await getAuthUserId();
-    if (error) {
-      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
-    }
-    if (ownerUserId) {
-      return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
-    }
-    // ステータスを取得
+    // ステータスを取得（内部で認証チェックを実行）
     const statusResult = await fetchGscStatus();
     if (!statusResult.success || !statusResult.data) {
       return {

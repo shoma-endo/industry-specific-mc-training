@@ -25,7 +25,9 @@ export default async function WordPressSetupPage() {
   let existingWordPressSettings = null;
   try {
     existingWordPressSettings = await getWordPressSettings();
-  } catch {}
+  } catch (error) {
+    console.error('[WordPress Setup] Failed to fetch settings:', error);
+  }
 
   return (
     <WordPressSettingsForm

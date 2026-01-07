@@ -61,7 +61,6 @@ export default function WordPressImportPage() {
   const [error, setError] = useState<string | undefined>(undefined);
   const { getAccessToken, user } = useLiffContext();
   const isStaffUser = Boolean(user?.ownerUserId);
-  const isReadOnly = isStaffUser; // View Modeは制限対象外
 
   if (isStaffUser) {
     return (
@@ -136,7 +135,6 @@ export default function WordPressImportPage() {
   };
 
   const handleImport = async () => {
-    if (isReadOnly) return;
     setIsLoading(true);
     setError(undefined);
     setResult(null);
@@ -195,7 +193,7 @@ export default function WordPressImportPage() {
               </p>
             </div>
 
-            <Button onClick={handleImport} disabled={isLoading || isReadOnly} className="w-full">
+            <Button onClick={handleImport} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -24,10 +24,13 @@ export async function runGscImport(params: GscImportParams) {
     if (authResult.error || !authResult.userId) {
       return { success: false, error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
-    if (authResult.ownerUserId) {
-      return { success: false, error: 'この操作はオーナーのみ利用できます。' };
+    if (authResult.viewMode || authResult.ownerUserId) {
+      return {
+        success: false,
+        error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
+      };
     }
-    // View Modeは制限対象外（オーナー管理画面）
+    // 本人のオーナーアカウントのみがインポート操作を実行可能（View Mode・スタッフアカウント禁止）
 
     const { startDate, endDate, searchType = 'web', maxRows = 1000, runEvaluation = true } = params;
 

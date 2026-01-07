@@ -38,7 +38,9 @@ export default async function SetupPage() {
           wordpressSettings.wpSiteUrl)
       ) // セルフホスト
     );
-  } catch {}
+  } catch (error) {
+    console.error('[Setup] Failed to fetch WordPress settings:', error);
+  }
 
   const gscCredential = await supabaseService.getGscCredentialByUserId(authResult.userId);
   const gscStatus = toGscConnectionStatus(gscCredential);

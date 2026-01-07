@@ -138,6 +138,15 @@ export const ERROR_MESSAGES = {
 
     /** アクセス権の確認に失敗した場合 */
     ACCESS_CHECK_FAILED: 'アクセス権の確認に失敗しました',
+
+    /** オーナー権限が必要な場合 */
+    OWNER_REQUIRED: 'この操作はオーナー権限が必要です',
+
+    /** スタッフユーザーが操作できない場合 */
+    STAFF_OPERATION_NOT_ALLOWED: 'スタッフユーザーはこの操作を実行できません',
+
+    /** View Mode中のオーナーとスタッフが操作できない場合（本人のオーナーアカウントのみ許可） */
+    OWNER_ACCOUNT_REQUIRED: 'この操作は本人のオーナーアカウントでのみ実行できます',
   },
 
   /**

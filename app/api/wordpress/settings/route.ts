@@ -9,6 +9,7 @@ import {
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
 import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 
@@ -48,9 +49,12 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    if (authResult.ownerUserId) {
+    if (authResult.viewMode || authResult.ownerUserId) {
       return NextResponse.json(
-        { success: false, error: 'この操作はオーナーのみ利用できます。' },
+        {
+          success: false,
+          error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
+        },
         { status: 403 }
       );
     }

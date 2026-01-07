@@ -6,6 +6,7 @@ import { verifyOAuthState } from '@/server/lib/oauth-state';
 import { isAdmin as isAdminRole } from '@/authUtils';
 import type { UserRole } from '@/types/user';
 import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 
@@ -97,9 +98,9 @@ export async function GET(request: NextRequest) {
       if (!authResult.error && authResult.userId) {
         cookieUserId = authResult.userId;
         targetUserId = authResult.userId;
-        if (authResult.ownerUserId) {
+        if (authResult.viewMode || authResult.ownerUserId) {
           return NextResponse.json(
-            { error: 'この操作はオーナーのみ利用できます。' },
+            { error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED },
             { status: 403 }
           );
         }
@@ -137,10 +138,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'ユーザー情報の取得に失敗しました' }, { status: 500 });
       }
       if (userResult.data?.owner_user_id) {
-        return NextResponse.json(
-          { error: 'この操作はオーナーのみ利用できます。' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED }, { status: 403 });
       }
       const userRole =
         typeof userResult.data?.role === 'string' ? (userResult.data.role as UserRole) : null;

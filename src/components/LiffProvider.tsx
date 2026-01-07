@@ -256,10 +256,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     if (!viewModeResolved) {
       return;
     }
-    // Logic removed to allow owners access to all pages (e.g. /setup) without view mode
-    // if (isOwner(user?.role ?? null) && pathname !== '/' && !isOwnerViewMode && !cookieViewMode) {
-    //   router.replace('/');
-    // }
+    // Note: Owner redirect logic removed to allow owners access to all pages (e.g. /setup) without view mode
   }, [isOwnerViewMode, pathname, refreshUser, router, user?.role, viewModeResolved]);
 
   useEffect(() => {

@@ -796,7 +796,10 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
     const effectiveOwnerId = isRealOwner ? null : (authResult.ownerUserId ?? null);
 
     if (effectiveOwnerId) {
-      return { success: false as const, error: 'この操作はオーナーのみ利用できます。' };
+      return {
+        success: false as const,
+        error: ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED,
+      };
     }
 
     const isAdmin = isAdminRole(authResult.userDetails.role);
@@ -855,9 +858,13 @@ export async function testWordPressConnectionAction() {
     if (authResult.error || !authResult.userId || !authResult.userDetails?.role) {
       return { success: false as const, error: ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
-    if (authResult.ownerUserId) {
-      return { success: false as const, error: 'この操作はオーナーのみ利用できます。' };
+    if (authResult.viewMode || authResult.ownerUserId) {
+      return {
+        success: false as const,
+        error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
+      };
     }
+    // 本人のオーナーアカウントのみがテスト接続を実行可能（View Mode・スタッフアカウント禁止）
 
     const isAdmin = isAdminRole(authResult.userDetails.role);
     const wpSettings = await supabaseService.getWordPressSettingsByUserId(authResult.userId);
@@ -984,8 +991,9 @@ export async function upsertContentAnnotationBySession(
       return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
-    // オーナーは編集不可（閲覧のみ）
-    if (!ownerUserId) {
+    // セッションベースのアノテーション編集は従業員専用（オーナーは閲覧のみ）
+    const isStaffUser = Boolean(ownerUserId);
+    if (!isStaffUser) {
       return {
         success: false as const,
         error: 'オーナーはコンテンツの編集ができません。従業員のみ編集可能です。',
@@ -1511,7 +1519,10 @@ export async function fetchWordPressStatusAction(): Promise<
       const effectiveOwnerId = isRealOwner ? null : ownerUserId;
 
       if (effectiveOwnerId) {
-        return { success: false, error: 'この操作はオーナーのみ利用できます。' };
+        return {
+          success: false,
+          error: ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED,
+        };
       }
       const wpSettings = await supabaseService.getWordPressSettingsByUserId(realUserId);
       const isAdmin = isAdminRole(userDetails?.role ?? null);

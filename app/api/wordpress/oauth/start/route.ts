@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { generateOAuthState } from '@/server/lib/oauth-state';
 import { isAdmin as isAdminRole } from '@/authUtils';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -37,8 +38,8 @@ export async function GET() {
       { status: 401 }
     );
   }
-  if (authResult.ownerUserId) {
-    return NextResponse.json({ error: 'この操作はオーナーのみ利用できます' }, { status: 403 });
+  if (authResult.viewMode || authResult.ownerUserId) {
+    return NextResponse.json({ error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED }, { status: 403 });
   }
 
   if (!isAdminRole(authResult.userDetails?.role ?? null)) {
