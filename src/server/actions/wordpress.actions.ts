@@ -38,11 +38,7 @@ import type {
 } from '@/types/annotation';
 import type { DbChatSession } from '@/types/chat';
 import type { Database } from '@/types/database.types';
-import {
-  isViewModeEnabled,
-  resolveViewModeRole,
-  VIEW_MODE_ERROR_MESSAGE,
-} from '@/server/lib/view-mode';
+import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
@@ -818,7 +814,7 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
       }
 
       await supabaseService.createOrUpdateSelfHostedWordPressSettings(
-        authResult.userId,
+        realUserId,
         wpSiteUrl,
         wpUsername,
         wpApplicationPassword,
@@ -832,7 +828,7 @@ export async function saveWordPressSettingsAction(params: SaveWordPressSettingsP
         };
       }
 
-      await supabaseService.createOrUpdateWordPressSettings(authResult.userId, '', '', wpSiteId, {
+      await supabaseService.createOrUpdateWordPressSettings(realUserId, '', '', wpSiteId, {
         wpContentTypes: contentTypes,
       });
     }
@@ -1508,7 +1504,7 @@ export async function fetchWordPressStatusAction(): Promise<
   { success: true; data: WordPressConnectionStatus } | { success: false; error: string }
 > {
   return withAuth(
-    async ({ userId, cookieStore, userDetails, viewModeRole, ownerUserId, actorUserId }) => {
+    async ({ userId, cookieStore, userDetails, ownerUserId, actorUserId }) => {
       // View Modeの場合は本来のユーザー（オーナー）を使用
       const realUserId = actorUserId || userId;
       const isRealOwner = !!actorUserId;
