@@ -6,7 +6,7 @@ import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { withAuth } from '@/server/middleware/withAuth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { isAdmin as isAdminRole } from '@/authUtils';
+import { isAdmin as isAdminRole, isActualOwner as isActualOwnerHelper } from '@/authUtils';
 import {
   WordPressSettings,
   WordPressRestPost,
@@ -986,14 +986,18 @@ export async function upsertContentAnnotationBySession(
       wp_post_title?: string | null;
     }
 > {
-  return withAuth(async ({ userId, cookieStore, viewModeRole, ownerUserId }) => {
+  return withAuth(async ({ userId, cookieStore, viewModeRole, ownerUserId, userDetails }) => {
     if (await isViewModeEnabled(viewModeRole ?? null)) {
       return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
-    // セッションベースのアノテーション編集は従業員専用（オーナーは閲覧のみ）
+    // セッションベースのアノテーション編集の権限チェック
+    // - スタッフユーザー（ownerUserId が設定されている）→ 編集可能
+    // - 独立ユーザー（role!='owner' かつ ownerUserId=null）→ 編集可能
+    // - オーナー（role='owner' かつ ownerUserId=null）→ 編集不可（閲覧のみ）
     const isStaffUser = Boolean(ownerUserId);
-    if (!isStaffUser) {
+    const isActualOwner = isActualOwnerHelper(userDetails?.role ?? null, ownerUserId);
+    if (!isStaffUser && isActualOwner) {
       return {
         success: false as const,
         error: 'オーナーはコンテンツの編集ができません。従業員のみ編集可能です。',
@@ -1511,97 +1515,95 @@ export async function updateContentAnnotationFields(
 export async function fetchWordPressStatusAction(): Promise<
   { success: true; data: WordPressConnectionStatus } | { success: false; error: string }
 > {
-  return withAuth(
-    async ({ userId, cookieStore, userDetails, ownerUserId, actorUserId }) => {
-      // View Modeの場合は本来のユーザー（オーナー）を使用
-      const realUserId = actorUserId || userId;
-      const isRealOwner = !!actorUserId;
-      const effectiveOwnerId = isRealOwner ? null : ownerUserId;
+  return withAuth(async ({ userId, cookieStore, userDetails, ownerUserId, actorUserId }) => {
+    // View Modeの場合は本来のユーザー（オーナー）を使用
+    const realUserId = actorUserId || userId;
+    const isRealOwner = !!actorUserId;
+    const effectiveOwnerId = isRealOwner ? null : ownerUserId;
 
-      if (effectiveOwnerId) {
-        return {
-          success: false,
-          error: ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED,
-        };
-      }
-      const wpSettings = await supabaseService.getWordPressSettingsByUserId(realUserId);
-      const isAdmin = isAdminRole(userDetails?.role ?? null);
+    if (effectiveOwnerId) {
+      return {
+        success: false,
+        error: ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED,
+      };
+    }
+    const wpSettings = await supabaseService.getWordPressSettingsByUserId(realUserId);
+    const isAdmin = isAdminRole(userDetails?.role ?? null);
 
-      // 設定が未完了の場合
-      if (!wpSettings) {
-        return {
-          success: true,
-          data: {
-            connected: false,
-            status: 'not_configured' as const,
-            message: 'WordPress設定が未完了です',
-          },
-        };
-      }
+    // 設定が未完了の場合
+    if (!wpSettings) {
+      return {
+        success: true,
+        data: {
+          connected: false,
+          status: 'not_configured' as const,
+          message: 'WordPress設定が未完了です',
+        },
+      };
+    }
 
-      if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
-        return {
-          success: true,
-          data: {
-            connected: false,
-            status: 'error' as const,
-            message:
-              'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で再設定してください。',
-            wpType: wpSettings.wpType,
-            lastUpdated: wpSettings.updatedAt ?? null,
-          },
-        };
-      }
+    if (!isAdmin && wpSettings.wpType === 'wordpress_com') {
+      return {
+        success: true,
+        data: {
+          connected: false,
+          status: 'error' as const,
+          message:
+            'WordPress.com 連携は管理者のみ利用できます。セルフホスト版で再設定してください。',
+          wpType: wpSettings.wpType,
+          lastUpdated: wpSettings.updatedAt ?? null,
+        },
+      };
+    }
 
-      // WordPress コンテキストを解決
-      const getCookie = (name: string) => cookieStore.get(name)?.value;
-      const context = await resolveWordPressContext(getCookie);
+    // WordPress コンテキストを解決
+    const getCookie = (name: string) => cookieStore.get(name)?.value;
+    const context = await resolveWordPressContext(getCookie);
 
-      if (!context.success) {
-        if (context.reason === 'wordpress_auth_missing' && context.wpSettings) {
-          return {
-            success: true,
-            data: {
-              connected: false,
-              status: 'error' as const,
-              message: context.message,
-              wpType: context.wpSettings.wpType,
-              lastUpdated: context.wpSettings.updatedAt ?? null,
-            },
-          };
-        }
-
-        return { success: false, error: context.message };
-      }
-
-      // 接続テスト
-      const testResult = await context.service.testConnection();
-
-      if (!testResult.success) {
+    if (!context.success) {
+      if (context.reason === 'wordpress_auth_missing' && context.wpSettings) {
         return {
           success: true,
           data: {
             connected: false,
             status: 'error' as const,
-            message: testResult.error || 'WordPress接続に失敗しました',
+            message: context.message,
             wpType: context.wpSettings.wpType,
             lastUpdated: context.wpSettings.updatedAt ?? null,
           },
         };
       }
 
+      return { success: false, error: context.message };
+    }
+
+    // 接続テスト
+    const testResult = await context.service.testConnection();
+
+    if (!testResult.success) {
       return {
         success: true,
         data: {
-          connected: true,
-          status: 'connected' as const,
-          message: `WordPress (${context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'}) に接続済み`,
+          connected: false,
+          status: 'error' as const,
+          message: testResult.error || 'WordPress接続に失敗しました',
           wpType: context.wpSettings.wpType,
           lastUpdated: context.wpSettings.updatedAt ?? null,
         },
       };
     }
-  );
+
+    return {
+      success: true,
+      data: {
+        connected: true,
+        status: 'connected' as const,
+        message: `WordPress (${context.wpSettings.wpType === 'wordpress_com' ? 'WordPress.com' : 'セルフホスト'}) に接続済み`,
+        wpType: context.wpSettings.wpType,
+        lastUpdated: context.wpSettings.updatedAt ?? null,
+      },
+    };
+  });
 }
 
 /**

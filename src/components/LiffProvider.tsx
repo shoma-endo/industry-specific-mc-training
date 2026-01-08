@@ -9,7 +9,7 @@ import { ViewModeBanner } from '@/components/ViewModeBanner';
 import type { LiffContextType } from '@/types/components';
 import type { User } from '@/types/user';
 import { usePathname, useRouter } from 'next/navigation';
-import { isOwner } from '@/authUtils';
+import { hasOwnerRole } from '@/authUtils';
 
 const LiffContext = createContext<LiffContextType | null>(null);
 
@@ -361,7 +361,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         {/* 公開ページの場合はpb-20 (フッター分の余白) を適用しない */}
         <main className={`flex-1 ${isPublicPath ? '' : 'pb-20'}`}>{children}</main>
         {/* 公開ページ以外でのみFooterを表示（閲覧モード時は表示する） */}
-        {!isPublicPath && (!isOwner(user?.role ?? null) || isOwnerViewMode) && <Footer />}
+        {!isPublicPath && (!hasOwnerRole(user?.role ?? null) || isOwnerViewMode) && <Footer />}
       </div>
     </LiffContext.Provider>
   );
