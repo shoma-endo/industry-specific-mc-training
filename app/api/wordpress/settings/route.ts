@@ -9,6 +9,7 @@ import {
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
 import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 
@@ -46,6 +47,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Authentication failed' },
         { status: 401 }
+      );
+    }
+    if (authResult.viewMode || authResult.ownerUserId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
+        },
+        { status: 403 }
       );
     }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {

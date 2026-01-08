@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Plug, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plug, CheckCircle, AlertCircle, Download } from 'lucide-react';
 import Link from 'next/link';
 import { WordPressType } from '@/types/wordpress';
 import type { WordPressSettingsFormProps } from '@/types/components';
@@ -40,9 +40,7 @@ const StatusPanel: React.FC<{
   onToggleDetails: () => void;
   onOAuthClick?: () => void;
 }> = ({ status, showDetails, onToggleDetails, onOAuthClick }) => {
-  const wrapperClasses = status.success
-    ? 'bg-green-50 text-green-700'
-    : 'bg-red-50 text-red-700';
+  const wrapperClasses = status.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700';
 
   return (
     <div className={`p-4 rounded-lg ${wrapperClasses}`}>
@@ -101,14 +99,16 @@ export default function WordPressSettingsForm({
   existingSettings,
   role,
 }: WordPressSettingsFormProps) {
-  const { isOwnerViewMode } = useLiffContext();
+  const { isOwnerViewMode, user } = useLiffContext();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [saveStatus, setSaveStatus] = useState<StatusOutcome | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<StatusOutcome | null>(null);
   const [expandedPanel, setExpandedPanel] = useState<'save' | 'connection' | null>(null);
-  const isReadOnly = isOwnerViewMode;
+  const isStaffUser = Boolean(user?.ownerUserId);
+  const isReadOnly = isOwnerViewMode || isStaffUser;
+  const isConnectionSuccessful = Boolean(connectionStatus?.success);
 
   // フォームの状態
   const isAdmin = isAdminRole(role);
@@ -186,9 +186,7 @@ export default function WordPressSettingsForm({
       if (data.success) {
         setSaveStatus({
           success: true,
-          primary: existingSettings
-            ? 'WordPress設定を更新しました'
-            : 'WordPress設定を保存しました',
+          primary: existingSettings ? 'WordPress設定を更新しました' : 'WordPress設定を保存しました',
         });
         setExpandedPanel(prev => (prev === 'save' ? null : prev));
 
@@ -335,10 +333,10 @@ export default function WordPressSettingsForm({
                 <SelectTrigger>
                   <SelectValue placeholder="WordPress種別を選択" />
                 </SelectTrigger>
-              <SelectContent>
-                {isAdmin && <SelectItem value="wordpress_com">WordPress.com</SelectItem>}
-                <SelectItem value="self_hosted">セルフホスト版WordPress</SelectItem>
-              </SelectContent>
+                <SelectContent>
+                  {isAdmin && <SelectItem value="wordpress_com">WordPress.com</SelectItem>}
+                  <SelectItem value="self_hosted">セルフホスト版WordPress</SelectItem>
+                </SelectContent>
               </Select>
             </div>
 
@@ -352,8 +350,9 @@ export default function WordPressSettingsForm({
                 disabled={isReadOnly}
               />
               <p className="text-xs text-gray-500">
-                REST API のエンドポイント名（例: posts, pages, product）。カンマ区切りで複数指定できます。
-                未入力の場合は posts, pages を自動で利用します。
+                REST API のエンドポイント名（例: posts, pages,
+                product）。カンマ区切りで複数指定できます。 未入力の場合は posts, pages
+                を自動で利用します。
               </p>
             </div>
 
@@ -473,9 +472,7 @@ export default function WordPressSettingsForm({
               <StatusPanel
                 status={saveStatus}
                 showDetails={expandedPanel === 'save'}
-                onToggleDetails={() =>
-                  setExpandedPanel(prev => (prev === 'save' ? null : 'save'))
-                }
+                onToggleDetails={() => setExpandedPanel(prev => (prev === 'save' ? null : 'save'))}
               />
             )}
 
@@ -491,9 +488,44 @@ export default function WordPressSettingsForm({
               >
                 {isTestingConnection ? '接続テスト中...' : '接続テスト'}
               </Button>
+              {!hasSavedSettings || isReadOnly || !isConnectionSuccessful ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled
+                  className="w-full flex items-center gap-2"
+                  title={
+                    !hasSavedSettings
+                      ? '先に設定を保存してください'
+                      : !isConnectionSuccessful
+                        ? '接続テストに成功してからインポートできます'
+                        : undefined
+                  }
+                >
+                  <Download className="h-4 w-4" />
+                  WordPress記事一括インポート
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  asChild
+                  variant="secondary"
+                  className="w-full flex items-center gap-2"
+                >
+                  <Link href="/wordpress-import">
+                    <Download className="h-4 w-4" />
+                    WordPress記事一括インポート
+                  </Link>
+                </Button>
+              )}
               {!hasSavedSettings && (
                 <p className="text-xs text-gray-500">
-                  接続テストを行うには、先に設定を保存してください。
+                  接続テストとインポートを行うには、先に設定を保存してください。
+                </p>
+              )}
+              {hasSavedSettings && !isConnectionSuccessful && (
+                <p className="text-xs text-gray-500">
+                  インポートを行うには、接続テストの成功が必要です。
                 </p>
               )}
 

@@ -15,8 +15,8 @@ export default async function GscSetupPage() {
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
   const isOauthConfigured = Boolean(
     process.env.GOOGLE_OAUTH_CLIENT_ID &&
-      process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
-      process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
+    process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI
   );
 
   if (!liffAccessToken) {
@@ -27,6 +27,7 @@ export default async function GscSetupPage() {
   if (authResult.error || !authResult.userId) {
     redirect('/login');
   }
+  // Setup pages should be accessible to owners at all times
 
   const credential = await supabaseService.getGscCredentialByUserId(authResult.userId);
   const initialStatus = toGscConnectionStatus(credential);

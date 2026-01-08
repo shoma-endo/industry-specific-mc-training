@@ -19,12 +19,14 @@ export default async function WordPressSetupPage() {
   if (authResult.error || !authResult.userDetails?.role) {
     redirect('/login');
   }
+  // Setup pages should be accessible to owners at all times
 
   // 既存のWordPress設定を取得
   let existingWordPressSettings = null;
   try {
     existingWordPressSettings = await getWordPressSettings();
-  } catch {
+  } catch (error) {
+    console.error('[WordPress Setup] Failed to fetch settings:', error);
   }
 
   return (

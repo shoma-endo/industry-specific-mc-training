@@ -59,8 +59,24 @@ export default function WordPressImportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
-  const { getAccessToken, isOwnerViewMode } = useLiffContext();
-  const isReadOnly = isOwnerViewMode;
+  const { getAccessToken, user, isOwnerViewMode } = useLiffContext();
+  const isStaffUser = Boolean(user?.ownerUserId);
+
+  if (isStaffUser || isOwnerViewMode) {
+    return (
+      <div className="w-full px-4 py-8">
+        <div className="mx-auto max-w-3xl">
+          <Alert>
+            <AlertDescription>
+              {isStaffUser
+                ? 'この画面はオーナーのみ利用できます。オーナーでログインしてください。'
+                : '閲覧モードでは操作できません。通常モードに切り替えてください。'}
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
 
   const formatTypeLabel = (type: string) => {
     const lowered = type.toLowerCase();
@@ -103,9 +119,7 @@ export default function WordPressImportPage() {
       errorPosts: typeof payload.errorPosts === 'number' ? payload.errorPosts : 0,
       existingContentTotal:
         typeof payload.existingContentTotal === 'number' ? payload.existingContentTotal : 0,
-      contentTypes: Array.isArray(payload.contentTypes)
-        ? (payload.contentTypes as string[])
-        : [],
+      contentTypes: Array.isArray(payload.contentTypes) ? (payload.contentTypes as string[]) : [],
       statsByType:
         typeof payload.statsByType === 'object' && payload.statsByType !== null
           ? (payload.statsByType as ImportResult['statsByType'])
@@ -123,7 +137,6 @@ export default function WordPressImportPage() {
   };
 
   const handleImport = async () => {
-    if (isReadOnly) return;
     setIsLoading(true);
     setError(undefined);
     setResult(null);
@@ -168,13 +181,6 @@ export default function WordPressImportPage() {
             >
               設定ダッシュボードを見る
             </Link>
-            <span className="text-gray-300">|</span>
-            <Link
-              href="/analytics"
-              className="inline-flex items-center text-blue-600 hover:text-blue-800"
-            >
-              コンテンツ一覧に戻る
-            </Link>
           </div>
         </div>
 
@@ -189,11 +195,7 @@ export default function WordPressImportPage() {
               </p>
             </div>
 
-            <Button
-              onClick={handleImport}
-              disabled={isLoading || isReadOnly}
-              className="w-full"
-            >
+            <Button onClick={handleImport} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -206,8 +208,8 @@ export default function WordPressImportPage() {
           </CardContent>
         </Card>
 
-        {error && (
-          isWordPressAuthError(error) ? (
+        {error &&
+          (isWordPressAuthError(error) ? (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="space-y-3">
@@ -225,8 +227,7 @@ export default function WordPressImportPage() {
             </Alert>
           ) : (
             <ErrorAlert error={error} />
-          )
-        )}
+          ))}
 
         {result && (
           <Card>
@@ -238,10 +239,14 @@ export default function WordPressImportPage() {
             </CardHeader>
             <CardContent>
               {result.maxLimitReached && (
-                <Alert variant="default" className="mb-4 border-yellow-300 bg-yellow-50 text-yellow-800">
+                <Alert
+                  variant="default"
+                  className="mb-4 border-yellow-300 bg-yellow-50 text-yellow-800"
+                >
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    最大取得件数（{result.maxLimitValue ?? 1000}件）に達したため、これ以上のコンテンツは取得できませんでした。
+                    最大取得件数（{result.maxLimitValue ?? 1000}
+                    件）に達したため、これ以上のコンテンツは取得できませんでした。
                     投稿タイプや期間を絞り込んで再実行することをご検討ください。
                   </AlertDescription>
                 </Alert>
@@ -251,79 +256,84 @@ export default function WordPressImportPage() {
                   <div className="text-2xl font-bold text-blue-600">{result.totalPosts}</div>
                   <div className="text-sm text-gray-600">取得記事数</div>
                 </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{result.newPosts}</div>
-                <div className="text-sm text-gray-600">新規登録対象</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{result.insertedPosts}</div>
-                <div className="text-sm text-gray-600">登録成功</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-indigo-600">{result.updatedPosts}</div>
-                <div className="text-sm text-gray-600">更新件数</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">{result.skippedExistingPosts}</div>
-                <div className="text-sm text-gray-600">変更なしでスキップ</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-600">{result.duplicatePosts}</div>
-                <div className="text-sm text-gray-600">重複スキップ</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{result.errorPosts}</div>
-                <div className="text-sm text-gray-600">エラー</div>
-              </div>
-            </div>
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-700">
-                WordPressから{result.totalPosts}件の記事を取得しました。<br/>
-                • 対象タイプ:{' '}
-                {result.contentTypes.length > 0
-                  ? result.contentTypes.map(formatTypeLabel).join(', ')
-                  : '検出されませんでした'}<br/>
-                • {result.newPosts}件を新規登録対象として処理<br/>
-                • {result.updatedPosts}件を既存更新<br/>
-                • {result.insertedPosts}件を新規登録<br/>
-                • {result.skippedExistingPosts}件を変更なしとしてスキップ<br/>
-                • {result.skippedWithoutCanonical}件をURL不足などでスキップ<br/>
-                • {result.duplicatePosts}件が重複のためスキップ<br/>
-                • {result.errorPosts}件でエラーが発生<br/>
-                • 実行前の登録済みコンテンツ総数: {result.existingContentTotal}件
-                {typeof result.backfilledTitles === 'number' && result.backfilledTitles > 0 && (
-                  <>
-                    <br />• タイトル補完 {result.backfilledTitles}件
-                  </>
-                )}
-              </p>
-            </div>
-
-            {Object.keys(result.statsByType).length > 0 && (
-              <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-700">タイプ別内訳</h3>
-                <div className="mt-3 space-y-3 text-xs text-gray-700">
-                  {Object.entries(result.statsByType).map(([type, stats]) => (
-                    <div key={type} className="border-b border-gray-100 pb-3 last:border-none last:pb-0">
-                      <div className="text-sm font-medium text-gray-800">
-                        {`${formatTypeLabel(type)}（取得 ${stats.retrieved}/${stats.totalAvailable}）`}
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-gray-600">
-                        <span>新規候補 {stats.newCandidates}</span>
-                        <span>登録/更新 {stats.processed}</span>
-                        <span>既存スキップ {stats.skippedExisting}</span>
-                        <span>URL不足 {stats.skippedWithoutCanonical}</span>
-                        <span>重複 {stats.duplicate}</span>
-                        <span>エラー {stats.error}</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{result.newPosts}</div>
+                  <div className="text-sm text-gray-600">新規登録対象</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{result.insertedPosts}</div>
+                  <div className="text-sm text-gray-600">登録成功</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-indigo-600">{result.updatedPosts}</div>
+                  <div className="text-sm text-gray-600">更新件数</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {result.skippedExistingPosts}
+                  </div>
+                  <div className="text-sm text-gray-600">変更なしでスキップ</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-600">{result.duplicatePosts}</div>
+                  <div className="text-sm text-gray-600">重複スキップ</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">{result.errorPosts}</div>
+                  <div className="text-sm text-gray-600">エラー</div>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-700">
+                  WordPressから{result.totalPosts}件の記事を取得しました。
+                  <br />• 対象タイプ:{' '}
+                  {result.contentTypes.length > 0
+                    ? result.contentTypes.map(formatTypeLabel).join(', ')
+                    : '検出されませんでした'}
+                  <br />• {result.newPosts}件を新規登録対象として処理
+                  <br />• {result.updatedPosts}件を既存更新
+                  <br />• {result.insertedPosts}件を新規登録
+                  <br />• {result.skippedExistingPosts}件を変更なしとしてスキップ
+                  <br />• {result.skippedWithoutCanonical}件をURL不足などでスキップ
+                  <br />• {result.duplicatePosts}件が重複のためスキップ
+                  <br />• {result.errorPosts}件でエラーが発生
+                  <br />• 実行前の登録済みコンテンツ総数: {result.existingContentTotal}件
+                  {typeof result.backfilledTitles === 'number' && result.backfilledTitles > 0 && (
+                    <>
+                      <br />• タイトル補完 {result.backfilledTitles}件
+                    </>
+                  )}
+                </p>
+              </div>
+
+              {Object.keys(result.statsByType).length > 0 && (
+                <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700">タイプ別内訳</h3>
+                  <div className="mt-3 space-y-3 text-xs text-gray-700">
+                    {Object.entries(result.statsByType).map(([type, stats]) => (
+                      <div
+                        key={type}
+                        className="border-b border-gray-100 pb-3 last:border-none last:pb-0"
+                      >
+                        <div className="text-sm font-medium text-gray-800">
+                          {`${formatTypeLabel(type)}（取得 ${stats.retrieved}/${stats.totalAvailable}）`}
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-gray-600">
+                          <span>新規候補 {stats.newCandidates}</span>
+                          <span>登録/更新 {stats.processed}</span>
+                          <span>既存スキップ {stats.skippedExisting}</span>
+                          <span>URL不足 {stats.skippedWithoutCanonical}</span>
+                          <span>重複 {stats.duplicate}</span>
+                          <span>エラー {stats.error}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
