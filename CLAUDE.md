@@ -138,7 +138,7 @@ if (hasOwnerRole(user.role)) {
 **✅ 正しい実装パターン:**
 
 ```typescript
-import { isActualOwner, hasOwnerRole } from '@/authUtils';
+import { isActualOwner, hasOwnerRole, isAdmin, canInviteEmployee } from '@/authUtils';
 
 // 1. スタッフユーザーの判定（例: チャットセッション作成権限チェック時）
 const isStaff = user.role === 'paid' && user.ownerUserId !== null;
@@ -161,6 +161,18 @@ if (hasOwnerRole(user.role)) {
 // 4. 有料ユーザー（オーナー + スタッフ）の判定（例: 有料機能へのアクセス制御）
 // スタッフとオーナーを区別せず、両方に機能を提供する場合
 const isPaidUser = user.role === 'paid';
+
+// 5. 管理者判定（例: 管理画面アクセス制御、プロンプト管理権限）
+if (!isAdmin(user.role)) {
+  return { error: '管理者権限が必要です' };
+}
+// 管理者のみがアクセス可能な操作を実行
+
+// 6. 従業員招待権限チェック（例: スタッフ招待APIでの権限チェック）
+if (!canInviteEmployee(user.role)) {
+  return { error: '従業員を招待する権限がありません。有料プランまたは管理者権限が必要です' };
+}
+// paid または admin のみがスタッフ招待可能
 ```
 
 ### authUtils.ts のヘルパー関数
