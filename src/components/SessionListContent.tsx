@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Trash2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SessionListItem, SessionListContentProps } from '@/types/components';
-import { formatRelativeDate } from '@/lib/date-formatter';
+import { formatRelativeDate } from '@/lib/date-utils';
 
 const SessionListContent = memo(function SessionListContent({
   sessions,

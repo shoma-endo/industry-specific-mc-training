@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { GSC_EVALUATION_OUTCOME_CONFIG } from '@/types/gsc';
 import { markSuggestionAsRead } from '@/server/actions/gscNotification.actions';
 import type { GscEvaluationHistoryItem } from '../types';
-import { formatDateTime } from '@/lib/date-formatter';
+import { formatDateTime } from '@/lib/date-utils';
 import { MODEL_CONFIGS } from '@/lib/constants';
 import { useLiffContext } from '@/components/LiffProvider';
 
