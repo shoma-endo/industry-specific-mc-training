@@ -986,14 +986,18 @@ export async function upsertContentAnnotationBySession(
       wp_post_title?: string | null;
     }
 > {
-  return withAuth(async ({ userId, cookieStore, viewModeRole, ownerUserId }) => {
+  return withAuth(async ({ userId, cookieStore, viewModeRole, ownerUserId, userDetails }) => {
     if (await isViewModeEnabled(viewModeRole ?? null)) {
       return { success: false as const, error: VIEW_MODE_ERROR_MESSAGE };
     }
 
-    // セッションベースのアノテーション編集は従業員専用（オーナーは閲覧のみ）
+    // セッションベースのアノテーション編集の権限チェック
+    // - スタッフユーザー（ownerUserId が設定されている）→ 編集可能
+    // - 独立ユーザー（role!='owner' かつ ownerUserId=null）→ 編集可能
+    // - オーナー（role='owner' かつ ownerUserId=null）→ 編集不可（閲覧のみ）
     const isStaffUser = Boolean(ownerUserId);
-    if (!isStaffUser) {
+    const isActualOwner = userDetails?.role === 'owner' && !ownerUserId;
+    if (!isStaffUser && isActualOwner) {
       return {
         success: false as const,
         error: 'オーナーはコンテンツの編集ができません。従業員のみ編集可能です。',

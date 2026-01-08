@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { FullNameDialog } from '@/components/FullNameDialog';
 import { hasPaidFeatureAccess } from '@/types/user';
 import { InviteDialog } from '@/components/InviteDialog';
-import { isOwner } from '@/authUtils';
+import { hasOwnerRole } from '@/authUtils';
 import { toast } from 'sonner';
 
 interface EmployeeInfo {
@@ -282,7 +282,7 @@ export default function Home() {
   const [showFullNameDialog, setShowFullNameDialog] = useState(false);
 
   const isAdmin = userRole === 'admin';
-  const isOwnerRole = isOwner(userRole);
+  const isOwnerRole = hasOwnerRole(userRole);
   const hasManagementAccess = hasPaidFeatureAccess(userRole);
   const canManageIntegrations =
     !isOwnerViewMode && !isStaffUser && (isOwnerRole || hasManagementAccess);

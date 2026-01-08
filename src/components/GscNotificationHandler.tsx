@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Bell, X } from 'lucide-react';
 import { useLiffContext } from '@/components/LiffProvider';
 import { getUnreadSuggestionsCount } from '@/server/actions/gscNotification.actions';
-import { isOwner } from '@/authUtils';
+import { hasOwnerRole } from '@/authUtils';
 
 const TOAST_SESSION_KEY = 'gsc_notification_toast_shown';
 const UNREAD_EVENT = 'gsc-unread-updated';
@@ -94,7 +94,7 @@ export function GscNotificationHandler() {
   const userRole = user?.role ?? null;
 
   const fetchUnread = useCallback(async () => {
-    if (!isLoggedIn || isLoading || isPublicPage || isOwner(userRole)) return;
+    if (!isLoggedIn || isLoading || isPublicPage || hasOwnerRole(userRole)) return;
 
       try {
       const result = await getUnreadSuggestionsCount();
@@ -120,7 +120,7 @@ export function GscNotificationHandler() {
 
   // ログアウト時またはパブリックページ遷移時にリセット
   useEffect(() => {
-    if ((!isLoggedIn && !isLoading) || isPublicPage || isOwner(userRole)) {
+    if ((!isLoggedIn && !isLoading) || isPublicPage || hasOwnerRole(userRole)) {
       toastShownRef.current = false;
       sessionStorage.removeItem(TOAST_SESSION_KEY);
       setUnreadCount(null);
