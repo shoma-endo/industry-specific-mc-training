@@ -103,6 +103,93 @@ Supabase の DB ポリシー、パフォーマンス、および `SECURITY DEFIN
 - **スタッフ**: 自身のデータに加え、オーナーのデータを参照可能（操作は自身のデータのみ）。
   ※ `get_accessible_user_ids(user_id)` は、オーナー実行時は「自分 + 全スタッフ」、スタッフ実行時は「自分 + オーナー」の ID リストを返却し、これを RLS のフィルター条件 (`user_id = ANY(...)`) として利用します。
 
+## ユーザーロール構造
+
+### ロール定義
+
+本プロジェクトのユーザーロール構造は **`role` と `ownerUserId` の組み合わせ** で決定されます。
+
+| ユーザータイプ   | `role`          | `ownerUserId` | 説明                                                               |
+| ---------------- | --------------- | ------------- | ------------------------------------------------------------------ |
+| 管理者           | `'admin'`       | `null`        | システム管理者。全機能にアクセス可能                               |
+| 有料契約オーナー | `'paid'`        | `null`        | 有料プラン契約者（独立アカウント）。編集・保存が可能               |
+| **スタッフ**     | **`'paid'`**    | **設定あり**  | オーナーに紐付く従業員アカウント。オーナーのデータを参照・編集可能 |
+| 閲覧専用オーナー | `'owner'`       | `null`        | 閲覧のみ可能なアカウント。編集・保存は不可                         |
+| お試しユーザー   | `'trial'`       | `null`        | トライアルユーザー                                                 |
+| 利用停止         | `'unavailable'` | `null`        | サービス利用停止中のアカウント                                     |
+
+### 重要な判定ロジック
+
+**❌ よくある誤実装:**
+
+```typescript
+// 間違い: hasOwnerRole() では role='owner' のみを判定する
+// スタッフは role='paid' なので、この条件をスキップしてしまう
+// 結果: スタッフが編集権限チェックをすり抜け、意図しない操作が可能になる（セキュリティリスク）
+if (hasOwnerRole(user.role)) {
+  return { error: '閲覧専用ユーザーは編集できません' };
+}
+// スタッフ（role='paid'）はこのチェックを通過し、誤って編集を許可される
+```
+
+**✅ 正しい実装パターン:**
+
+```typescript
+import { isActualOwner, hasOwnerRole } from '@/authUtils';
+
+// 1. スタッフユーザーの判定（例: チャットセッション作成権限チェック時）
+const isStaff = user.role === 'paid' && user.ownerUserId !== null;
+if (isStaff) {
+  // スタッフはオーナーのデータにアクセス可能
+  targetUserId = user.ownerUserId;
+}
+
+// 2. 閲覧専用オーナーの判定（例: コンテンツ編集API での権限チェック）
+if (isActualOwner(user.role, user.ownerUserId)) {
+  return { error: '閲覧専用ユーザーは編集できません' };
+}
+
+// 3. 閲覧専用ユーザー(role='owner')の除外（例: GSC通知表示の除外）
+if (hasOwnerRole(user.role)) {
+  // role='owner' のユーザーには通知を表示しない（スタッフには表示）
+  return;
+}
+
+// 4. 有料ユーザー（オーナー + スタッフ）の判定（例: 有料機能へのアクセス制御）
+// スタッフとオーナーを区別せず、両方に機能を提供する場合
+const isPaidUser = user.role === 'paid';
+```
+
+### authUtils.ts のヘルパー関数
+
+認証・認可判定には必ず `@/authUtils` のヘルパー関数を使用してください。インライン実装は避けること。
+
+- `hasOwnerRole(role)`: `role === 'owner'` を判定（閲覧専用ユーザー）
+- `isActualOwner(role, ownerUserId)`: `role === 'owner' && !ownerUserId` を判定
+- `isAdmin(role)`: 管理者判定
+- `canInviteEmployee(role)`: 従業員招待可能か（`paid` または `admin`）
+
+### 権限モデル
+
+#### 閲覧専用オーナー (`role='owner'`)
+
+- 自身およびスタッフのデータを**読み取り専用**で参照可能
+- 編集・保存操作は一切不可
+- View Mode（閲覧モード）でスタッフの画面を確認可能
+
+#### スタッフ (`role='paid' + ownerUserId`)
+
+- **参照可能**: 自身が作成したデータ + オーナーのすべてのデータ（チャットセッション、アノテーション、事業者情報など）
+- **編集可能**: 自身が作成したデータ + オーナーのコンテンツデータ（アノテーション、チャットメッセージなど）
+- **編集不可**: オーナーのアカウント情報（role、email、StripeサブスクリプションIDなど）、招待管理
+- RLS ポリシーで `get_accessible_user_ids` を通じてアクセス制御
+
+#### 有料契約オーナー (`role='paid' + ownerUserId=null`)
+
+- 自身のデータを完全に管理可能
+- スタッフの招待・管理が可能
+- 自身のアカウント情報の変更が可能
+
 ## 実装指針
 
 - TypeScript は strict 前提。型・`zod` スキーマを積極的に活用し、`any` は避ける。
