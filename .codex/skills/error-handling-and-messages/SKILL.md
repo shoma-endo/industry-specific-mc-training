@@ -48,7 +48,7 @@ await handleAsyncAction(fetchGscStatus, {
   onSuccess: data => setStatus(data as GscConnectionStatus),
   setLoading: setIsSyncingStatus,
   setMessage: setAlertMessage,
-  defaultErrorMessage: 'ステータスの取得に失敗しました',
+  defaultErrorMessage: ERROR_MESSAGES.GSC.STATUS_FETCH_FAILED,
 });
 ```
 
