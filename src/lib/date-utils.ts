@@ -125,7 +125,19 @@ export function formatDateISO(date: Date): string {
  * @returns YYYY-MM-DD 形式の日付文字列
  */
 export function addDaysISO(isoDate: string, days: number): string {
-  const date = new Date(isoDate);
+  // 入力形式の検証
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+    throw new Error('isoDate must be in YYYY-MM-DD format');
+  }
+  if (!Number.isInteger(days)) {
+    throw new Error('days must be an integer');
+  }
+
+  // 'YYYY-MM-DD' を UTC として解釈させるため 'T00:00:00Z' を付与
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('Invalid date');
+  }
   date.setUTCDate(date.getUTCDate() + days);
   return formatDateISO(date);
 }

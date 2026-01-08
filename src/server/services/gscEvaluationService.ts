@@ -9,6 +9,7 @@ import type {
 } from '@/types/gsc';
 import { gscSuggestionService } from '@/server/services/gscSuggestionService';
 import { gscImportService } from '@/server/services/gscImportService';
+import { formatDateISO, addDaysISO } from '@/lib/date-utils';
 
 export class GscEvaluationService {
   private readonly supabaseService = new SupabaseService();
@@ -24,7 +25,7 @@ export class GscEvaluationService {
   ): Promise<EvaluationResultSummary> {
     const { force = false, contentAnnotationId, evaluations, nowJst, startTime } = options;
     const currentJst = nowJst ?? this.getNowJst();
-    const todayJst = this.formatDateISO(currentJst);
+    const todayJst = formatDateISO(currentJst);
     const currentHourJst = currentJst.getHours();
 
     const summary: EvaluationResultSummary = {
@@ -74,7 +75,7 @@ export class GscEvaluationService {
 
     try {
       const maxCycleDays = Math.max(...evaluationRows.map(e => e.cycle_days || 30));
-      const startDate = this.addDaysISO(todayJst, -maxCycleDays);
+      const startDate = addDaysISO(todayJst, -maxCycleDays);
 
       const importResult = await gscImportService.importMetrics(userId, {
         startDate,
@@ -207,7 +208,7 @@ export class GscEvaluationService {
         `[gscEvaluationService] Metric missing and batch limit hit. Fetching targeted data for: ${evaluation.id}`
       );
       const cycleDays = evaluation.cycle_days || 30;
-      const startDate = this.addDaysISO(today, -cycleDays);
+      const startDate = addDaysISO(today, -cycleDays);
 
       try {
         const { data: annotation } = await this.supabaseService
@@ -420,7 +421,7 @@ export class GscEvaluationService {
 
     // 現在の日本時間を取得
     const nowJst = this.getNowJst();
-    const todayJst = this.formatDateISO(nowJst);
+    const todayJst = formatDateISO(nowJst);
     const currentHourJst = nowJst.getHours();
 
     console.log(`[gscEvaluationService] Running batch at JST: ${todayJst} ${currentHourJst}:00`);
@@ -537,7 +538,7 @@ export class GscEvaluationService {
     const cycleDays = evaluation.cycle_days || 30;
     const evaluationHour = evaluation.evaluation_hour ?? 12;
     const baseDate = evaluation.last_evaluated_on ?? evaluation.base_evaluation_date;
-    const nextEvaluationDate = this.addDaysISO(baseDate, cycleDays);
+    const nextEvaluationDate = addDaysISO(baseDate, cycleDays);
 
     // 日付が未到達の場合はスキップ
     if (nextEvaluationDate > todayJst) {
@@ -564,13 +565,6 @@ export class GscEvaluationService {
     return new Date(now.getTime() + jstOffset);
   }
 
-  /**
-   * Date を YYYY-MM-DD 形式にフォーマット
-   */
-  private formatDateISO(date: Date): string {
-    return date.toISOString().slice(0, 10);
-  }
-
   private judgeOutcome(lastSeen: number | null, currentPos: number): GscEvaluationOutcome {
     if (lastSeen === null) return 'no_change';
     if (currentPos < lastSeen) return 'improved';
@@ -580,12 +574,6 @@ export class GscEvaluationService {
 
   private todayISO(): string {
     return new Date().toISOString().slice(0, 10);
-  }
-
-  private addDaysISO(baseISO: string, days: number): string {
-    const base = new Date(`${baseISO}T00:00:00.000Z`);
-    base.setUTCDate(base.getUTCDate() + days);
-    return base.toISOString().slice(0, 10);
   }
 
   private toNumberOrNull(value: unknown): number | null {
