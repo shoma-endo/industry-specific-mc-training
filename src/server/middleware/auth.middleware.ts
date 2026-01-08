@@ -6,7 +6,7 @@ import Stripe from 'stripe';
 import { LineAuthService, LineTokenExpiredError } from '@/server/services/lineAuthService';
 import { StripeService } from '@/server/services/stripeService';
 import { userService } from '@/server/services/userService';
-import { isUnavailable } from '@/authUtils';
+import { isUnavailable, isActualOwner as isActualOwnerHelper } from '@/authUtils';
 import { env } from '@/env';
 import { LiffError } from '@/domain/errors/LiffError';
 import type { User, UserRole } from '@/types/user';
@@ -175,7 +175,7 @@ export async function ensureAuthenticated({
     let viewModeUserIdResolved: string | undefined;
 
     // View Mode: ownerロール（ownerUserId=null）のみ許可する
-    const isActualOwner = user.role === 'owner' && !user.ownerUserId;
+    const isActualOwner = isActualOwnerHelper(user.role, user.ownerUserId);
 
     if (isViewModeEnabled && viewModeUserId && isActualOwner) {
       const viewUser = await userService.getUserById(viewModeUserId);
