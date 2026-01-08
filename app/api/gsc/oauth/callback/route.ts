@@ -7,6 +7,7 @@ import {
   formatGscPropertyDisplayName,
 } from '@/server/services/gscService';
 import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 const gscService = new GscService();
@@ -61,6 +62,12 @@ export async function GET(request: NextRequest) {
   if (liffAccessToken) {
     const authResult = await authMiddleware(liffAccessToken, refreshToken);
     if (!authResult.error && authResult.userId) {
+      if (authResult.viewMode || authResult.ownerUserId) {
+        return buildJsonResponse(
+          { error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED },
+          { status: 403 }
+        );
+      }
       if (targetUserId && targetUserId !== authResult.userId) {
         console.error('LINE user mismatch between cookie and OAuth state', {
           cookieUser: authResult.userId,
@@ -74,6 +81,14 @@ export async function GET(request: NextRequest) {
 
   if (!targetUserId) {
     return buildJsonResponse({ error: 'LINE認証が必要です' }, { status: 401 });
+  }
+
+  const userResult = await supabaseService.getUserById(targetUserId);
+  if (!userResult.success) {
+    return buildJsonResponse({ error: userResult.error.userMessage }, { status: 500 });
+  }
+  if (userResult.data?.owner_user_id) {
+    return buildJsonResponse({ error: ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED }, { status: 403 });
   }
 
   try {

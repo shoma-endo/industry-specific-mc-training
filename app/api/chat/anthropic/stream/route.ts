@@ -197,7 +197,9 @@ export async function POST(req: NextRequest) {
             cleanup();
             try {
               controller.close();
-            } catch {}
+            } catch (error) {
+              console.warn('[Stream] Failed to close controller:', error);
+            }
           };
           req.signal.addEventListener('abort', onAbort);
 

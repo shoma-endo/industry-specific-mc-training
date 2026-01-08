@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   ShieldOff,
   RefreshCw,
+  ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
@@ -26,14 +27,16 @@ import { useServerAction } from '@/hooks/useServerAction';
 import { useLiffContext } from '@/components/LiffProvider';
 
 export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDashboardProps) {
-  const { isOwnerViewMode } = useLiffContext();
+  const { isOwnerViewMode, user } = useLiffContext();
   const [wpStatus, setWpStatus] = useState<WordPressConnectionStatus | null>(null);
   const [gscConnection, setGscConnection] = useState(gscStatus);
   const [gscNeedsReauth, setGscNeedsReauth] = useState(false);
   const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(false);
-  const isReadOnly = isOwnerViewMode;
+  const isStaffUser = Boolean(user?.ownerUserId);
+  const isReadOnly = isOwnerViewMode || isStaffUser;
 
-  const { execute: fetchWpStatus, isLoading: isLoadingStatus } = useServerAction<WordPressConnectionStatus>();
+  const { execute: fetchWpStatus, isLoading: isLoadingStatus } =
+    useServerAction<WordPressConnectionStatus>();
 
   // WordPress接続ステータスを取得
   useEffect(() => {
@@ -71,9 +74,15 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-4">設定</h1>
-        <p className="text-gray-600">各種サービス連携に必要な設定を管理します</p>
+      <div className="mb-8">
+        <Link href="/" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4">
+          <ArrowLeft size={20} className="mr-2" />
+          ホームに戻る
+        </Link>
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">設定</h1>
+          <p className="text-gray-600">各種サービス連携に必要な設定を管理します</p>
+        </div>
       </div>
 
       {/* サービス連携 */}
@@ -164,21 +173,21 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
                 WordPressサイトと連携して、コンテンツの公開・更新を効率化します。
               </p>
 
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Button
-                      asChild
-                      variant={wordpressSettings.hasSettings ? 'outline' : 'default'}
-                      className={`w-full ${wordpressSettings.hasSettings ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
-                    >
-                      <Link href="/setup/wordpress">
-                        <Settings size={16} className="mr-2" />
-                        {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
-                      </Link>
-                    </Button>
-                  </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Button
+                    asChild
+                    variant={wordpressSettings.hasSettings ? 'outline' : 'default'}
+                    className={`w-full ${wordpressSettings.hasSettings ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
+                  >
+                    <Link href="/setup/wordpress">
+                      <Settings size={16} className="mr-2" />
+                      {wordpressSettings.hasSettings ? '設定を編集' : '設定を開始'}
+                    </Link>
+                  </Button>
                 </div>
               </div>
+            </div>
           </CardContent>
         </Card>
 

@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { GscConnectionStatus, GscSiteEntry } from '@/types/gsc';
-import {
-  fetchGscProperties,
-  fetchGscStatus,
-} from '@/server/actions/gscSetup.actions';
+import { fetchGscProperties, fetchGscStatus } from '@/server/actions/gscSetup.actions';
 import { isTokenExpiredError } from '@/domain/errors/gsc-error-handlers';
 import { handleAsyncAction } from '@/lib/async-handler';
 
@@ -34,7 +31,7 @@ export function useGscSetup(initialStatus: GscConnectionStatus): UseGscSetupResu
 
   const refreshStatus = useCallback(async () => {
     await handleAsyncAction(fetchGscStatus, {
-      onSuccess: (data) => setStatus(data as GscConnectionStatus),
+      onSuccess: data => setStatus(data as GscConnectionStatus),
       setLoading: setIsSyncingStatus,
       setMessage: setAlertMessage,
       defaultErrorMessage: 'ステータスの取得に失敗しました',
@@ -45,18 +42,20 @@ export function useGscSetup(initialStatus: GscConnectionStatus): UseGscSetupResu
     if (!status.connected) return;
 
     await handleAsyncAction(fetchGscProperties, {
-      onSuccess: (data) => {
+      onSuccess: data => {
         if (Array.isArray(data)) {
           setProperties(data as GscSiteEntry[]);
         }
       },
-      onError: (error) => {
+      onError: error => {
         const errorMessage = error.message;
         // トークン期限切れ/取り消しエラーの場合は再認証を促す
         if (isTokenExpiredError(errorMessage)) {
           // ステータスを再取得して needsReauth を更新
           refreshStatus();
-          setAlertMessage('Googleアカウントの認証が期限切れまたは取り消されています。再認証してください。');
+          setAlertMessage(
+            'Googleアカウントの認証が期限切れまたは取り消されています。再認証してください。'
+          );
         }
       },
       setLoading: setIsLoadingProperties,

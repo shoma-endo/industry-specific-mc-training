@@ -5,11 +5,6 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { gscImportService } from '@/server/services/gscImportService';
 import { gscEvaluationService } from '@/server/services/gscEvaluationService';
 import { splitRangeByDays, aggregateImportResults } from '@/server/lib/gsc-import-utils';
-import {
-  isViewModeEnabled,
-  resolveViewModeRole,
-  VIEW_MODE_ERROR_MESSAGE,
-} from '@/server/lib/view-mode';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
@@ -29,12 +24,15 @@ export async function runGscImport(params: GscImportParams) {
     if (authResult.error || !authResult.userId) {
       return { success: false, error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
-    if (await isViewModeEnabled(resolveViewModeRole(authResult))) {
-      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
+    if (authResult.viewMode || authResult.ownerUserId) {
+      return {
+        success: false,
+        error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
+      };
     }
+    // 本人のオーナーアカウントのみがインポート操作を実行可能（View Mode・スタッフアカウント禁止）
 
-    const { startDate, endDate, searchType = 'web', maxRows = 1000, runEvaluation = true } =
-      params;
+    const { startDate, endDate, searchType = 'web', maxRows = 1000, runEvaluation = true } = params;
 
     if (!startDate || !endDate) {
       return { success: false, error: ERROR_MESSAGES.GSC.DATE_RANGE_REQUIRED };
@@ -83,7 +81,10 @@ export async function runGscImport(params: GscImportParams) {
 }
 
 const importWithSplit = async (
-  importOnce: (start: string, end: string) => Promise<{
+  importOnce: (
+    start: string,
+    end: string
+  ) => Promise<{
     totalFetched: number;
     upserted: number;
     skipped: number;
