@@ -254,10 +254,10 @@ export default function UsersPage() {
                             {user.lineDisplayName}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDateTimeWithSeconds(user.lastLoginAt)}
+                            {formatDateTimeWithSeconds(user.lastLoginAt, '未ログイン')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDateTimeWithSeconds(user.createdAt)}
+                            {formatDateTimeWithSeconds(user.createdAt, '登録日不明')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {editingUserId === user.id ? (
