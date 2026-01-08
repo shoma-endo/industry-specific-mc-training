@@ -26,12 +26,12 @@ export function formatDateTime(isoString: string): string {
 /**
  * 最終ログイン日時などの詳細表示用フォーマット（秒付き）
  * @param timestamp - ISO形式の日時文字列（オプショナル）
- * @param fallback - 日時が無効な場合の表示文字列
+ * @param fallback - 日時が無効な場合の表示文字列（デフォルト: '不明'）
  * @returns フォーマット済みの日時文字列、または fallback
  */
 export function formatDateTimeWithSeconds(
   timestamp?: string | null,
-  fallback: string = '未ログイン'
+  fallback: string = '不明'
 ): string {
   if (!timestamp) return fallback;
 
@@ -52,18 +52,37 @@ export function formatDateTimeWithSeconds(
 /**
  * 相対日付フォーマット（今日/昨日/日付）
  * SessionListContent で使用
+ * JST（日本標準時）で日付を比較します
  */
 export function formatRelativeDate(date: Date): string {
-  const today = new Date();
+  const today = getNowJst();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  if (date.toDateString() === today.toDateString()) {
+  // JST での日付のみを取得して比較
+  const getJstDateString = (d: Date): string => {
+    return new Intl.DateTimeFormat('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: 'Asia/Tokyo',
+    }).format(d);
+  };
+
+  const dateStr = getJstDateString(date);
+  const todayStr = getJstDateString(today);
+  const yesterdayStr = getJstDateString(yesterday);
+
+  if (dateStr === todayStr) {
     return '今日';
-  } else if (date.toDateString() === yesterday.toDateString()) {
+  } else if (dateStr === yesterdayStr) {
     return '昨日';
   } else {
-    return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
+    return new Intl.DateTimeFormat('ja-JP', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'Asia/Tokyo',
+    }).format(date);
   }
 }
 
@@ -81,6 +100,7 @@ export function formatDate(value?: string | null): string | null {
   return new Intl.DateTimeFormat('ja-JP', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'Asia/Tokyo',
   }).format(date);
 }
 
@@ -144,4 +164,3 @@ export function buildGscDateRange(days: number): { startIso: string; endIso: str
     endIso,
   };
 }
-
