@@ -72,7 +72,7 @@ const isOAuthTokenError = (errorMessage: string | undefined): boolean => {
 };
 
 export default function GscImportPage() {
-  const { user } = useLiffContext();
+  const { user, isOwnerViewMode } = useLiffContext();
   const [startDate, setStartDate] = useState(daysAgoISO(30));
   const [endDate, setEndDate] = useState(todayISO());
   const [searchType, setSearchType] = useState<'web' | 'image' | 'news'>('web');
@@ -85,7 +85,7 @@ export default function GscImportPage() {
     ? getQuerySummaryLabels(result.data.querySummary)
     : null;
   const isStaffUser = Boolean(user?.ownerUserId);
-  const isReadOnly = isStaffUser; // View Modeは制限対象外
+  const isReadOnly = isStaffUser || isOwnerViewMode;
 
   // 期間（日数）を計算
   const calculateDaysDiff = (start: string, end: string): number => {
@@ -99,7 +99,7 @@ export default function GscImportPage() {
   const showWarning = daysDiff > 90 || normalizedMaxRows > 2000;
 
   useEffect(() => {
-    if (isStaffUser) {
+    if (isStaffUser || isOwnerViewMode) {
       setIsLoadingGscStatus(false);
       return;
     }
@@ -132,7 +132,7 @@ export default function GscImportPage() {
     return () => {
       isMounted = false;
     };
-  }, [isStaffUser]);
+  }, [isOwnerViewMode, isStaffUser]);
 
   const handleSubmit = async () => {
     if (isReadOnly) return;
@@ -160,11 +160,13 @@ export default function GscImportPage() {
 
   return (
     <div className="w-full px-4 py-8">
-      {isStaffUser ? (
+      {isStaffUser || isOwnerViewMode ? (
         <div className="mx-auto max-w-3xl">
           <Alert>
             <AlertDescription>
-              この画面はオーナーのみ利用できます。オーナーでログインしてください。
+              {isStaffUser
+                ? 'この画面はオーナーのみ利用できます。オーナーでログインしてください。'
+                : '閲覧モードでは操作できません。通常モードに切り替えてください。'}
             </AlertDescription>
           </Alert>
         </div>

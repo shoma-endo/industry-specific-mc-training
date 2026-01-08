@@ -59,16 +59,18 @@ export default function WordPressImportPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
-  const { getAccessToken, user } = useLiffContext();
+  const { getAccessToken, user, isOwnerViewMode } = useLiffContext();
   const isStaffUser = Boolean(user?.ownerUserId);
 
-  if (isStaffUser) {
+  if (isStaffUser || isOwnerViewMode) {
     return (
       <div className="w-full px-4 py-8">
         <div className="mx-auto max-w-3xl">
           <Alert>
             <AlertDescription>
-              この画面はオーナーのみ利用できます。オーナーでログインしてください。
+              {isStaffUser
+                ? 'この画面はオーナーのみ利用できます。オーナーでログインしてください。'
+                : '閲覧モードでは操作できません。通常モードに切り替えてください。'}
             </AlertDescription>
           </Alert>
         </div>
