@@ -55,11 +55,9 @@ export function formatDateTimeWithSeconds(
  * JST（日本標準時）で日付を比較します
  */
 export function formatRelativeDate(date: Date): string {
-  const today = getNowJst();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const now = new Date();
 
-  // JST での日付のみを取得して比較
+  // JST での日付文字列を取得（タイムゾーン変換は Intl に任せる）
   const getJstDateString = (d: Date): string => {
     return new Intl.DateTimeFormat('ja-JP', {
       year: 'numeric',
@@ -69,9 +67,16 @@ export function formatRelativeDate(date: Date): string {
     }).format(d);
   };
 
+  // JST での「今日」「昨日」を計算するため、UTC基準で日付を操作
+  // 注: Intl.DateTimeFormat が timeZone: 'Asia/Tokyo' で正しく変換してくれるため、
+  // now をそのまま渡せばJSTでの「今日」が得られる
+  const todayStr = getJstDateString(now);
+
+  // 「昨日」は24時間前の瞬間をJSTでフォーマット
+  const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayStr = getJstDateString(yesterdayDate);
+
   const dateStr = getJstDateString(date);
-  const todayStr = getJstDateString(today);
-  const yesterdayStr = getJstDateString(yesterday);
 
   if (dateStr === todayStr) {
     return '今日';
@@ -102,20 +107,6 @@ export function formatDate(value?: string | null): string | null {
     timeStyle: 'short',
     timeZone: 'Asia/Tokyo',
   }).format(date);
-}
-
-/**
- * JST（日本標準時）の現在日時を取得する
- * サーバーのタイムゾーンに関わらず、JST の Date オブジェクトを返します。
- * 返された Date の getHours(), getDate() などは JST の値を返します。
- * @returns Date オブジェクト（JST として扱える）
- */
-export function getNowJst(): Date {
-  const now = new Date();
-  const jstOffset = 9 * 60; // JST = UTC+9（分単位）
-  const localOffset = now.getTimezoneOffset(); // ローカルとUTCの差（分）
-  const diff = jstOffset + localOffset;
-  return new Date(now.getTime() + diff * 60 * 1000);
 }
 
 /**
