@@ -5,7 +5,7 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { briefInputSchema, type BriefInput } from '@/server/schemas/brief.schema';
 import { cookies } from 'next/headers';
 import type { ZodIssue } from 'zod';
-import { isOwner } from '@/authUtils';
+import { hasOwnerRole, isActualOwner } from '@/authUtils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
@@ -40,7 +40,7 @@ export const saveBrief = async (
     if (auth.error || !auth.userId) {
       return { success: false, error: auth.error || ERROR_MESSAGES.AUTH.AUTH_ERROR_GENERIC };
     }
-    if (auth.viewMode || isOwner(auth.userDetails?.role ?? null)) {
+    if (auth.viewMode || hasOwnerRole(auth.userDetails?.role ?? null)) {
       return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_OPERATION_NOT_ALLOWED };
     }
 
@@ -76,7 +76,7 @@ export const getBrief = async (
     if (auth.error || !auth.userId) {
       return { success: false, error: auth.error || ERROR_MESSAGES.AUTH.AUTH_ERROR_GENERIC };
     }
-    if (isOwner(auth.userDetails?.role ?? null) && !isViewMode) {
+    if (isActualOwner(auth.userDetails?.role ?? null, auth.ownerUserId) && !isViewMode) {
       return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
     }
 

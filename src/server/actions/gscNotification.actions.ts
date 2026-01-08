@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { isOwner } from '@/authUtils';
+import { hasOwnerRole } from '@/authUtils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
@@ -32,7 +32,7 @@ const getAuthUserId = async () => {
   if (authResult.error || !authResult.userId) {
     return { error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
-  if (isOwner(authResult.userDetails?.role ?? null)) {
+  if (hasOwnerRole(authResult.userDetails?.role ?? null)) {
     return { error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
   }
   return { userId: authResult.userId };

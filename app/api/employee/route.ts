@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { userService } from '@/server/services/userService';
 import { EmployeeDeletionService } from '@/server/services/employeeDeletionService';
-import { canInviteEmployee, isOwner } from '@/authUtils';
+import { canInviteEmployee, hasOwnerRole } from '@/authUtils';
 import { getUserFromAuthHeader } from '@/server/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
       return authResult.response;
     }
 
-    if (!isOwner(authResult.role) && !canInviteEmployee(authResult.role)) {
+    if (!hasOwnerRole(authResult.role) && !canInviteEmployee(authResult.role)) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 });
     }
 
@@ -51,7 +51,7 @@ export async function DELETE(req: NextRequest) {
     // 注意: スタッフの削除（権限剥奪）はオーナーの正当な管理権限であるため、
     // 閲覧モード（オーナー制限）の対象外として意図的に許可しています。
     // owner role check using authUtils
-    if (!isOwner(authResult.role)) {
+    if (!hasOwnerRole(authResult.role)) {
       return NextResponse.json({ error: '削除権限がありません' }, { status: 403 });
     }
 
