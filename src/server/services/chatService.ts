@@ -434,6 +434,33 @@ class ChatService {
   }
 
   /**
+   * アシスタントメッセージのみを追加保存
+   * Canvas編集の分析結果など、ユーザーメッセージなしでアシスタントメッセージを追加する場合に使用
+   */
+  async addAssistantMessage(
+    userId: string,
+    sessionId: string,
+    content: string,
+    model?: string
+  ): Promise<void> {
+    const assistantDbMessage: DbChatMessage = {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      session_id: sessionId,
+      role: ChatRole.ASSISTANT,
+      content,
+      model: model ?? null,
+      created_at: new Date().toISOString(),
+    };
+
+    this.unwrapSupabaseResult(
+      await this.supabaseService.createChatMessage(assistantDbMessage),
+      ChatErrorCode.MESSAGE_SEND_FAILED,
+      { userId, sessionId, messageId: assistantDbMessage.id }
+    );
+  }
+
+  /**
    * 古い履歴を簡易要約（日本語・箇条書き・約300文字）
    */
   private async summarizeHistory(messages: OpenAIMessage[]): Promise<string> {

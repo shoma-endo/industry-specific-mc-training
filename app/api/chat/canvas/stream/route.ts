@@ -544,20 +544,12 @@ export async function POST(req: NextRequest) {
                 // 2つ目: 分析結果（blog_creation_improvement）
                 // アシスタントメッセージのみを追加保存（ユーザーメッセージは既に上で保存済み）
                 if (analysisResult) {
-                  const assistantAnalysisMessage = {
-                    id: crypto.randomUUID(),
-                    user_id: userId!,
-                    session_id: sessionId,
-                    role: 'assistant' as const,
-                    content: analysisResult,
-                    model: 'blog_creation_improvement',
-                    created_at: new Date().toISOString(), // continueChatの後に実行されるため順序は保証される
-                  };
-
-                  // Supabaseに直接保存
-                  const { SupabaseService } = await import('@/server/services/supabaseService');
-                  const supabaseService = new SupabaseService();
-                  await supabaseService.createChatMessage(assistantAnalysisMessage);
+                  await chatService.addAssistantMessage(
+                    userId!,
+                    sessionId,
+                    analysisResult,
+                    'blog_creation_improvement'
+                  );
                 }
 
                 controller.enqueue(sendSSE('done', { fullMarkdown, analysis: analysisResult }));
