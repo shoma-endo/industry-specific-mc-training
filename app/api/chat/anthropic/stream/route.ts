@@ -190,16 +190,15 @@ export async function POST(req: NextRequest) {
             : await getSystemPrompt(model, liffAccessToken || undefined, sessionId);
 
           // Web検索ツールの設定
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const streamParams: any = {
+          const streamParams = {
             model: resolvedModel,
             max_tokens: resolvedMaxTokens,
             temperature: resolvedTemperature,
             system: [
               {
-                type: 'text',
+                type: 'text' as const,
                 text: systemPrompt,
-                cache_control: { type: 'ephemeral' },
+                cache_control: { type: 'ephemeral' as const },
               },
             ],
             messages: anthropicMessages,
@@ -218,7 +217,7 @@ export async function POST(req: NextRequest) {
                 },
               ],
             }),
-          };
+          } as Anthropic.MessageStreamParams;
 
           const anthropicStream = await anthropic.messages.stream(
             streamParams,
