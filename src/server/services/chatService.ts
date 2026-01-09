@@ -12,7 +12,7 @@ import {
   ServerChatSession,
 } from '@/types/chat';
 import { SupabaseService, type SupabaseResult } from './supabaseService';
-import { MODEL_CONFIGS, CHAT_HISTORY_LIMIT } from '@/lib/constants';
+import { MODEL_CONFIGS, CHAT_HISTORY_LIMIT, CHAT_HISTORY_CHAR_LIMIT } from '@/lib/constants';
 import { ChatError, ChatErrorCode } from '@/domain/errors/ChatError';
 import { generateOrderedTimestamps } from '@/lib/timestamps';
 
@@ -24,9 +24,10 @@ interface ChatResponse {
 
 class ChatService {
   private supabaseService: SupabaseService;
-  // 必要最低限のトークン管理: 直近の履歴のみ保持（約6往復）
+  // 必要最低限のトークン管理: 直近の履歴のみ保持
   // 注: CHAT_HISTORY_LIMIT は src/lib/constants.ts で一元管理
   private static readonly MAX_HISTORY_MESSAGES = CHAT_HISTORY_LIMIT;
+  private static readonly MAX_HISTORY_CHARS = CHAT_HISTORY_CHAR_LIMIT;
 
   constructor() {
     this.supabaseService = new SupabaseService();
@@ -210,22 +211,57 @@ class ChatService {
         const llmModel = config.actualModel;
 
         try {
-          // Kターン制限 + 古い履歴の簡易要約
-          let recentMessages = messages;
+          // Kターン制限 & 文字数制限 + 古い履歴の簡易要約
+          let recentMessages: OpenAIMessage[] = [];
+          let olderMessages: OpenAIMessage[] = [];
           let finalSystemPrompt = systemPrompt;
 
-          if (messages.length > ChatService.MAX_HISTORY_MESSAGES) {
-            const numToTrim = messages.length - ChatService.MAX_HISTORY_MESSAGES;
-            const olderMessages = messages.slice(0, numToTrim);
-            recentMessages = messages.slice(-ChatService.MAX_HISTORY_MESSAGES);
+          // 1. まず件数でフィルタリング（最新 K 件のみ対象候補）
+          const countLimitedMessages = messages.slice(-ChatService.MAX_HISTORY_MESSAGES);
+          
+          // 件数制限で溢れた古いメッセージ
+          const countOverflowMessages = messages.slice(0, Math.max(0, messages.length - ChatService.MAX_HISTORY_MESSAGES));
 
+          // 2. 文字数でフィルタリング（最新から遡って許容文字数まで）
+          let currentChars = 0;
+          let cutOffIndex = 0; // countLimitedMessages の中で、ここより後ろを採用
+
+          for (let i = countLimitedMessages.length - 1; i >= 0; i--) {
+            const msgLen = countLimitedMessages[i].content.length;
+            if (currentChars + msgLen > ChatService.MAX_HISTORY_CHARS) {
+              cutOffIndex = i + 1; // これを含めず、次（より新しいもの）から採用
+              break;
+            }
+            currentChars += msgLen;
+          }
+
+          // 最低でも最新の1件は含めるための調整（履歴が空でない場合）
+          const effectiveCutOffIndex =
+            countLimitedMessages.length > 0
+              ? Math.min(cutOffIndex, countLimitedMessages.length - 1)
+              : cutOffIndex;
+
+          recentMessages = countLimitedMessages.slice(effectiveCutOffIndex);
+
+          // 文字数制限で溢れたメッセージ + 件数制限で溢れたメッセージ = 要約対象
+          const charOverflowMessages = countLimitedMessages.slice(0, effectiveCutOffIndex);
+          olderMessages = [...countOverflowMessages, ...charOverflowMessages];
+
+          if (olderMessages.length > 0) {
             try {
+              // 開発環境ではログ出力
+              if (process.env.NODE_ENV === 'development') {
+                console.log(
+                  `[ChatService] Summarizing ${olderMessages.length} old messages. Active history: ${recentMessages.length} msgs (${currentChars} chars)`
+                );
+              }
               const summary = await this.summarizeHistory(olderMessages);
               if (summary && summary.trim().length > 0) {
                 finalSystemPrompt = `${systemPrompt}\n\n【直前までの会話要約】\n${summary}`;
               }
-            } catch {
-              // 要約に失敗しても直近K件のみで続行
+            } catch (error) {
+              console.warn('[ChatService] History summarization failed:', error);
+              // 要約に失敗しても直近のみで続行
             }
           }
 

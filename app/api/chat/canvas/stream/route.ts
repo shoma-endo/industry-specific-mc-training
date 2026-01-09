@@ -323,6 +323,7 @@ export async function POST(req: NextRequest) {
                   {
                     type: 'text',
                     text: 'あなたはWeb検索の専門家です。ユーザーの指示に基づいて、必要な最新情報をweb_searchツールで検索してください。検索結果を簡潔にまとめて返してください。',
+                    cache_control: { type: 'ephemeral' },
                   },
                 ],
                 tools: [
@@ -425,6 +426,7 @@ export async function POST(req: NextRequest) {
               {
                 type: 'text',
                 text: finalSystemPrompt,
+                cache_control: { type: 'ephemeral' },
               },
             ],
             tools: [CANVAS_EDIT_TOOL],
@@ -587,6 +589,7 @@ export async function POST(req: NextRequest) {
                   {
                     type: 'text',
                     text: analysisSystemPrompt,
+                    cache_control: { type: 'ephemeral' },
                   },
                 ],
                 messages: [

@@ -7,7 +7,8 @@ export const ERROR_MESSAGES = {
 };
 
 // Chat Configuration
-export const CHAT_HISTORY_LIMIT = 12;
+export const CHAT_HISTORY_LIMIT = 40; // 件数制限を緩和し、文字数制限(CHAR_LIMIT)を主とする
+export const CHAT_HISTORY_CHAR_LIMIT = 40000; // 約20k-30kトークン相当
 
 export const GOOGLE_SEARCH_CONSOLE_SCOPES = [
   'https://www.googleapis.com/auth/webmasters.readonly',
@@ -60,24 +61,31 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 13000 },
-  blog_title_meta_generation: { ...ANTHROPIC_BASE, maxTokens: 2000 },
+  blog_title_meta_generation: {
+    ...ANTHROPIC_BASE,
+    maxTokens: 2000,
+  },
   gsc_insight_ctr_boost: {
     ...ANTHROPIC_BASE,
+    actualModel: 'claude-haiku-4-5-20251001',
     maxTokens: 4000,
     label: 'タイトル・説明文の提案',
   },
   gsc_insight_intro_refresh: {
     ...ANTHROPIC_BASE,
+    actualModel: 'claude-haiku-4-5-20251001',
     maxTokens: 4000,
     label: '書き出し案の提案',
   },
   gsc_insight_body_rewrite: {
     ...ANTHROPIC_BASE,
+    actualModel: 'claude-haiku-4-5-20251001',
     maxTokens: 4000,
     label: '本文の提案',
   },
   gsc_insight_persona_rebuild: {
     ...ANTHROPIC_BASE,
+    actualModel: 'claude-haiku-4-5-20251001',
     maxTokens: 4000,
     label: 'ペルソナから全て変更',
   },
