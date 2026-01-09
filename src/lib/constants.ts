@@ -36,6 +36,11 @@ const ANTHROPIC_BASE = {
   seed: 42,
 };
 
+const ANTHROPIC_HAIKU_BASE = {
+  ...ANTHROPIC_BASE,
+  actualModel: 'claude-haiku-4-5-20251001',
+};
+
 const OPENAI_BASE = {
   provider: 'openai' as const,
   temperature: 0.3,
@@ -62,30 +67,26 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 13000 },
   blog_title_meta_generation: {
-    ...ANTHROPIC_BASE,
+    ...ANTHROPIC_HAIKU_BASE,
     maxTokens: 2000,
   },
   gsc_insight_ctr_boost: {
-    ...ANTHROPIC_BASE,
-    actualModel: 'claude-haiku-4-5-20251001',
+    ...ANTHROPIC_HAIKU_BASE,
     maxTokens: 4000,
     label: 'タイトル・説明文の提案',
   },
   gsc_insight_intro_refresh: {
-    ...ANTHROPIC_BASE,
-    actualModel: 'claude-haiku-4-5-20251001',
+    ...ANTHROPIC_HAIKU_BASE,
     maxTokens: 4000,
     label: '書き出し案の提案',
   },
   gsc_insight_body_rewrite: {
-    ...ANTHROPIC_BASE,
-    actualModel: 'claude-haiku-4-5-20251001',
+    ...ANTHROPIC_HAIKU_BASE,
     maxTokens: 5000,
     label: '本文の提案',
   },
   gsc_insight_persona_rebuild: {
-    ...ANTHROPIC_BASE,
-    actualModel: 'claude-haiku-4-5-20251001',
+    ...ANTHROPIC_HAIKU_BASE,
     maxTokens: 5000,
     label: 'ペルソナから全て変更',
   },
