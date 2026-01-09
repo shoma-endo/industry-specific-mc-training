@@ -7,8 +7,8 @@ export const ERROR_MESSAGES = {
 };
 
 // Chat Configuration
-export const CHAT_HISTORY_LIMIT = 40; // 件数制限を緩和し、文字数制限(CHAR_LIMIT)を主とする
-export const CHAT_HISTORY_CHAR_LIMIT = 40000; // 約20k-30kトークン相当
+export const CHAT_HISTORY_LIMIT = 10; // 件数制限を緩和し、文字数制限(CHAR_LIMIT)を主とする
+export const CHAT_HISTORY_CHAR_LIMIT = 30000; // 約20k-30kトークン相当
 
 export const GOOGLE_SEARCH_CONSOLE_SCOPES = [
   'https://www.googleapis.com/auth/webmasters.readonly',
