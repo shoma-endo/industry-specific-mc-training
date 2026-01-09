@@ -462,11 +462,21 @@ export async function POST(req: NextRequest) {
             if (event.type === 'message_stop') {
               // Tool Useの結果を抽出
               const message = await apiStream.finalMessage();
+
+              // ✅ デバッグ: finalMessage全体をログ出力
+              console.log('[Canvas Edit Debug] finalMessage:', JSON.stringify(message, null, 2));
+              console.log('[Canvas Edit Debug] message.content length:', message.content.length);
+              console.log('[Canvas Edit Debug] message.content types:', message.content.map(block => block.type));
+
               const toolUseBlock = message.content.find(
                 block => block.type === 'tool_use' && block.name === 'apply_full_text_replacement'
               );
 
+              // ✅ デバッグ: toolUseBlockの有無と内容
+              console.log('[Canvas Edit Debug] toolUseBlock found:', !!toolUseBlock);
               if (toolUseBlock && toolUseBlock.type === 'tool_use') {
+                console.log('[Canvas Edit Debug] toolUseBlock:', JSON.stringify(toolUseBlock, null, 2));
+
                 const toolInput = toolUseBlock.input as {
                   full_markdown?: string;
                   markdown?: string;
@@ -476,27 +486,50 @@ export async function POST(req: NextRequest) {
                   html?: string;
                 };
 
+                // ✅ デバッグ: toolInputの全フィールドをログ出力
+                console.log('[Canvas Edit Debug] toolInput keys:', Object.keys(toolInput));
+                console.log('[Canvas Edit Debug] toolInput.full_markdown exists:', !!toolInput.full_markdown);
+                console.log('[Canvas Edit Debug] toolInput.full_markdown length:', toolInput.full_markdown?.length ?? 0);
+                console.log('[Canvas Edit Debug] toolInput.markdown exists:', !!toolInput.markdown);
+                console.log('[Canvas Edit Debug] toolInput.markdown length:', toolInput.markdown?.length ?? 0);
+
                 const markdownCandidate =
                   toolInput.full_markdown ?? toolInput.markdown ?? '';
+                console.log('[Canvas Edit Debug] markdownCandidate length:', markdownCandidate.length);
+
                 fullMarkdown = markdownCandidate.trim();
+                console.log('[Canvas Edit Debug] fullMarkdown after trim length:', fullMarkdown.length);
 
                 if (!fullMarkdown) {
+                  console.log('[Canvas Edit Debug] fullMarkdown is empty, checking HTML candidates...');
                   const htmlCandidate =
                     toolInput.replacement_html ??
                     toolInput.replacement ??
                     toolInput.full_html ??
                     toolInput.html;
+                  console.log('[Canvas Edit Debug] htmlCandidate exists:', !!htmlCandidate);
+                  console.log('[Canvas Edit Debug] htmlCandidate type:', typeof htmlCandidate);
+                  console.log('[Canvas Edit Debug] htmlCandidate length:', typeof htmlCandidate === 'string' ? htmlCandidate.length : 0);
+
                   if (typeof htmlCandidate === 'string' && htmlCandidate.trim().length > 0) {
                     const sanitized = sanitizeHtmlForCanvas(htmlCandidate);
                     fullMarkdown = htmlToMarkdownForCanvas(sanitized);
+                    console.log('[Canvas Edit Debug] Converted HTML to Markdown, length:', fullMarkdown.length);
                   }
                 }
 
                 fullMarkdown = fullMarkdown.trim();
+                console.log('[Canvas Edit Debug] Final fullMarkdown length:', fullMarkdown.length);
 
                 if (!fullMarkdown.trim()) {
+                  console.error('[Canvas Edit Error] fullMarkdown is empty after all attempts');
+                  console.error('[Canvas Edit Error] toolInput:', JSON.stringify(toolInput, null, 2));
                   throw new Error('Claude から編集後Markdownを受け取れませんでした');
                 }
+              } else {
+                console.error('[Canvas Edit Error] toolUseBlock not found or invalid');
+                console.error('[Canvas Edit Error] message.content:', JSON.stringify(message.content, null, 2));
+                throw new Error('Claude から編集後Markdownを受け取れませんでした（Tool Use ブロックが見つかりません）');
               }
 
               // ✅ 第3段階: 編集内容の分析（検証結果と修正内容）
