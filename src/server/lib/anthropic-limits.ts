@@ -10,9 +10,12 @@
  * - Tier 4: 400,000
  */
 
-import { env } from '@/env';
-
 type AnthropicTier = '1' | '2' | '3' | '4';
+
+/**
+ * 現在の Tier（Tier変更時はここを修正）
+ */
+const CURRENT_TIER: AnthropicTier = '1';
 
 /**
  * Tier ごとの OTPM 制限（Sonnet 4.x 基準）
@@ -28,15 +31,14 @@ const OTPM_LIMITS: Record<AnthropicTier, number> = {
  * 現在の Tier に基づいた OTPM 制限を取得
  */
 export function getOtpmLimit(): number {
-  const tier = env.ANTHROPIC_TIER as AnthropicTier;
-  return OTPM_LIMITS[tier] ?? OTPM_LIMITS['1'];
+  return OTPM_LIMITS[CURRENT_TIER];
 }
 
 /**
  * 現在の Tier を取得
  */
 export function getCurrentTier(): AnthropicTier {
-  return (env.ANTHROPIC_TIER as AnthropicTier) ?? '1';
+  return CURRENT_TIER;
 }
 
 /**
