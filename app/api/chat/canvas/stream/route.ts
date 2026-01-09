@@ -8,6 +8,7 @@ import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/canvas-con
 import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
 import type { UserRole } from '@/types/user';
 import { VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import { clampMaxTokens } from '@/server/lib/anthropic-limits';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -45,7 +46,7 @@ const DISALLOWED_TLDS = new Set(['local', 'internal', 'test', 'invalid', 'exampl
 const CANVAS_EDIT_TOOL = {
   name: 'apply_full_text_replacement',
   description:
-    '文章全体を置き換えます。必ずこのツールを使用して、編集後の完全なMarkdown文章を返してください。',
+    '文章全体を置き換えます。必ずこのツールを使用して、編集後の完全なMarkdown文章と修正内容の要約を返してください。',
   input_schema: {
     type: 'object' as const,
     properties: {
@@ -53,8 +54,13 @@ const CANVAS_EDIT_TOOL = {
         type: 'string',
         description: '編集後の完全なMarkdown文章（省略なし、最初から最後まで全文）',
       },
+      changes_summary: {
+        type: 'string',
+        description:
+          '主な修正内容の要約。「削除 - 内容。理由。」「変更 - Before→After。理由。」「追加 - 内容。理由。」の形式で記載。各行の末尾で改行。',
+      },
     },
-    required: ['full_markdown'],
+    required: ['full_markdown', 'changes_summary'],
   },
 };
 
@@ -213,9 +219,10 @@ export async function POST(req: NextRequest) {
       '## 【最重要】出力形式の絶対ルール',
       '1. **必ず apply_full_text_replacement ツールを使用する**',
       '2. **full_markdown パラメータには、編集後の文章全体を最初から最後まで完全に含める**',
-      '3. **絶対に省略しない：** 「...（省略）...」「※以下同様」「（中略）」などの表現は厳禁',
-      '4. **選択範囲以外の部分も必ず全て含める：** タイトル、見出し、本文、すべてのセクションを出力',
-      '5. **文章の一部だけを返すことは厳禁：** 必ず冒頭から末尾まで完全で高品質な文章を返す',
+      '3. **changes_summary パラメータには、主な修正内容を簡潔に記載する**（「削除 - 内容。理由。」「変更 - Before→After。理由。」「追加 - 内容。理由。」の形式）',
+      '4. **絶対に省略しない：** 「...（省略）...」「※以下同様」「（中略）」などの表現は厳禁',
+      '5. **選択範囲以外の部分も必ず全て含める：** タイトル、見出し、本文、すべてのセクションを出力',
+      '6. **文章の一部だけを返すことは厳禁：** 必ず冒頭から末尾まで完全で高品質な文章を返す',
       '',
       '## 編集の進め方（各ステップで慎重に検討してください）',
       '**ステップ1：全体把握**',
@@ -419,7 +426,7 @@ export async function POST(req: NextRequest) {
           // Anthropic Streaming API 呼び出し
           const apiStream = await anthropic.messages.stream({
             model: actualModel,
-            max_tokens: maxTokens,
+            max_tokens: clampMaxTokens(maxTokens),
             temperature,
             system: [
               {
@@ -474,6 +481,7 @@ export async function POST(req: NextRequest) {
                   replacement?: string;
                   full_html?: string;
                   html?: string;
+                  changes_summary?: string;
                 };
 
                 const markdownCandidate =
@@ -497,172 +505,63 @@ export async function POST(req: NextRequest) {
                 if (!fullMarkdown.trim()) {
                   throw new Error('Claude から編集後Markdownを受け取れませんでした');
                 }
-              }
 
-              // ✅ 第3段階: 編集内容の分析（検証結果と修正内容）
-              const formatInstructions = shouldEnableWebSearch
-                ? [
-                    '以下のフォーマットでプレーンテキスト（Markdownの太字・箇条書き・見出しは禁止）として出力してください。',
-                    '',
-                    '1. 1行目に【検証結果】とだけ記載する。',
-                    '2. 2行目に検証結果の本文を記載する（Web検索の判断を含める）。',
-                    '3. 次の行は空行を1つ入れる。',
-                    '4. 次の行に【主な修正内容】と記載する。',
-                    '5. 以降は「削除 - 内容。理由。」「変更 - Before→After。理由。」「追加 - 内容。理由。」の形式で必要な項目だけを記載する。不要な項目は記載しない。',
-                    '6. 各行の先頭に余計な記号を付けず、行末で改行する。必要最小限の行数でまとめる。各行の末尾で改行する。',
-                  ]
-                : [
-                    '以下のフォーマットでプレーンテキスト（Markdownの太字・箇条書き・見出しは禁止）として出力してください。',
-                    '',
-                    '1. 1行目に【主な修正内容】と記載する。',
-                    '2. 以降は「削除 - 内容。理由。」「変更 - Before→After。理由。」「追加 - 内容。理由。」の形式で必要な項目だけを記載する。不要な項目は記載しない。',
-                    '3. 各行の先頭に余計な記号を付けず、行末で改行する。必要最小限の行数でまとめる。各行の末尾で改行する。',
-                  ];
-
-              const analysisSystemPrompt = [
-                '# 文章編集内容の分析専門モード',
-                '',
-                '## あなたの役割',
-                '編集前後の文章を比較し、検証結果と主要な変更点を簡潔にまとめます。',
-                '',
-                '## 出力形式',
-                ...formatInstructions,
-                '',
-                '---',
-                '',
-                '## 編集前の文章全体',
-                '```markdown',
-                canvasContent,
-                '```',
-                '',
-                '## 編集後の文章全体',
-                '```markdown',
-                fullMarkdown,
-                '```',
-                '',
-                '## ユーザーが選択した範囲（この部分を改善した）',
-                '```',
-                selectedText,
-                '```',
-                '',
-                '## ユーザーの改善指示',
-                instruction,
-                '',
-                ...(searchResults
-                  ? [
-                      '## Web検索で取得した情報',
-                      '```',
-                      searchResults,
-                      '```',
-                      '',
-                      extractedReferences.length > 0
-                        ? [
-                            '## 利用可能な外部リンク（以下のみ参照可）',
-                            ...extractedReferences.map(
-                              (reference, index) =>
-                                `${index + 1}. ${reference.url}${
-                                  reference.context ? ` （関連情報: ${reference.context}）` : ''
-                                }`
-                            ),
-                            '',
-                            '分析結果では、上記に含まれないURLは言及しないでください。',
-                          ].join('\n')
-                        : [
-                            '## 利用可能な外部リンクはありません',
-                            '検証結果では「外部リンクは未掲載」等と明示してください。存在しないドメインを例示してはいけません。',
-                          ].join('\n'),
-                      '',
-                    ]
-                  : []),
-                '上記の情報を元に、何が変更されたか、なぜ変更したかを分析して、指示したフォーマットのプレーンテキストで出力してください。',
-              ]
-                .filter(Boolean)
-                .join('\n');
-
-              const analysisStream = await anthropic.messages.stream({
-                model: actualModel,
-                max_tokens: 500, // 簡潔な出力のためトークン数を削減
-                temperature: 0.3,
-                system: [
-                  {
-                    type: 'text',
-                    text: analysisSystemPrompt,
-                  },
-                ],
-                messages: [
-                  {
-                    role: 'user',
-                    content: shouldEnableWebSearch
-                      ? '編集内容を分析して、指定したフォーマットで検証結果と主な修正内容をプレーンテキストで出力してください。1行目に【検証結果】、次の行に本文、その次の行で空行を1つ入れ、次の行に【主な修正内容】、以降の行で「削除/変更/追加 - ...」の形式で記載し、各行の末尾で改行してください。Markdownの装飾は禁止です。必要最小限の行数でまとめてください。'
-                      : '編集内容を分析して、指定したフォーマットで主な修正内容のみをプレーンテキストで出力してください。1行目に【主な修正内容】、以降の行で「削除/変更/追加 - ...」の形式で記載し、各行の末尾で改行してください。Markdownの装飾は禁止です。必要最小限の行数でまとめてください。',
-                  },
-                ],
-              });
-
-              let analysisResult = '';
-              for await (const analysisEvent of analysisStream) {
-                if (abortController?.signal.aborted) break;
-                resetIdleTimeout();
-
-                if (
-                  analysisEvent.type === 'content_block_delta' &&
-                  analysisEvent.delta.type === 'text_delta'
-                ) {
-                  analysisResult += analysisEvent.delta.text;
-                  controller.enqueue(
-                    sendSSE('analysis_chunk', { content: analysisEvent.delta.text })
-                  );
+                // changes_summary を抽出（Tool Use の出力に含まれる）
+                const analysisResult = toolInput.changes_summary?.trim() ?? '';
+                if (analysisResult) {
+                  // 分析結果をストリーミングで送信（クライアント互換性のため）
+                  controller.enqueue(sendSSE('analysis_chunk', { content: analysisResult }));
                 }
-              }
 
-              console.log('[Canvas Analysis] Analysis completed. Length:', analysisResult.length);
+                console.log('[Canvas Analysis] Analysis from tool output. Length:', analysisResult.length);
 
-              // ✅ チャット履歴に2つのアシスタントメッセージを別々に保存
-              // continueChat は必ずユーザーメッセージとアシスタントメッセージのペアを保存するため、
-              // 1回だけ呼び出してユーザーメッセージを保存し、2つのアシスタントメッセージは別々に保存する
+                // ✅ チャット履歴に2つのアシスタントメッセージを別々に保存
+                // continueChat は必ずユーザーメッセージとアシスタントメッセージのペアを保存するため、
+                // 1回だけ呼び出してユーザーメッセージを保存し、2つのアシスタントメッセージは別々に保存する
 
-              // 1つ目: Canvas編集結果（blog_creation_${targetStep}）
-              const canvasModel = `blog_creation_${targetStep}`;
-              const postStreamLimitError = await checkTrialDailyLimit(userRole, userId);
-              if (postStreamLimitError) {
-                controller.enqueue(
-                  sendSSE('error', { type: 'daily_limit', message: postStreamLimitError })
+                // 1つ目: Canvas編集結果（blog_creation_${targetStep}）
+                const canvasModel = `blog_creation_${targetStep}`;
+                const postStreamLimitError = await checkTrialDailyLimit(userRole, userId);
+                if (postStreamLimitError) {
+                  controller.enqueue(
+                    sendSSE('error', { type: 'daily_limit', message: postStreamLimitError })
+                  );
+                  if (pingInterval) clearInterval(pingInterval);
+                  cleanup();
+                  controller.close();
+                  return;
+                }
+
+                await chatService.continueChat(
+                  userId!,
+                  sessionId,
+                  [instruction, fullMarkdown],
+                  '', // systemPromptは履歴に保存しない
+                  [],
+                  canvasModel
                 );
-                if (pingInterval) clearInterval(pingInterval);
-                cleanup();
-                controller.close();
-                return;
+
+                // 2つ目: 分析結果（blog_creation_improvement）
+                // アシスタントメッセージのみを追加保存（ユーザーメッセージは既に上で保存済み）
+                if (analysisResult) {
+                  const assistantAnalysisMessage = {
+                    id: crypto.randomUUID(),
+                    user_id: userId!,
+                    session_id: sessionId,
+                    role: 'assistant' as const,
+                    content: analysisResult,
+                    model: 'blog_creation_improvement',
+                    created_at: new Date(Date.now() + 2).toISOString(), // Canvas編集結果の後に表示されるよう順序を保証
+                  };
+
+                  // Supabaseに直接保存
+                  const { SupabaseService } = await import('@/server/services/supabaseService');
+                  const supabaseService = new SupabaseService();
+                  await supabaseService.createChatMessage(assistantAnalysisMessage);
+                }
+
+                controller.enqueue(sendSSE('done', { fullMarkdown, analysis: analysisResult }));
               }
-
-              await chatService.continueChat(
-                userId!,
-                sessionId,
-                [instruction, fullMarkdown],
-                '', // systemPromptは履歴に保存しない
-                [],
-                canvasModel
-              );
-
-              // 2つ目: 分析結果（blog_creation_improvement）
-              // アシスタントメッセージのみを追加保存（ユーザーメッセージは既に上で保存済み）
-              if (analysisResult) {
-                const assistantAnalysisMessage = {
-                  id: crypto.randomUUID(),
-                  user_id: userId!,
-                  session_id: sessionId,
-                  role: 'assistant' as const,
-                  content: analysisResult,
-                  model: 'blog_creation_improvement',
-                  created_at: new Date(Date.now() + 2).toISOString(), // Canvas編集結果の後に表示されるよう順序を保証
-                };
-
-                // Supabaseに直接保存
-                const { SupabaseService } = await import('@/server/services/supabaseService');
-                const supabaseService = new SupabaseService();
-                await supabaseService.createChatMessage(assistantAnalysisMessage);
-              }
-
-              controller.enqueue(sendSSE('done', { fullMarkdown, analysis: analysisResult }));
             }
           }
 

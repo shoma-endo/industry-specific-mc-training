@@ -9,6 +9,7 @@ import { getSystemPrompt } from '@/lib/prompts';
 import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
 import type { UserRole } from '@/types/user';
 import { VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import { clampMaxTokens } from '@/server/lib/anthropic-limits';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -153,7 +154,9 @@ export async function POST(req: NextRequest) {
               : model.includes('claude')
                 ? model
                 : 'claude-sonnet-4-5-20250929';
-          const resolvedMaxTokens = cfg && cfg.provider === 'anthropic' ? cfg.maxTokens : 6000;
+          const resolvedMaxTokens = clampMaxTokens(
+            cfg && cfg.provider === 'anthropic' ? cfg.maxTokens : 6000
+          );
           const resolvedTemperature = cfg && cfg.provider === 'anthropic' ? cfg.temperature : 0.3;
 
           const systemPrompt = systemPromptOverride?.trim()
