@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
                 },
               ],
             }),
-          } as Anthropic.MessageStreamParams;
+          };
 
           const anthropicStream = await anthropic.messages.stream(
             streamParams,
