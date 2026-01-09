@@ -58,7 +58,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   blog_creation_step2: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step3: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step4: { ...ANTHROPIC_BASE, maxTokens: 4000 },
-  blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 4000 },
+  blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 5000 },
   blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 13000 },
   blog_title_meta_generation: {
@@ -80,13 +80,13 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   gsc_insight_body_rewrite: {
     ...ANTHROPIC_BASE,
     actualModel: 'claude-haiku-4-5-20251001',
-    maxTokens: 4000,
+    maxTokens: 5000,
     label: '本文の提案',
   },
   gsc_insight_persona_rebuild: {
     ...ANTHROPIC_BASE,
     actualModel: 'claude-haiku-4-5-20251001',
-    maxTokens: 4000,
+    maxTokens: 5000,
     label: 'ペルソナから全て変更',
   },
 };
