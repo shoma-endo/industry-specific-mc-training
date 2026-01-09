@@ -155,7 +155,8 @@ export async function POST(req: NextRequest) {
                 ? model
                 : 'claude-sonnet-4-5-20250929';
           const resolvedMaxTokens = clampMaxTokens(
-            cfg && cfg.provider === 'anthropic' ? cfg.maxTokens : 6000
+            cfg && cfg.provider === 'anthropic' ? cfg.maxTokens : 6000,
+            model
           );
           const resolvedTemperature = cfg && cfg.provider === 'anthropic' ? cfg.temperature : 0.3;
 

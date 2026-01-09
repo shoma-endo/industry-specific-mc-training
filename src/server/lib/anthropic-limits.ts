@@ -28,6 +28,21 @@ const OTPM_LIMITS: Record<AnthropicTier, number> = {
 };
 
 /**
+ * 長文出力が必要なモデルキー（制限を適用しない）
+ * - これらのモデルは全文出力が必要なため、max_tokens を制限しない
+ * - 代わりに Canvas API の統合（3回→2回）でレートリミット対策を行う
+ */
+const LONG_OUTPUT_MODELS = new Set([
+  'blog_creation_step7', // ブログ本文作成
+  'lp_draft_creation', // LP下書き作成
+  'lp_improvement', // LP改善
+  'gsc_insight_ctr_boost', // GSC CTR改善
+  'gsc_insight_intro_refresh', // GSC 書き出し改善
+  'gsc_insight_body_rewrite', // GSC 本文改善
+  'gsc_insight_persona_rebuild', // GSC ペルソナ再構築
+]);
+
+/**
  * 現在の Tier に基づいた OTPM 制限を取得
  */
 export function getOtpmLimit(): number {
@@ -45,9 +60,15 @@ export function getCurrentTier(): AnthropicTier {
  * 指定された maxTokens を現在の Tier の OTPM 制限内に収める
  *
  * @param requestedMaxTokens - リクエストされた max_tokens 値
- * @returns Tier 制限を超えない max_tokens 値
+ * @param modelKey - モデルキー（長文出力モデルの判定に使用）
+ * @returns Tier 制限を超えない max_tokens 値（長文出力モデルは制限なし）
  */
-export function clampMaxTokens(requestedMaxTokens: number): number {
+export function clampMaxTokens(requestedMaxTokens: number, modelKey?: string): number {
+  // 長文出力が必要なモデルは制限しない
+  if (modelKey && LONG_OUTPUT_MODELS.has(modelKey)) {
+    return requestedMaxTokens;
+  }
+
   const otpmLimit = getOtpmLimit();
   return Math.min(requestedMaxTokens, otpmLimit);
 }

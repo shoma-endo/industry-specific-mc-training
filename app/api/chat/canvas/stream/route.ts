@@ -426,7 +426,7 @@ export async function POST(req: NextRequest) {
           // Anthropic Streaming API 呼び出し
           const apiStream = await anthropic.messages.stream({
             model: actualModel,
-            max_tokens: clampMaxTokens(maxTokens),
+            max_tokens: clampMaxTokens(maxTokens, modelKey),
             temperature,
             system: [
               {
