@@ -105,10 +105,8 @@ export async function POST(req: NextRequest) {
     const normalizedMessages = [...messages];
     let combinedUserMessage = userMessage;
 
-    if (
-      normalizedMessages.length > 0 &&
-      normalizedMessages[normalizedMessages.length - 1].role === 'user'
-    ) {
+    const lastMessage = normalizedMessages[normalizedMessages.length - 1];
+    if (lastMessage && lastMessage.role === 'user') {
       const lastMsg = normalizedMessages.pop();
       if (lastMsg) {
         combinedUserMessage = `${lastMsg.content}\n\n${userMessage}`;

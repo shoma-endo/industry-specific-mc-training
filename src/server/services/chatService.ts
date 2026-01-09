@@ -227,7 +227,8 @@ class ChatService {
           let cutOffIndex = 0; // countLimitedMessages の中で、ここより後ろを採用
 
           for (let i = countLimitedMessages.length - 1; i >= 0; i--) {
-            const msgLen = countLimitedMessages[i].content.length;
+            const msg = countLimitedMessages[i];
+            const msgLen = msg ? msg.content.length : 0;
             if (currentChars + msgLen > ChatService.MAX_HISTORY_CHARS) {
               cutOffIndex = i + 1; // これを含めず、次（より新しいもの）から採用
               break;
