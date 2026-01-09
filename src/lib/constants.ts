@@ -77,12 +77,12 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
   gsc_insight_intro_refresh: {
     ...ANTHROPIC_HAIKU_BASE,
-    maxTokens: 4000,
+    maxTokens: 5000,
     label: '書き出し案の提案',
   },
   gsc_insight_body_rewrite: {
     ...ANTHROPIC_HAIKU_BASE,
-    maxTokens: 5000,
+    maxTokens: 10000,
     label: '本文の提案',
   },
   gsc_insight_persona_rebuild: {
