@@ -3,34 +3,23 @@
  *
  * 公式ドキュメント: https://docs.anthropic.com/en/api/rate-limits
  *
- * Tier ごとの OTPM (Output Tokens Per Minute) 制限:
- * - Tier 1: 8,000 (Sonnet 4.x)
- * - Tier 2: 90,000
- * - Tier 3: 160,000
- * - Tier 4: 400,000
+ * OTPM (Output Tokens Per Minute) 制限:
+ * - 標準モデル (Sonnet 4.x): 8,000 OTPM（Tier 1-4 共通）
+ * - 長文脈モデル (1M context, Tier 4+): 200,000 OTPM
+ *
+ * 注: Tier 1-4 は月間支出上限の層であり、標準モデルの OTPM 制限は変わらない
  */
-
-type AnthropicTier = '1' | '2' | '3' | '4';
 
 /**
- * 現在の Tier（Tier変更時はここを修正）
+ * 標準モデル（Sonnet 4.x）の OTPM 制限
+ * Tier 1-4 で共通の値
  */
-const CURRENT_TIER: AnthropicTier = '1';
-
-/**
- * Tier ごとの OTPM 制限（Sonnet 4.x 基準）
- */
-const OTPM_LIMITS: Record<AnthropicTier, number> = {
-  '1': 8000,
-  '2': 90000,
-  '3': 160000,
-  '4': 400000,
-};
+const STANDARD_MODEL_OTPM_LIMIT = 8000;
 
 /**
  * 長文出力が必要なモデルキー（制限を適用しない）
  * - これらのモデルは全文出力が必要なため、max_tokens を制限しない
- * - 代わりに Canvas API の統合（3回→2回）でレートリミット対策を行う
+ * - 代わりにリクエスト頻度の調整でレートリミット対策を行う
  */
 const LONG_OUTPUT_MODELS = new Set([
   'blog_creation_step7', // ブログ本文作成
@@ -43,25 +32,18 @@ const LONG_OUTPUT_MODELS = new Set([
 ]);
 
 /**
- * 現在の Tier に基づいた OTPM 制限を取得
+ * 標準モデルの OTPM 制限を取得
  */
 export function getOtpmLimit(): number {
-  return OTPM_LIMITS[CURRENT_TIER];
+  return STANDARD_MODEL_OTPM_LIMIT;
 }
 
 /**
- * 現在の Tier を取得
- */
-export function getCurrentTier(): AnthropicTier {
-  return CURRENT_TIER;
-}
-
-/**
- * 指定された maxTokens を現在の Tier の OTPM 制限内に収める
+ * 指定された maxTokens を OTPM 制限内に収める
  *
  * @param requestedMaxTokens - リクエストされた max_tokens 値
  * @param modelKey - モデルキー（長文出力モデルの判定に使用）
- * @returns Tier 制限を超えない max_tokens 値（長文出力モデルは制限なし）
+ * @returns 制限を超えない max_tokens 値（長文出力モデルは制限なし）
  */
 export function clampMaxTokens(requestedMaxTokens: number, modelKey?: string): number {
   // 長文出力が必要なモデルは制限しない
@@ -69,6 +51,5 @@ export function clampMaxTokens(requestedMaxTokens: number, modelKey?: string): n
     return requestedMaxTokens;
   }
 
-  const otpmLimit = getOtpmLimit();
-  return Math.min(requestedMaxTokens, otpmLimit);
+  return Math.min(requestedMaxTokens, STANDARD_MODEL_OTPM_LIMIT);
 }
