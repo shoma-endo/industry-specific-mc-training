@@ -1,0 +1,73 @@
+name: Auto Create Pull Request
+
+on:
+  push:
+    branches-ignore:
+      - 'main'
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create or update Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+
+          # ベースブランチの決定
+          if [ "${BRANCH_NAME}" = "develop" ]; then
+            BASE_BRANCH="main"
+            PR_TITLE="[Auto] Merge develop into main"
+            PR_BODY="Automated PR to merge changes from develop to main."
+          else
+            BASE_BRANCH="develop"
+            PR_TITLE="[Auto] PR from ${BRANCH_NAME} to develop"
+            PR_BODY="Automated PR created from push to ${BRANCH_NAME}."
+          fi
+
+          echo "Target branch: ${BRANCH_NAME}"
+          echo "Base branch: ${BASE_BRANCH}"
+
+          # PRが既に存在するか確認
+          PR_EXISTS=$(gh pr list --head "${BRANCH_NAME}" --base "${BASE_BRANCH}" --state open --json number -q '.[0].number')
+
+          if [ -n "${PR_EXISTS}" ]; then
+            echo "Pull Request already exists: #${PR_EXISTS}. Skipping creation."
+          else
+            echo "Creating Pull Request..."
+            
+            # ラベルの存在確認と作成
+            LABEL_NAME="automated-pr"
+            if ! gh label list --json name -q '.[].name' | grep -q "^${LABEL_NAME}$"; then
+              echo "Label '${LABEL_NAME}' does not exist. Attempting to create it..."
+              gh label create "${LABEL_NAME}" --color "fbca04" --description "Automatically created PR" || echo "Failed to create label."
+            fi
+
+            # PR作成（失敗時はラベルなしでリトライ）
+            if ! gh pr create \
+              --head "${BRANCH_NAME}" \
+              --base "${BASE_BRANCH}" \
+              --title "${PR_TITLE}" \
+              --body "${PR_BODY}" \
+              --label "${LABEL_NAME}"; then
+              
+              echo "Failed to create Pull Request with label. Retrying without label..."
+              if ! gh pr create \
+                --head "${BRANCH_NAME}" \
+                --base "${BASE_BRANCH}" \
+                --title "${PR_TITLE}" \
+                --body "${PR_BODY}"; then
+                echo "Error: Failed to create Pull Request. Please check permissions and branch status."
+                exit 1
+              fi
+            fi
+            echo "Pull Request created successfully."
+          fi
