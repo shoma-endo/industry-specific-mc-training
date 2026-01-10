@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create Pull Request if not exists
         env:
@@ -61,8 +61,16 @@ jobs:
 
           if [ -n "${PR_EXISTS}" ]; then
             echo "Pull Request already exists: #${PR_EXISTS}. Updating..."
-            gh pr edit "${PR_EXISTS}" --title "${PR_TITLE}" --body "${PR_BODY}" --add-label "${LABEL_NAME}"
-            echo "Pull Request updated successfully."
+            if gh pr edit "${PR_EXISTS}" --title "${PR_TITLE}" --body "${PR_BODY}" --add-label "${LABEL_NAME}"; then
+              echo "Pull Request updated successfully."
+            else
+              echo "Warning: Failed to update Pull Request with label. Attempting without label..."
+              if ! gh pr edit "${PR_EXISTS}" --title "${PR_TITLE}" --body "${PR_BODY}"; then
+                echo "Error: Failed to update Pull Request. Please check permissions and branch status."
+                exit 1
+              fi
+              echo "Pull Request updated successfully (without label)."
+            fi
           else
             echo "Creating Pull Request..."
             # PR作成（失敗時はラベルなしでリトライ）
