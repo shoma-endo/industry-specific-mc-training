@@ -1,5 +1,9 @@
 name: Auto Create Pull Request
 
+concurrency:
+  group: auto-pr-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches-ignore:
@@ -16,7 +20,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create or update Pull Request
+      - name: Create Pull Request if not exists
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -36,8 +40,14 @@ jobs:
           echo "Target branch: ${BRANCH_NAME}"
           echo "Base branch: ${BASE_BRANCH}"
 
-          # PRが既に存在するか確認
-          PR_EXISTS=$(gh pr list --head "${BRANCH_NAME}" --base "${BASE_BRANCH}" --state open --json number -q '.[0].number')
+          # ベースブランチの存在確認（リモートに存在しない場合はエラー）
+          if ! git ls-remote --heads origin "${BASE_BRANCH}" | grep -q "refs/heads/${BASE_BRANCH}"; then
+            echo "Error: Base branch '${BASE_BRANCH}' does not exist on remote."
+            exit 1
+          fi
+
+          # PRが既に存在するか確認（存在しない場合は empty により空文字になる）
+          PR_EXISTS=$(gh pr list --head "${BRANCH_NAME}" --base "${BASE_BRANCH}" --state open --json number -q '.[0].number // empty')
 
           if [ -n "${PR_EXISTS}" ]; then
             echo "Pull Request already exists: #${PR_EXISTS}. Skipping creation."
