@@ -39,34 +39,13 @@ import { BLOG_STEP_LABELS, isStep7 as isBlogStep7 } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
 import type {
   CanvasSelectionEditPayload,
-  CanvasSelectionEditResult,
   CanvasBubbleState,
   CanvasHeadingItem,
   CanvasSelectionState,
+  CanvasPanelProps,
+  CanvasVersionOption,
 } from '@/types/canvas';
 import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
-
-interface CanvasVersionOption {
-  id: string;
-  content: string;
-  versionNumber: number;
-  isLatest?: boolean;
-  raw?: string;
-}
-
-interface CanvasPanelProps {
-  onClose: () => void;
-  content?: string; // AIからの返信内容
-  isVisible?: boolean;
-  onSelectionEdit?: (payload: CanvasSelectionEditPayload) => Promise<CanvasSelectionEditResult>;
-  versions?: CanvasVersionOption[];
-  activeVersionId?: string | null;
-  onVersionSelect?: (versionId: string) => void;
-  stepOptions?: BlogStepId[];
-  activeStepId?: BlogStepId | null;
-  onStepSelect?: (stepId: BlogStepId) => void;
-  streamingContent?: string; // ストリーミング中のコンテンツ
-}
 
 const lowlight = createLowlight(common);
 
