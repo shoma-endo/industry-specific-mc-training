@@ -516,8 +516,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           if (!node.isText) return;
           node.marks.forEach(mark => {
             if (mark.type.name !== 'link') return;
-            const href =
-              typeof mark.attrs?.href === 'string' ? mark.attrs.href.trim() : '';
+            const hrefRaw = typeof mark.attrs?.href === 'string' ? mark.attrs.href.trim() : '';
+            const href = /^(https?:\/\/|\/)/.test(hrefRaw) ? hrefRaw : '';
             if (!href || seenUrls.has(href)) return;
             seenUrls.add(href);
             links.push({
