@@ -537,7 +537,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       // パターン 2: URL テキスト形式 https://... または /...
       const markdownLinkRegex =
         /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/)([^\s)]*)\)|((https?:\/\/|\/)[^\s]+)/g;
-      let match;
+      let match: RegExpExecArray | null;
       let index = 0;
       const text = selection.text;
 
