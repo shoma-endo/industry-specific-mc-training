@@ -584,7 +584,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         setSelectionState(null);
         selectionSnapshotRef.current = null;
         setSelectionMode(null);
-        setSelectionMode(null);
         setSelectionMenuPosition(null);
         setInstruction('');
         selectionAnchorRef.current = null;
@@ -593,13 +592,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
       const text = editor.state.doc.textBetween(from, to, '\n', '\n').trim();
       if (!text) {
-        setSelectionState(null);
-        selectionSnapshotRef.current = null;
-        setSelectionMode(null);
-        setSelectionMenuPosition(null);
-        setInstruction('');
-        selectionAnchorRef.current = null;
-        return;
         setSelectionState(null);
         selectionSnapshotRef.current = null;
         setSelectionMode(null);
