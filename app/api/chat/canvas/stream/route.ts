@@ -705,7 +705,7 @@ export async function POST(req: NextRequest) {
                   role: 'assistant' as const,
                   content: analysisResult,
                   model: 'blog_creation_improvement',
-                  created_at: new Date(Date.now() + 2).toISOString(), // Canvas編集結果の後に表示されるよう順序を保証
+                  created_at: new Date(Date.now() + 100).toISOString(), // Canvas編集結果の後に表示されるよう順序を保証（余裕を持たせる）
                 };
 
                 // Supabaseに直接保存
