@@ -259,49 +259,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       .replace(/^-|-$/g, '');
   }, []);
 
-  // ✅ Markdown 形式と URL テキスト形式の両方のリンクを検出して配列に格納
-  // 例: [テキスト](https://example.com) → { text, url, index }
-  // 例: https://example.com → { text: "https://example.com", url: "https://example.com", index }
-  const extractLinksFromText = useCallback(
-    (text: string): Array<{ text: string; url: string; index: number }> => {
-      const links: Array<{ text: string; url: string; index: number }> = [];
-      // パターン 1: Markdown リンク形式 [text](url)
-      // パターン 2: URL テキスト形式 https://... または /...
-      const markdownLinkRegex =
-        /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/)([^\s)]*)\)|((https?:\/\/|\/)[^\s]+)/g;
-      let match;
-      let index = 0;
-
-      while ((match = markdownLinkRegex.exec(text)) !== null) {
-        let linkText = '';
-        let linkUrl = '';
-
-        // Markdown 形式: [text](url)
-        if (match[1]) {
-          linkText = match[1] || '';
-          linkUrl = (match[2] || '') + (match[3] || '');
-        }
-        // URL テキスト形式: https://... または /...
-        else if (match[4]) {
-          linkUrl = match[4];
-          linkText = linkUrl; // URL がテキストになる
-        }
-
-        if (linkText && linkUrl) {
-          links.push({
-            text: linkText,
-            url: linkUrl,
-            index,
-          });
-          index++;
-        }
-      }
-
-      return links;
-    },
-    []
-  );
-
   const buildHtmlFromMarkdown = useCallback(
     (markdown: string): string => {
       const lines = markdown.split('\n');
@@ -566,6 +523,75 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     },
   });
 
+  // ✅ Markdown 形式と URL テキスト形式の両方のリンクを検出して配列に格納
+  // 例: [テキスト](https://example.com) → { text, url, index }
+  // 例: https://example.com → { text: "https://example.com", url: "https://example.com", index }
+  const extractLinksFromSelection = useCallback(
+    (selection: CanvasSelectionState): Array<{ text: string; url: string; index: number }> => {
+      const links: Array<{ text: string; url: string; index: number }> = [];
+      const seenUrls = new Set<string>();
+
+      if (editor) {
+        const { from, to } = selection;
+        editor.state.doc.nodesBetween(from, to, node => {
+          if (!node.isText) return;
+          node.marks.forEach(mark => {
+            if (mark.type.name !== 'link') return;
+            const href =
+              typeof mark.attrs?.href === 'string' ? mark.attrs.href.trim() : '';
+            if (!href || seenUrls.has(href)) return;
+            seenUrls.add(href);
+            links.push({
+              text: node.text?.trim() || href,
+              url: href,
+              index: links.length,
+            });
+          });
+        });
+      }
+
+      if (links.length > 0) {
+        return links;
+      }
+
+      // パターン 1: Markdown リンク形式 [text](url)
+      // パターン 2: URL テキスト形式 https://... または /...
+      const markdownLinkRegex =
+        /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/)([^\s)]*)\)|((https?:\/\/|\/)[^\s]+)/g;
+      let match;
+      let index = 0;
+      const text = selection.text;
+
+      while ((match = markdownLinkRegex.exec(text)) !== null) {
+        let linkText = '';
+        let linkUrl = '';
+
+        // Markdown 形式: [text](url)
+        if (match[1]) {
+          linkText = match[1] || '';
+          linkUrl = (match[2] || '') + (match[3] || '');
+        }
+        // URL テキスト形式: https://... または /...
+        else if (match[4]) {
+          linkUrl = match[4];
+          linkText = linkUrl; // URL がテキストになる
+        }
+
+        if (linkText && linkUrl) {
+          links.push({
+            text: linkText,
+            url: linkUrl,
+            index,
+          });
+          index++;
+        }
+      }
+
+      return links;
+    },
+    [editor]
+  );
+
   // ✅ 選択範囲の監視（Canvas AI編集用）
   useEffect(() => {
     if (!editor || !onSelectionEdit) return;
@@ -752,7 +778,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     }
 
     // 選択範囲からリンクを検出
-    const links = extractLinksFromText(selection.text);
+    const links = extractLinksFromSelection(selection);
     if (links.length === 0) {
       setLastAiError('選択範囲にMarkdownリンク形式（[テキスト](URL)）またはURLが含まれていません');
       return;
@@ -798,7 +824,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     } finally {
       setIsApplyingSelectionEdit(false);
     }
-  }, [activeSelection, editor, extractLinksFromText, markdownContent, onSelectionEdit]);
+  }, [activeSelection, editor, extractLinksFromSelection, markdownContent, onSelectionEdit]);
 
   const handleApplySelectionEdit = useCallback(
     async (instructionOverride?: string) => {
