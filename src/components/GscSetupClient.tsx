@@ -23,8 +23,11 @@ import {
   AlertTriangle,
   BarChart3,
 } from 'lucide-react';
-import { disconnectGsc, saveGscProperty } from '@/server/actions/gscSetup.actions';
-import { formatDate } from '@/lib/date-formatter';
+import {
+  disconnectGsc,
+  saveGscProperty,
+} from '@/server/actions/gscSetup.actions';
+import { formatDate } from '@/lib/date-utils';
 import { GscStatusBadge } from '@/components/ui/GscStatusBadge';
 import { useGscSetup } from '@/hooks/useGscSetup';
 import { handleAsyncAction } from '@/lib/async-handler';

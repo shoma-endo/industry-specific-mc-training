@@ -345,19 +345,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     setIsSubscriptionErrorDismissed(false);
   }, [subscription.error]);
 
-  const assistantMessages = useMemo(
-    () => (chatSession.state.messages ?? []).filter(message => message.role === 'assistant'),
-    [chatSession.state.messages]
-  );
-  const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
-  const hasInitialStepButNoMessages =
-    normalizedInitialStep === 'step7' && (chatSession.state.messages?.length ?? 0) === 0;
-
-  const shouldShowStepActionBar =
-    blogFlowActive &&
-    !chatSession.state.isLoading &&
-    hasDetectedBlogStep &&
-    (!!lastAssistantMessage || hasInitialStepButNoMessages);
+  const shouldShowStepActionBar = blogFlowActive && !chatSession.state.isLoading;
 
   const isReadOnly = isOwnerViewMode;
 
