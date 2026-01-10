@@ -275,7 +275,8 @@ export async function POST(req: NextRequest) {
     // ReadableStreamを作成
     const stream = new ReadableStream({
       async start(controller) {
-        let fullMarkdown = '';
+        let accumulatedJson = '';
+        let finalMarkdown = '';
         let abortController: AbortController | null = new AbortController();
         let idleTimeout: ReturnType<typeof setTimeout> | null = null;
         let pingInterval: ReturnType<typeof setInterval> | null = null;
@@ -418,9 +419,12 @@ export async function POST(req: NextRequest) {
           ].join('\n');
 
           // Anthropic Streaming API 呼び出し
+          // Canvas編集ではTool Useで全文を返すため、最低30000トークンを保証
+          // （step7の本文編集で15000では不足するケースがあるため）
+          const canvasMaxTokens = Math.max(maxTokens, 30000);
           const apiStream = await anthropic.messages.stream({
             model: actualModel,
-            max_tokens: maxTokens,
+            max_tokens: canvasMaxTokens,
             temperature,
             system: [
               {
@@ -457,7 +461,7 @@ export async function POST(req: NextRequest) {
               if (event.delta.type === 'input_json_delta') {
                 const chunk = event.delta.partial_json;
                 controller.enqueue(sendSSE('chunk', { content: chunk }));
-                fullMarkdown += chunk;
+                accumulatedJson += chunk;
               }
             }
 
@@ -480,9 +484,9 @@ export async function POST(req: NextRequest) {
 
                 const markdownCandidate =
                   toolInput.full_markdown ?? toolInput.markdown ?? '';
-                fullMarkdown = markdownCandidate.trim();
+                finalMarkdown = markdownCandidate.trim();
 
-                if (!fullMarkdown) {
+                if (!finalMarkdown) {
                   const htmlCandidate =
                     toolInput.replacement_html ??
                     toolInput.replacement ??
@@ -490,15 +494,60 @@ export async function POST(req: NextRequest) {
                     toolInput.html;
                   if (typeof htmlCandidate === 'string' && htmlCandidate.trim().length > 0) {
                     const sanitized = sanitizeHtmlForCanvas(htmlCandidate);
-                    fullMarkdown = htmlToMarkdownForCanvas(sanitized);
+                    finalMarkdown = htmlToMarkdownForCanvas(sanitized);
                   }
                 }
+              }
 
-                fullMarkdown = fullMarkdown.trim();
-
-                if (!fullMarkdown.trim()) {
-                  throw new Error('Claude から編集後Markdownを受け取れませんでした');
+              // フォールバック: Tool Useが見つからない場合
+              if (!finalMarkdown.trim()) {
+                // 1. 通常のテキスト回答として返ってきた可能性があるためチェック
+                const textBlock = message.content.find(block => block.type === 'text');
+                if (textBlock && textBlock.type === 'text') {
+                  console.warn('[Canvas Stream] Tool use missing, using text content fallback.');
+                  finalMarkdown = textBlock.text.trim();
                 }
+
+                // 2. それでも空で、かつJSONデータが蓄積されている場合（max_tokens等で途中終了したケース）
+                if (!finalMarkdown.trim() && accumulatedJson.trim()) {
+                  console.warn(
+                    '[Canvas Stream] Attempting to recover markdown from partial JSON...'
+                  );
+                  // JSON形式: {"full_markdown": "..."} の想定
+                  // "full_markdown"キーの値部分を抽出する正規表現（閉じクォート手前までキャプチャ）
+                  const match = accumulatedJson.match(
+                    /"(?:full_)?markdown"\s*:\s*"((?:[^"\\]|\\.)*)/
+                  );
+                  if (match && match[1]) {
+                    const rawContent = match[1];
+                    try {
+                      // JSON文字列としてアンエスケープ
+                      finalMarkdown = JSON.parse(`"${rawContent}"`);
+                    } catch {
+                      // パース失敗時は簡易的なアンエスケープを行う
+                      console.warn(
+                        '[Canvas Stream] JSON unescape failed, using raw content with manual unescape'
+                      );
+                      finalMarkdown = rawContent
+                        .replace(/\\n/g, '\n')
+                        .replace(/\\r/g, '\r')
+                        .replace(/\\t/g, '\t')
+                        .replace(/\\"/g, '"')
+                        .replace(/\\\//g, '/')
+                        .replace(/\\\\/g, '\\');
+                    }
+                  }
+                }
+              }
+
+              finalMarkdown = finalMarkdown.trim();
+
+              if (!finalMarkdown) {
+                console.error(
+                  '[Canvas Stream] Failed to extract markdown. Message:',
+                  JSON.stringify(message)
+                );
+                throw new Error('Claude から編集後Markdownを受け取れませんでした');
               }
 
               // ✅ 第3段階: 編集内容の分析（検証結果と修正内容）
@@ -539,7 +588,7 @@ export async function POST(req: NextRequest) {
                 '',
                 '## 編集後の文章全体',
                 '```markdown',
-                fullMarkdown,
+                finalMarkdown,
                 '```',
                 '',
                 '## ユーザーが選択した範囲（この部分を改善した）',
@@ -640,7 +689,7 @@ export async function POST(req: NextRequest) {
               await chatService.continueChat(
                 userId!,
                 sessionId,
-                [instruction, fullMarkdown],
+                [instruction, finalMarkdown],
                 '', // systemPromptは履歴に保存しない
                 [],
                 canvasModel
@@ -665,7 +714,7 @@ export async function POST(req: NextRequest) {
                 await supabaseService.createChatMessage(assistantAnalysisMessage);
               }
 
-              controller.enqueue(sendSSE('done', { fullMarkdown, analysis: analysisResult }));
+              controller.enqueue(sendSSE('done', { fullMarkdown: finalMarkdown, analysis: analysisResult }));
             }
           }
 
