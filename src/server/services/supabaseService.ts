@@ -878,6 +878,7 @@ export class SupabaseService {
       refreshToken: string; // Google Ads API requires refresh token
       expiresIn?: number | undefined;
       scope?: string[] | undefined;
+      googleAccountEmail?: string | null | undefined;
     }
   ): Promise<void> {
     const expiresAt = new Date();
@@ -892,7 +893,8 @@ export class SupabaseService {
         user_id: userId,
         access_token: tokens.accessToken,
         refresh_token: tokens.refreshToken,
-        token_expires_at: expiresAt.toISOString(),
+        access_token_expires_at: expiresAt.toISOString(),
+        google_account_email: tokens.googleAccountEmail ?? null,
         scope: tokens.scope || [],
         updated_at: new Date().toISOString(),
       },
