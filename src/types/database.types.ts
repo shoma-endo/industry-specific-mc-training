@@ -353,6 +353,50 @@ export type Database = {
           },
         ]
       }
+      google_ads_credentials: {
+        Row: {
+          access_token: string
+          created_at: string
+          id: string
+          manager_customer_id: string | null
+          refresh_token: string
+          scope: string[]
+          token_expires_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          id?: string
+          manager_customer_id?: string | null
+          refresh_token: string
+          scope?: string[]
+          token_expires_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          id?: string
+          manager_customer_id?: string | null
+          refresh_token?: string
+          scope?: string[]
+          token_expires_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_ads_credentials_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       gsc_credentials: {
         Row: {
           access_token: string | null

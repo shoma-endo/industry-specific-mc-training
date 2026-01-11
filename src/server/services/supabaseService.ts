@@ -869,6 +869,43 @@ export class SupabaseService {
   }
 
   /**
+   * Google Ads 認証情報を保存
+   */
+  async saveGoogleAdsCredential(
+    userId: string,
+    tokens: {
+      accessToken: string;
+      refreshToken: string; // Google Ads API requires refresh token
+      expiresIn?: number | undefined;
+      scope?: string[] | undefined;
+    }
+  ): Promise<void> {
+    const expiresAt = new Date();
+    if (tokens.expiresIn) {
+      expiresAt.setSeconds(expiresAt.getSeconds() + tokens.expiresIn);
+    } else {
+      expiresAt.setHours(expiresAt.getHours() + 1);
+    }
+
+    const { error } = await this.supabase.from('google_ads_credentials').upsert(
+      {
+        user_id: userId,
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
+        token_expires_at: expiresAt.toISOString(),
+        scope: tokens.scope || [],
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+    if (error) {
+      console.error('Error upserting Google Ads credential:', error);
+      throw new Error(`Google Ads認証情報の保存に失敗しました: ${error.message}`);
+    }
+  }
+
+  /**
    * Google Search Console 資格情報を保存
    */
   async upsertGscCredential(
