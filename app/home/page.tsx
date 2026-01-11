@@ -163,14 +163,18 @@ export default function LandingPage() {
                 Google OAuth Verification
               </p>
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Google Search Console 連携とデータ取り扱い
+                Google サービス（GSC / Google Ads）連携とデータ取り扱い
               </h2>
               <p className="text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                読み取り専用スコープ
+                Google Search Console の読み取り専用スコープ
                 <code className="mx-2 bg-white/80 px-2 py-1 rounded text-sm">
                   https://www.googleapis.com/auth/webmasters.readonly
                 </code>
-                のみを使用し、ユーザー許諾を得た GSC データから検索指標を分析します。取得データは
+                および Google Ads API スコープ
+                <code className="mx-2 bg-white/80 px-2 py-1 rounded text-sm">
+                  https://www.googleapis.com/auth/adwords
+                </code>
+                を使用し、ユーザーが許可したデータのみを分析します。取得データは
                 Supabase（ap-northeast-1）で暗号化保管し、Vercel
                 東京リージョンから安全に配信されます。
               </p>
@@ -181,15 +185,15 @@ export default function LandingPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">OAuth フロー概要</h3>
                 <ul className="space-y-3 text-gray-600 text-sm">
                   <li>1. LINE LIFF で本人確認後、Google に遷移</li>
-                  <li>2. 読み取り専用スコープの許諾内容を確認</li>
-                  <li>3. 許可後、ダッシュボードで検索データを参照</li>
+                  <li>2. 要求されたスコープの許諾内容を確認</li>
+                  <li>3. 許可後、ダッシュボードでデータを参照</li>
                   <li>4. データをもとに AI が改善案を提示</li>
                 </ul>
               </div>
               <div className="p-8 bg-white rounded-2xl shadow-md border border-blue-100">
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">データ使用と保護</h3>
                 <ul className="space-y-3 text-gray-600 text-sm">
-                  <li>GSC データは読み取りのみで、書き込み・削除は行いません。</li>
+                  <li>各プラットフォームのデータは分析のみに使用します。</li>
                   <li>Supabase（ap-northeast-1）で AES-256 暗号化し、30日以内に削除要求へ対応。</li>
                   <li>Vercel 東京リージョン + Cloudflare で TLS 経由の通信を強制。</li>
                   <li>
