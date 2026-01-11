@@ -82,11 +82,17 @@ export default function PrivacyPolicyPage() {
                   LIFF認証で取得する表示名・プロフィール画像・ユーザーID。
                 </li>
                 <li>
-                  <strong>Googleユーザーデータ:</strong> 読み取り専用スコープ{' '}
-                  <code className="bg-gray-100 px-2 py-1 rounded text-xs">
-                    https://www.googleapis.com/auth/webmasters.readonly
-                  </code>
-                  で取得する検索クエリ、クリック数、表示回数、掲載順位等。
+                  <strong>Googleユーザーデータ:</strong> 以下のスコープで取得する情報。
+                  <ul className="list-circle pl-5 mt-1">
+                    <li>
+                      GSC: <code className="bg-gray-100 px-2 py-1 rounded text-xs">https://www.googleapis.com/auth/webmasters.readonly</code><br/>
+                      検索クエリ、クリック数、表示回数、掲載順位等。
+                    </li>
+                    <li>
+                      Google Ads: <code className="bg-gray-100 px-2 py-1 rounded text-xs">https://www.googleapis.com/auth/adwords</code><br/>
+                      広告キャンペーン情報、広告グループ、クリック数、コンバージョン数等のパフォーマンス指標。
+                    </li>
+                  </ul>
                 </li>
                 <li>
                   <strong>WordPress/コンテンツ情報:</strong>{' '}
@@ -109,14 +115,18 @@ export default function PrivacyPolicyPage() {
                 3. Googleユーザーデータの利用目的と方法
               </h2>
               <p className="mb-2">
-                GSC
-                データは以下の目的に限定して利用します。書き込みや設定変更、広告目的での転用は行いません。
+                以下のデータは記載された目的に限定して利用します。GSCデータは読み取り専用で取得し、書き込みや設定変更は行いません。
+                Google Ads データは分析・改善提案のみに使用し、広告目的での転用は行いません。
               </p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>
                   ユーザーサイトの検索パフォーマンス指標を可視化するため（GSCインサイト画面）。
                 </li>
-                <li>指標に基づき、AIが改善提案・コンテンツ案を生成するため。</li>
+                <li>
+                  Google Ads の広告パフォーマンスを分析し、より効果的な広告コピーやキーワード設定の改善案を生成するため。
+                </li>
+                <li>指標に基づき、AIが改善提案・コンテンツ案を生成するため。
+                </li>
                 <li>
                   レポートダウンロードや履歴比較など、ユーザーが要求した範囲の機能を提供するため。
                 </li>
@@ -157,7 +167,7 @@ export default function PrivacyPolicyPage() {
               <ul className="list-disc pl-5 space-y-1">
                 <li>Supabase Inc.（データベース、認証、ストレージ）</li>
                 <li>Vercel Inc.（アプリケーションホスティング）</li>
-                <li>Google LLC（Google Search Console API）</li>
+                <li>Google LLC（Google Search Console API, Google Ads API）</li>
                 <li>LINEヤフー株式会社（LIFF 認証）</li>
                 <li>Automattic Inc. / WordPress Foundation（WordPress API）</li>
                 <li>
