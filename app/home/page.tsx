@@ -194,7 +194,6 @@ export default function LandingPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">データ使用と保護</h3>
                 <ul className="space-y-3 text-gray-600 text-sm">
                   <li>各プラットフォームのデータは分析のみに使用します。</li>
-                  <li>Supabase（ap-northeast-1）で AES-256 暗号化し、30日以内に削除要求へ対応。</li>
                   <li>Vercel 東京リージョン + Cloudflare で TLS 経由の通信を強制。</li>
                   <li>
                     LLM への入力はユーザーが明示的に送信した文章のみ。学習データへ自動転用しません。
@@ -308,6 +307,11 @@ export default function LandingPage() {
                 <li>
                   <Link href="/privacy" className="hover:text-white transition-colors">
                     プライバシーポリシー
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/terms" className="hover:text-white transition-colors">
+                    利用規約
                   </Link>
                 </li>
               </ul>
