@@ -89,7 +89,11 @@ function formatTable(data: ActiveUserData[]): string {
         return value ? String(value).length : 0;
       })
     );
-    return Math.min(maxContentWidth, 30); // 最大30文字に制限
+    // WordPressサイトURLは長いURLを表示するため、制限を緩和（最大60文字）
+    if (col === 'WordPressサイトURL') {
+      return Math.min(maxContentWidth, 60);
+    }
+    return Math.min(maxContentWidth, 30); // その他のカラムは最大30文字に制限
   });
 
   // ヘッダー行を作成
@@ -161,16 +165,16 @@ async function checkActiveUsers() {
     const excludedNames = ['遠藤 匠馬', '山下 遼太郎'];
 
     // 特定のユーザーを除外
-    const filteredUsers = users.filter(
-      user => !excludedNames.includes(user.full_name || '')
-    );
+    const filteredUsers = users.filter(user => !excludedNames.includes(user.full_name || ''));
 
     if (filteredUsers.length === 0) {
       console.log('フィルタリング後のアクティブユーザーが見つかりませんでした。');
       return;
     }
 
-    console.log(`📊 アクティブユーザー数: ${filteredUsers.length}人（除外: ${users.length - filteredUsers.length}人）\n`);
+    console.log(
+      `📊 アクティブユーザー数: ${filteredUsers.length}人（除外: ${users.length - filteredUsers.length}人）\n`
+    );
 
     // ユーザーIDのリストを取得（UUID型）
     const userIds = filteredUsers.map(u => u.id);
