@@ -81,7 +81,7 @@ function formatTable(data: ActiveUserData[]): string {
   ];
 
   // 各カラムの最大幅を計算
-  const columnWidths = columns.map(col => {
+  const columnWidths: number[] = columns.map(col => {
     const maxContentWidth = Math.max(
       col.length,
       ...data.map(row => {
@@ -93,26 +93,22 @@ function formatTable(data: ActiveUserData[]): string {
   });
 
   // ヘッダー行を作成
-  const header = columns
-    .map((col, i) => col.padEnd(columnWidths[i]))
-    .join(' | ');
+  const header = columns.map((col, i) => col.padEnd(columnWidths[i]!)).join(' | ');
 
   // 区切り行を作成
-  const separator = columns
-    .map((_, i) => '-'.repeat(columnWidths[i]))
-    .join('-|-');
+  const separator = columns.map((_, i) => '-'.repeat(columnWidths[i]!)).join('-|-');
 
   // データ行を作成
   const rows = data.map(row => {
     return columns
       .map((col, i) => {
+        const width = columnWidths[i]!;
         const value = row[col as keyof ActiveUserData] || '未設定';
         const strValue = String(value);
         // 長すぎる場合は切り詰め
-        const truncated = strValue.length > columnWidths[i]
-          ? strValue.substring(0, columnWidths[i] - 3) + '...'
-          : strValue;
-        return truncated.padEnd(columnWidths[i]);
+        const truncated =
+          strValue.length > width ? strValue.substring(0, width - 3) + '...' : strValue;
+        return truncated.padEnd(width);
       })
       .join(' | ');
   });
@@ -183,35 +179,35 @@ async function checkActiveUsers() {
     const wpSettingsMap = new Map(
       (wpSettingsData || []).map(ws => [String(ws.user_id), ws.wp_site_url])
     );
-    const briefsMap = new Map(
-      (briefsData || []).map(b => [String(b.user_id), b.data])
+    const briefsMap = new Map((briefsData || []).map(b => [String(b.user_id), b.data]));
+
+    // データを整形
+    const activeUserData: ActiveUserData[] = users.map(
+      (user: { id: string; full_name: string | null; last_login_at: string | null }) => {
+        const userIdStr = String(user.id);
+        const wpSiteUrl = wpSettingsMap.get(userIdStr) || null;
+        const briefData = briefsMap.get(userIdStr) || {};
+
+        // briefsのdataから5W2Hを抽出
+        const extract5W2H = (key: string) => {
+          const value = briefData[key];
+          return value && typeof value === 'string' ? value : null;
+        };
+
+        return {
+          氏名: user.full_name || '未設定',
+          最終ログイン日時: formatDateJST(user.last_login_at),
+          WordPressサイトURL: wpSiteUrl || '未設定',
+          When: extract5W2H('when'),
+          Where: extract5W2H('where'),
+          Who: extract5W2H('who'),
+          Why: extract5W2H('why'),
+          What: extract5W2H('what'),
+          How: extract5W2H('how'),
+          Price: extract5W2H('price'),
+        };
+      }
     );
-
-      // データを整形
-    const activeUserData: ActiveUserData[] = users.map((user: { id: string; full_name: string | null; last_login_at: string | null }) => {
-      const userIdStr = String(user.id);
-      const wpSiteUrl = wpSettingsMap.get(userIdStr) || null;
-      const briefData = briefsMap.get(userIdStr) || {};
-
-      // briefsのdataから5W2Hを抽出
-      const extract5W2H = (key: string) => {
-        const value = briefData[key];
-        return value && typeof value === 'string' ? value : null;
-      };
-
-      return {
-        氏名: user.full_name || '未設定',
-        最終ログイン日時: formatDateJST(user.last_login_at),
-        WordPressサイトURL: wpSiteUrl || '未設定',
-        When: extract5W2H('when'),
-        Where: extract5W2H('where'),
-        Who: extract5W2H('who'),
-        Why: extract5W2H('why'),
-        What: extract5W2H('what'),
-        How: extract5W2H('how'),
-        Price: extract5W2H('price'),
-      };
-    });
 
     // テーブル形式で出力
     const tableOutput = formatTable(activeUserData);
