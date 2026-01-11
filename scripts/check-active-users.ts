@@ -157,10 +157,23 @@ async function checkActiveUsers() {
       return;
     }
 
-    console.log(`📊 アクティブユーザー数: ${users.length}人\n`);
+    // 除外するユーザー名のリスト
+    const excludedNames = ['遠藤 匠馬', '山下 遼太郎'];
+
+    // 特定のユーザーを除外
+    const filteredUsers = users.filter(
+      user => !excludedNames.includes(user.full_name || '')
+    );
+
+    if (filteredUsers.length === 0) {
+      console.log('フィルタリング後のアクティブユーザーが見つかりませんでした。');
+      return;
+    }
+
+    console.log(`📊 アクティブユーザー数: ${filteredUsers.length}人（除外: ${users.length - filteredUsers.length}人）\n`);
 
     // ユーザーIDのリストを取得（UUID型）
-    const userIds = users.map(u => u.id);
+    const userIds = filteredUsers.map(u => u.id);
 
     // wordpress_settingsを一括取得（user_idはUUID型）
     const { data: wpSettingsData } = await client
@@ -182,7 +195,7 @@ async function checkActiveUsers() {
     const briefsMap = new Map((briefsData || []).map(b => [String(b.user_id), b.data]));
 
     // データを整形
-    const activeUserData: ActiveUserData[] = users.map(
+    const activeUserData: ActiveUserData[] = filteredUsers.map(
       (user: { id: string; full_name: string | null; last_login_at: string | null }) => {
         const userIdStr = String(user.id);
         const wpSiteUrl = wpSettingsMap.get(userIdStr) || null;
