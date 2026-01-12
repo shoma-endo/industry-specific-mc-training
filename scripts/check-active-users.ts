@@ -180,17 +180,25 @@ async function checkActiveUsers() {
     const userIds = filteredUsers.map(u => u.id);
 
     // wordpress_settingsを一括取得（user_idはUUID型）
-    const { data: wpSettingsData } = await client
+    const { data: wpSettingsData, error: wpSettingsError } = await client
       .from('wordpress_settings')
       .select('user_id, wp_site_url')
       .in('user_id', userIds);
 
+    if (wpSettingsError) {
+      throw new Error(`WordPress設定情報の取得に失敗しました: ${wpSettingsError.message}`);
+    }
+
     // briefsを一括取得（user_idはTEXT型なので、UUIDを文字列に変換して比較）
     const userIdsAsText = userIds.map(id => String(id));
-    const { data: briefsData } = await client
+    const { data: briefsData, error: briefsError } = await client
       .from('briefs')
       .select('user_id, data')
       .in('user_id', userIdsAsText);
+
+    if (briefsError) {
+      throw new Error(`事業者情報の取得に失敗しました: ${briefsError.message}`);
+    }
 
     // マップを作成（高速検索用）
     const wpSettingsMap = new Map(
