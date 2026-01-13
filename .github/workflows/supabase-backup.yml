@@ -52,7 +52,8 @@ jobs:
           # pg_dumpall --roles-only requires superuser privileges
           # If the connection URL doesn't have sufficient privileges, this will fail
           # We attempt the dump but allow it to fail gracefully with a warning
-          if ! pg_dumpall --roles-only --dbname="$SUPABASE_DB_URL" > "$role_file" 2>&1; then
+          # stderr is discarded to prevent error messages from being written to the file
+          if ! pg_dumpall --roles-only --dbname="$SUPABASE_DB_URL" > "$role_file" 2>/dev/null; then
             echo "Warning: Role dump failed (may require superuser privileges)" >&2
             # Create empty file to prevent validation error
             touch "$role_file"
