@@ -36,7 +36,11 @@ jobs:
       - name: Create database dumps
         run: |
           set -euo pipefail
+          set -x
+          command -v getent
           db_host="$(echo "$SUPABASE_DB_URL" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')"
+          echo "db_host=${db_host}"
+          getent ahostsv4 "$db_host"
           db_host_ipv4="$(getent ahostsv4 "$db_host" | awk '{print $1}' | head -n 1)"
           if [ -z "$db_host_ipv4" ]; then
             echo "Error: IPv4 resolution failed for ${db_host}" >&2
