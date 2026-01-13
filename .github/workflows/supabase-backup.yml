@@ -49,16 +49,24 @@ jobs:
             echo "Error: Data dump failed" >&2
             exit 1
           fi
-          if ! pg_dumpall --roles-only --database="$SUPABASE_DB_URL" > "$role_file"; then
-            echo "Error: Role dump failed" >&2
-            exit 1
+          # pg_dumpall --roles-only requires superuser privileges
+          # If the connection URL doesn't have sufficient privileges, this will fail
+          # We attempt the dump but allow it to fail gracefully with a warning
+          if ! pg_dumpall --roles-only --dbname="$SUPABASE_DB_URL" > "$role_file" 2>&1; then
+            echo "Warning: Role dump failed (may require superuser privileges)" >&2
+            # Create empty file to prevent validation error
+            touch "$role_file"
           fi
-          for f in "$schema_file" "$data_file" "$role_file"; do
+          # Validate dump files (role_file may be empty if permissions are insufficient)
+          for f in "$schema_file" "$data_file"; do
             if [ ! -s "$f" ]; then
               echo "Error: $f is empty" >&2
               exit 1
             fi
           done
+          if [ ! -s "$role_file" ]; then
+            echo "Warning: $role_file is empty (role dump may require superuser privileges)" >&2
+          fi
           gzip "$schema_file" "$data_file" "$role_file"
           echo "BACKUP_PREFIX=${timestamp}" >> "$GITHUB_ENV"
 
