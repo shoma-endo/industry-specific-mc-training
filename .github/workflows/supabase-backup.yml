@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           set -x
           command -v getent
-          db_host="$(echo "$SUPABASE_DB_URL" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')"
+          db_host="$(python3 -c 'import os,urllib.parse;print(urllib.parse.urlparse(os.environ["SUPABASE_DB_URL"]).hostname or "")')"
           echo "db_host=${db_host}"
           getent ahostsv4 "$db_host"
           db_host_ipv4="$(getent ahostsv4 "$db_host" | awk '{print $1}' | head -n 1)"
