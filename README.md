@@ -1109,6 +1109,51 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 - SSE は 20 秒ごとの ping と 5 分アイドルタイムアウトで接続維持を調整
 - `AnnotationPanel` の URL 正規化で内部／ローカルホストへの誤登録を防止
 
+## 🗄️ Supabase バックアップ（Freeプラン / 週次）
+
+FreeプランはSupabaseの標準バックアップが使えないため、GitHub Actions + GCSで週次バックアップを実行します。
+Storageは対象外（DBのみ）です。
+
+### 1. GCS バケット作成
+
+- バケット名: `grow_mate`
+- リージョン: `us-central1`（Free枠対象）
+- ストレージクラス: Standard
+- ライフサイクル: **60日で削除**
+
+### 2. サービスアカウント
+
+- 対象バケットに `roles/storage.objectCreator` を付与（アップロードのみ）
+- JSONキーを作成し、GitHub Secretsに登録
+
+### 3. GitHub Secrets
+
+- `GCP_PROJECT_ID` = `gen-lang-client-0146717482`
+- `GCS_BUCKET_NAME` = `grow_mate`
+- `GCP_SERVICE_ACCOUNT_KEY` = サービスアカウントJSON
+- `SUPABASE_DB_URL` = SupabaseのDB接続文字列（Service Roleで接続できるもの）
+
+### 4. 実行スケジュール
+
+- `.github/workflows/supabase-backup.yml`
+- **日曜12:00 JST**（UTC 03:00）で週次実行
+- スキーマ/データ/ロールを個別にダンプ → gzip → GCS保存
+
+### 5. publicリポジトリの注意
+
+publicリポジトリは**60日無活動でスケジュールが自動停止**されるため、以下のKeepaliveを追加しています。
+
+- `.github/workflows/keepalive.yml`
+- 月1回、`.github/keepalive/last-run.txt` を更新してコミット
+
+### 6. 復旧手順（最低限）
+
+1. GCSから `.sql.gz` を取得
+2. `gunzip` で展開
+3. `psql` で **role → schema → data** の順に適用
+
+※ `supabase db dump` は `auth` / `storage` などの管理スキーマを除外します（仕様）
+
 ## 📱 デプロイと運用
 
 - Vercel を想定（Edge Runtime と Node.js Runtime をルートごとに切り分け）

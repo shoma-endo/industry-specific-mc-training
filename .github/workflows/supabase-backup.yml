@@ -1,0 +1,68 @@
+name: Supabase Weekly Backup
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.67.1
+
+      - name: Create database dumps
+        run: |
+          set -euo pipefail
+          timestamp=$(date -u +"%Y%m%dT%H%M%SZ")
+          mkdir -p backup
+          schema_file="backup/${timestamp}_schema.sql"
+          data_file="backup/${timestamp}_data.sql"
+          role_file="backup/${timestamp}_role.sql"
+          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --schema-only > "$schema_file"; then
+            echo "Error: Schema dump failed" >&2
+            exit 1
+          fi
+          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --data-only > "$data_file"; then
+            echo "Error: Data dump failed" >&2
+            exit 1
+          fi
+          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --role-only > "$role_file"; then
+            echo "Error: Role dump failed" >&2
+            exit 1
+          fi
+          for f in "$schema_file" "$data_file" "$role_file"; do
+            if [ ! -s "$f" ]; then
+              echo "Error: $f is empty" >&2
+              exit 1
+            fi
+          done
+          gzip "$schema_file" "$data_file" "$role_file"
+          echo "BACKUP_PREFIX=${timestamp}" >> "$GITHUB_ENV"
+
+      - name: Upload to GCS
+        run: |
+          set -euo pipefail
+          destination="gs://${GCS_BUCKET_NAME}/supabase-backups/${BACKUP_PREFIX}/"
+          gcloud storage cp backup/*.gz "$destination"
