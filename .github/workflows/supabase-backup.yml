@@ -148,7 +148,7 @@ jobs:
             process.exit(1);
           }
 
-          console.log('Webhook URL:', webhookUrl.replace(/\/\/.*@/, '//***@')); // URLをマスク
+          console.log('Webhook URL: [MASKED]'); // URLは::add-mask::でマスク済みのため、存在確認のみログ出力
 
           let url;
           try {
