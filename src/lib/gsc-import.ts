@@ -34,5 +34,7 @@ export const getQuerySummaryLabels = (summary: QuerySummary) => ({
   invalidUrl: `URL正規化失敗: ${summary.skipped.invalidUrl}`,
   emptyQuery: `クエリ空: ${summary.skipped.emptyQuery}`,
   zeroMetrics: `0クリック/0表示: ${summary.skipped.zeroMetrics}`,
-  hitLimit: summary.hitLimit ? '取得上限に到達した可能性があります。' : null,
+  hitLimit: summary.hitLimit
+    ? '取得上限に到達した可能性があります。期間を短くして再インポートしてください。'
+    : null,
 });
