@@ -40,9 +40,18 @@ jobs:
           schema_file="backup/${timestamp}_schema.sql"
           data_file="backup/${timestamp}_data.sql"
           role_file="backup/${timestamp}_role.sql"
-          supabase db dump --db-url "$SUPABASE_DB_URL" --schema-only > "$schema_file"
-          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only > "$data_file"
-          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only > "$role_file"
+          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --schema-only > "$schema_file"; then
+            echo "Error: Schema dump failed" >&2
+            exit 1
+          fi
+          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --data-only > "$data_file"; then
+            echo "Error: Data dump failed" >&2
+            exit 1
+          fi
+          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --role-only > "$role_file"; then
+            echo "Error: Role dump failed" >&2
+            exit 1
+          fi
           for f in "$schema_file" "$data_file" "$role_file"; do
             if [ ! -s "$f" ]; then
               echo "Error: $f is empty" >&2
