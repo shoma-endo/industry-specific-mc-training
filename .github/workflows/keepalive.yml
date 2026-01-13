@@ -30,5 +30,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore: keepalive"
-          git pull --rebase
-          git push || (sleep 5 && git pull --rebase && git push)
+          max_attempts=3
+          for i in $(seq 1 $max_attempts); do
+            git pull --rebase || true
+            if git push; then
+              echo "Push succeeded on attempt $i"
+              break
+            fi
+            if [ "$i" -eq "$max_attempts" ]; then
+              echo "Push failed after $max_attempts attempts"
+              exit 1
+            fi
+            sleep $((i * 5))
+          done
