@@ -27,10 +27,11 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 2.67.1
+      - name: Install PostgreSQL client
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-15
 
       - name: Create database dumps
         run: |
@@ -40,15 +41,15 @@ jobs:
           schema_file="backup/${timestamp}_schema.sql"
           data_file="backup/${timestamp}_data.sql"
           role_file="backup/${timestamp}_role.sql"
-          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --schema-only > "$schema_file"; then
+          if ! pg_dump --schema-only --no-owner --no-privileges --dbname="$SUPABASE_DB_URL" > "$schema_file"; then
             echo "Error: Schema dump failed" >&2
             exit 1
           fi
-          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --data-only > "$data_file"; then
+          if ! pg_dump --data-only --no-owner --dbname="$SUPABASE_DB_URL" > "$data_file"; then
             echo "Error: Data dump failed" >&2
             exit 1
           fi
-          if ! supabase db dump --db-url "$SUPABASE_DB_URL" --role-only > "$role_file"; then
+          if ! pg_dumpall --roles-only --database="$SUPABASE_DB_URL" > "$role_file"; then
             echo "Error: Role dump failed" >&2
             exit 1
           fi
