@@ -32,7 +32,10 @@ jobs:
           git commit -m "chore: keepalive"
           max_attempts=3
           for i in $(seq 1 $max_attempts); do
-            git pull --rebase || true
+            if ! git pull --rebase; then
+              echo "Rebase failed, aborting and retrying..."
+              git rebase --abort 2>/dev/null || true
+            fi
             if git push; then
               echo "Push succeeded on attempt $i"
               break

@@ -2,7 +2,7 @@ name: Supabase Weekly Backup
 
 on:
   schedule:
-    - cron: "0 3 * * 0"
+    - cron: '0 3 * * 0'
   workflow_dispatch:
 
 permissions:
