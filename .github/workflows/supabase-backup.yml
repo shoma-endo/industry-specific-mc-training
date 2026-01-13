@@ -36,6 +36,13 @@ jobs:
       - name: Create database dumps
         run: |
           set -euo pipefail
+          db_host="$(echo "$SUPABASE_DB_URL" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')"
+          db_host_ipv4="$(getent ahostsv4 "$db_host" | awk '{print $1}' | head -n 1)"
+          if [ -z "$db_host_ipv4" ]; then
+            echo "Error: IPv4 resolution failed for ${db_host}" >&2
+            exit 1
+          fi
+          export PGHOSTADDR="$db_host_ipv4"
           timestamp=$(date -u +"%Y%m%dT%H%M%SZ")
           mkdir -p backup
           schema_file="backup/${timestamp}_schema.sql"
