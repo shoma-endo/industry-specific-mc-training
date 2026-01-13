@@ -94,6 +94,9 @@ jobs:
       - name: Send webhook notification
         if: always()
         run: |
+          # Webhook URLをログからマスク
+          echo "::add-mask::$SUPABASE_BACKUP_WEBHOOK_URL"
+
           # デバッグ: ファイルの存在確認
           if [ ! -f gcs-usage.txt ]; then
             echo "Warning: gcs-usage.txt not found, using empty output"
