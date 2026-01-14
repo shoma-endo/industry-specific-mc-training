@@ -103,6 +103,7 @@ export function ServiceCard({
                 required
                 disabled={isReadOnly}
                 onClick={e => e.stopPropagation()}
+                onKeyDown={e => e.stopPropagation()}
               />
             </div>
 
@@ -115,6 +116,7 @@ export function ServiceCard({
                   onChange={e => onUpdate(service.id, { strength: e.target.value })}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
               <div className="space-y-2">
@@ -125,6 +127,7 @@ export function ServiceCard({
                   onChange={e => onUpdate(service.id, { price: e.target.value })}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
             </div>
@@ -138,6 +141,7 @@ export function ServiceCard({
                   onChange={e => onUpdate(service.id, { when: e.target.value })}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
               <div className="space-y-2">
@@ -148,6 +152,7 @@ export function ServiceCard({
                   onChange={e => onUpdate(service.id, { where: e.target.value })}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
             </div>
@@ -161,6 +166,7 @@ export function ServiceCard({
                   onChange={e => onUpdate(service.id, { who: e.target.value })}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
               <div className="space-y-2">
@@ -171,6 +177,7 @@ export function ServiceCard({
                   onChange={e => onUpdate(service.id, { why: e.target.value })}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
             </div>
@@ -184,6 +191,7 @@ export function ServiceCard({
                   onChange={e => onUpdate(service.id, { what: e.target.value })}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
               <div className="space-y-2">
@@ -194,6 +202,7 @@ export function ServiceCard({
                   onChange={e => onUpdate(service.id, { how: e.target.value })}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 />
               </div>
             </div>
