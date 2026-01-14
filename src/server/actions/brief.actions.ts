@@ -90,7 +90,19 @@ export const getBrief = async (
       return { success: false, error: briefResult.error.userMessage };
     }
 
-    return { success: true, data: briefResult.data as BriefInput | null };
+    // データがない場合はnullを返す
+    if (briefResult.data === null) {
+      return { success: true, data: null };
+    }
+
+    // Zodスキーマでバリデーション
+    const parseResult = briefInputSchema.safeParse(briefResult.data);
+    if (!parseResult.success) {
+      console.warn('事業者情報のバリデーション失敗:', parseResult.error.issues);
+      return { success: false, error: ERROR_MESSAGES.BRIEF.INVALID_DATA_FORMAT };
+    }
+
+    return { success: true, data: parseResult.data };
   } catch (error) {
     console.error('事業者情報の取得エラー:', error);
     return {
