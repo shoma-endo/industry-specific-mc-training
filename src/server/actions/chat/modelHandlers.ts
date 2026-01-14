@@ -46,6 +46,28 @@ function resolveTargetService(
 export class ModelHandlerService {
   private processor = new ChatProcessorService();
 
+  /**
+   * LP draft用の変数を構築するヘルパー関数
+   * @param userId ユーザーID
+   * @param serviceId オプションのサービスID
+   * @returns 変数のレコード
+   */
+  private async buildLPDraftVariables(
+    userId: string,
+    serviceId?: string
+  ): Promise<Record<string, string>> {
+    const briefData = await BriefService.getVariablesByUserId(userId).catch(() => null);
+    const profileVars = PromptService.buildProfileVariables(briefData?.profile ?? null);
+    const targetService = resolveTargetService(briefData?.services, serviceId);
+    const serviceVars = PromptService.buildServiceVariables(targetService);
+    return {
+      ...profileVars,
+      ...serviceVars,
+      service: serviceVars.serviceName || '',
+      persona: briefData?.persona || '',
+    };
+  }
+
   async handleStart(userId: string, data: StartChatInput): Promise<ChatResponse> {
     const { userMessage, model, liffAccessToken, serviceId } = data;
     // キャッシュ戦略を活用した動的プロンプト取得
@@ -145,16 +167,7 @@ export class ModelHandlerService {
         model
       );
     } else if (model === 'lp_draft_creation') {
-      const briefData = await BriefService.getVariablesByUserId(userId).catch(() => null);
-      const profileVars = PromptService.buildProfileVariables(briefData?.profile ?? null);
-      const targetService = resolveTargetService(briefData?.services, serviceId);
-      const serviceVars = PromptService.buildServiceVariables(targetService);
-      const variables: Record<string, string> = {
-        ...profileVars,
-        ...serviceVars,
-        service: serviceVars.serviceName || '', // 互換性のため
-        persona: briefData?.persona || '',
-      };
+      const variables = await this.buildLPDraftVariables(userId, serviceId);
       const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
 
       const validMessages = messages.map(msg => ({
@@ -282,16 +295,7 @@ export class ModelHandlerService {
     userMessage: string,
     serviceId?: string
   ): Promise<ChatResponse> {
-    const briefData = await BriefService.getVariablesByUserId(userId).catch(() => null);
-    const profileVars = PromptService.buildProfileVariables(briefData?.profile ?? null);
-    const targetService = resolveTargetService(briefData?.services, serviceId);
-    const serviceVars = PromptService.buildServiceVariables(targetService);
-    const variables: Record<string, string> = {
-      ...profileVars,
-      ...serviceVars,
-      service: serviceVars.serviceName || '', // 互換性のため
-      persona: briefData?.persona || '',
-    };
+    const variables = await this.buildLPDraftVariables(userId, serviceId);
     const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
 
     try {

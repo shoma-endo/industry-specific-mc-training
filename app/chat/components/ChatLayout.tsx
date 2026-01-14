@@ -1008,7 +1008,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       chatSession.state.currentSessionId,
       chatSession.actions,
       selectedServiceId,
-      setNextStepForPlaceholder,
     ]
   );
 

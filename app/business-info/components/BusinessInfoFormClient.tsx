@@ -44,7 +44,7 @@ const DEFAULT_PROFILE: Profile = {
 };
 
 const createEmptyService = (): Service => ({
-  id: crypto?.randomUUID?.() || `service-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  id: crypto?.randomUUID?.() || `service-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
   name: '',
 });
 

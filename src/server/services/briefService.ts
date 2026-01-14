@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { briefInputSchema } from '@/server/schemas/brief.schema';
 import type { BriefInput, Payment } from '@/server/schemas/brief.schema';
 
 export interface Brief {
@@ -17,11 +18,13 @@ export class BriefService {
    * 旧形式のデータを新形式に変換
    */
   private static migrateOldBriefToNew(oldData: unknown): BriefInput {
-    // すでに新形式（servicesキーがある）ならそのまま
-    const data = oldData as Record<string, unknown>;
-    if (data && data.services) {
-      return data as unknown as BriefInput;
+    // すでに新形式かどうかをスキーマで検証
+    const parseResult = briefInputSchema.safeParse(oldData);
+    if (parseResult.success) {
+      return parseResult.data;
     }
+
+    const data = oldData as Record<string, unknown>;
 
     return {
       profile: {

@@ -390,16 +390,30 @@ export class SupabaseService {
 
   /**
    * チャットセッションに紐づくサービスIDを取得
+   * オーナー/スタッフ間のアクセス制御に対応
    */
   async getSessionServiceId(
     sessionId: string,
     userId: string
   ): Promise<SupabaseResult<string | null>> {
+    const { data: accessibleIds, error: accessError } = await this.supabase.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return this.failure('アクセス権の確認に失敗しました', {
+        error: accessError,
+        developerMessage: 'Failed to get accessible user IDs',
+        context: { sessionId, userId },
+      });
+    }
+
     const { data, error } = await this.supabase
       .from('chat_sessions')
       .select('service_id')
       .eq('id', sessionId)
-      .eq('user_id', userId)
+      .in('user_id', accessibleIds)
       .single();
 
     if (error) {
@@ -413,7 +427,7 @@ export class SupabaseService {
       });
     }
 
-    return this.success((data as unknown as { service_id: string | null })?.service_id || null);
+    return this.success(data?.service_id ?? null);
   }
 
   /**
