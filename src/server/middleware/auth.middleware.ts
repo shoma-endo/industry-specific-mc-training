@@ -6,7 +6,7 @@ import Stripe from 'stripe';
 import { LineAuthService, LineTokenExpiredError } from '@/server/services/lineAuthService';
 import { StripeService } from '@/server/services/stripeService';
 import { userService } from '@/server/services/userService';
-import { isUnavailable } from '@/authUtils';
+import { isUnavailable, isActualOwner as isActualOwnerHelper } from '@/authUtils';
 import { env } from '@/env';
 import { LiffError } from '@/domain/errors/LiffError';
 import type { User, UserRole } from '@/types/user';
@@ -29,6 +29,7 @@ export interface AuthenticatedUser {
   viewModeUserId?: string;
   actorUserId?: string;
   actorRole?: UserRole | null;
+  ownerUserId?: string | null;
   error?: string;
   newAccessToken?: string;
   newRefreshToken?: string;
@@ -63,19 +64,23 @@ export async function ensureAuthenticated({
   allowDevelopmentBypass = true,
   skipSubscriptionCheck = false,
 }: EnsureAuthenticatedOptions): Promise<AuthenticatedUser> {
-const withTokens = (
-  result: AuthenticatedUser,
-  tokens: { accessToken?: string | null; refreshToken?: string | null }
-): AuthenticatedUser => {
-  if (tokens.accessToken != null) {
-    result.newAccessToken = tokens.accessToken;
-  }
-  if (tokens.refreshToken != null) {
-    result.newRefreshToken = tokens.refreshToken;
-  }
-  return result;
-};
-  if (allowDevelopmentBypass && process.env.NODE_ENV === 'development' && accessToken === 'dummy-token') {
+  const withTokens = (
+    result: AuthenticatedUser,
+    tokens: { accessToken?: string | null; refreshToken?: string | null }
+  ): AuthenticatedUser => {
+    if (tokens.accessToken != null) {
+      result.newAccessToken = tokens.accessToken;
+    }
+    if (tokens.refreshToken != null) {
+      result.newRefreshToken = tokens.refreshToken;
+    }
+    return result;
+  };
+  if (
+    allowDevelopmentBypass &&
+    process.env.NODE_ENV === 'development' &&
+    accessToken === 'dummy-token'
+  ) {
     return {
       lineUserId: 'dummy-line-user-id',
       userId: 'dummy-app-user-id',
@@ -103,7 +108,10 @@ const withTokens = (
   let latestRefreshToken: string | undefined;
 
   try {
-    const verificationResult = await lineAuthService.verifyLineTokenWithRefresh(accessToken, refreshToken);
+    const verificationResult = await lineAuthService.verifyLineTokenWithRefresh(
+      accessToken,
+      refreshToken
+    );
 
     if (!verificationResult.isValid || verificationResult.needsReauth) {
       return withTokens(
@@ -166,7 +174,10 @@ const withTokens = (
     let actorRole: UserRole | null | undefined;
     let viewModeUserIdResolved: string | undefined;
 
-    if (isViewModeEnabled && viewModeUserId && user.role === 'owner') {
+    // View Mode: ownerロール（ownerUserId=null）のみ許可する
+    const isActualOwner = isActualOwnerHelper(user.role, user.ownerUserId);
+
+    if (isViewModeEnabled && viewModeUserId && isActualOwner) {
       const viewUser = await userService.getUserById(viewModeUserId);
       if (viewUser && viewUser.ownerUserId === user.id) {
         actorUserId = user.id;
@@ -179,12 +190,13 @@ const withTokens = (
 
     const viewModeInfo: Pick<
       AuthenticatedUser,
-      'viewMode' | 'viewModeUserId' | 'actorUserId' | 'actorRole'
+      'viewMode' | 'viewModeUserId' | 'actorUserId' | 'actorRole' | 'ownerUserId'
     > = {
       ...(isViewMode ? { viewMode: true } : {}),
       ...(viewModeUserIdResolved ? { viewModeUserId: viewModeUserIdResolved } : {}),
       ...(actorUserId ? { actorUserId } : {}),
       ...(actorRole ? { actorRole } : {}),
+      ownerUserId: user.ownerUserId ?? null,
     };
 
     if (isUnavailable(user.role)) {
@@ -253,10 +265,7 @@ const withTokens = (
             }
           }
         } catch (roleUpdateError) {
-          console.error(
-            '[Auth Middleware] Failed to promote user role to paid:',
-            roleUpdateError
-          );
+          console.error('[Auth Middleware] Failed to promote user role to paid:', roleUpdateError);
         }
       }
     } else {

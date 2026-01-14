@@ -128,7 +128,25 @@ export const ERROR_MESSAGES = {
     AUTHENTICATION_FAILED: '認証に失敗しました',
 
     /** 未認証エラー */
+    UNAUTHENTICATED: '未認証',
+
+    /** 再認証が必要な場合 */
+    REAUTHENTICATION_REQUIRED: '再認証が必要です',
+
+    /** 権限がない場合 */
     UNAUTHORIZED: '権限がありません',
+
+    /** アクセス権の確認に失敗した場合 */
+    ACCESS_CHECK_FAILED: 'アクセス権の確認に失敗しました',
+
+    /** オーナー権限が必要な場合 */
+    OWNER_REQUIRED: 'この操作はオーナー権限が必要です',
+
+    /** スタッフユーザーが操作できない場合 */
+    STAFF_OPERATION_NOT_ALLOWED: 'スタッフユーザーはこの操作を実行できません',
+
+    /** View Mode中のオーナーとスタッフが操作できない場合（本人のオーナーアカウントのみ許可） */
+    OWNER_ACCOUNT_REQUIRED: 'この操作は本人のオーナーアカウントでのみ実行できます',
   },
 
   /**

@@ -21,16 +21,18 @@ import {
   ShieldOff,
   Unplug,
   AlertTriangle,
+  BarChart3,
 } from 'lucide-react';
 import {
   disconnectGsc,
   saveGscProperty,
 } from '@/server/actions/gscSetup.actions';
-import { formatDate } from '@/lib/date-formatter';
+import { formatDate } from '@/lib/date-utils';
 import { GscStatusBadge } from '@/components/ui/GscStatusBadge';
 import { useGscSetup } from '@/hooks/useGscSetup';
 import { handleAsyncAction } from '@/lib/async-handler';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { useLiffContext } from '@/components/LiffProvider';
 
 interface GscSetupClientProps {
   initialStatus: GscConnectionStatus;
@@ -40,6 +42,7 @@ interface GscSetupClientProps {
 const OAUTH_START_PATH = '/api/gsc/oauth/start';
 
 export default function GscSetupClient({ initialStatus, isOauthConfigured }: GscSetupClientProps) {
+  const { user } = useLiffContext();
   const {
     status,
     properties,
@@ -53,7 +56,11 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     refetchProperties,
   } = useGscSetup(initialStatus);
 
+  const isStaffUser = Boolean(user?.ownerUserId);
+  // Setup画面は閲覧モード対象外（オーナーは常に操作可能）
+  const isReadOnly = isStaffUser;
   const needsReauth = status.needsReauth ?? false;
+  const canImport = !isReadOnly && status.connected && Boolean(status.propertyUri) && !needsReauth;
 
   const [isUpdatingProperty, setIsUpdatingProperty] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -63,17 +70,20 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     return properties.find(property => property.siteUrl === status.propertyUri) ?? null;
   }, [status.propertyUri, properties]);
 
-  const selectValueProps: { value?: string } = status.propertyUri ? { value: status.propertyUri } : {};
+  const selectValueProps: { value?: string } = status.propertyUri
+    ? { value: status.propertyUri }
+    : {};
 
   const handlePropertyChange = async (value: string) => {
     const selected = properties.find(property => property.siteUrl === value);
     await handleAsyncAction(
-      () => saveGscProperty({
-        propertyUri: value,
-        permissionLevel: selected?.permissionLevel ?? null,
-      }),
+      () =>
+        saveGscProperty({
+          propertyUri: value,
+          permissionLevel: selected?.permissionLevel ?? null,
+        }),
       {
-        onSuccess: (data) => {
+        onSuccess: data => {
           setStatus(data as GscConnectionStatus);
           setAlertMessage('プロパティを保存しました');
         },
@@ -85,19 +95,16 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
   };
 
   const handleDisconnect = async () => {
-    await handleAsyncAction(
-      disconnectGsc,
-      {
-        onSuccess: () => {
-          setStatus({ connected: false });
-          setProperties([]);
-          setAlertMessage('Google Search Consoleとの連携を解除しました');
-        },
-        setLoading: setIsDisconnecting,
-        setMessage: setAlertMessage,
-        defaultErrorMessage: '連携解除に失敗しました',
-      }
-    );
+    await handleAsyncAction(disconnectGsc, {
+      onSuccess: () => {
+        setStatus({ connected: false });
+        setProperties([]);
+        setAlertMessage('Google Search Consoleとの連携を解除しました');
+      },
+      setLoading: setIsDisconnecting,
+      setMessage: setAlertMessage,
+      defaultErrorMessage: '連携解除に失敗しました',
+    });
   };
 
   return (
@@ -126,7 +133,8 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
           <p className="mt-1">
             管理者は <code className="font-mono text-xs">GOOGLE_OAUTH_CLIENT_ID</code>,{' '}
             <code className="font-mono text-xs">GOOGLE_OAUTH_CLIENT_SECRET</code>,{' '}
-            <code className="font-mono text-xs">GOOGLE_SEARCH_CONSOLE_REDIRECT_URI</code> を設定した上で再デプロイしてください。
+            <code className="font-mono text-xs">GOOGLE_SEARCH_CONSOLE_REDIRECT_URI</code>{' '}
+            を設定した上で再デプロイしてください。
           </p>
         </div>
       )}
@@ -139,9 +147,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
             <p className="font-semibold">Googleアカウントの再認証が必要です</p>
           </div>
           <div className="text-sm text-orange-700 space-y-2">
-            <p>
-              認証トークンが期限切れまたは取り消されています。再認証してください。
-            </p>
+            <p>認証トークンが期限切れまたは取り消されています。再認証してください。</p>
             <div>
               <p className="font-medium">考えられる理由:</p>
               <ul className="list-disc list-inside ml-2 mt-1">
@@ -171,7 +177,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
             variant="ghost"
             size="sm"
             onClick={refreshStatus}
-            disabled={isSyncingStatus}
+            disabled={isSyncingStatus || isReadOnly}
             className="flex items-center gap-1"
           >
             <RefreshCw className={`h-4 w-4 ${isSyncingStatus ? 'animate-spin' : ''}`} />
@@ -179,20 +185,26 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                <span className="text-sm text-gray-500">現在の状態</span>
-                <GscStatusBadge connected={status.connected} needsReauth={needsReauth} />
-              </div>
-              {isOauthConfigured ? (
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-gray-500">現在の状態</span>
+              <GscStatusBadge connected={status.connected} needsReauth={needsReauth} />
+            </div>
+            {isOauthConfigured ? (
+              isReadOnly ? (
+                <Button disabled variant="outline">
+                  オーナーのみ操作できます
+                </Button>
+              ) : (
                 <GoogleSignInButton asChild>
                   <a href={OAUTH_START_PATH}>Googleでログイン</a>
                 </GoogleSignInButton>
-              ) : (
-                <Button disabled variant="outline">
-                  OAuth設定が無効です
-                </Button>
-              )}
+              )
+            ) : (
+              <Button disabled variant="outline">
+                OAuth設定が無効です
+              </Button>
+            )}
           </div>
 
           {status.connected && (
@@ -223,9 +235,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
                   </Badge>
                 )}
                 {status.updatedAt && (
-                  <Badge variant="outline">
-                    最終更新: {formatDate(status.updatedAt)}
-                  </Badge>
+                  <Badge variant="outline">最終更新: {formatDate(status.updatedAt)}</Badge>
                 )}
               </div>
             </div>
@@ -247,7 +257,9 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
               <Select
                 {...selectValueProps}
                 onValueChange={handlePropertyChange}
-                disabled={isLoadingProperties || isUpdatingProperty || properties.length === 0}
+                disabled={
+                  isReadOnly || isLoadingProperties || isUpdatingProperty || properties.length === 0
+                }
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="プロパティを選択" />
@@ -259,7 +271,9 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
                         <span>{property.displayName}</span>
                         <span className="text-xs text-gray-500">
                           {property.permissionLevel}
-                          {property.propertyType === 'sc-domain' ? ' · ドメイン' : ' · URLプレフィックス'}
+                          {property.propertyType === 'sc-domain'
+                            ? ' · ドメイン'
+                            : ' · URLプレフィックス'}
                         </span>
                       </div>
                     </SelectItem>
@@ -269,7 +283,10 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
               <div className="text-xs text-gray-500">
                 {isLoadingProperties && 'プロパティ一覧を取得中です...'}
                 {!isLoadingProperties && properties.length === 0 && (
-                  <span>権限のあるプロパティが見つかりません。Google Search Console側で権限を確認してください。</span>
+                  <span>
+                    権限のあるプロパティが見つかりません。Google Search
+                    Console側で権限を確認してください。
+                  </span>
                 )}
               </div>
             </div>
@@ -281,7 +298,9 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
                 </div>
                 <div>
                   <span className="font-medium">種別:</span>{' '}
-                  {connectedProperty.propertyType === 'sc-domain' ? 'ドメインプロパティ' : 'URLプレフィックス'}
+                  {connectedProperty.propertyType === 'sc-domain'
+                    ? 'ドメインプロパティ'
+                    : 'URLプレフィックス'}
                 </div>
                 <div>
                   <span className="font-medium">検証:</span>{' '}
@@ -295,17 +314,41 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
                 type="button"
                 variant="outline"
                 onClick={refetchProperties}
-                disabled={isLoadingProperties}
+                disabled={isReadOnly || isLoadingProperties}
                 className="flex items-center gap-2"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoadingProperties ? 'animate-spin' : ''}`} />
                 プロパティ再取得
               </Button>
+              {!canImport ? (
+                <Button type="button" disabled className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Google Search Console 日次指標インポート
+                </Button>
+              ) : (
+                <Button type="button" asChild className="flex items-center gap-2">
+                  <Link href="/gsc-import">
+                    <BarChart3 className="h-4 w-4" />
+                    Google Search Console 日次指標インポート
+                  </Link>
+                </Button>
+              )}
+              {!canImport && (
+                <p className="text-xs text-gray-500">
+                  {needsReauth
+                    ? '再認証が必要なため、インポートは無効です。'
+                    : !status.connected
+                      ? 'GSC未接続のため、インポートは無効です。'
+                      : !status.propertyUri
+                        ? 'プロパティを選択して保存してください。'
+                        : '読み取り専用のため、インポートは無効です。'}
+                </p>
+              )}
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleDisconnect}
-                disabled={isDisconnecting}
+                disabled={isReadOnly || isDisconnecting}
                 className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
               >
                 <Unplug className="h-4 w-4" />
@@ -326,7 +369,8 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
               <li>権限が確認でき次第、利用可能なプロパティが自動的に表示されます。</li>
             </ol>
             <p className="text-xs text-gray-500">
-              Search Consoleで権限を付与する際は、サイト全体の「所有者」または「フルユーザー」権限が必要です。
+              Search
+              Consoleで権限を付与する際は、サイト全体の「所有者」または「フルユーザー」権限が必要です。
             </p>
           </CardContent>
         </Card>

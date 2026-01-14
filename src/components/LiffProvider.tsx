@@ -1,13 +1,6 @@
 'use client';
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
-} from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useLiff } from '@/hooks/useLiff';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +9,7 @@ import { ViewModeBanner } from '@/components/ViewModeBanner';
 import type { LiffContextType } from '@/types/components';
 import type { User } from '@/types/user';
 import { usePathname, useRouter } from 'next/navigation';
-import { isOwner } from '@/authUtils';
+import { hasOwnerRole } from '@/authUtils';
 
 const LiffContext = createContext<LiffContextType | null>(null);
 
@@ -56,9 +49,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     }
     const cookies = document.cookie.split(';').map(cookie => cookie.trim());
     const hasViewMode = cookies.some(cookie => cookie.startsWith('owner_view_mode=1'));
-    const hasViewUser = cookies.some(cookie =>
-      cookie.startsWith('owner_view_mode_employee_id=')
-    );
+    const hasViewUser = cookies.some(cookie => cookie.startsWith('owner_view_mode_employee_id='));
     return hasViewMode && hasViewUser;
   }
 
@@ -252,16 +243,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     }
 
     router.replace('/login');
-  }, [
-    hasServerSession,
-    isLoading,
-    isLoggedIn,
-    isPublicPath,
-    liffObject,
-    login,
-    pathname,
-    router,
-  ]);
+  }, [hasServerSession, isLoading, isLoggedIn, isPublicPath, liffObject, login, pathname, router]);
 
   useEffect(() => {
     if (!pathname) {
@@ -274,17 +256,8 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
     if (!viewModeResolved) {
       return;
     }
-    if (isOwner(user?.role ?? null) && pathname !== '/' && !isOwnerViewMode && !cookieViewMode) {
-      router.replace('/');
-    }
-  }, [
-    isOwnerViewMode,
-    pathname,
-    refreshUser,
-    router,
-    user?.role,
-    viewModeResolved,
-  ]);
+    // Note: Owner redirect logic removed to allow owners access to all pages (e.g. /setup) without view mode
+  }, [isOwnerViewMode, pathname, refreshUser, router, user?.role, viewModeResolved]);
 
   useEffect(() => {
     if (
@@ -388,7 +361,7 @@ export function LiffProvider({ children, initialize = false }: LiffProviderProps
         {/* 公開ページの場合はpb-20 (フッター分の余白) を適用しない */}
         <main className={`flex-1 ${isPublicPath ? '' : 'pb-20'}`}>{children}</main>
         {/* 公開ページ以外でのみFooterを表示（閲覧モード時は表示する） */}
-        {!isPublicPath && (!isOwner(user?.role ?? null) || isOwnerViewMode) && <Footer />}
+        {!isPublicPath && (!hasOwnerRole(user?.role ?? null) || isOwnerViewMode) && <Footer />}
       </div>
     </LiffContext.Provider>
   );

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { generateOAuthState } from '@/server/lib/oauth-state';
 import { GOOGLE_SEARCH_CONSOLE_SCOPES } from '@/lib/constants';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -42,6 +43,9 @@ export async function GET() {
       { error: authResult.error || 'ユーザー認証に失敗しました' },
       { status: 401 }
     );
+  }
+  if (authResult.viewMode || authResult.ownerUserId) {
+    return NextResponse.json({ error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED }, { status: 403 });
   }
 
   const { state } = generateOAuthState(authResult.userId, cookieSecret);

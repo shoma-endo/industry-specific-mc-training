@@ -12,10 +12,11 @@
     "ngrok": "tsx scripts/ngrok.ts",
     "db:stats": "tsx scripts/check-db-stats.ts",
     "vercel:stats": "tsx scripts/check-vercel-stats.ts",
+    "active:users": "tsx scripts/check-active-users.ts",
     "prepare": "husky"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.65.0",
+    "@anthropic-ai/sdk": "^0.71.2",
     "@line/liff": "^2.25.1",
     "@radix-ui/react-avatar": "^1.1.3",
     "@radix-ui/react-checkbox": "^1.1.4",

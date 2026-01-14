@@ -12,7 +12,7 @@ const employeeInfoSchema = z.object({
 
 const employeeResponseSchema = z.object({
   hasEmployee: z.boolean(),
-  employee: employeeInfoSchema.optional(),
+  employee: employeeInfoSchema.nullable().optional(),
 });
 
 const invitationInfoSchema = z.object({
@@ -23,7 +23,7 @@ const invitationInfoSchema = z.object({
 
 const invitationStatusSchema = z.object({
   hasActiveInvitation: z.boolean(),
-  invitation: invitationInfoSchema.optional(),
+  invitation: invitationInfoSchema.nullable().optional(),
 });
 
 const createInvitationResponseSchema = z.object({

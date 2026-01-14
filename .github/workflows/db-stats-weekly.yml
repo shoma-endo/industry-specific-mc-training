@@ -30,10 +30,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
         run: |
-          cat > .env.local << EOF
-          NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-          SUPABASE_SERVICE_ROLE=${SUPABASE_SERVICE_ROLE}
-          EOF
+          echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}" > .env.local
+          echo "SUPABASE_SERVICE_ROLE=${SUPABASE_SERVICE_ROLE}" >> .env.local
 
       - name: Run database stats
         id: db-stats

@@ -102,13 +102,42 @@ export async function POST(req: NextRequest) {
 
     // 共有サービスのプロンプト取得を利用
 
-    // Anthropic用のメッセージ形式に変換
+    // 履歴の正規化: 最後のメッセージがuserの場合、今回の入力と結合する
+    // Anthropic APIはuser/assistantの交互配置を要求するため、連続するuserメッセージを防ぐ
+    const normalizedMessages = [...messages];
+    let combinedUserMessage = userMessage;
+
+    const lastMessage = normalizedMessages[normalizedMessages.length - 1];
+    if (lastMessage && lastMessage.role === 'user') {
+      const lastMsg = normalizedMessages.pop();
+      if (lastMsg) {
+        combinedUserMessage = `${lastMsg.content}\n\n${userMessage}`;
+      }
+    }
+
+    // Anthropic用のメッセージ形式に変換（Prompt Caching対応）
     const anthropicMessages = [
-      ...messages.map(msg => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content,
-      })),
-      { role: 'user' as const, content: userMessage },
+      ...normalizedMessages.map((msg, index) => {
+        // 履歴の最後のメッセージにキャッシュを適用（現在のユーザー入力の直前）
+        // これにより、ここまでの会話履歴がキャッシュされる
+        if (index === normalizedMessages.length - 1) {
+          return {
+            role: msg.role as 'user' | 'assistant',
+            content: [
+              {
+                type: 'text' as const,
+                text: msg.content,
+                cache_control: { type: 'ephemeral' as const },
+              },
+            ],
+          };
+        }
+        return {
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+        };
+      }),
+      { role: 'user' as const, content: combinedUserMessage },
     ];
 
     // ReadableStreamを作成
@@ -167,7 +196,13 @@ export async function POST(req: NextRequest) {
             model: resolvedModel,
             max_tokens: resolvedMaxTokens,
             temperature: resolvedTemperature,
-            system: systemPrompt,
+            system: [
+              {
+                type: 'text' as const,
+                text: systemPrompt,
+                cache_control: { type: 'ephemeral' as const },
+              },
+            ],
             messages: anthropicMessages,
             ...(enableWebSearch && {
               tools: [
@@ -196,7 +231,9 @@ export async function POST(req: NextRequest) {
             cleanup();
             try {
               controller.close();
-            } catch {}
+            } catch (error) {
+              console.warn('[Stream] Failed to close controller:', error);
+            }
           };
           req.signal.addEventListener('abort', onAbort);
 

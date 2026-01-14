@@ -15,8 +15,17 @@ import { Color } from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
-import { createLowlight } from 'lowlight';
-import { X, ClipboardCheck, List, Loader2, Info, SearchCheck, PenLine, RotateCw } from 'lucide-react';
+import { createLowlight, common } from 'lowlight';
+import {
+  X,
+  ClipboardCheck,
+  List,
+  Loader2,
+  Info,
+  SearchCheck,
+  PenLine,
+  RotateCw,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -30,36 +39,15 @@ import { BLOG_STEP_LABELS, isStep7 as isBlogStep7 } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
 import type {
   CanvasSelectionEditPayload,
-  CanvasSelectionEditResult,
   CanvasBubbleState,
   CanvasHeadingItem,
   CanvasSelectionState,
+  CanvasPanelProps,
+  CanvasVersionOption,
 } from '@/types/canvas';
 import { usePersistedResizableWidth } from '@/hooks/usePersistedResizableWidth';
 
-interface CanvasVersionOption {
-  id: string;
-  content: string;
-  versionNumber: number;
-  isLatest?: boolean;
-  raw?: string;
-}
-
-interface CanvasPanelProps {
-  onClose: () => void;
-  content?: string; // AIからの返信内容
-  isVisible?: boolean;
-  onSelectionEdit?: (payload: CanvasSelectionEditPayload) => Promise<CanvasSelectionEditResult>;
-  versions?: CanvasVersionOption[];
-  activeVersionId?: string | null;
-  onVersionSelect?: (versionId: string) => void;
-  stepOptions?: BlogStepId[];
-  activeStepId?: BlogStepId | null;
-  onStepSelect?: (stepId: BlogStepId) => void;
-  streamingContent?: string; // ストリーミング中のコンテンツ
-}
-
-const lowlight = createLowlight();
+const lowlight = createLowlight(common);
 
 // ✅ プレーンテキストからマークダウンへの変換
 const parseAsMarkdown = (text: string): string => {
@@ -249,48 +237,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
   }, []);
-
-  // ✅ Markdown 形式と URL テキスト形式の両方のリンクを検出して配列に格納
-  // 例: [テキスト](https://example.com) → { text, url, index }
-  // 例: https://example.com → { text: "https://example.com", url: "https://example.com", index }
-  const extractLinksFromText = useCallback(
-    (text: string): Array<{ text: string; url: string; index: number }> => {
-      const links: Array<{ text: string; url: string; index: number }> = [];
-      // パターン 1: Markdown リンク形式 [text](url)
-      // パターン 2: URL テキスト形式 https://... または /...
-      const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/)([^\s)]*)\)|((https?:\/\/|\/)[^\s]+)/g;
-      let match;
-      let index = 0;
-
-      while ((match = markdownLinkRegex.exec(text)) !== null) {
-        let linkText = '';
-        let linkUrl = '';
-
-        // Markdown 形式: [text](url)
-        if (match[1]) {
-          linkText = match[1] || '';
-          linkUrl = (match[2] || '') + (match[3] || '');
-        }
-        // URL テキスト形式: https://... または /...
-        else if (match[4]) {
-          linkUrl = match[4];
-          linkText = linkUrl; // URL がテキストになる
-        }
-
-        if (linkText && linkUrl) {
-          links.push({
-            text: linkText,
-            url: linkUrl,
-            index,
-          });
-          index++;
-        }
-      }
-
-      return links;
-    },
-    []
-  );
 
   const buildHtmlFromMarkdown = useCallback(
     (markdown: string): string => {
@@ -491,7 +437,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       const scrollTop = container.scrollTop;
       const scrollLeft = container.scrollLeft;
       const mode = modeOverride ?? selectionMode ?? 'menu';
-      const size = mode === 'choice' ? { width: 200, height: 90 } : MENU_SIZE[mode as keyof typeof MENU_SIZE];
+      const size =
+        mode === 'choice' ? { width: 200, height: 90 } : MENU_SIZE[mode as keyof typeof MENU_SIZE];
 
       const minTop = scrollTop + 8;
       const minLeft = scrollLeft + 8;
@@ -550,10 +497,79 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     editorProps: {
       attributes: {
         class:
-          'tiptap prose prose-lg max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2',
+          'tiptap prose prose-lg max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-100 prose-pre:text-gray-900 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2',
       },
     },
   });
+
+  // ✅ Markdown 形式と URL テキスト形式の両方のリンクを検出して配列に格納
+  // 例: [テキスト](https://example.com) → { text, url, index }
+  // 例: https://example.com → { text: "https://example.com", url: "https://example.com", index }
+  const extractLinksFromSelection = useCallback(
+    (selection: CanvasSelectionState): Array<{ text: string; url: string; index: number }> => {
+      const links: Array<{ text: string; url: string; index: number }> = [];
+      const seenUrls = new Set<string>();
+
+      if (editor) {
+        const { from, to } = selection;
+        editor.state.doc.nodesBetween(from, to, node => {
+          if (!node.isText) return;
+          node.marks.forEach(mark => {
+            if (mark.type.name !== 'link') return;
+            const hrefRaw = typeof mark.attrs?.href === 'string' ? mark.attrs.href.trim() : '';
+            const href = /^(https?:\/\/|\/)/.test(hrefRaw) ? hrefRaw : '';
+            if (!href || seenUrls.has(href)) return;
+            seenUrls.add(href);
+            links.push({
+              text: node.text?.trim() || href,
+              url: href,
+              index: links.length,
+            });
+          });
+        });
+      }
+
+      if (links.length > 0) {
+        return links;
+      }
+
+      // パターン 1: Markdown リンク形式 [text](url)
+      // パターン 2: URL テキスト形式 https://... または /...
+      const markdownLinkRegex =
+        /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/)([^\s)]*)\)|((https?:\/\/|\/)[^\s]+)/g;
+      let match: RegExpExecArray | null;
+      let index = 0;
+      const text = selection.text;
+
+      while ((match = markdownLinkRegex.exec(text)) !== null) {
+        let linkText = '';
+        let linkUrl = '';
+
+        // Markdown 形式: [text](url)
+        if (match[1]) {
+          linkText = match[1] || '';
+          linkUrl = (match[2] || '') + (match[3] || '');
+        }
+        // URL テキスト形式: https://... または /...
+        else if (match[4]) {
+          linkUrl = match[4];
+          linkText = linkUrl; // URL がテキストになる
+        }
+
+        if (linkText && linkUrl) {
+          links.push({
+            text: linkText,
+            url: linkUrl,
+            index,
+          });
+          index++;
+        }
+      }
+
+      return links;
+    },
+    [editor]
+  );
 
   // ✅ 選択範囲の監視（Canvas AI編集用）
   useEffect(() => {
@@ -568,7 +584,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         setSelectionState(null);
         selectionSnapshotRef.current = null;
         setSelectionMode(null);
-        setSelectionMode(null);
         setSelectionMenuPosition(null);
         setInstruction('');
         selectionAnchorRef.current = null;
@@ -577,13 +592,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
       const text = editor.state.doc.textBetween(from, to, '\n', '\n').trim();
       if (!text) {
-        setSelectionState(null);
-        selectionSnapshotRef.current = null;
-        setSelectionMode(null);
-        setSelectionMenuPosition(null);
-        setInstruction('');
-        selectionAnchorRef.current = null;
-        return;
         setSelectionState(null);
         selectionSnapshotRef.current = null;
         setSelectionMode(null);
@@ -741,7 +749,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     }
 
     // 選択範囲からリンクを検出
-    const links = extractLinksFromText(selection.text);
+    const links = extractLinksFromSelection(selection);
     if (links.length === 0) {
       setLastAiError('選択範囲にMarkdownリンク形式（[テキスト](URL)）またはURLが含まれていません');
       return;
@@ -763,9 +771,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       ].join('');
 
       const selectionPrompt = selectionText ? `\`\`\`\n${selectionText}\n\`\`\`` : '';
-      const combinedInstruction = [selectionPrompt, instruction]
-        .filter(Boolean)
-        .join('\n\n');
+      const combinedInstruction = [selectionPrompt, instruction].filter(Boolean).join('\n\n');
 
       const payload: CanvasSelectionEditPayload & { freeFormUserPrompt?: string } = {
         instruction: combinedInstruction,
@@ -789,8 +795,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
     } finally {
       setIsApplyingSelectionEdit(false);
     }
-  }, [activeSelection, editor, extractLinksFromText, markdownContent, onSelectionEdit]);
-
+  }, [activeSelection, editor, extractLinksFromSelection, markdownContent, onSelectionEdit]);
 
   const handleApplySelectionEdit = useCallback(
     async (instructionOverride?: string) => {
@@ -1242,11 +1247,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         <div className="relative min-h-full p-8 bg-white rounded-lg shadow-sm mx-4 my-4">
           <EditorContent
             editor={editor}
-            className="prose prose-lg max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2"
+            className="prose max-w-none transition-all duration-200 prose-h1:text-3xl prose-h1:font-bold prose-h1:text-center prose-h1:text-gray-900 prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-2xl prose-h2:font-semibold prose-h2:text-gray-800 prose-h2:mb-4 prose-h2:mt-6 prose-h3:text-xl prose-h3:font-medium prose-h3:text-gray-700 prose-h3:mb-3 prose-h3:mt-5 prose-h4:text-lg prose-h4:font-medium prose-h4:text-gray-600 prose-h4:mb-2 prose-h4:mt-4 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-ul:space-y-2 prose-li:text-gray-700 prose-ol:space-y-2 prose-strong:text-gray-900 prose-strong:font-semibold prose-em:text-gray-600 prose-em:italic prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:bg-gray-100 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-pre:bg-gray-100 prose-pre:text-gray-900 prose-pre:rounded-lg prose-pre:p-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-300 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-gray-600 prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:font-semibold prose-td:border prose-td:border-gray-300 prose-td:p-2"
             style={{
               // ChatGPT風の追加スタイル
               lineHeight: '1.7',
-              fontSize: '16px',
             }}
           />
 

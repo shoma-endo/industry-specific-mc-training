@@ -336,11 +336,24 @@ export class SupabaseService {
     sessionId: string,
     userId: string
   ): Promise<SupabaseResult<DbChatSession | null>> {
+    const { data: accessibleIds, error: accessError } = await this.supabase.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return this.failure('アクセス権の確認に失敗しました', {
+        error: accessError,
+        developerMessage: 'Failed to get accessible user IDs',
+        context: { sessionId, userId },
+      });
+    }
+
     const { data, error } = await this.supabase
       .from('chat_sessions')
       .select('*')
       .eq('id', sessionId)
-      .eq('user_id', userId)
+      .in('user_id', accessibleIds)
       .single();
 
     if (error) {
@@ -546,11 +559,25 @@ export class SupabaseService {
     sessionId: string,
     userId: string
   ): Promise<SupabaseResult<DbChatMessage[]>> {
+    // アクセス可能なユーザーIDを取得（オーナー/従業員の相互閲覧対応）
+    const { data: accessibleIds, error: accessError } = await this.supabase.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return this.failure('アクセス権の確認に失敗しました', {
+        error: accessError,
+        developerMessage: 'Failed to get accessible user IDs',
+        context: { userId },
+      });
+    }
+
     const { data, error } = await this.supabase
       .from('chat_messages')
       .select('*')
       .eq('session_id', sessionId)
-      .eq('user_id', userId) // これがないと他人のチャット履歴も取得できてしまう
+      .in('user_id', accessibleIds) // オーナー/従業員の相互閲覧に対応
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -1135,13 +1162,26 @@ export class SupabaseService {
    * チャットセッションとそれに紐づくすべてのメッセージ・コンテンツを削除
    */
   async deleteChatSession(sessionId: string, userId: string): Promise<SupabaseResult<void>> {
+    const { data: accessibleIds, error: accessError } = await this.supabase.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return this.failure('アクセス権の確認に失敗しました', {
+        error: accessError,
+        developerMessage: 'Failed to get accessible user IDs',
+        context: { sessionId, userId },
+      });
+    }
+
     // トランザクション的な削除を実行
     // 1. セッションに紐づくメッセージを削除
     const { error: messagesError } = await this.supabase
       .from('chat_messages')
       .delete()
       .eq('session_id', sessionId)
-      .eq('user_id', userId);
+      .in('user_id', accessibleIds);
 
     if (messagesError) {
       return this.failure('チャットメッセージの削除に失敗しました', {
@@ -1156,7 +1196,7 @@ export class SupabaseService {
       .from('content_annotations')
       .delete()
       .eq('session_id', sessionId)
-      .eq('user_id', userId);
+      .in('user_id', accessibleIds);
 
     if (annotationsError) {
       return this.failure('コンテンツ注釈の削除に失敗しました', {
@@ -1167,16 +1207,24 @@ export class SupabaseService {
     }
 
     // 3. セッション自体を削除
-    const { error: sessionError } = await this.supabase
+    const { data: deletedSessions, error: sessionError } = await this.supabase
       .from('chat_sessions')
       .delete()
       .eq('id', sessionId)
-      .eq('user_id', userId);
+      .in('user_id', accessibleIds)
+      .select('id');
 
     if (sessionError) {
       return this.failure('チャットセッションの削除に失敗しました', {
         error: sessionError,
         developerMessage: 'Failed to delete chat session',
+        context: { sessionId, userId },
+      });
+    }
+
+    if (!deletedSessions || deletedSessions.length === 0) {
+      return this.failure('チャットセッションが見つかりませんでした', {
+        developerMessage: 'Chat session delete affected 0 rows',
         context: { sessionId, userId },
       });
     }

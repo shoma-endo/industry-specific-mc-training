@@ -8,6 +8,8 @@ import {
   resolveViewModeRole,
   VIEW_MODE_ERROR_MESSAGE,
 } from '@/server/lib/view-mode';
+import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 const supabaseService = new SupabaseService();
 
@@ -30,8 +32,7 @@ export async function POST(request: NextRequest) {
     const contentTypes = normalizeContentTypes(parsedContentTypes);
 
     // 認証情報はCookieから取得（セキュリティベストプラクティス）
-    const liffToken = request.cookies.get('line_access_token')?.value;
-    const refreshToken = request.cookies.get('line_refresh_token')?.value;
+    const { accessToken: liffToken, refreshToken } = getLiffTokensFromRequest(request);
 
     if (!liffToken || !wpType) {
       return NextResponse.json(
@@ -46,6 +47,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Authentication failed' },
         { status: 401 }
+      );
+    }
+    if (authResult.viewMode || authResult.ownerUserId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
+        },
+        { status: 403 }
       );
     }
     if (await isViewModeEnabled(resolveViewModeRole(authResult))) {

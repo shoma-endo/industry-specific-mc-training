@@ -11,6 +11,29 @@ export function isUnavailable(role: UserRole | null): boolean {
   return role === 'unavailable';
 }
 
+/**
+ * role が 'owner' かどうかを判定
+ * 注意: 'owner' は閲覧専用権限のユーザーを指す
+ * スタッフユーザーは role='paid' + ownerUserId が設定されている
+ */
+export function hasOwnerRole(role: UserRole | null): boolean {
+  return role === 'owner';
+}
+
+/**
+ * 閲覧専用オーナー(role='owner')でかつ他のオーナーに紐付いていないユーザーかを判定
+ * - 閲覧専用オーナー: role='owner' かつ ownerUserId=null
+ * - スタッフユーザー: role='paid' かつ ownerUserId が設定されている
+ * 注意: この関数は閲覧専用オーナーの判定であり、スタッフ判定には使用できない
+ */
+export function isActualOwner(
+  role: UserRole | null,
+  ownerUserId: string | null | undefined
+): boolean {
+  return role === 'owner' && !ownerUserId;
+}
+
+/** @deprecated hasOwnerRole を使用してください */
 export function isOwner(role: UserRole | null): boolean {
   return role === 'owner';
 }

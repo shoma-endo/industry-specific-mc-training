@@ -7,7 +7,8 @@ export const ERROR_MESSAGES = {
 };
 
 // Chat Configuration
-export const CHAT_HISTORY_LIMIT = 12;
+export const CHAT_HISTORY_LIMIT = 10; // 件数制限を緩和し、文字数制限(CHAR_LIMIT)を主とする
+export const CHAT_HISTORY_CHAR_LIMIT = 30000; // 約20k-30kトークン相当
 
 export const GOOGLE_SEARCH_CONSOLE_SCOPES = [
   'https://www.googleapis.com/auth/webmasters.readonly',
@@ -35,6 +36,11 @@ const ANTHROPIC_BASE = {
   seed: 42,
 };
 
+const ANTHROPIC_HAIKU_BASE = {
+  ...ANTHROPIC_BASE,
+  actualModel: 'claude-haiku-4-5-20251001',
+};
+
 const OPENAI_BASE = {
   provider: 'openai' as const,
   temperature: 0.3,
@@ -45,40 +51,43 @@ const OPENAI_BASE = {
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2': {
     ...OPENAI_BASE,
-    maxTokens: 4500,
+    maxTokens: 3000,
     actualModel: 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2',
   },
-  ad_copy_creation: { ...ANTHROPIC_BASE, maxTokens: 4500 },
-  ad_copy_finishing: { ...ANTHROPIC_BASE, maxTokens: 4500 },
-  lp_draft_creation: { ...ANTHROPIC_BASE, maxTokens: 15000 },
+  ad_copy_creation: { ...ANTHROPIC_BASE, maxTokens: 4000 },
+  ad_copy_finishing: { ...ANTHROPIC_BASE, maxTokens: 4000 },
+  lp_draft_creation: { ...ANTHROPIC_BASE, maxTokens: 14000 },
   lp_improvement: { ...ANTHROPIC_BASE, maxTokens: 12000 },
   // ブログ作成ステップ（共通設定を適用し、maxTokensのみ個別指定）
-  blog_creation_step1: { ...ANTHROPIC_BASE, maxTokens: 5000 },
-  blog_creation_step2: { ...ANTHROPIC_BASE, maxTokens: 5000 },
-  blog_creation_step3: { ...ANTHROPIC_BASE, maxTokens: 5000 },
-  blog_creation_step4: { ...ANTHROPIC_BASE, maxTokens: 5000 },
+  blog_creation_step1: { ...ANTHROPIC_BASE, maxTokens: 4000 },
+  blog_creation_step2: { ...ANTHROPIC_BASE, maxTokens: 4000 },
+  blog_creation_step3: { ...ANTHROPIC_BASE, maxTokens: 4000 },
+  blog_creation_step4: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 5000 },
-  blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 5000 },
-  blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 15000 },
-  blog_title_meta_generation: { ...ANTHROPIC_BASE, maxTokens: 3000 },
+  blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 4000 },
+  blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 20000 },
+  blog_title_meta_generation: {
+    ...ANTHROPIC_HAIKU_BASE,
+    maxTokens: 2000,
+  },
   gsc_insight_ctr_boost: {
-    ...ANTHROPIC_BASE,
-    maxTokens: 8000,
+    ...ANTHROPIC_HAIKU_BASE,
+    maxTokens: 4000,
     label: 'タイトル・説明文の提案',
   },
   gsc_insight_intro_refresh: {
-    ...ANTHROPIC_BASE,
-    maxTokens: 8000,
+    ...ANTHROPIC_HAIKU_BASE,
+    maxTokens: 5000,
     label: '書き出し案の提案',
   },
   gsc_insight_body_rewrite: {
-    ...ANTHROPIC_BASE,
-    maxTokens: 12000,
+    ...ANTHROPIC_HAIKU_BASE,
+    maxTokens: 10000,
     label: '本文の提案',
   },
   gsc_insight_persona_rebuild: {
-    ...ANTHROPIC_BASE,
-    maxTokens: 16000,
+    ...ANTHROPIC_HAIKU_BASE,
+    maxTokens: 5000,
     label: 'ペルソナから全て変更',
   },
 };

@@ -1,11 +1,11 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { isOwner } from '@/authUtils';
+import { hasOwnerRole } from '@/authUtils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
 export interface UnreadSuggestion {
   id: string;
@@ -26,15 +26,13 @@ export interface UnreadSuggestionsResponse {
 const supabaseService = new SupabaseService();
 
 const getAuthUserId = async () => {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('line_access_token')?.value;
-  const refreshToken = cookieStore.get('line_refresh_token')?.value;
+  const { accessToken, refreshToken } = await getLiffTokensFromCookies();
 
   const authResult = await authMiddleware(accessToken, refreshToken);
   if (authResult.error || !authResult.userId) {
     return { error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
-  if (isOwner(authResult.userDetails?.role ?? null)) {
+  if (hasOwnerRole(authResult.userDetails?.role ?? null)) {
     return { error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
   }
   return { userId: authResult.userId };

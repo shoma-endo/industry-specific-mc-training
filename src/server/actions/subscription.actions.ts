@@ -30,7 +30,7 @@ async function ensureAuthorizedUser(
     };
   }
 
-  if (authResult.viewMode) {
+  if (authResult.viewMode || (authResult.userDetails && authResult.userDetails.role === 'owner')) {
     return {
       success: false,
       error: ERROR_MESSAGES.USER.VIEW_MODE_OPERATION_NOT_ALLOWED,
@@ -80,7 +80,8 @@ export async function getUserSubscription(liffAccessToken: string) {
     }
 
     // unavailableユーザーのサービス利用制限チェック
-    const user = authResult.userDetails ?? (await userService.getUserFromLiffToken(liffAccessToken));
+    const user =
+      authResult.userDetails ?? (await userService.getUserFromLiffToken(liffAccessToken));
     if (user && isUnavailable(user.role)) {
       return {
         success: false,

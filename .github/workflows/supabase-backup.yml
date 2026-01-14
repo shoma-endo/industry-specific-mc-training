@@ -1,0 +1,218 @@
+name: Supabase Weekly Backup
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Install PostgreSQL client
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create database dumps
+        run: |
+          set -euo pipefail
+          timestamp=$(date -u +"%Y%m%dT%H%M%SZ")
+          mkdir -p backup
+          schema_file="backup/${timestamp}_schema.sql"
+          data_file="backup/${timestamp}_data.sql"
+          role_file="backup/${timestamp}_role.sql"
+          if ! pg_dump --schema-only --no-owner --no-privileges --dbname="$SUPABASE_DB_URL" > "$schema_file"; then
+            echo "Error: Schema dump failed" >&2
+            exit 1
+          fi
+          if ! pg_dump --data-only --no-owner --dbname="$SUPABASE_DB_URL" > "$data_file"; then
+            echo "Error: Data dump failed" >&2
+            exit 1
+          fi
+          # pg_dumpall --roles-only requires superuser privileges
+          # If the connection URL doesn't have sufficient privileges, this will fail
+          # We attempt the dump but allow it to fail gracefully with a warning
+          # stderr is discarded to prevent error messages from being written to the file
+          if ! pg_dumpall --roles-only --dbname="$SUPABASE_DB_URL" > "$role_file" 2>/dev/null; then
+            echo "Warning: Role dump failed (may require superuser privileges)" >&2
+            # Create empty file to prevent validation error
+            touch "$role_file"
+          fi
+          # Validate dump files (role_file may be empty if permissions are insufficient)
+          for f in "$schema_file" "$data_file"; do
+            if [ ! -s "$f" ]; then
+              echo "Error: $f is empty" >&2
+              exit 1
+            fi
+          done
+          if [ ! -s "$role_file" ]; then
+            echo "Warning: $role_file is empty (role dump may require superuser privileges)" >&2
+          fi
+          gzip "$schema_file" "$data_file" "$role_file"
+          echo "BACKUP_PREFIX=${timestamp}" >> "$GITHUB_ENV"
+
+      - name: Upload to GCS
+        run: |
+          set -euo pipefail
+          destination="gs://${GCS_BUCKET_NAME}/supabase-backups/${BACKUP_PREFIX}/"
+          gcloud storage cp backup/*.gz "$destination"
+
+      - name: Collect GCS usage
+        if: always()
+        run: |
+          set +e
+          usage_output=$(gcloud storage du -s "gs://${GCS_BUCKET_NAME}/supabase-backups" 2>&1)
+          exit_code=$?
+          set -e
+          if [ $exit_code -ne 0 ]; then
+            echo "GCS usage collection failed: $usage_output" > gcs-usage.txt
+          else
+            echo "$usage_output" > gcs-usage.txt
+          fi
+        continue-on-error: true
+
+      - name: Send webhook notification
+        if: always()
+        run: |
+          # Webhook URLをログからマスク
+          echo "::add-mask::$SUPABASE_BACKUP_WEBHOOK_URL"
+
+          # デバッグ: ファイルの存在確認
+          if [ ! -f gcs-usage.txt ]; then
+            echo "Warning: gcs-usage.txt not found, using empty output"
+            echo "" > gcs-usage.txt
+          fi
+
+          # Node.jsでJSONペイロードを作成して送信
+          node << 'EOF'
+          const fs = require('fs');
+          const https = require('https');
+          const http = require('http');
+          const { URL } = require('url');
+
+          console.log('Starting webhook notification...');
+          console.log('STATUS:', process.env.STATUS);
+          console.log('Repository:', process.env.GITHUB_REPOSITORY);
+          console.log('Run ID:', process.env.GITHUB_RUN_ID);
+
+          let usage = '';
+          try {
+            usage = fs.readFileSync('gcs-usage.txt', 'utf-8');
+            console.log('Usage file read successfully, length:', usage.length);
+          } catch (error) {
+            console.warn('Failed to read usage file:', error.message);
+            usage = 'Usage file not available';
+          }
+
+          // Lark（飛書）webhook形式に合わせる
+          const statusEmoji = process.env.STATUS === 'success' ? '✅' : '❌';
+          const statusText = process.env.STATUS === 'success' ? '成功' : '失敗';
+          const workflowUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+          // メッセージ本文を作成
+          const messageText = `【Supabaseバックアップ】\n` +
+            `ステータス: ${statusEmoji} ${statusText}\n` +
+            `詳細: ${workflowUrl}\n\n` +
+            `【GCS使用量（supabase-backups）】\n\`\`\`\n${usage}\n\`\`\``;
+
+          const payload = {
+            msg_type: 'text',
+            content: {
+              text: messageText
+            }
+          };
+
+          const webhookUrl = process.env.SUPABASE_BACKUP_WEBHOOK_URL;
+          if (!webhookUrl) {
+            console.error('ERROR: SUPABASE_BACKUP_WEBHOOK_URL is not set');
+            process.exit(1);
+          }
+
+          console.log('Webhook URL: [MASKED]'); // URLは::add-mask::でマスク済みのため、存在確認のみログ出力
+
+          let url;
+          try {
+            url = new URL(webhookUrl);
+          } catch (error) {
+            console.error('ERROR: Invalid webhook URL:', error.message);
+            process.exit(1);
+          }
+
+          const client = url.protocol === 'https:' ? https : http;
+          const postData = JSON.stringify(payload);
+
+          console.log('Payload size:', postData.length, 'bytes');
+
+          const options = {
+            hostname: url.hostname,
+            port: url.port || (url.protocol === 'https:' ? 443 : 80),
+            path: url.pathname + url.search,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(postData)
+            },
+            timeout: 30000 // 30秒のタイムアウト
+          };
+
+          const req = client.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+              console.log('Response status:', res.statusCode);
+              console.log('Response headers:', JSON.stringify(res.headers));
+              if (res.statusCode >= 200 && res.statusCode < 300) {
+                console.log('✅ Webhook notification sent successfully');
+                console.log('Response body:', data.substring(0, 500)); // 最初の500文字のみ
+                process.exit(0);
+              } else {
+                console.error(`❌ Webhook notification failed with status ${res.statusCode}`);
+                console.error('Response body:', data);
+                process.exit(1);
+              }
+            });
+          });
+
+          req.on('error', (error) => {
+            console.error('❌ Webhook notification error:', error.message);
+            console.error('Error code:', error.code);
+            process.exit(1);
+          });
+
+          req.on('timeout', () => {
+            console.error('❌ Webhook request timeout');
+            req.destroy();
+            process.exit(1);
+          });
+
+          console.log('Sending webhook request...');
+          req.write(postData);
+          req.end();
+          EOF
+
+        env:
+          STATUS: ${{ job.status }}
+          SUPABASE_BACKUP_WEBHOOK_URL: ${{ secrets.SUPABASE_BACKUP_WEBHOOK_URL }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}

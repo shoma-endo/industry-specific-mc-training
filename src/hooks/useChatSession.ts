@@ -205,7 +205,9 @@ export const useChatSession = (
                     if (process.env.NODE_ENV === 'development') {
                       console.log(`[Stream ${eventType}]`, JSON.parse(dataCombined));
                     }
-                  } catch {}
+                  } catch (error) {
+                    console.warn('[Stream] Failed to parse JSON:', error);
+                  }
                 } else if (eventType === 'done') {
                   // 明示終了
                   return;

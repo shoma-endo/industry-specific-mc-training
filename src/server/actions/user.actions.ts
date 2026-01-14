@@ -1,7 +1,6 @@
 "use server"
 
 import { userService } from '@/server/services/userService';
-import { cookies } from 'next/headers';
 import {
   isViewModeEnabled,
   resolveViewModeRole,
@@ -9,12 +8,11 @@ import {
 } from '@/server/lib/view-mode';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 
 export const updateUserFullName = async (fullName: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const cookieStore = await cookies();
-    const lineAccessToken = cookieStore.get('line_access_token')?.value;
-    const refreshToken = cookieStore.get('line_refresh_token')?.value;
+    const { accessToken: lineAccessToken, refreshToken } = await getLiffTokensFromCookies();
 
     if (!lineAccessToken) {
       return { success: false, error: ERROR_MESSAGES.AUTH.NOT_LOGGED_IN };
