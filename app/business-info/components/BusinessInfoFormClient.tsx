@@ -44,7 +44,8 @@ const DEFAULT_PROFILE: Profile = {
 };
 
 const createEmptyService = (): Service => ({
-  id: crypto?.randomUUID?.() || `service-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+  id:
+    crypto?.randomUUID?.() || `service-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
   name: '',
 });
 
@@ -343,7 +344,9 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
               />
 
               <div>
-                <p id="payment-methods" className="mb-2 font-medium">決済方法</p>
+                <p id="payment-methods" className="mb-2 font-medium">
+                  決済方法
+                </p>
                 <div role="group" aria-labelledby="payment-methods">
                   {paymentEnum.options.map(payment => (
                     <div key={payment} className="flex items-center space-x-2 mb-1">

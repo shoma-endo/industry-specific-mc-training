@@ -1012,11 +1012,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
       await chatSession.actions.sendMessage(content, model, options);
     },
-    [
-      chatSession.state.currentSessionId,
-      chatSession.actions,
-      selectedServiceId,
-    ]
+    [chatSession.state.currentSessionId, chatSession.actions, selectedServiceId]
   );
 
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
