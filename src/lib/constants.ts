@@ -4,6 +4,9 @@ export const ERROR_MESSAGES = {
   ad_not_found: 'この検索キーワードでは広告情報が見つかりませんでした。',
   daily_chat_limit:
     '本日のチャット利用上限（3回）に達しました。上限は日本時間の00:00にリセットされます。',
+  // サービス選択関連
+  service_not_found: '指定されたサービスが見つかりません。事業者情報を確認してください。',
+  service_selection_required: 'サービスを選択してください。',
 };
 
 // Chat Configuration

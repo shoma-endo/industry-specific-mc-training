@@ -7,11 +7,41 @@ import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '@/server/schemas/chat.schema';
 import { BriefService } from '@/server/services/briefService';
 import { PromptService } from '@/server/services/promptService';
+import type { Service } from '@/server/schemas/brief.schema';
 
 /**
  * モデルに応じた動的プロンプト取得（React Cache活用）
  */
 const getSystemPrompt = getSystemPromptShared;
+
+/**
+ * serviceIdを検証し、有効なサービスを返すヘルパー関数
+ * @param services ユーザーのサービス一覧
+ * @param serviceId 検証対象のserviceId
+ * @returns 有効なサービス（存在しない場合は最初のサービスにフォールバック）
+ */
+function resolveTargetService(
+  services: Service[] | undefined,
+  serviceId: string | undefined
+): Service | null {
+  if (!services || services.length === 0) {
+    return null;
+  }
+
+  if (serviceId) {
+    const foundService = services.find(s => s.id === serviceId);
+    if (foundService) {
+      return foundService;
+    }
+    // serviceIdが指定されているが見つからない場合は警告を出力してフォールバック
+    console.warn(
+      `[ModelHandler] 指定されたserviceId "${serviceId}" が見つかりません。最初のサービスにフォールバックします。`
+    );
+  }
+
+  // serviceId未指定または見つからない場合は最初のサービスを返す
+  return services[0] ?? null;
+}
 
 export class ModelHandlerService {
   private processor = new ChatProcessorService();
@@ -117,10 +147,8 @@ export class ModelHandlerService {
     } else if (model === 'lp_draft_creation') {
       const briefData = await BriefService.getVariablesByUserId(userId).catch(() => null);
       const profileVars = PromptService.buildProfileVariables(briefData?.profile ?? null);
-      const targetService = serviceId
-        ? (briefData?.services?.find(s => s.id === serviceId) ?? briefData?.services?.[0])
-        : briefData?.services?.[0];
-      const serviceVars = PromptService.buildServiceVariables(targetService ?? null);
+      const targetService = resolveTargetService(briefData?.services, serviceId);
+      const serviceVars = PromptService.buildServiceVariables(targetService);
       const variables: Record<string, string> = {
         ...profileVars,
         ...serviceVars,
@@ -256,10 +284,8 @@ export class ModelHandlerService {
   ): Promise<ChatResponse> {
     const briefData = await BriefService.getVariablesByUserId(userId).catch(() => null);
     const profileVars = PromptService.buildProfileVariables(briefData?.profile ?? null);
-    const targetService = serviceId
-      ? (briefData?.services?.find(s => s.id === serviceId) ?? briefData?.services?.[0])
-      : briefData?.services?.[0];
-    const serviceVars = PromptService.buildServiceVariables(targetService ?? null);
+    const targetService = resolveTargetService(briefData?.services, serviceId);
+    const serviceVars = PromptService.buildServiceVariables(targetService);
     const variables: Record<string, string> = {
       ...profileVars,
       ...serviceVars,
