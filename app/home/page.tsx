@@ -19,9 +19,7 @@ export default function LandingPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">G</span>
             </div>
-            <span className="font-bold text-xl tracking-tight text-gray-900">
-              GrowMate
-            </span>
+            <span className="font-bold text-xl tracking-tight text-gray-900">GrowMate</span>
           </div>
           <nav className="hidden md:flex items-center gap-8">
             <Link
