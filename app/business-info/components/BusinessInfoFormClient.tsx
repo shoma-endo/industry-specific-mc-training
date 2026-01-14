@@ -343,7 +343,7 @@ export default function BusinessInfoFormClient({ initialData }: BusinessInfoForm
               />
 
               <div>
-                <p className="mb-2 font-medium">決済方法</p>
+                <p id="payment-methods" className="mb-2 font-medium">決済方法</p>
                 <div role="group" aria-labelledby="payment-methods">
                   {paymentEnum.options.map(payment => (
                     <div key={payment} className="flex items-center space-x-2 mb-1">

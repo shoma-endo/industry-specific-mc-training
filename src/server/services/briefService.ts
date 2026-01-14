@@ -1,6 +1,7 @@
 import { cache } from 'react';
+import { createHash } from 'crypto';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { briefInputSchema } from '@/server/schemas/brief.schema';
+import { briefInputSchema, paymentEnum } from '@/server/schemas/brief.schema';
 import type { BriefInput, Payment } from '@/server/schemas/brief.schema';
 
 export interface Brief {
@@ -15,9 +16,54 @@ export class BriefService {
   private static readonly supabaseService = new SupabaseService();
 
   /**
+   * 型安全な文字列変換ヘルパー
+   */
+  private static asString(value: unknown): string | undefined {
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  /**
+   * 型安全なPayment配列変換ヘルパー
+   */
+  private static asPaymentArray(value: unknown): Payment[] | undefined {
+    if (!Array.isArray(value)) {
+      return undefined;
+    }
+    const validPayments: Payment[] = [];
+    for (const item of value) {
+      const result = paymentEnum.safeParse(item);
+      if (result.success) {
+        validPayments.push(result.data);
+      }
+    }
+    return validPayments.length > 0 ? validPayments : undefined;
+  }
+
+  /**
+   * 決定論的なUUIDを生成（userIdと固定文字列から）
+   * マイグレーション時に同じuserIdから常に同じIDを生成するため
+   */
+  private static generateDeterministicUUID(userId: string, seed: string = 'brief-service-migration'): string {
+    const input = `${userId}:${seed}`;
+    const hash = createHash('sha256').update(input).digest();
+    
+    // ハッシュの最初の16バイトをUUID形式に変換
+    const bytes = Array.from(hash.slice(0, 16));
+    // SHA-256は常に32バイトを返すため、slice(0, 16)は常に16バイトを返す
+    if (bytes.length < 16) {
+      throw new Error('ハッシュ生成に失敗しました');
+    }
+    bytes[6] = (bytes[6]! & 0x0f) | 0x40; // Version 4 variant
+    bytes[8] = (bytes[8]! & 0x3f) | 0x80; // Variant bits
+    
+    const hex = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+  }
+
+  /**
    * 旧形式のデータを新形式に変換
    */
-  private static migrateOldBriefToNew(oldData: unknown): BriefInput {
+  private static migrateOldBriefToNew(oldData: unknown, userId: string): BriefInput {
     // すでに新形式かどうかをスキーマで検証
     const parseResult = briefInputSchema.safeParse(oldData);
     if (parseResult.success) {
@@ -28,36 +74,36 @@ export class BriefService {
 
     return {
       profile: {
-        company: data.company as string | undefined,
-        address: data.address as string | undefined,
-        ceo: data.ceo as string | undefined,
-        hobby: data.hobby as string | undefined,
-        staff: data.staff as string | undefined,
-        staffHobby: data.staffHobby as string | undefined,
-        businessHours: data.businessHours as string | undefined,
-        holiday: data.holiday as string | undefined,
-        tel: data.tel as string | undefined,
-        license: data.license as string | undefined,
-        qualification: data.qualification as string | undefined,
-        capital: data.capital as string | undefined,
-        email: data.email as string | undefined,
-        payments: data.payments as Payment[] | undefined,
-        benchmarkUrl: data.benchmarkUrl as string | undefined,
-        competitorCopy: data.competitorCopy as string | undefined,
+        company: this.asString(data.company),
+        address: this.asString(data.address),
+        ceo: this.asString(data.ceo),
+        hobby: this.asString(data.hobby),
+        staff: this.asString(data.staff),
+        staffHobby: this.asString(data.staffHobby),
+        businessHours: this.asString(data.businessHours),
+        holiday: this.asString(data.holiday),
+        tel: this.asString(data.tel),
+        license: this.asString(data.license),
+        qualification: this.asString(data.qualification),
+        capital: this.asString(data.capital),
+        email: this.asString(data.email),
+        payments: this.asPaymentArray(data.payments),
+        benchmarkUrl: this.asString(data.benchmarkUrl),
+        competitorCopy: this.asString(data.competitorCopy),
       },
-      persona: data.persona as string | undefined,
+      persona: this.asString(data.persona),
       services: [
         {
-          id: crypto.randomUUID(),
-          name: (data.service as string) || 'サービス1',
-          strength: data.strength as string | undefined,
-          when: data.when as string | undefined,
-          where: data.where as string | undefined,
-          who: data.who as string | undefined,
-          why: data.why as string | undefined,
-          what: data.what as string | undefined,
-          how: data.how as string | undefined,
-          price: data.price as string | undefined,
+          id: this.generateDeterministicUUID(userId),
+          name: this.asString(data.service) || 'サービス1',
+          strength: this.asString(data.strength),
+          when: this.asString(data.when),
+          where: this.asString(data.where),
+          who: this.asString(data.who),
+          why: this.asString(data.why),
+          what: this.asString(data.what),
+          how: this.asString(data.how),
+          price: this.asString(data.price),
         },
       ],
     };
@@ -88,7 +134,7 @@ export class BriefService {
       }
 
       // dataフィールドをJson型から新形式に変換（必要に応じてマイグレーション）
-      const briefData = this.migrateOldBriefToNew(data.data || {});
+      const briefData = this.migrateOldBriefToNew(data.data || {}, userId);
 
       return {
         id: data.id,

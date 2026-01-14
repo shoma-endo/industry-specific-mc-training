@@ -418,7 +418,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
       )}
 
       {/* サービス選択ツールバー（新規チャット時のみ表示） */}
-      {!chatSession.state.currentSessionId && services.length > 0 && (
+      {!chatSession.state.currentSessionId && services.length > 1 && (
         <div className="absolute top-16 right-4 z-10 bg-background/80 backdrop-blur-sm p-2 rounded-lg border shadow-sm">
           <ServiceSelector
             services={services}
@@ -606,12 +606,20 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   useEffect(() => {
     let isActive = true;
     const loadBrief = async () => {
-      const accessToken = await getAccessToken();
-      const res = await getBrief(accessToken);
-      if (isActive && res.success && res.data) {
-        setServices(res.data.services || []);
-        if (res.data.services?.length > 0 && res.data.services[0]) {
-          setSelectedServiceId(res.data.services[0].id);
+      try {
+        const accessToken = await getAccessToken();
+        const res = await getBrief(accessToken);
+        if (isActive && res.success && res.data) {
+          setServices(res.data.services || []);
+          if (res.data.services?.length > 0 && res.data.services[0]) {
+            setSelectedServiceId(res.data.services[0].id);
+          }
+        } else if (isActive && !res.success) {
+          console.error('事業者情報の取得に失敗しました:', res.error);
+        }
+      } catch (error) {
+        if (isActive) {
+          console.error('事業者情報の取得エラー:', error);
         }
       }
     };
