@@ -114,7 +114,7 @@ export function ServiceCard({
                 value={service.name}
                 onChange={e => onUpdate(service.id, { name: e.target.value })}
                 onInput={e => adjustHeight(e.currentTarget)}
-                ref={el => el && adjustHeight(el)}
+                ref={el => { if (el) adjustHeight(el); }}
                 rows={1}
                 className={textareaClass}
                 aria-label={`サービス ${index + 1} 名称`}
@@ -133,7 +133,7 @@ export function ServiceCard({
                   value={service.strength ?? ''}
                   onChange={e => onUpdate(service.id, { strength: e.target.value })}
                   onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => el && adjustHeight(el)}
+                  ref={el => { if (el) adjustHeight(el); }}
                   rows={1}
                   className={textareaClass}
                   disabled={isReadOnly}
@@ -148,7 +148,7 @@ export function ServiceCard({
                   value={service.price ?? ''}
                   onChange={e => onUpdate(service.id, { price: e.target.value })}
                   onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => el && adjustHeight(el)}
+                  ref={el => { if (el) adjustHeight(el); }}
                   rows={1}
                   className={textareaClass}
                   disabled={isReadOnly}
@@ -166,7 +166,7 @@ export function ServiceCard({
                   value={service.when ?? ''}
                   onChange={e => onUpdate(service.id, { when: e.target.value })}
                   onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => el && adjustHeight(el)}
+                  ref={el => { if (el) adjustHeight(el); }}
                   rows={1}
                   className={textareaClass}
                   disabled={isReadOnly}
@@ -181,7 +181,7 @@ export function ServiceCard({
                   value={service.where ?? ''}
                   onChange={e => onUpdate(service.id, { where: e.target.value })}
                   onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => el && adjustHeight(el)}
+                  ref={el => { if (el) adjustHeight(el); }}
                   rows={1}
                   className={textareaClass}
                   disabled={isReadOnly}
@@ -199,7 +199,7 @@ export function ServiceCard({
                   value={service.who ?? ''}
                   onChange={e => onUpdate(service.id, { who: e.target.value })}
                   onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => el && adjustHeight(el)}
+                  ref={el => { if (el) adjustHeight(el); }}
                   rows={1}
                   className={textareaClass}
                   disabled={isReadOnly}
@@ -214,7 +214,7 @@ export function ServiceCard({
                   value={service.why ?? ''}
                   onChange={e => onUpdate(service.id, { why: e.target.value })}
                   onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => el && adjustHeight(el)}
+                  ref={el => { if (el) adjustHeight(el); }}
                   rows={1}
                   className={textareaClass}
                   disabled={isReadOnly}
@@ -232,7 +232,7 @@ export function ServiceCard({
                   value={service.what ?? ''}
                   onChange={e => onUpdate(service.id, { what: e.target.value })}
                   onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => el && adjustHeight(el)}
+                  ref={el => { if (el) adjustHeight(el); }}
                   rows={1}
                   className={textareaClass}
                   disabled={isReadOnly}
@@ -247,7 +247,7 @@ export function ServiceCard({
                   value={service.how ?? ''}
                   onChange={e => onUpdate(service.id, { how: e.target.value })}
                   onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => el && adjustHeight(el)}
+                  ref={el => { if (el) adjustHeight(el); }}
                   rows={1}
                   className={textareaClass}
                   disabled={isReadOnly}
