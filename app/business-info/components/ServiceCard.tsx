@@ -1,12 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
 import { Trash2, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 import { type Service } from '@/server/schemas/brief.schema';
+
+// Auto-resize textarea hook
+function useAutoResize() {
+  const adjustHeight = useCallback((element: HTMLTextAreaElement) => {
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  }, []);
+
+  return adjustHeight;
+}
 
 interface ServiceCardProps {
   service: Service;
@@ -26,10 +36,14 @@ export function ServiceCard({
   isReadOnly = false,
 }: ServiceCardProps) {
   const [isOpen, setIsOpen] = useState(index === 0); // 最初のサービスは開いておく
+  const adjustHeight = useAutoResize();
 
   const toggleOpen = () => {
     setIsOpen(!isOpen);
   };
+
+  // Textarea の共通クラス（空の場合は1行、入力があれば自動拡張）
+  const textareaClass = 'resize-none overflow-hidden min-h-[38px] leading-normal';
 
   return (
     <Card
@@ -95,10 +109,14 @@ export function ServiceCard({
               <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                 サービス名 <span className="text-destructive font-bold">*</span>
               </label>
-              <Input
+              <Textarea
                 placeholder="例: エアコンクリーニング"
                 value={service.name}
                 onChange={e => onUpdate(service.id, { name: e.target.value })}
+                onInput={e => adjustHeight(e.currentTarget)}
+                ref={el => el && adjustHeight(el)}
+                rows={1}
+                className={textareaClass}
                 aria-label={`サービス ${index + 1} 名称`}
                 required
                 disabled={isReadOnly}
@@ -110,10 +128,14 @@ export function ServiceCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">強み</label>
-                <Input
+                <Textarea
                   placeholder="徹底した分解洗浄、即日対応可"
                   value={service.strength ?? ''}
                   onChange={e => onUpdate(service.id, { strength: e.target.value })}
+                  onInput={e => adjustHeight(e.currentTarget)}
+                  ref={el => el && adjustHeight(el)}
+                  rows={1}
+                  className={textareaClass}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
@@ -121,10 +143,14 @@ export function ServiceCard({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">いくらで（最低価格）</label>
-                <Input
+                <Textarea
                   placeholder="8,800円〜"
                   value={service.price ?? ''}
                   onChange={e => onUpdate(service.id, { price: e.target.value })}
+                  onInput={e => adjustHeight(e.currentTarget)}
+                  ref={el => el && adjustHeight(el)}
+                  rows={1}
+                  className={textareaClass}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
@@ -135,10 +161,14 @@ export function ServiceCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">いつ（対応日時）</label>
-                <Input
+                <Textarea
                   placeholder="年中無休、土日祝対応"
                   value={service.when ?? ''}
                   onChange={e => onUpdate(service.id, { when: e.target.value })}
+                  onInput={e => adjustHeight(e.currentTarget)}
+                  ref={el => el && adjustHeight(el)}
+                  rows={1}
+                  className={textareaClass}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
@@ -146,10 +176,14 @@ export function ServiceCard({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">どこで（地域）</label>
-                <Input
+                <Textarea
                   placeholder="東京都内全域、神奈川県一部"
                   value={service.where ?? ''}
                   onChange={e => onUpdate(service.id, { where: e.target.value })}
+                  onInput={e => adjustHeight(e.currentTarget)}
+                  ref={el => el && adjustHeight(el)}
+                  rows={1}
+                  className={textareaClass}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
@@ -160,10 +194,14 @@ export function ServiceCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">誰が（有資格者）</label>
-                <Input
+                <Textarea
                   placeholder="エアコンクリーニング士在籍"
                   value={service.who ?? ''}
                   onChange={e => onUpdate(service.id, { who: e.target.value })}
+                  onInput={e => adjustHeight(e.currentTarget)}
+                  ref={el => el && adjustHeight(el)}
+                  rows={1}
+                  className={textareaClass}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
@@ -171,10 +209,14 @@ export function ServiceCard({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">なぜ（キャンペーン）</label>
-                <Input
+                <Textarea
                   placeholder="今なら複数台割引実施中"
                   value={service.why ?? ''}
                   onChange={e => onUpdate(service.id, { why: e.target.value })}
+                  onInput={e => adjustHeight(e.currentTarget)}
+                  ref={el => el && adjustHeight(el)}
+                  rows={1}
+                  className={textareaClass}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
@@ -185,10 +227,14 @@ export function ServiceCard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">何を（サービス詳細）</label>
-                <Input
+                <Textarea
                   placeholder="家庭用・業務用エアコンの内部洗浄"
                   value={service.what ?? ''}
                   onChange={e => onUpdate(service.id, { what: e.target.value })}
+                  onInput={e => adjustHeight(e.currentTarget)}
+                  ref={el => el && adjustHeight(el)}
+                  rows={1}
+                  className={textareaClass}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
@@ -196,10 +242,14 @@ export function ServiceCard({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">どのように（問い合わせ方法）</label>
-                <Input
+                <Textarea
                   placeholder="Webフォーム、お電話、LINE"
                   value={service.how ?? ''}
                   onChange={e => onUpdate(service.id, { how: e.target.value })}
+                  onInput={e => adjustHeight(e.currentTarget)}
+                  ref={el => el && adjustHeight(el)}
+                  rows={1}
+                  className={textareaClass}
                   disabled={isReadOnly}
                   onClick={e => e.stopPropagation()}
                   onKeyDown={e => e.stopPropagation()}
