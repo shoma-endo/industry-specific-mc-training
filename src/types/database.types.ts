@@ -796,6 +796,10 @@ export type Database = {
           success: boolean;
         }[];
       };
+      get_accessible_user_ids: {
+        Args: { p_user_id: string };
+        Returns: string[];
+      };
       get_database_size: {
         Args: never;
         Returns: {
