@@ -16,6 +16,13 @@ export const GOOGLE_SEARCH_CONSOLE_SCOPES = [
   'openid',
 ];
 
+export const GOOGLE_ADS_SCOPES = [
+  'https://www.googleapis.com/auth/adwords',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'openid',
+];
+
+
 // Feature Flags
 // AI モデル設定
 interface ModelConfig {

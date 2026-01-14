@@ -1,13 +1,5 @@
 import type { GscPropertyType, GscSiteEntry } from '@/types/gsc';
-
-export interface GoogleOAuthTokens {
-  accessToken: string;
-  refreshToken?: string | undefined;
-  expiresIn?: number | undefined;
-  scope?: string[] | undefined;
-  idToken?: string | undefined;
-  tokenType?: string | undefined;
-}
+import { GoogleTokenService, type GoogleOAuthTokens, type GoogleUserInfoResponse } from './googleTokenService';
 
 interface GoogleSitesResponse {
   siteEntry?: Array<{
@@ -16,131 +8,25 @@ interface GoogleSitesResponse {
   }>;
 }
 
-interface GoogleUserInfoResponse {
-  email?: string;
-  email_verified?: boolean;
-}
-
-const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-const USER_INFO_ENDPOINT = 'https://openidconnect.googleapis.com/v1/userinfo';
 const SITES_ENDPOINT = 'https://www.googleapis.com/webmasters/v3/sites';
 
 export class GscService {
-  private readonly clientId: string | undefined;
-  private readonly clientSecret: string | undefined;
+  private readonly tokenService: GoogleTokenService;
 
-  constructor() {
-    this.clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-    this.clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  }
-
-  private ensureCredentials() {
-    if (!this.clientId || !this.clientSecret) {
-      throw new Error('Google OAuthクライアント情報が設定されていません');
-    }
-  }
-
-  private parseTokenResponse(body: Record<string, unknown>): GoogleOAuthTokens {
-    const accessToken = typeof body.access_token === 'string' ? body.access_token : '';
-    if (!accessToken) {
-      throw new Error('Google OAuthレスポンスにaccess_tokenが含まれていません');
-    }
-    const refreshToken =
-      typeof body.refresh_token === 'string' && body.refresh_token.length > 0
-        ? body.refresh_token
-        : undefined;
-    const expiresIn =
-      typeof body.expires_in === 'number'
-        ? body.expires_in
-        : typeof body.expires_in === 'string'
-          ? Number(body.expires_in)
-          : undefined;
-    const scope =
-      typeof body.scope === 'string'
-        ? body.scope
-            .split(' ')
-            .map(s => s.trim())
-            .filter(Boolean)
-        : undefined;
-    const idToken = typeof body.id_token === 'string' ? body.id_token : undefined;
-    const tokenType = typeof body.token_type === 'string' ? body.token_type : undefined;
-
-    return {
-      accessToken,
-      refreshToken,
-      expiresIn,
-      scope,
-      idToken,
-      tokenType,
-    };
+  constructor(tokenService?: GoogleTokenService) {
+    this.tokenService = tokenService ?? new GoogleTokenService();
   }
 
   async exchangeCodeForTokens(code: string, redirectUri: string): Promise<GoogleOAuthTokens> {
-    this.ensureCredentials();
-    const params = new URLSearchParams({
-      client_id: this.clientId as string,
-      client_secret: this.clientSecret as string,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: redirectUri,
-    });
-
-    const response = await fetch(TOKEN_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Google OAuthトークン交換に失敗しました: ${response.status} ${text}`);
-    }
-
-    const body = (await response.json()) as Record<string, unknown>;
-    return this.parseTokenResponse(body);
+    return this.tokenService.exchangeCodeForTokens(code, redirectUri);
   }
 
   async refreshAccessToken(refreshToken: string): Promise<GoogleOAuthTokens> {
-    this.ensureCredentials();
-    const params = new URLSearchParams({
-      client_id: this.clientId as string,
-      client_secret: this.clientSecret as string,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    });
-
-    const response = await fetch(TOKEN_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Google OAuthトークンリフレッシュに失敗しました: ${response.status} ${text}`);
-    }
-
-    const body = (await response.json()) as Record<string, unknown>;
-    return this.parseTokenResponse(body);
+    return this.tokenService.refreshAccessToken(refreshToken);
   }
 
   async fetchUserInfo(accessToken: string): Promise<GoogleUserInfoResponse> {
-    const response = await fetch(USER_INFO_ENDPOINT, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Googleユーザー情報の取得に失敗しました: ${response.status} ${text}`);
-    }
-
-    return (await response.json()) as GoogleUserInfoResponse;
+    return this.tokenService.fetchUserInfo(accessToken);
   }
 
   async listSites(accessToken: string): Promise<GscSiteEntry[]> {
@@ -193,3 +79,4 @@ export function formatGscPropertyDisplayName(siteUrl: string): string {
     return siteUrl;
   }
 }
+
