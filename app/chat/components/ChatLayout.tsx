@@ -22,9 +22,12 @@ import CanvasPanel from './CanvasPanel';
 import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/types/canvas';
 import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
-import { ServiceSelector } from './ServiceSelector';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
-import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
+import {
+  getLatestBlogStep7MessageBySession,
+  getSessionServiceIdSA,
+  updateSessionServiceIdSA,
+} from '@/server/actions/chat.actions';
 import { getBrief } from '@/server/actions/brief.actions';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
@@ -417,18 +420,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
         </Sheet>
       )}
 
-      {/* サービス選択ツールバー（新規チャット時のみ表示） */}
-      {!chatSession.state.currentSessionId && services.length > 1 && (
-        <div className="absolute top-16 right-4 z-10 bg-background/80 backdrop-blur-sm p-2 rounded-lg border shadow-sm">
-          <ServiceSelector
-            services={services}
-            selectedServiceId={selectedServiceId}
-            onServiceChange={onServiceChange}
-            disabled={chatSession.state.isLoading}
-          />
-        </div>
-      )}
-
       <div className={cn('flex-1 flex flex-col pt-16', isMobile && 'pt-16')}>
         {subscription.error &&
           !subscription.requiresSubscription &&
@@ -503,6 +494,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               ? onLoadBlogArticle
               : undefined
           }
+          services={services}
+          selectedServiceId={selectedServiceId}
+          onServiceChange={onServiceChange}
         />
       </div>
 
@@ -611,9 +605,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const res = await getBrief(accessToken);
         if (isActive && res.success && res.data) {
           setServices(res.data.services || []);
-          if (res.data.services?.length > 0 && res.data.services[0]) {
-            setSelectedServiceId(res.data.services[0].id);
-          }
+          // 初期サービス選択はセッション切替時の useEffect に任せる
         } else if (isActive && !res.success) {
           console.error('事業者情報の取得に失敗しました:', res.error);
         }
@@ -985,6 +977,54 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     validateTitle,
     isSavingTitle,
   ]);
+
+  // ✅ サービス変更時の処理（既存セッションの場合はDBも更新）
+  const handleServiceChange = useCallback(
+    async (serviceId: string) => {
+      setSelectedServiceId(serviceId);
+
+      // 既存セッションの場合はDBを更新
+      const currentSessionId = chatSession.state.currentSessionId;
+      if (currentSessionId) {
+        try {
+          const accessToken = await getAccessToken();
+          await updateSessionServiceIdSA(currentSessionId, serviceId, accessToken);
+        } catch (error) {
+          console.error('Failed to update session service ID:', error);
+        }
+      }
+    },
+    [chatSession.state.currentSessionId, getAccessToken]
+  );
+
+  // ✅ セッション切替時にサービスIDを取得
+  useEffect(() => {
+    const fetchSessionServiceId = async () => {
+      const currentSessionId = chatSession.state.currentSessionId;
+      if (!currentSessionId) {
+        // 新規チャットの場合は最初のサービスを選択
+        if (services.length > 0 && services[0]) {
+          setSelectedServiceId(services[0].id);
+        }
+        return;
+      }
+
+      try {
+        const accessToken = await getAccessToken();
+        const result = await getSessionServiceIdSA(currentSessionId, accessToken);
+        if (result.success && result.data) {
+          setSelectedServiceId(result.data);
+        } else if (services.length > 0 && services[0]) {
+          // サービスIDが未設定の場合は最初のサービスを選択
+          setSelectedServiceId(services[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch session service ID:', error);
+      }
+    };
+
+    fetchSessionServiceId();
+  }, [chatSession.state.currentSessionId, services, getAccessToken]);
 
   // ✅ メッセージ履歴にブログステップがある場合、自動的にブログ作成モデルを選択
   // セッション切り替え後、latestBlogStepが確定してから実行される
@@ -1497,7 +1537,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           initialStep,
           services,
           selectedServiceId,
-          onServiceChange: setSelectedServiceId,
+          onServiceChange: handleServiceChange,
         }}
       />
       {canvasPanelOpen && (

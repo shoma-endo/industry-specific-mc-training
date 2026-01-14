@@ -431,6 +431,23 @@ export const useChatSession = (
     [chatService]
   );
 
+  const updateSessionServiceId = useCallback(
+    async (sessionId: string, serviceId: string) => {
+      try {
+        await chatService.updateSessionServiceId(sessionId, serviceId);
+      } catch (error) {
+        console.error('Update session service ID error:', error);
+        if (error instanceof ChatError) {
+          throw error;
+        }
+        throw new Error(
+          error instanceof Error ? error.message : 'セッションのサービス更新に失敗しました'
+        );
+      }
+    },
+    [chatService]
+  );
+
   const startNewSession = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -457,6 +474,7 @@ export const useChatSession = (
     loadSession,
     deleteSession,
     updateSessionTitle,
+    updateSessionServiceId,
     searchSessions,
     clearSearch,
     startNewSession,

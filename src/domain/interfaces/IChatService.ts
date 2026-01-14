@@ -46,6 +46,7 @@ export interface IChatService {
   loadSessionMessages(sessionId: string): Promise<ChatMessage[]>;
   deleteSession(sessionId: string): Promise<void>;
   updateSessionTitle(sessionId: string, title: string): Promise<void>;
+  updateSessionServiceId(sessionId: string, serviceId: string): Promise<void>;
   searchSessions(query: string, options?: { limit?: number }): Promise<ChatSessionSearchResult[]>;
   startNewSession(): string;
 }
