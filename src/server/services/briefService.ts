@@ -62,8 +62,9 @@ export class BriefService {
 
   /**
    * 旧形式のデータを新形式に変換
+   * @public - brief.actions.ts から呼び出される
    */
-  private static migrateOldBriefToNew(oldData: unknown, userId: string): BriefInput {
+  public static migrateOldBriefToNew(oldData: unknown, userId: string): BriefInput {
     // すでに新形式かどうかをスキーマで検証
     const parseResult = briefInputSchema.safeParse(oldData);
     if (parseResult.success) {
