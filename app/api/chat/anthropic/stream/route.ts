@@ -281,6 +281,14 @@ export async function POST(req: NextRequest) {
 
                 let result;
                 if (sessionId) {
+                  if (serviceId) {
+                    try {
+                      await chatService.updateSessionServiceId(userId, sessionId, serviceId);
+                    } catch (updateError) {
+                      console.warn('Failed to update session service ID:', updateError);
+                    }
+                  }
+
                   result = await chatService.continueChat(
                     userId,
                     sessionId,

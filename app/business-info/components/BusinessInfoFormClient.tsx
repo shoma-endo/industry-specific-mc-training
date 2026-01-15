@@ -49,14 +49,19 @@ const createEmptyService = (): Service => ({
   name: '',
 });
 
-const createInitialState = (data?: Partial<BriefInput>): BriefInput => ({
-  profile: {
-    ...DEFAULT_PROFILE,
-    ...data?.profile,
-  },
-  persona: data?.persona || '',
-  services: data?.services || [createEmptyService()],
-});
+const createInitialState = (data?: Partial<BriefInput>): BriefInput => {
+  const services =
+    data?.services && data.services.length > 0 ? data.services : [createEmptyService()];
+
+  return {
+    profile: {
+      ...DEFAULT_PROFILE,
+      ...data?.profile,
+    },
+    persona: data?.persona || '',
+    services,
+  };
+};
 
 export default function BusinessInfoFormClient({ initialData }: BusinessInfoFormClientProps) {
   const { getAccessToken, isLoggedIn, isOwnerViewMode } = useLiffContext();

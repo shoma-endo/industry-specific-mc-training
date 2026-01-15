@@ -999,6 +999,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // ✅ セッション切替時にサービスIDを取得
   useEffect(() => {
+    let isActive = true;
+
     const fetchSessionServiceId = async () => {
       const currentSessionId = chatSession.state.currentSessionId;
       if (!currentSessionId) {
@@ -1012,6 +1014,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       try {
         const accessToken = await getAccessToken();
         const result = await getSessionServiceIdSA(currentSessionId, accessToken);
+        if (!isActive) {
+          return;
+        }
         if (result.success && result.data) {
           setSelectedServiceId(result.data);
         } else if (services.length > 0 && services[0]) {
@@ -1024,6 +1029,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     };
 
     fetchSessionServiceId();
+
+    return () => {
+      isActive = false;
+    };
   }, [chatSession.state.currentSessionId, services, getAccessToken]);
 
   // ✅ メッセージ履歴にブログステップがある場合、自動的にブログ作成モデルを選択
