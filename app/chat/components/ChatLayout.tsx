@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChatSessionHook } from '@/hooks/useChatSession';
 import { SubscriptionHook } from '@/hooks/useSubscriptionStatus';
+import { useServiceSelection } from '@/hooks/useServiceSelection';
 import { useLiffContext } from '@/components/LiffProvider';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Button } from '@/components/ui/button';
@@ -23,12 +24,7 @@ import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/ty
 import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
-import {
-  getLatestBlogStep7MessageBySession,
-  getSessionServiceIdSA,
-  updateSessionServiceIdSA,
-} from '@/server/actions/chat.actions';
-import { getBrief } from '@/server/actions/brief.actions';
+import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
@@ -522,6 +518,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   initialStep = null,
 }) => {
   const { getAccessToken, isOwnerViewMode } = useLiffContext();
+
+  // サービス選択ロジックをカスタムフックで管理
+  const serviceSelection = useServiceSelection({
+    getAccessToken,
+    currentSessionId: chatSession.state.currentSessionId,
+  });
+  const { services, selectedServiceId } = serviceSelection.state;
+  const handleServiceChange = serviceSelection.actions.changeService;
+
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
@@ -539,10 +544,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [nextStepForPlaceholder, setNextStepForPlaceholder] = useState<BlogStepId | null>(null);
   const [canvasStreamingContent, setCanvasStreamingContent] = useState<string>('');
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [isServicesLoading, setIsServicesLoading] = useState(true);
-  const [isServiceIdLoading, setIsServiceIdLoading] = useState(false);
   const [isCanvasStreaming, setIsCanvasStreaming] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
@@ -597,36 +598,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       isActive = false;
     };
   }, [chatSession.state.currentSessionId]);
-
-  // 事業者情報（サービス一覧）の取得
-  useEffect(() => {
-    let isActive = true;
-    setIsServicesLoading(true);
-    const loadBrief = async () => {
-      try {
-        const accessToken = await getAccessToken();
-        const res = await getBrief(accessToken);
-        if (isActive && res.success && res.data) {
-          setServices(res.data.services || []);
-          // 初期サービス選択はセッション切替時の useEffect に任せる
-        } else if (isActive && !res.success) {
-          console.error('事業者情報の取得に失敗しました:', res.error);
-        }
-      } catch (error) {
-        if (isActive) {
-          console.error('事業者情報の取得エラー:', error);
-        }
-      } finally {
-        if (isActive) {
-          setIsServicesLoading(false);
-        }
-      }
-    };
-    loadBrief();
-    return () => {
-      isActive = false;
-    };
-  }, [getAccessToken]);
 
   const handleLoadBlogArticle = useCallback(async () => {
     if (!chatSession.state.currentSessionId) {
@@ -984,82 +955,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     validateTitle,
     isSavingTitle,
   ]);
-
-  // ✅ サービス変更時の処理（既存セッションの場合はDBも更新）
-  const handleServiceChange = useCallback(
-    async (serviceId: string) => {
-      setSelectedServiceId(serviceId);
-
-      // 既存セッションの場合はDBを更新
-      const currentSessionId = chatSession.state.currentSessionId;
-      if (currentSessionId) {
-        try {
-          const accessToken = await getAccessToken();
-          await updateSessionServiceIdSA(currentSessionId, serviceId, accessToken);
-        } catch (error) {
-          console.error('Failed to update session service ID:', error);
-        }
-      }
-    },
-    [chatSession.state.currentSessionId, getAccessToken]
-  );
-
-  // ✅ セッション切替時にサービスIDを取得
-  useEffect(() => {
-    // サービス一覧の取得が完了するまで待機
-    if (isServicesLoading) {
-      return;
-    }
-
-    let isActive = true;
-    setIsServiceIdLoading(true);
-
-    const fetchSessionServiceId = async () => {
-      const currentSessionId = chatSession.state.currentSessionId;
-      if (!currentSessionId) {
-        // 新規チャットの場合は最初のサービスを選択
-        if (services.length > 0 && services[0]) {
-          setSelectedServiceId(services[0].id);
-        } else {
-          setSelectedServiceId(null);
-        }
-        setIsServiceIdLoading(false);
-        return;
-      }
-
-      try {
-        const accessToken = await getAccessToken();
-        const result = await getSessionServiceIdSA(currentSessionId, accessToken);
-        if (!isActive) {
-          return;
-        }
-        if (result.success && result.data) {
-          setSelectedServiceId(result.data);
-        } else if (services.length > 0 && services[0]) {
-          // サービスIDが未設定の場合は最初のサービスを選択
-          setSelectedServiceId(services[0].id);
-        } else {
-          setSelectedServiceId(null);
-        }
-      } catch (error) {
-        console.error('Failed to fetch session service ID:', error);
-        // エラー時も最初のサービスにフォールバック
-        if (services.length > 0 && services[0]) {
-          setSelectedServiceId(services[0].id);
-        }
-      } finally {
-        if (isActive) {
-          setIsServiceIdLoading(false);
-        }
-      }
-    };
-
-    fetchSessionServiceId();
-
-    return () => {
-      isActive = false;
-    };
-  }, [chatSession.state.currentSessionId, services, isServicesLoading, getAccessToken]);
 
   // ✅ メッセージ履歴にブログステップがある場合、自動的にブログ作成モデルを選択
   // セッション切り替え後、latestBlogStepが確定してから実行される
