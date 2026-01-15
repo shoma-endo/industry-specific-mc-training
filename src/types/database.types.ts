@@ -71,6 +71,7 @@ export type Database = {
           id: string;
           last_message_at: string;
           search_vector: string | null;
+          service_id: string | null;
           system_prompt: string | null;
           title: string;
           user_id: string;
@@ -80,6 +81,7 @@ export type Database = {
           id: string;
           last_message_at: string;
           search_vector?: string | null;
+          service_id?: string | null;
           system_prompt?: string | null;
           title: string;
           user_id: string;
@@ -89,6 +91,7 @@ export type Database = {
           id?: string;
           last_message_at?: string;
           search_vector?: string | null;
+          service_id?: string | null;
           system_prompt?: string | null;
           title?: string;
           user_id?: string;
@@ -342,53 +345,6 @@ export type Database = {
             foreignKeyName: 'gsc_article_evaluations_user_id_fkey';
             columns: ['user_id'];
             isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      google_ads_credentials: {
-        Row: {
-          access_token: string;
-          access_token_expires_at: string;
-          created_at: string;
-          google_account_email: string | null;
-          id: string;
-          manager_customer_id: string | null;
-          refresh_token: string;
-          scope: string[];
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          access_token: string;
-          access_token_expires_at: string;
-          created_at?: string;
-          google_account_email?: string | null;
-          id?: string;
-          manager_customer_id?: string | null;
-          refresh_token: string;
-          scope?: string[];
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          access_token?: string;
-          access_token_expires_at?: string;
-          created_at?: string;
-          google_account_email?: string | null;
-          id?: string;
-          manager_customer_id?: string | null;
-          refresh_token?: string;
-          scope?: string[];
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'google_ads_credentials_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: true;
             referencedRelation: 'users';
             referencedColumns: ['id'];
           },
@@ -840,6 +796,10 @@ export type Database = {
           success: boolean;
         }[];
       };
+      get_accessible_user_ids: {
+        Args: { p_user_id: string };
+        Returns: string[];
+      };
       get_database_size: {
         Args: never;
         Returns: {
@@ -883,10 +843,6 @@ export type Database = {
           total_impressions: number;
           total_queries: number;
         }[];
-      };
-      get_accessible_user_ids: {
-        Args: { p_user_id: string };
-        Returns: string[];
       };
       get_sessions_with_messages: {
         Args: { p_limit?: number; p_user_id: string };

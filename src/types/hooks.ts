@@ -65,13 +65,14 @@ export interface ChatSessionActions {
   sendMessage: (
     content: string,
     model: string,
-    options?: { systemPrompt?: string }
+    options?: { systemPrompt?: string; serviceId?: string }
   ) => Promise<void>;
   setError: (message: string | null) => void;
   loadSessions: () => Promise<void>;
   loadSession: (sessionId: string) => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
+  updateSessionServiceId: (sessionId: string, serviceId: string) => Promise<void>;
   searchSessions: (query: string, options?: { limit?: number }) => Promise<void>;
   clearSearch: () => void;
   startNewSession: () => void;

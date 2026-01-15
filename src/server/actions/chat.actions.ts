@@ -376,6 +376,66 @@ export async function updateChatSessionTitle(
   return { success: true, error: null };
 }
 
+export async function getSessionServiceId(
+  sessionId: string,
+  liffAccessToken: string
+): Promise<{ success: true; data: string | null } | { success: false; error: string }> {
+  const auth = await checkAuth(liffAccessToken);
+  if (auth.isError) {
+    return { success: false, error: auth.error ?? 'Auth failed' };
+  }
+
+  const supabase = new SupabaseService();
+  const result = await supabase.getSessionServiceId(sessionId, auth.userId);
+
+  if (!result.success) {
+    return { success: false, error: result.error.userMessage };
+  }
+
+  return { success: true, data: result.data };
+}
+
+const updateSessionServiceIdSchema = z.object({
+  sessionId: z.string(),
+  serviceId: z.string(),
+  liffAccessToken: z.string(),
+});
+
+export async function updateSessionServiceId(
+  sessionId: string,
+  serviceId: string,
+  liffAccessToken: string
+) {
+  const parsed = updateSessionServiceIdSchema.parse({
+    sessionId,
+    serviceId,
+    liffAccessToken,
+  });
+
+  const auth = await checkAuth(parsed.liffAccessToken);
+  if (auth.isError) {
+    return { success: false, error: auth.error, requiresSubscription: auth.requiresSubscription };
+  }
+
+  // 閲覧モード（オーナー含む）での書き込み制限
+  if (auth.viewMode) {
+    return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_OPERATION_NOT_ALLOWED };
+  }
+
+  const supabase = new SupabaseService();
+  const updateResult = await supabase.updateSessionServiceId(
+    parsed.sessionId,
+    auth.userId,
+    parsed.serviceId
+  );
+
+  if (!updateResult.success) {
+    return { success: false, error: updateResult.error.userMessage };
+  }
+
+  return { success: true, error: null };
+}
+
 // === Server Action aliases (for client-side import) ===
 export const startChatSA = startChat;
 export const continueChatSA = continueChat;
@@ -384,3 +444,5 @@ export const getSessionMessagesSA = getSessionMessages;
 export const deleteChatSessionSA = deleteChatSession;
 export const updateChatSessionTitleSA = updateChatSessionTitle;
 export const searchChatSessionsSA = searchChatSessions;
+export const getSessionServiceIdSA = getSessionServiceId;
+export const updateSessionServiceIdSA = updateSessionServiceId;

@@ -23,6 +23,7 @@ export interface ChatSession {
   userId: string; // セッションの所有者ID
   title: string; // セッションのタイトル
   systemPrompt?: string | undefined; // システムプロンプト
+  serviceId?: string | undefined; // サービスID
   lastMessageAt: IsoTimestamp; // 最後のメッセージ日時 (UTC ISO文字列)
   createdAt: IsoTimestamp; // 作成日時 (UTC ISO文字列)
 }
@@ -98,6 +99,7 @@ export function toChatSession(dbSession: DbChatSession): ChatSession {
     userId: dbSession.user_id,
     title: dbSession.title,
     systemPrompt: dbSession.system_prompt ?? undefined,
+    serviceId: dbSession.service_id ?? undefined,
     lastMessageAt: parseTimestampStrict(dbSession.last_message_at),
     createdAt: parseTimestampStrict(dbSession.created_at),
   };

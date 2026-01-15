@@ -55,7 +55,8 @@ class ChatService {
     userId: string,
     systemPrompt: string,
     userMessage: string | string[],
-    model?: string
+    model?: string,
+    serviceId?: string
   ): Promise<{
     message: string;
     error?: string;
@@ -109,6 +110,7 @@ class ChatService {
         created_at: nowIso,
         last_message_at: nowIso,
         system_prompt: systemPrompt,
+        service_id: serviceId ?? null,
         search_vector: null,
       };
 
@@ -356,6 +358,30 @@ class ChatService {
         sessionId,
         error,
       });
+    }
+  }
+
+  /**
+   * セッションのサービスIDを更新
+   */
+  async updateSessionServiceId(userId: string, sessionId: string, serviceId: string): Promise<void> {
+    try {
+      this.unwrapSupabaseResult(
+        await this.supabaseService.updateSessionServiceId(sessionId, userId, serviceId),
+        ChatErrorCode.SESSION_UPDATE_FAILED,
+        { userId, sessionId, serviceId }
+      );
+    } catch (error) {
+      if (error instanceof ChatError) {
+        console.error('Chat domain error:', error);
+        throw error;
+      }
+      console.error('Failed to update session service ID:', error);
+      throw new ChatError(
+        'チャットセッションの更新に失敗しました',
+        ChatErrorCode.SESSION_UPDATE_FAILED,
+        { userId, sessionId, serviceId, error }
+      );
     }
   }
 

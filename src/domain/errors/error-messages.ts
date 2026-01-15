@@ -461,6 +461,9 @@ export const ERROR_MESSAGES = {
 
     /** ログインが必要な場合 */
     LOGIN_REQUIRED: 'ログインが必要です',
+
+    /** データ形式が不正な場合 */
+    INVALID_DATA_FORMAT: '事業者情報のデータ形式が不正です',
   },
 
   /**

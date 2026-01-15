@@ -17,6 +17,8 @@ import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
 import { useLiffContext } from '@/components/LiffProvider';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import ChatSearch from './search/ChatSearch';
+import { ServiceSelector } from './ServiceSelector';
+import { Service } from '@/server/schemas/brief.schema';
 
 // 使用可能なモデル一覧
 const AVAILABLE_MODELS = {
@@ -79,6 +81,10 @@ interface InputAreaProps {
   isSearching: boolean;
   onSearch: (query: string) => void;
   onClearSearch: () => void;
+  // Service selector props
+  services?: Service[];
+  selectedServiceId?: string | null;
+  onServiceChange?: (serviceId: string) => void;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -121,6 +127,9 @@ const InputArea: React.FC<InputAreaProps> = ({
   isSearching,
   onSearch,
   onClearSearch,
+  services,
+  selectedServiceId,
+  onServiceChange,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -419,6 +428,15 @@ const InputArea: React.FC<InputAreaProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {services && services.length > 1 && onServiceChange && (
+              <ServiceSelector
+                services={services}
+                selectedServiceId={selectedServiceId ?? null}
+                onServiceChange={onServiceChange}
+                disabled={disabled || isReadOnly}
+                className="hidden md:flex"
+              />
+            )}
             <Select
               {...(isModelSelected ? { value: selectedModel } : {})}
               disabled={isReadOnly}
@@ -462,6 +480,16 @@ const InputArea: React.FC<InputAreaProps> = ({
           onClear={onClearSearch}
           className="space-y-1"
         />
+        {services && services.length > 1 && onServiceChange && (
+          <div className="md:hidden mt-2">
+            <ServiceSelector
+              services={services}
+              selectedServiceId={selectedServiceId ?? null}
+              onServiceChange={onServiceChange}
+              disabled={disabled || isReadOnly}
+            />
+          </div>
+        )}
       </div>
 
       {/* 入力エリア - レイアウトで既にpadding-topが設定されているため調整 */}
