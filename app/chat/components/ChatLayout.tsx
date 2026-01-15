@@ -541,6 +541,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [isServicesLoading, setIsServicesLoading] = useState(true);
+  const [isServiceIdLoading, setIsServiceIdLoading] = useState(false);
   const [isCanvasStreaming, setIsCanvasStreaming] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
@@ -599,6 +601,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // 事業者情報（サービス一覧）の取得
   useEffect(() => {
     let isActive = true;
+    setIsServicesLoading(true);
     const loadBrief = async () => {
       try {
         const accessToken = await getAccessToken();
@@ -612,6 +615,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       } catch (error) {
         if (isActive) {
           console.error('事業者情報の取得エラー:', error);
+        }
+      } finally {
+        if (isActive) {
+          setIsServicesLoading(false);
         }
       }
     };
@@ -999,7 +1006,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // ✅ セッション切替時にサービスIDを取得
   useEffect(() => {
+    // サービス一覧の取得が完了するまで待機
+    if (isServicesLoading) {
+      return;
+    }
+
     let isActive = true;
+    setIsServiceIdLoading(true);
 
     const fetchSessionServiceId = async () => {
       const currentSessionId = chatSession.state.currentSessionId;
@@ -1007,7 +1020,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         // 新規チャットの場合は最初のサービスを選択
         if (services.length > 0 && services[0]) {
           setSelectedServiceId(services[0].id);
+        } else {
+          setSelectedServiceId(null);
         }
+        setIsServiceIdLoading(false);
         return;
       }
 
@@ -1022,9 +1038,19 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         } else if (services.length > 0 && services[0]) {
           // サービスIDが未設定の場合は最初のサービスを選択
           setSelectedServiceId(services[0].id);
+        } else {
+          setSelectedServiceId(null);
         }
       } catch (error) {
         console.error('Failed to fetch session service ID:', error);
+        // エラー時も最初のサービスにフォールバック
+        if (services.length > 0 && services[0]) {
+          setSelectedServiceId(services[0].id);
+        }
+      } finally {
+        if (isActive) {
+          setIsServiceIdLoading(false);
+        }
       }
     };
 
@@ -1033,7 +1059,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     return () => {
       isActive = false;
     };
-  }, [chatSession.state.currentSessionId, services, getAccessToken]);
+  }, [chatSession.state.currentSessionId, services, isServicesLoading, getAccessToken]);
 
   // ✅ メッセージ履歴にブログステップがある場合、自動的にブログ作成モデルを選択
   // セッション切り替え後、latestBlogStepが確定してから実行される
