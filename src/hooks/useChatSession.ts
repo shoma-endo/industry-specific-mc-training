@@ -199,7 +199,13 @@ export const useChatSession = (
                   }
                 } else if (eventType === 'error') {
                   const data = JSON.parse(dataCombined);
-                  throw new Error(data.message || 'ストリーミングエラー');
+                  setState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                    error: data.message || 'ストリーミングエラー',
+                    warning: null,
+                  }));
+                  return;
                 } else if (eventType === 'usage' || eventType === 'meta') {
                   try {
                     if (process.env.NODE_ENV === 'development') {
@@ -210,6 +216,10 @@ export const useChatSession = (
                   }
                 } else if (eventType === 'done') {
                   // 明示終了
+                  setState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                  }));
                   return;
                 }
               } catch (e) {

@@ -572,6 +572,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // 保存済みステップを計算（保存されているフィールドから判断）
   const chatStateRef = useRef(chatSession.state);
   const canvasEditInFlightRef = useRef(false);
+  const prevSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     chatStateRef.current = chatSession.state;
@@ -844,6 +845,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // ✅ セッション切り替え時にパネルを自動的に閉じる
   useEffect(() => {
+    const prevSessionId = prevSessionIdRef.current;
+    const nextSessionId = chatSession.state.currentSessionId ?? null;
+    const shouldResetModel = Boolean(prevSessionId) && prevSessionId !== nextSessionId;
+
     setCanvasPanelOpen(false);
     setAnnotationOpen(false);
     setAnnotationData(null);
@@ -852,11 +857,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setSelectedVersionByStep({});
     setFollowLatestByStep({});
     setNextStepForPlaceholder(null);
-    // セッション切り替え時はモデル選択もリセット（後続のuseEffectで復元される）
-    setSelectedModel('');
+    // 既存セッション間の切り替え時のみモデル選択をリセット
+    if (shouldResetModel) {
+      setSelectedModel('');
+    }
     setIsEditingTitle(false);
     setTitleError(null);
     setIsSavingTitle(false);
+    prevSessionIdRef.current = nextSessionId;
   }, [chatSession.state.currentSessionId]);
 
   useEffect(() => {

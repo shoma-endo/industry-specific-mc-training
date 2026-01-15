@@ -145,7 +145,7 @@ export function useServiceSelection({
       } catch (error) {
         console.error('Failed to fetch session service ID:', error);
         // エラー時も最初のサービスにフォールバック
-        if (services.length > 0 && services[0]) {
+        if (isActive && services.length > 0 && services[0]) {
           setSelectedServiceId(services[0].id);
         }
       } finally {
