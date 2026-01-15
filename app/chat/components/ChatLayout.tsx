@@ -266,6 +266,8 @@ interface ChatLayoutCtx {
   services: Service[];
   selectedServiceId: string | null;
   onServiceChange: (serviceId: string) => void;
+  servicesError: string | null;
+  onDismissServicesError: () => void;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -301,6 +303,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     services,
     selectedServiceId,
     onServiceChange,
+    servicesError,
+    onDismissServicesError,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
@@ -437,6 +441,10 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           />
         )}
 
+        {servicesError && (
+          <WarningAlert message={servicesError} onClose={onDismissServicesError} />
+        )}
+
         <MessageArea
           messages={[...chatSession.state.messages, ...optimisticMessages]}
           isLoading={chatSession.state.isLoading || isCanvasStreaming}
@@ -524,8 +532,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     getAccessToken,
     currentSessionId: chatSession.state.currentSessionId,
   });
-  const { services, selectedServiceId } = serviceSelection.state;
-  const handleServiceChange = serviceSelection.actions.changeService;
+  const { services, selectedServiceId, servicesError } = serviceSelection.state;
+  const { changeService: handleServiceChange, dismissServicesError } = serviceSelection.actions;
 
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
@@ -1468,6 +1476,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           services,
           selectedServiceId,
           onServiceChange: handleServiceChange,
+          servicesError,
+          onDismissServicesError: dismissServicesError,
         }}
       />
       {canvasPanelOpen && (

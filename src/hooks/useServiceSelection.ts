@@ -20,6 +20,8 @@ export interface ServiceSelectionState {
   isServicesLoading: boolean;
   /** サービスIDを取得中かどうか */
   isServiceIdLoading: boolean;
+  /** サービス取得エラーメッセージ */
+  servicesError: string | null;
 }
 
 /**
@@ -28,6 +30,8 @@ export interface ServiceSelectionState {
 export interface ServiceSelectionActions {
   /** サービスを変更（既存セッションの場合はDBも更新） */
   changeService: (serviceId: string) => Promise<void>;
+  /** サービス取得エラーを閉じる */
+  dismissServicesError: () => void;
 }
 
 /**
@@ -64,11 +68,13 @@ export function useServiceSelection({
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [isServicesLoading, setIsServicesLoading] = useState(true);
   const [isServiceIdLoading, setIsServiceIdLoading] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
 
   // 事業者情報（サービス一覧）の取得
   useEffect(() => {
     let isActive = true;
     setIsServicesLoading(true);
+    setServicesError(null);
 
     const loadBrief = async () => {
       try {
@@ -76,12 +82,15 @@ export function useServiceSelection({
         const res = await getBrief(accessToken);
         if (isActive && res.success && res.data) {
           setServices(res.data.services || []);
+          setServicesError(null);
         } else if (isActive && !res.success) {
           console.error('事業者情報の取得に失敗しました:', res.error);
+          setServicesError('事業者情報の取得に失敗しました。画面を更新してください。');
         }
       } catch (error) {
         if (isActive) {
           console.error('事業者情報の取得エラー:', error);
+          setServicesError('事業者情報の取得中にエラーが発生しました。');
         }
       } finally {
         if (isActive) {
@@ -171,15 +180,22 @@ export function useServiceSelection({
     [currentSessionId, getAccessToken]
   );
 
+  // エラーを閉じる
+  const dismissServicesError = useCallback(() => {
+    setServicesError(null);
+  }, []);
+
   return {
     state: {
       services,
       selectedServiceId,
       isServicesLoading,
       isServiceIdLoading,
+      servicesError,
     },
     actions: {
       changeService,
+      dismissServicesError,
     },
   };
 }
