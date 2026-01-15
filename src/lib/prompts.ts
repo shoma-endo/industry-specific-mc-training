@@ -279,6 +279,8 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { BlogStepId, isStep7 as isBlogStep7, toTemplateName } from '@/lib/constants';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 
+const supabaseService = new SupabaseService();
+
 /**
  * 事業者情報取得のキャッシュ化
  * 同一リクエスト内でのDB負荷を最大90%削減
@@ -909,8 +911,7 @@ export async function getSystemPrompt(
     if (!serviceId && sessionId) {
       const authResult = await authMiddleware(liffAccessToken);
       if (!authResult.error && authResult.userId) {
-        const supabase = new SupabaseService();
-        const result = await supabase.getSessionServiceId(sessionId, authResult.userId);
+        const result = await supabaseService.getSessionServiceId(sessionId, authResult.userId);
         if (result.success && result.data) serviceId = result.data;
       }
     }

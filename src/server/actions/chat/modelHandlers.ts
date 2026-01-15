@@ -56,7 +56,10 @@ export class ModelHandlerService {
     userId: string,
     serviceId?: string
   ): Promise<Record<string, string>> {
-    const briefData = await BriefService.getVariablesByUserId(userId).catch(() => null);
+    const briefData = await BriefService.getVariablesByUserId(userId).catch((error) => {
+      console.warn('[ModelHandler] Brief data fetch failed:', error);
+      return null;
+    });
     const profileVars = PromptService.buildProfileVariables(briefData?.profile ?? null);
     const targetService = resolveTargetService(briefData?.services, serviceId);
     const serviceVars = PromptService.buildServiceVariables(targetService);

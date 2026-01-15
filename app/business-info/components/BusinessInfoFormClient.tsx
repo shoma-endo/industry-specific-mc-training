@@ -8,13 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { useLiffContext } from '@/components/LiffProvider';
 import { saveBrief, getBrief } from '@/server/actions/brief.actions';
-import {
-  paymentEnum,
-  type Payment,
-  type BriefInput,
-  type Service,
-  type Profile,
-} from '@/server/schemas/brief.schema';
+import { paymentEnum } from '@/server/schemas/brief.schema';
+import type { BriefInput, Payment, Profile, Service } from '@/types/business-info';
 import { Building2, Loader2, Save, Plus, Users, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { ServiceCard } from './ServiceCard';

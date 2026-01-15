@@ -281,6 +281,7 @@ export async function POST(req: NextRequest) {
 
                 let result;
                 if (sessionId) {
+                  // continueChat は serviceId を受け取らないため、継続時は事前更新で一貫性を保つ
                   if (serviceId) {
                     try {
                       await chatService.updateSessionServiceId(userId, sessionId, serviceId);

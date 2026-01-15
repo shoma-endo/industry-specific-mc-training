@@ -452,16 +452,25 @@ export class SupabaseService {
       });
     }
 
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('chat_sessions')
       .update({ service_id: serviceId })
       .eq('id', sessionId)
-      .in('user_id', accessibleIds);
+      .in('user_id', accessibleIds)
+      .select('id');
 
     if (error) {
       return this.failure('セッションのサービスID更新に失敗しました', {
         error,
         developerMessage: 'Failed to update session service_id',
+        context: { sessionId, userId, serviceId },
+      });
+    }
+
+    // 更新件数の検証: 0行の場合はセッションが存在しないか権限がない
+    if (!data || data.length === 0) {
+      return this.failure('セッションが見つからないか、更新権限がありません', {
+        developerMessage: 'No rows updated - session not found or no permission',
         context: { sessionId, userId, serviceId },
       });
     }

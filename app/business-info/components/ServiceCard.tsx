@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
 import { Trash2, Tag, ChevronDown, ChevronUp } from 'lucide-react';
-import { type Service } from '@/server/schemas/brief.schema';
+import { type Service } from '@/types/business-info';
 
 // Auto-resize textarea hook
 function useAutoResize() {
@@ -27,6 +27,59 @@ interface ServiceCardProps {
   isReadOnly?: boolean;
 }
 
+interface ServiceFieldProps {
+  label: string;
+  required?: boolean;
+  placeholder: string;
+  value: string;
+  fieldKey: keyof Service;
+  serviceId: string;
+  onUpdate: (id: string, updates: Partial<Service>) => void;
+  isReadOnly: boolean;
+  adjustHeight: (element: HTMLTextAreaElement) => void;
+  ariaLabel?: string;
+  labelClassName?: string;
+}
+
+function ServiceField({
+  label,
+  required = false,
+  placeholder,
+  value,
+  fieldKey,
+  serviceId,
+  onUpdate,
+  isReadOnly,
+  adjustHeight,
+  ariaLabel,
+  labelClassName,
+}: ServiceFieldProps) {
+  const textareaClass = 'resize-none overflow-hidden min-h-[38px] leading-normal';
+
+  return (
+    <div className="space-y-2">
+      <label className={labelClassName ?? 'text-sm font-medium'}>
+        {label}
+        {required && <span className="text-destructive font-bold"> *</span>}
+      </label>
+      <Textarea
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onUpdate(serviceId, { [fieldKey]: e.target.value })}
+        onInput={e => adjustHeight(e.currentTarget)}
+        ref={el => { if (el) adjustHeight(el); }}
+        rows={1}
+        className={textareaClass}
+        aria-label={ariaLabel}
+        required={required}
+        disabled={isReadOnly}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 export function ServiceCard({
   service,
   index,
@@ -41,9 +94,6 @@ export function ServiceCard({
   const toggleOpen = () => {
     setIsOpen(!isOpen);
   };
-
-  // Textarea の共通クラス（空の場合は1行、入力があれば自動拡張）
-  const textareaClass = 'resize-none overflow-hidden min-h-[38px] leading-normal';
 
   return (
     <Card
@@ -105,156 +155,110 @@ export function ServiceCard({
       {isOpen && (
         <CardContent className="space-y-4 pt-0 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="grid grid-cols-1 gap-4 pt-4 border-t border-primary/10">
-            <div className="space-y-2">
-              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                サービス名 <span className="text-destructive font-bold">*</span>
-              </label>
-              <Textarea
-                placeholder="例: エアコンクリーニング"
-                value={service.name}
-                onChange={e => onUpdate(service.id, { name: e.target.value })}
-                onInput={e => adjustHeight(e.currentTarget)}
-                ref={el => { if (el) adjustHeight(el); }}
-                rows={1}
-                className={textareaClass}
-                aria-label={`サービス ${index + 1} 名称`}
-                required
-                disabled={isReadOnly}
-                onClick={e => e.stopPropagation()}
-                onKeyDown={e => e.stopPropagation()}
+            <ServiceField
+              label="サービス名"
+              required
+              placeholder="例: エアコンクリーニング"
+              value={service.name}
+              fieldKey="name"
+              serviceId={service.id}
+              onUpdate={onUpdate}
+              isReadOnly={isReadOnly}
+              adjustHeight={adjustHeight}
+              ariaLabel={`サービス ${index + 1} 名称`}
+              labelClassName="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ServiceField
+                label="強み"
+                placeholder="徹底した分解洗浄、即日対応可"
+                value={service.strength ?? ''}
+                fieldKey="strength"
+                serviceId={service.id}
+                onUpdate={onUpdate}
+                isReadOnly={isReadOnly}
+                adjustHeight={adjustHeight}
+              />
+              <ServiceField
+                label="いくらで（最低価格）"
+                placeholder="8,800円〜"
+                value={service.price ?? ''}
+                fieldKey="price"
+                serviceId={service.id}
+                onUpdate={onUpdate}
+                isReadOnly={isReadOnly}
+                adjustHeight={adjustHeight}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">強み</label>
-                <Textarea
-                  placeholder="徹底した分解洗浄、即日対応可"
-                  value={service.strength ?? ''}
-                  onChange={e => onUpdate(service.id, { strength: e.target.value })}
-                  onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => { if (el) adjustHeight(el); }}
-                  rows={1}
-                  className={textareaClass}
-                  disabled={isReadOnly}
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">いくらで（最低価格）</label>
-                <Textarea
-                  placeholder="8,800円〜"
-                  value={service.price ?? ''}
-                  onChange={e => onUpdate(service.id, { price: e.target.value })}
-                  onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => { if (el) adjustHeight(el); }}
-                  rows={1}
-                  className={textareaClass}
-                  disabled={isReadOnly}
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                />
-              </div>
+              <ServiceField
+                label="いつ（対応日時）"
+                placeholder="年中無休、土日祝対応"
+                value={service.when ?? ''}
+                fieldKey="when"
+                serviceId={service.id}
+                onUpdate={onUpdate}
+                isReadOnly={isReadOnly}
+                adjustHeight={adjustHeight}
+              />
+              <ServiceField
+                label="どこで（地域）"
+                placeholder="東京都内全域、神奈川県一部"
+                value={service.where ?? ''}
+                fieldKey="where"
+                serviceId={service.id}
+                onUpdate={onUpdate}
+                isReadOnly={isReadOnly}
+                adjustHeight={adjustHeight}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">いつ（対応日時）</label>
-                <Textarea
-                  placeholder="年中無休、土日祝対応"
-                  value={service.when ?? ''}
-                  onChange={e => onUpdate(service.id, { when: e.target.value })}
-                  onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => { if (el) adjustHeight(el); }}
-                  rows={1}
-                  className={textareaClass}
-                  disabled={isReadOnly}
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">どこで（地域）</label>
-                <Textarea
-                  placeholder="東京都内全域、神奈川県一部"
-                  value={service.where ?? ''}
-                  onChange={e => onUpdate(service.id, { where: e.target.value })}
-                  onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => { if (el) adjustHeight(el); }}
-                  rows={1}
-                  className={textareaClass}
-                  disabled={isReadOnly}
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                />
-              </div>
+              <ServiceField
+                label="誰が（有資格者）"
+                placeholder="エアコンクリーニング士在籍"
+                value={service.who ?? ''}
+                fieldKey="who"
+                serviceId={service.id}
+                onUpdate={onUpdate}
+                isReadOnly={isReadOnly}
+                adjustHeight={adjustHeight}
+              />
+              <ServiceField
+                label="なぜ（キャンペーン）"
+                placeholder="今なら複数台割引実施中"
+                value={service.why ?? ''}
+                fieldKey="why"
+                serviceId={service.id}
+                onUpdate={onUpdate}
+                isReadOnly={isReadOnly}
+                adjustHeight={adjustHeight}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">誰が（有資格者）</label>
-                <Textarea
-                  placeholder="エアコンクリーニング士在籍"
-                  value={service.who ?? ''}
-                  onChange={e => onUpdate(service.id, { who: e.target.value })}
-                  onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => { if (el) adjustHeight(el); }}
-                  rows={1}
-                  className={textareaClass}
-                  disabled={isReadOnly}
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">なぜ（キャンペーン）</label>
-                <Textarea
-                  placeholder="今なら複数台割引実施中"
-                  value={service.why ?? ''}
-                  onChange={e => onUpdate(service.id, { why: e.target.value })}
-                  onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => { if (el) adjustHeight(el); }}
-                  rows={1}
-                  className={textareaClass}
-                  disabled={isReadOnly}
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">何を（サービス詳細）</label>
-                <Textarea
-                  placeholder="家庭用・業務用エアコンの内部洗浄"
-                  value={service.what ?? ''}
-                  onChange={e => onUpdate(service.id, { what: e.target.value })}
-                  onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => { if (el) adjustHeight(el); }}
-                  rows={1}
-                  className={textareaClass}
-                  disabled={isReadOnly}
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">どのように（問い合わせ方法）</label>
-                <Textarea
-                  placeholder="Webフォーム、お電話、LINE"
-                  value={service.how ?? ''}
-                  onChange={e => onUpdate(service.id, { how: e.target.value })}
-                  onInput={e => adjustHeight(e.currentTarget)}
-                  ref={el => { if (el) adjustHeight(el); }}
-                  rows={1}
-                  className={textareaClass}
-                  disabled={isReadOnly}
-                  onClick={e => e.stopPropagation()}
-                  onKeyDown={e => e.stopPropagation()}
-                />
-              </div>
+              <ServiceField
+                label="何を（サービス詳細）"
+                placeholder="家庭用・業務用エアコンの内部洗浄"
+                value={service.what ?? ''}
+                fieldKey="what"
+                serviceId={service.id}
+                onUpdate={onUpdate}
+                isReadOnly={isReadOnly}
+                adjustHeight={adjustHeight}
+              />
+              <ServiceField
+                label="どのように（問い合わせ方法）"
+                placeholder="Webフォーム、お電話、LINE"
+                value={service.how ?? ''}
+                fieldKey="how"
+                serviceId={service.id}
+                onUpdate={onUpdate}
+                isReadOnly={isReadOnly}
+                adjustHeight={adjustHeight}
+              />
             </div>
           </div>
         </CardContent>
