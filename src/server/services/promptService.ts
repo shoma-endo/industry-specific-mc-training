@@ -11,6 +11,7 @@ import {
 } from '@/types/prompt';
 import type { AnnotationRecord } from '@/types/annotation';
 import type { Database, Json } from '@/types/database.types';
+import type { Profile, Service } from '@/server/schemas/brief.schema';
 
 const PromptVariableSchema = z.object({
   name: z.string(),
@@ -195,6 +196,49 @@ export class PromptService extends SupabaseService {
         onError: () => null,
       }
     );
+  }
+
+  /**
+   * 事業者プロフィールから置換用変数を作成
+   */
+  static buildProfileVariables(profile: Profile | null): Record<string, string> {
+    if (!profile) return {};
+    return {
+      company: profile.company || '',
+      address: profile.address || '',
+      ceo: profile.ceo || '',
+      hobby: profile.hobby || '',
+      staff: profile.staff || '',
+      staffHobby: profile.staffHobby || '',
+      businessHours: profile.businessHours || '',
+      holiday: profile.holiday || '',
+      tel: profile.tel || '',
+      license: profile.license || '',
+      qualification: profile.qualification || '',
+      capital: profile.capital || '',
+      email: profile.email || '',
+      payments: (profile.payments || []).join('、'),
+      benchmarkUrl: profile.benchmarkUrl || '',
+      competitorCopy: profile.competitorCopy || '',
+    };
+  }
+
+  /**
+   * 特定のサービス情報から置換用変数を作成（5W2H）
+   */
+  static buildServiceVariables(service: Service | null): Record<string, string> {
+    if (!service) return {};
+    return {
+      serviceName: service.name || '',
+      strength: service.strength || '',
+      when: service.when || '',
+      where: service.where || '',
+      who: service.who || '',
+      why: service.why || '',
+      what: service.what || '',
+      how: service.how || '',
+      price: service.price || '',
+    };
   }
 
   /**

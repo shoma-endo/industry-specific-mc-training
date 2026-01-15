@@ -2,6 +2,7 @@
 
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { BriefService } from '@/server/services/briefService';
 import { briefInputSchema, type BriefInput } from '@/server/schemas/brief.schema';
 import { cookies } from 'next/headers';
 import type { ZodIssue } from 'zod';
@@ -90,7 +91,22 @@ export const getBrief = async (
       return { success: false, error: briefResult.error.userMessage };
     }
 
-    return { success: true, data: briefResult.data as BriefInput | null };
+    // データがない場合はnullを返す（null と undefined の両方を考慮）
+    if (briefResult.data == null) {
+      return { success: true, data: null };
+    }
+
+    // 古い形式のデータを新形式に変換（必要に応じて）
+    const migratedData = BriefService.migrateOldBriefToNew(briefResult.data, targetUserId);
+
+    // Zodスキーマでバリデーション
+    const parseResult = briefInputSchema.safeParse(migratedData);
+    if (!parseResult.success) {
+      console.warn('事業者情報のバリデーション失敗:', parseResult.error.issues);
+      return { success: false, error: ERROR_MESSAGES.BRIEF.INVALID_DATA_FORMAT };
+    }
+
+    return { success: true, data: parseResult.data };
   } catch (error) {
     console.error('事業者情報の取得エラー:', error);
     return {
@@ -102,7 +118,7 @@ export const getBrief = async (
 
 /**
  * Server Component用：事業者情報を取得
- * Cookie認証の制約により、認証チェックのみ実行
+ * Cookieからトークンを取得し、データ取得を実行
  */
 export const getBriefServer = async (): Promise<ActionResult<BriefInput | null>> => {
   try {
@@ -112,8 +128,7 @@ export const getBriefServer = async (): Promise<ActionResult<BriefInput | null>>
       return { success: false, error: ERROR_MESSAGES.BRIEF.LOGIN_REQUIRED };
     }
 
-    // 実際のデータ取得はClient Componentで実行
-    return { success: true, data: null };
+    return getBrief(accessToken);
   } catch (error) {
     console.error('事業者情報の取得エラー:', error);
     return {

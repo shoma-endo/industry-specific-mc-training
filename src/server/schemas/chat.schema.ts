@@ -5,6 +5,7 @@ export const startChatSchema = z.object({
   model: z.string(),
   liffAccessToken: z.string(),
   systemPrompt: z.string().optional(),
+  serviceId: z.string().optional(),
 });
 
 export const continueChatSchema = z.object({
@@ -19,6 +20,7 @@ export const continueChatSchema = z.object({
   model: z.string(),
   liffAccessToken: z.string(),
   systemPrompt: z.string().optional(),
+  serviceId: z.string().optional(),
 });
 
 export type StartChatInput = z.infer<typeof startChatSchema>;

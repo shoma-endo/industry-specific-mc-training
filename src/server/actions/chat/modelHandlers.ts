@@ -7,38 +7,99 @@ import { ChatResponse } from '@/types/chat';
 import type { StartChatInput, ContinueChatInput } from '@/server/schemas/chat.schema';
 import { BriefService } from '@/server/services/briefService';
 import { PromptService } from '@/server/services/promptService';
+import type { Service } from '@/server/schemas/brief.schema';
 
 /**
  * モデルに応じた動的プロンプト取得（React Cache活用）
  */
 const getSystemPrompt = getSystemPromptShared;
 
+/**
+ * serviceIdを検証し、有効なサービスを返すヘルパー関数
+ * @param services ユーザーのサービス一覧
+ * @param serviceId 検証対象のserviceId
+ * @returns 有効なサービス（存在しない場合は最初のサービスにフォールバック）
+ */
+function resolveTargetService(
+  services: Service[] | undefined,
+  serviceId: string | undefined
+): Service | null {
+  if (!services || services.length === 0) {
+    return null;
+  }
+
+  if (serviceId) {
+    const foundService = services.find(s => s.id === serviceId);
+    if (foundService) {
+      return foundService;
+    }
+    // serviceIdが指定されているが見つからない場合は警告を出力してフォールバック
+    console.warn(
+      `[ModelHandler] 指定されたserviceId "${serviceId}" が見つかりません。最初のサービスにフォールバックします。`
+    );
+  }
+
+  // serviceId未指定または見つからない場合は最初のサービスを返す
+  return services[0] ?? null;
+}
+
 export class ModelHandlerService {
   private processor = new ChatProcessorService();
 
+  /**
+   * LP draft用の変数を構築するヘルパー関数
+   * @param userId ユーザーID
+   * @param serviceId オプションのサービスID
+   * @returns 変数のレコード
+   */
+  private async buildLPDraftVariables(
+    userId: string,
+    serviceId?: string
+  ): Promise<Record<string, string>> {
+    const briefData = await BriefService.getVariablesByUserId(userId).catch(() => null);
+    const profileVars = PromptService.buildProfileVariables(briefData?.profile ?? null);
+    const targetService = resolveTargetService(briefData?.services, serviceId);
+    const serviceVars = PromptService.buildServiceVariables(targetService);
+    return {
+      ...profileVars,
+      ...serviceVars,
+      service: serviceVars.serviceName || '',
+      persona: briefData?.persona || '',
+    };
+  }
+
   async handleStart(userId: string, data: StartChatInput): Promise<ChatResponse> {
-    const { userMessage, model, liffAccessToken } = data;
+    const { userMessage, model, liffAccessToken, serviceId } = data;
     // キャッシュ戦略を活用した動的プロンプト取得
-    const systemPrompt = await getSystemPrompt(model, liffAccessToken);
+    const systemPrompt = await getSystemPrompt(model, liffAccessToken, undefined, serviceId);
 
     switch (model) {
       case 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2':
-        return this.handleFTModel(userId, systemPrompt, userMessage, model);
+        return this.handleFTModel(userId, systemPrompt, userMessage, model, serviceId);
       case 'ad_copy_creation':
-        return this.handleAdCopyModel(userId, systemPrompt, userMessage);
+        return this.handleAdCopyModel(userId, systemPrompt, userMessage, serviceId);
       case 'gpt-4.1-nano':
-        return this.handleFinishingModel(userId, systemPrompt, userMessage);
+        return this.handleFinishingModel(userId, systemPrompt, userMessage, serviceId);
       case 'lp_draft_creation':
-        return this.handleLPDraftModel(userId, systemPrompt, userMessage);
+        return this.handleLPDraftModel(userId, systemPrompt, userMessage, serviceId);
       default:
-        return this.handleDefaultModel(userId, systemPrompt, userMessage, model);
+        return this.handleDefaultModel(userId, systemPrompt, userMessage, model, serviceId);
     }
   }
 
   async handleContinue(userId: string, data: ContinueChatInput): Promise<ChatResponse> {
-    const { sessionId, messages, userMessage, model, liffAccessToken, systemPrompt: customSystemPrompt } = data;
+    const {
+      sessionId,
+      messages,
+      userMessage,
+      model,
+      liffAccessToken,
+      systemPrompt: customSystemPrompt,
+      serviceId,
+    } = data;
     // カスタムsystemPromptが渡されていればそれを使用、なければキャッシュ戦略を活用した動的プロンプト取得
-    const systemPrompt = customSystemPrompt ?? await getSystemPrompt(model, liffAccessToken, sessionId);
+    const systemPrompt =
+      customSystemPrompt ?? (await getSystemPrompt(model, liffAccessToken, sessionId, serviceId));
 
     if (model === 'ft:gpt-4.1-nano-2025-04-14:personal::BZeCVPK2') {
       const config = MODEL_CONFIGS[model];
@@ -62,8 +123,7 @@ export class ModelHandlerService {
         { temperature, maxTokens }
       );
 
-      const classificationKeywords =
-        aiReply === '今すぐ客キーワード' ? userMessage : aiReply;
+      const classificationKeywords = aiReply === '今すぐ客キーワード' ? userMessage : aiReply;
       const { immediate, later } = this.processor.extractKeywordSections(classificationKeywords);
 
       if (immediate.length === 0) {
@@ -107,7 +167,7 @@ export class ModelHandlerService {
         model
       );
     } else if (model === 'lp_draft_creation') {
-      const variables = await BriefService.getVariablesByUserId(userId).catch(() => ({}));
+      const variables = await this.buildLPDraftVariables(userId, serviceId);
       const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
 
       const validMessages = messages.map(msg => ({
@@ -157,7 +217,8 @@ export class ModelHandlerService {
     userId: string,
     systemPrompt: string,
     userMessage: string,
-    model: string
+    model: string,
+    serviceId?: string
   ): Promise<ChatResponse> {
     const config = MODEL_CONFIGS[model];
     const maxTokens = config ? config.maxTokens : 1000;
@@ -173,8 +234,7 @@ export class ModelHandlerService {
       { temperature, maxTokens }
     );
 
-    const classificationKeywords =
-      aiReply === '今すぐ客キーワード' ? userMessage : aiReply;
+    const classificationKeywords = aiReply === '今すぐ客キーワード' ? userMessage : aiReply;
     const { immediate, later } = this.processor.extractKeywordSections(classificationKeywords);
 
     if (immediate.length === 0) {
@@ -183,7 +243,8 @@ export class ModelHandlerService {
         userId,
         systemPrompt,
         [userMessage.trim(), aiReply],
-        model
+        model,
+        serviceId
       );
     }
 
@@ -193,37 +254,48 @@ export class ModelHandlerService {
       userId,
       systemPrompt,
       [userMessage.trim(), assistantReply],
-      model
+      model,
+      serviceId
     );
   }
 
   private async handleAdCopyModel(
     userId: string,
     systemPrompt: string,
-    userMessage: string
+    userMessage: string,
+    serviceId?: string
   ): Promise<ChatResponse> {
     return await chatService.startChat(
       userId,
       systemPrompt,
       userMessage.trim(),
-      'ad_copy_creation'
+      'ad_copy_creation',
+      serviceId
     );
   }
 
   private async handleFinishingModel(
     userId: string,
     systemPrompt: string,
-    userMessage: string
+    userMessage: string,
+    serviceId?: string
   ): Promise<ChatResponse> {
-    return await chatService.startChat(userId, systemPrompt, userMessage.trim(), 'gpt-4.1-nano');
+    return await chatService.startChat(
+      userId,
+      systemPrompt,
+      userMessage.trim(),
+      'gpt-4.1-nano',
+      serviceId
+    );
   }
 
   private async handleLPDraftModel(
     userId: string,
     systemPrompt: string,
-    userMessage: string
+    userMessage: string,
+    serviceId?: string
   ): Promise<ChatResponse> {
-    const variables = await BriefService.getVariablesByUserId(userId).catch(() => ({}));
+    const variables = await this.buildLPDraftVariables(userId, serviceId);
     const finalSystemPrompt = PromptService.replaceVariables(systemPrompt, variables);
 
     try {
@@ -231,7 +303,8 @@ export class ModelHandlerService {
         userId,
         finalSystemPrompt,
         userMessage.trim(),
-        'lp_draft_creation'
+        'lp_draft_creation',
+        serviceId
       );
     } catch (error) {
       console.error('LP生成エラー:', error);
@@ -239,7 +312,8 @@ export class ModelHandlerService {
         userId,
         systemPrompt,
         userMessage.trim(),
-        'lp_draft_creation'
+        'lp_draft_creation',
+        serviceId
       );
     }
   }
@@ -248,9 +322,10 @@ export class ModelHandlerService {
     userId: string,
     systemPrompt: string,
     userMessage: string,
-    model?: string
+    model?: string,
+    serviceId?: string
   ): Promise<ChatResponse> {
-    return await chatService.startChat(userId, systemPrompt, userMessage.trim(), model);
+    return await chatService.startChat(userId, systemPrompt, userMessage.trim(), model, serviceId);
   }
 
   /**

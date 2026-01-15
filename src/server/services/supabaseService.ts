@@ -389,6 +389,87 @@ export class SupabaseService {
   }
 
   /**
+   * チャットセッションに紐づくサービスIDを取得
+   * オーナー/スタッフ間のアクセス制御に対応
+   */
+  async getSessionServiceId(
+    sessionId: string,
+    userId: string
+  ): Promise<SupabaseResult<string | null>> {
+    const { data: accessibleIds, error: accessError } = await this.supabase.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return this.failure('アクセス権の確認に失敗しました', {
+        error: accessError,
+        developerMessage: 'Failed to get accessible user IDs',
+        context: { sessionId, userId },
+      });
+    }
+
+    const { data, error } = await this.supabase
+      .from('chat_sessions')
+      .select('service_id')
+      .eq('id', sessionId)
+      .in('user_id', accessibleIds)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return this.success(null);
+      }
+      return this.failure('セッションのサービスID取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get session service_id',
+        context: { sessionId, userId },
+      });
+    }
+
+    return this.success(data?.service_id ?? null);
+  }
+
+  /**
+   * チャットセッションのサービスIDを更新
+   * オーナー/スタッフ間のアクセス制御に対応
+   */
+  async updateSessionServiceId(
+    sessionId: string,
+    userId: string,
+    serviceId: string
+  ): Promise<SupabaseResult<void>> {
+    const { data: accessibleIds, error: accessError } = await this.supabase.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return this.failure('アクセス権の確認に失敗しました', {
+        error: accessError,
+        developerMessage: 'Failed to get accessible user IDs',
+        context: { sessionId, userId },
+      });
+    }
+
+    const { error } = await this.supabase
+      .from('chat_sessions')
+      .update({ service_id: serviceId })
+      .eq('id', sessionId)
+      .in('user_id', accessibleIds);
+
+    if (error) {
+      return this.failure('セッションのサービスID更新に失敗しました', {
+        error,
+        developerMessage: 'Failed to update session service_id',
+        context: { sessionId, userId, serviceId },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
+  /**
    * セッションとメッセージを一括取得（RPC関数を使用）
    * N+1問題を解消し、パフォーマンスを向上
    */

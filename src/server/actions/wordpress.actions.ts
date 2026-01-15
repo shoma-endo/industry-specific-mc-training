@@ -211,6 +211,7 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
     }
   }
 
+
   // カテゴリーIDを取得
   if (Array.isArray(record.categories)) {
     const categoryIds = record.categories
@@ -220,6 +221,7 @@ const normalizePostResponse = (data: unknown): NormalizedPostResponse => {
       result.categories = categoryIds;
     }
   }
+
 
   // カテゴリー名を取得（_embedded['wp:term']から）
   const embedded = record._embedded as { 'wp:term'?: Array<Array<WordPressRestTerm>> } | undefined;
@@ -1259,6 +1261,7 @@ export async function ensureAnnotationChatSession(
         last_message_at: nowIso,
         system_prompt: null,
         search_vector: null,
+        service_id: null,
       };
 
       const createResult = await service.createChatSession(session);
