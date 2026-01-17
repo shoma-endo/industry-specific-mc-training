@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChatSessionHook } from '@/hooks/useChatSession';
 import { SubscriptionHook } from '@/hooks/useSubscriptionStatus';
+import { useServiceSelection } from '@/hooks/useServiceSelection';
 import { useLiffContext } from '@/components/LiffProvider';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
+import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
@@ -261,6 +263,11 @@ interface ChatLayoutCtx {
   isGenerateTitleMetaLoading: boolean;
   onLoadBlogArticle?: (() => Promise<void>) | null | undefined;
   initialStep?: BlogStepId | null;
+  services: Service[];
+  selectedServiceId: string | null;
+  onServiceChange: (serviceId: string) => void;
+  servicesError: string | null;
+  onDismissServicesError: () => void;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -293,6 +300,11 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     isGenerateTitleMetaLoading,
     onLoadBlogArticle,
     initialStep,
+    services,
+    selectedServiceId,
+    onServiceChange,
+    servicesError,
+    onDismissServicesError,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
@@ -429,6 +441,10 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           />
         )}
 
+        {servicesError && (
+          <WarningAlert message={servicesError} onClose={onDismissServicesError} />
+        )}
+
         <MessageArea
           messages={[...chatSession.state.messages, ...optimisticMessages]}
           isLoading={chatSession.state.isLoading || isCanvasStreaming}
@@ -482,6 +498,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               ? onLoadBlogArticle
               : undefined
           }
+          services={services}
+          selectedServiceId={selectedServiceId}
+          onServiceChange={onServiceChange}
         />
       </div>
 
@@ -507,6 +526,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   initialStep = null,
 }) => {
   const { getAccessToken, isOwnerViewMode } = useLiffContext();
+
+  // サービス選択ロジックをカスタムフックで管理
+  const serviceSelection = useServiceSelection({
+    getAccessToken,
+    currentSessionId: chatSession.state.currentSessionId,
+  });
+  const { services, selectedServiceId, servicesError } = serviceSelection.state;
+  const { changeService: handleServiceChange, dismissServicesError } = serviceSelection.actions;
+
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
@@ -544,6 +572,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // 保存済みステップを計算（保存されているフィールドから判断）
   const chatStateRef = useRef(chatSession.state);
   const canvasEditInFlightRef = useRef(false);
+  const prevSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     chatStateRef.current = chatSession.state;
@@ -816,6 +845,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // ✅ セッション切り替え時にパネルを自動的に閉じる
   useEffect(() => {
+    const prevSessionId = prevSessionIdRef.current;
+    const nextSessionId = chatSession.state.currentSessionId ?? null;
+    const shouldResetModel = Boolean(prevSessionId) && prevSessionId !== nextSessionId;
+
     setCanvasPanelOpen(false);
     setAnnotationOpen(false);
     setAnnotationData(null);
@@ -824,11 +857,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setSelectedVersionByStep({});
     setFollowLatestByStep({});
     setNextStepForPlaceholder(null);
-    // セッション切り替え時はモデル選択もリセット（後続のuseEffectで復元される）
-    setSelectedModel('');
+    // 既存セッション間の切り替え時のみモデル選択をリセット
+    if (shouldResetModel) {
+      setSelectedModel('');
+    }
     setIsEditingTitle(false);
     setTitleError(null);
     setIsSavingTitle(false);
+    prevSessionIdRef.current = nextSessionId;
   }, [chatSession.state.currentSessionId]);
 
   useEffect(() => {
@@ -950,12 +986,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   }, [latestBlogStep, selectedModel]);
 
   // ✅ メッセージ送信時に初期化を実行
-  const handleSendMessage = async (content: string, model: string) => {
-    // 新規メッセージ送信時はプレースホルダー状態をリセット
-    setNextStepForPlaceholder(null);
-    // メッセージ送信（エラーハンドリングは上位に委譲）
-    await chatSession.actions.sendMessage(content, model);
-  };
+  const handleSendMessage = useCallback(
+    async (content: string, model: string) => {
+      // 新規メッセージ送信時はプレースホルダー状態をリセット
+      setNextStepForPlaceholder(null);
+      // 選択中のサービスIDがあれば常に渡して、セッション更新の競合を避ける
+      const options = selectedServiceId ? { serviceId: selectedServiceId } : undefined;
+
+      await chatSession.actions.sendMessage(content, model, options);
+    },
+    [chatSession.actions, selectedServiceId]
+  );
 
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
   const handleShowCanvas = useCallback(
@@ -1402,7 +1443,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           chatSession,
           subscription,
           isMobile,
-          initialStep,
           blogFlowActive,
           optimisticMessages,
           isCanvasStreaming,
@@ -1416,8 +1456,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
               open: annotationOpen,
               loading: annotationLoading,
               data: annotationData,
-              openWith: handleOpenAnnotation,
               setOpen: setAnnotationOpen,
+              openWith: handleOpenAnnotation,
             },
           },
           onSendMessage: handleSendMessage,
@@ -1437,9 +1477,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onGenerateTitleMeta: handleGenerateTitleMeta,
           isGenerateTitleMetaLoading: isGeneratingTitleMeta,
           onLoadBlogArticle: handleLoadBlogArticle,
+          initialStep,
+          services,
+          selectedServiceId,
+          onServiceChange: handleServiceChange,
+          servicesError,
+          onDismissServicesError: dismissServicesError,
         }}
       />
-
       {canvasPanelOpen && (
         <CanvasPanel
           onClose={() => {
