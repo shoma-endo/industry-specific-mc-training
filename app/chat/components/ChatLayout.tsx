@@ -990,15 +990,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     async (content: string, model: string) => {
       // 新規メッセージ送信時はプレースホルダー状態をリセット
       setNextStepForPlaceholder(null);
-      // 新規セッションの場合は選択中のサービスIDを渡す
-      const options =
-        !chatSession.state.currentSessionId && selectedServiceId
-          ? { serviceId: selectedServiceId }
-          : undefined;
+      // 選択中のサービスIDがあれば常に渡して、セッション更新の競合を避ける
+      const options = selectedServiceId ? { serviceId: selectedServiceId } : undefined;
 
       await chatSession.actions.sendMessage(content, model, options);
     },
-    [chatSession.state.currentSessionId, chatSession.actions, selectedServiceId]
+    [chatSession.actions, selectedServiceId]
   );
 
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数

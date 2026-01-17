@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { useLiffContext } from '@/components/LiffProvider';
 import { saveBrief, getBrief } from '@/server/actions/brief.actions';
 import { paymentEnum } from '@/server/schemas/brief.schema';
-import type { BriefInput, Payment, Profile, Service } from '@/types/business-info';
+import type { BriefInput, Payment, Profile, Service, LegacyBriefInput } from '@/types/business-info';
 import { Building2, Loader2, Save, Plus, Users, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { ServiceCard } from './ServiceCard';
@@ -38,22 +38,77 @@ const DEFAULT_PROFILE: Profile = {
   competitorCopy: '',
 };
 
+const createServiceId = () =>
+  globalThis.crypto?.randomUUID?.() ||
+  `service-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+const filterUndefined = <T extends Record<string, unknown>>(obj: T): Partial<T> =>
+  Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined)) as Partial<T>;
+
 const createEmptyService = (): Service => ({
-  id:
-    crypto?.randomUUID?.() || `service-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+  id: createServiceId(),
   name: '',
 });
 
 const createInitialState = (data?: Partial<BriefInput>): BriefInput => {
+  const legacyData = data as LegacyBriefInput | undefined;
+  const legacyProfile: Partial<Profile> = filterUndefined({
+    company: legacyData?.company,
+    address: legacyData?.address,
+    ceo: legacyData?.ceo,
+    hobby: legacyData?.hobby,
+    staff: legacyData?.staff,
+    staffHobby: legacyData?.staffHobby,
+    businessHours: legacyData?.businessHours,
+    holiday: legacyData?.holiday,
+    tel: legacyData?.tel,
+    license: legacyData?.license,
+    qualification: legacyData?.qualification,
+    capital: legacyData?.capital,
+    email: legacyData?.email,
+    payments: legacyData?.payments,
+    benchmarkUrl: legacyData?.benchmarkUrl,
+    competitorCopy: legacyData?.competitorCopy,
+  });
+  const hasLegacyService =
+    !!legacyData?.service ||
+    !!legacyData?.strength ||
+    !!legacyData?.when ||
+    !!legacyData?.where ||
+    !!legacyData?.who ||
+    !!legacyData?.why ||
+    !!legacyData?.what ||
+    !!legacyData?.how ||
+    !!legacyData?.price;
+  const legacyService: Service | null = hasLegacyService
+    ? {
+        id: createServiceId(),
+        name: legacyData?.service || '',
+        strength: legacyData?.strength,
+        when: legacyData?.when,
+        where: legacyData?.where,
+        who: legacyData?.who,
+        why: legacyData?.why,
+        what: legacyData?.what,
+        how: legacyData?.how,
+        price: legacyData?.price,
+      }
+    : null;
   const services =
-    data?.services && data.services.length > 0 ? data.services : [createEmptyService()];
+    data?.services && data.services.length > 0
+      ? data.services
+      : legacyService
+        ? [legacyService]
+        : [createEmptyService()];
 
   return {
     profile: {
       ...DEFAULT_PROFILE,
+      ...legacyProfile,
       ...data?.profile,
+      payments: data?.profile?.payments ?? legacyProfile.payments ?? DEFAULT_PROFILE.payments,
     },
-    persona: data?.persona || '',
+    persona: data?.persona ?? legacyData?.persona ?? '',
     services,
   };
 };
