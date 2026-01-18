@@ -5,12 +5,7 @@ import { z } from 'zod';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { PromptService } from '@/server/services/promptService';
 import { isUnavailable } from '@/authUtils';
-import {
-  CreatePromptTemplateInput,
-  UpdatePromptTemplateInput,
-  PromptTemplate,
-  PromptTemplateWithVersions,
-} from '@/types/prompt';
+import { UpdatePromptTemplateInput, PromptTemplate } from '@/types/prompt';
 import { isViewModeEnabled, VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { toUser } from '@/types/user';
@@ -79,60 +74,6 @@ async function checkAdminPermission(liffAccessToken: string) {
   } catch (error) {
     console.error('管理者権限チェックエラー:', error);
     return { success: false, error: ERROR_MESSAGES.USER.PERMISSION_CHECK_ERROR };
-  }
-}
-
-/**
- * プロンプトテンプレートを作成
- */
-export async function createPromptTemplate(
-  liffAccessToken: string,
-  data: z.infer<typeof promptSchema>
-): Promise<PromptActionResponse<PromptTemplate>> {
-  try {
-    // 管理者権限チェック
-    const adminCheck = await checkAdminPermission(liffAccessToken);
-    if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || ERROR_MESSAGES.USER.PERMISSION_VERIFY_FAILED };
-    }
-    const adminUser = adminCheck.user;
-    if (!adminUser) {
-      return { success: false, error: ERROR_MESSAGES.USER.USER_INFO_NOT_FOUND };
-    }
-    if (await isViewModeEnabled(adminUser.role)) {
-      return { success: false, error: VIEW_MODE_ERROR_MESSAGE };
-    }
-
-    // データ検証
-    const validatedData = promptSchema.parse(data);
-
-    // 重複チェック
-    const existingTemplate = await PromptService.getTemplateByName(validatedData.name);
-    if (existingTemplate) {
-      return { success: false, error: ERROR_MESSAGES.PROMPT.DUPLICATE_NAME };
-    }
-
-    // テンプレート作成
-    const createInput: CreatePromptTemplateInput = {
-      ...validatedData,
-      created_by: adminCheck.userId!,
-    };
-
-    const result = await PromptService.createTemplate(createInput);
-
-    // キャッシュ無効化
-    revalidatePath('/admin/prompts');
-
-    return { success: true, data: result };
-  } catch (error) {
-    console.error('プロンプト作成エラー:', error);
-    if (error instanceof z.ZodError) {
-      return {
-        success: false,
-        error: ERROR_MESSAGES.PROMPT.INVALID_INPUT(error.issues.map(e => e.message)),
-      };
-    }
-    return { success: false, error: ERROR_MESSAGES.PROMPT.CREATE_FAILED };
   }
 }
 
@@ -224,76 +165,3 @@ export async function getPromptTemplates(
   }
 }
 
-/**
- * プロンプトテンプレートを詳細取得（バージョン履歴付き）
- */
-export async function getPromptTemplate(
-  liffAccessToken: string,
-  id: string
-): Promise<PromptActionResponse<PromptTemplateWithVersions>> {
-  try {
-    // 管理者権限チェック
-    const adminCheck = await checkAdminPermission(liffAccessToken);
-    if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || ERROR_MESSAGES.USER.PERMISSION_VERIFY_FAILED };
-    }
-
-    const template = await PromptService.getTemplateWithVersions(id);
-    if (!template) {
-      return { success: false, error: ERROR_MESSAGES.PROMPT.NOT_FOUND };
-    }
-
-    return { success: true, data: template };
-  } catch (error) {
-    console.error('プロンプト詳細取得エラー:', error);
-    return { success: false, error: ERROR_MESSAGES.PROMPT.FETCH_FAILED };
-  }
-}
-
-/**
- * プロンプトテンプレートの検証
- */
-export async function validatePromptTemplate(
-  liffAccessToken: string,
-  data: z.infer<typeof promptSchema>
-): Promise<PromptActionResponse<{ isValid: boolean; errors: string[] }>> {
-  try {
-    // 管理者権限チェック
-    const adminCheck = await checkAdminPermission(liffAccessToken);
-    if (!adminCheck.success) {
-      return { success: false, error: adminCheck.error || ERROR_MESSAGES.USER.PERMISSION_VERIFY_FAILED };
-    }
-
-    // データ検証
-    const validatedData = promptSchema.parse(data);
-
-    // 仮のプロンプトテンプレートオブジェクトを作成して検証
-    const tempTemplate: PromptTemplate = {
-      id: 'temp',
-      name: validatedData.name,
-      display_name: validatedData.display_name,
-      content: validatedData.content,
-      variables: validatedData.variables,
-      version: 1,
-      created_by: adminCheck.userId!,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const validation = PromptService.validateTemplate(tempTemplate);
-
-    return { success: true, data: validation };
-  } catch (error) {
-    console.error('プロンプト検証エラー:', error);
-    if (error instanceof z.ZodError) {
-      return {
-        success: true,
-        data: {
-          isValid: false,
-          errors: error.issues.map(e => e.message),
-        },
-      };
-    }
-    return { success: false, error: ERROR_MESSAGES.PROMPT.VALIDATION_FAILED };
-  }
-}

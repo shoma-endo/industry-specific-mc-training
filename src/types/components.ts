@@ -4,17 +4,11 @@
 import type { WordPressType } from './wordpress';
 import type { UserRole } from './user';
 import type { GscConnectionStatus } from './gsc';
+import type { LiffProfile } from './hooks';
 
 /**
  * LIFF関連の型定義
  */
-export interface LiffProfile {
-  userId: string;
-  displayName: string;
-  pictureUrl?: string;
-  statusMessage?: string;
-}
-
 export interface LiffContextType {
   isLoggedIn: boolean;
   isLoading: boolean;
