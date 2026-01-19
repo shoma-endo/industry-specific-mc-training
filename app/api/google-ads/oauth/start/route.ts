@@ -4,6 +4,9 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { generateOAuthState } from '@/server/lib/oauth-state';
 import { GOOGLE_ADS_SCOPES } from '@/lib/constants';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { SupabaseService } from '@/server/services/supabaseService';
+import { toUser } from '@/types/user';
+import { isAdmin } from '@/authUtils';
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -45,7 +48,37 @@ export async function GET() {
     );
   }
   if (authResult.viewMode || authResult.ownerUserId) {
-    return NextResponse.json({ error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED }, { status: 403 });
+    return NextResponse.json(
+      { error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED },
+      { status: 403 }
+    );
+  }
+
+  // 管理者権限チェック（Google Ads 連携は審査完了まで管理者のみ）
+  try {
+    const supabaseService = new SupabaseService();
+    const userResult = await supabaseService.getUserById(authResult.userId);
+    if (!userResult.success || !userResult.data) {
+      console.error(
+        'ユーザー情報取得エラー:',
+        userResult.success ? 'データなし' : userResult.error
+      );
+      return NextResponse.redirect(
+        `${process.env.GOOGLE_ADS_REDIRECT_URI?.replace('/api/google-ads/oauth/callback', '')}/setup/google-ads?error=server_error`
+      );
+    }
+    const user = toUser(userResult.data);
+    if (!isAdmin(user.role)) {
+      console.warn('非管理者ユーザーが Google Ads 連携を試行:', authResult.userId);
+      return NextResponse.redirect(
+        `${process.env.GOOGLE_ADS_REDIRECT_URI?.replace('/api/google-ads/oauth/callback', '')}/unauthorized`
+      );
+    }
+  } catch (error) {
+    console.error('管理者権限チェックエラー:', error);
+    return NextResponse.redirect(
+      `${process.env.GOOGLE_ADS_REDIRECT_URI?.replace('/api/google-ads/oauth/callback', '')}/setup/google-ads?error=server_error`
+    );
   }
 
   const { state } = generateOAuthState(authResult.userId, cookieSecret);

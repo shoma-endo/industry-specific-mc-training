@@ -5,6 +5,8 @@ import { verifyOAuthState } from '@/server/lib/oauth-state';
 import { GoogleAdsService } from '@/server/services/googleAdsService';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { toUser } from '@/types/user';
+import { isAdmin } from '@/authUtils';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
