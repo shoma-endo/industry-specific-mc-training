@@ -21,35 +21,29 @@ export async function GET(request: NextRequest) {
   const cookieSecret = process.env.COOKIE_SECRET ?? '';
   const stateCookieName = 'gads_oauth_state';
 
+  // redirectUri からベース URL を取得（ngrok URL を維持するため）
+  const baseUrl = redirectUri.replace('/api/google-ads/oauth/callback', '') || request.url;
+
   if (error) {
-    console.error('Google Ads OAuth Error:', error);
-    return NextResponse.redirect(new URL('/setup/google-ads?error=auth_failed', request.url));
+    console.error('❌ Google Ads OAuth Error:', error);
+    return NextResponse.redirect(new URL('/setup/google-ads?error=auth_failed', baseUrl));
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(new URL('/setup/google-ads?error=missing_params', request.url));
-  }
-
-  if (!liffAccessToken) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    console.error('❌ code または state がありません');
+    return NextResponse.redirect(new URL('/setup/google-ads?error=missing_params', baseUrl));
   }
 
   try {
-    const authResult = await authMiddleware(liffAccessToken, refreshToken);
-    if (authResult.error || !authResult.userId) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-    if (authResult.viewMode || authResult.ownerUserId) {
-       return NextResponse.redirect(new URL(`/setup/google-ads?error=${encodeURIComponent(ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED)}`, request.url));
-    }
-
     // State検証
     const storedState = cookieStore.get(stateCookieName)?.value;
-    
+
     // 1. CSRF対策: クッキーに保存されたStateと一致するか
     if (!storedState || storedState !== state) {
       console.error('OAuth state mismatch', { stored: !!storedState, received: !!state });
-      const response = NextResponse.redirect(new URL('/setup/google-ads?error=state_cookie_mismatch', request.url));
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=state_cookie_mismatch', baseUrl)
+      );
       response.cookies.delete(stateCookieName);
       return response;
     }
@@ -58,18 +52,76 @@ export async function GET(request: NextRequest) {
     const verification = verifyOAuthState(state, cookieSecret);
     if (!verification.valid) {
       console.error('Invalid OAuth state:', verification.reason);
-      const response = NextResponse.redirect(new URL(`/setup/google-ads?error=${encodeURIComponent(verification.reason)}`, request.url));
+      const response = NextResponse.redirect(
+        new URL(`/setup/google-ads?error=${encodeURIComponent(verification.reason)}`, baseUrl)
+      );
       response.cookies.delete(stateCookieName);
       return response;
     }
 
-    // 3. ユーザーIDの整合性確認
-    if (verification.payload.userId !== authResult.userId) {
-      console.error('OAuth state user mismatch', { 
-        stateUser: verification.payload.userId, 
-        currentUser: authResult.userId 
-      });
-      const response = NextResponse.redirect(new URL('/setup/google-ads?error=state_user_mismatch', request.url));
+    // 3. ユーザーID取得（GSC と同じロジック：state の userId を優先）
+    let targetUserId: string | null = verification.payload.userId;
+
+    // LINE token があれば検証（なくても state の userId で進める）
+    if (liffAccessToken) {
+      const authResult = await authMiddleware(liffAccessToken, refreshToken);
+      if (!authResult.error && authResult.userId) {
+        if (authResult.viewMode || authResult.ownerUserId) {
+          const response = NextResponse.redirect(
+            new URL(
+              `/setup/google-ads?error=${encodeURIComponent(ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED)}`,
+              baseUrl
+            )
+          );
+          response.cookies.delete(stateCookieName);
+          return response;
+        }
+
+        // ユーザーID整合性確認
+        if (targetUserId && targetUserId !== authResult.userId) {
+          console.error('OAuth state user mismatch', {
+            stateUser: targetUserId,
+            currentUser: authResult.userId,
+          });
+          const response = NextResponse.redirect(
+            new URL('/setup/google-ads?error=state_user_mismatch', baseUrl)
+          );
+          response.cookies.delete(stateCookieName);
+          return response;
+        }
+
+        targetUserId = authResult.userId;
+      }
+    }
+
+    // targetUserId が最終的にない場合のみエラー
+    if (!targetUserId) {
+      console.error('❌ userId が取得できません');
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=auth_required', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      return response;
+    }
+
+    // 管理者権限チェック（Google Ads 連携は審査完了まで管理者のみ）
+    const supabaseService = new SupabaseService();
+    const userResult = await supabaseService.getUserById(targetUserId);
+    if (!userResult.success || !userResult.data) {
+      console.error(
+        '❌ ユーザー情報が取得できません:',
+        userResult.success ? 'データなし' : userResult.error
+      );
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=server_error', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      return response;
+    }
+    const user = toUser(userResult.data);
+    if (!isAdmin(user.role)) {
+      console.warn('⚠️ 非管理者ユーザーが Google Ads 連携を試行:', targetUserId);
+      const response = NextResponse.redirect(new URL('/unauthorized', baseUrl));
       response.cookies.delete(stateCookieName);
       return response;
     }
@@ -85,8 +137,7 @@ export async function GET(request: NextRequest) {
     }
 
     // DB保存
-    const supabaseService = new SupabaseService();
-    await supabaseService.saveGoogleAdsCredential(authResult.userId, {
+    await supabaseService.saveGoogleAdsCredential(targetUserId, {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken || '', // 必須だが、ない場合は空文字で保存して後でエラーにする運用も可
       expiresIn: tokens.expiresIn,
@@ -94,12 +145,11 @@ export async function GET(request: NextRequest) {
     });
 
     // 成功
-    const response = NextResponse.redirect(new URL('/setup/google-ads?success=true', request.url));
+    const response = NextResponse.redirect(new URL('/setup/google-ads?success=true', baseUrl));
     response.cookies.delete(stateCookieName);
     return response;
-
   } catch (err) {
     console.error('Google Ads Callback Error:', err);
-    return NextResponse.redirect(new URL('/setup/google-ads?error=server_error', request.url));
+    return NextResponse.redirect(new URL('/setup/google-ads?error=server_error', baseUrl));
   }
 }

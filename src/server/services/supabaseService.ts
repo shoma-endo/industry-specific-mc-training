@@ -998,6 +998,44 @@ export class SupabaseService {
   }
 
   /**
+   * Google Ads 資格情報を取得
+   */
+  async getGoogleAdsCredential(userId: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+    accessTokenExpiresAt: string;
+    googleAccountEmail: string | null;
+    scope: string[];
+  } | null> {
+    const { data, error } = await this.supabase
+      .from('google_ads_credentials')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // レコードが見つからない場合は null を返す
+        return null;
+      }
+      console.error('Error fetching Google Ads credential:', error);
+      throw new Error(`Google Ads認証情報の取得に失敗しました: ${error.message}`);
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      accessTokenExpiresAt: data.access_token_expires_at,
+      googleAccountEmail: data.google_account_email,
+      scope: data.scope || [],
+    };
+  }
+
+  /**
    * Google Search Console 資格情報を保存
    */
   async upsertGscCredential(
