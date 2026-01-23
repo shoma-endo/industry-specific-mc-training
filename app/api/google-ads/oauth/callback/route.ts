@@ -7,6 +7,7 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { toUser } from '@/types/user';
 import { isAdmin } from '@/authUtils';
+import { setLineTokens } from '@/server/lib/cookies';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -19,10 +20,8 @@ export async function GET(request: NextRequest) {
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
   const redirectUri = process.env.GOOGLE_ADS_REDIRECT_URI ?? '';
   const cookieSecret = process.env.COOKIE_SECRET ?? '';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
   const stateCookieName = 'gads_oauth_state';
-
-  // redirectUri からベース URL を取得（ngrok URL を維持するため）
-  const baseUrl = redirectUri.replace('/api/google-ads/oauth/callback', '') || request.url;
 
   if (error) {
     console.error('❌ Google Ads OAuth Error:', error);
@@ -146,10 +145,20 @@ export async function GET(request: NextRequest) {
 
     // 成功
     const response = NextResponse.redirect(new URL('/setup/google-ads?success=true', baseUrl));
+
+    // state Cookie 削除
     response.cookies.delete(stateCookieName);
+
+    // LIFF 認証トークンを Cookie にセット
+    setLineTokens(response, liffAccessToken, refreshToken);
+
     return response;
   } catch (err) {
     console.error('Google Ads Callback Error:', err);
-    return NextResponse.redirect(new URL('/setup/google-ads?error=server_error', baseUrl));
+    const response = NextResponse.redirect(
+      new URL('/setup/google-ads?error=server_error', baseUrl)
+    );
+    response.cookies.delete(stateCookieName);
+    return response;
   }
 }

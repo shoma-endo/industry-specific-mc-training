@@ -17,6 +17,7 @@ export async function GET() {
   const redirectUri = process.env.GOOGLE_ADS_REDIRECT_URI ?? ''; // Google Ads用のリダイレクトURI
   const cookieSecret = process.env.COOKIE_SECRET ?? '';
   const stateCookieName = 'gads_oauth_state'; // Cookie名を変更
+  const appBaseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
 
   const isConfigured = Boolean(clientId && clientSecret && redirectUri && cookieSecret);
 
@@ -63,22 +64,16 @@ export async function GET() {
         'ユーザー情報取得エラー:',
         userResult.success ? 'データなし' : userResult.error
       );
-      return NextResponse.redirect(
-        `${process.env.GOOGLE_ADS_REDIRECT_URI?.replace('/api/google-ads/oauth/callback', '')}/setup/google-ads?error=server_error`
-      );
+      return NextResponse.redirect(`${appBaseUrl}/setup/google-ads?error=server_error`);
     }
     const user = toUser(userResult.data);
     if (!isAdmin(user.role)) {
       console.warn('非管理者ユーザーが Google Ads 連携を試行:', authResult.userId);
-      return NextResponse.redirect(
-        `${process.env.GOOGLE_ADS_REDIRECT_URI?.replace('/api/google-ads/oauth/callback', '')}/unauthorized`
-      );
+      return NextResponse.redirect(`${appBaseUrl}/unauthorized`);
     }
   } catch (error) {
     console.error('管理者権限チェックエラー:', error);
-    return NextResponse.redirect(
-      `${process.env.GOOGLE_ADS_REDIRECT_URI?.replace('/api/google-ads/oauth/callback', '')}/setup/google-ads?error=server_error`
-    );
+    return NextResponse.redirect(`${appBaseUrl}/setup/google-ads?error=server_error`);
   }
 
   const { state } = generateOAuthState(authResult.userId, cookieSecret);
