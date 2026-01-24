@@ -1,4 +1,8 @@
-import { GoogleTokenService, type GoogleOAuthTokens } from './googleTokenService';
+import {
+  GoogleTokenService,
+  type GoogleOAuthTokens,
+  type GoogleUserInfoResponse,
+} from './googleTokenService';
 
 /**
  * Google Ads API との通信を行うサービス
@@ -46,5 +50,12 @@ export class GoogleAdsService {
   async getCampaignMetrics(/* accessToken: string, customerId: string */) {
     // 実際の実装ではここで searchStream を使用してレポートを取得する
     return [];
+  }
+
+  /**
+   * アクセストークンを使用してGoogleユーザー情報を取得する
+   */
+  async fetchUserInfo(accessToken: string): Promise<GoogleUserInfoResponse> {
+    return this.tokenService.fetchUserInfo(accessToken);
   }
 }

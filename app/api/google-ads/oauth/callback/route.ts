@@ -18,10 +18,15 @@ export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
-  const redirectUri = process.env.GOOGLE_ADS_REDIRECT_URI ?? '';
-  const cookieSecret = process.env.COOKIE_SECRET ?? '';
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  const redirectUri = process.env.GOOGLE_ADS_REDIRECT_URI;
+  const cookieSecret = process.env.COOKIE_SECRET;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
   const stateCookieName = 'gads_oauth_state';
+
+  if (!redirectUri || !cookieSecret || !baseUrl) {
+    console.error('Google Ads OAuth callbackの必須環境変数が不足しています');
+    return NextResponse.json({ error: 'OAuth構成が未設定です' }, { status: 500 });
+  }
 
   if (error) {
     console.error('❌ Google Ads OAuth Error:', error);
@@ -130,17 +135,30 @@ export async function GET(request: NextRequest) {
     const tokens = await googleAdsService.exchangeCodeForTokens(code, redirectUri);
 
     if (!tokens.refreshToken) {
-      // 既に連携済みの場合はリフレッシュトークンが返ってこないことがある
-      // 今回は初回連携前提のためエラーとするか、または強制的に再同意させるプロンプトをstart側で設定済み
-      console.warn('No refresh token returned');
+      console.error('Missing refresh token from Google Ads OAuth response');
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=missing_refresh_token', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      return response;
+    }
+
+    // Googleアカウント情報を取得
+    let googleAccountEmail: string | null = null;
+    try {
+      const userInfo = await googleAdsService.fetchUserInfo(tokens.accessToken);
+      googleAccountEmail = userInfo.email ?? null;
+    } catch (err) {
+      console.warn('Failed to fetch Google user info:', err);
     }
 
     // DB保存
     await supabaseService.saveGoogleAdsCredential(targetUserId, {
       accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken || '', // 必須だが、ない場合は空文字で保存して後でエラーにする運用も可
+      refreshToken: tokens.refreshToken,
       expiresIn: tokens.expiresIn,
       scope: tokens.scope || [],
+      googleAccountEmail,
     });
 
     // 成功
