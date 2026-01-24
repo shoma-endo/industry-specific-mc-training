@@ -1,4 +1,11 @@
 -- Create Google Ads credentials table
+--
+-- Rollback:
+--   DROP POLICY IF EXISTS "google_ads_credentials_delete_own" ON google_ads_credentials;
+--   DROP POLICY IF EXISTS "google_ads_credentials_update_own" ON google_ads_credentials;
+--   DROP POLICY IF EXISTS "google_ads_credentials_insert_own" ON google_ads_credentials;
+--   DROP POLICY IF EXISTS "google_ads_credentials_select_own" ON google_ads_credentials;
+--   DROP TABLE IF EXISTS google_ads_credentials;
 create table google_ads_credentials (
     id uuid not null default gen_random_uuid(),
     user_id uuid not null references users(id) on delete cascade,
