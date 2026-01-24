@@ -13,6 +13,7 @@ import { getGoogleAdsConnectionStatus } from '@/server/actions/googleAds.actions
 const ERROR_MAP: Record<string, string> = {
   auth_failed: ERROR_MESSAGES.GOOGLE_ADS.AUTH_FAILED,
   missing_params: ERROR_MESSAGES.GOOGLE_ADS.MISSING_PARAMS,
+  auth_required: ERROR_MESSAGES.AUTH.UNAUTHENTICATED,
   invalid_state: ERROR_MESSAGES.GOOGLE_ADS.INVALID_STATE,
   state_cookie_mismatch: ERROR_MESSAGES.GOOGLE_ADS.STATE_COOKIE_MISMATCH,
   state_user_mismatch: ERROR_MESSAGES.GOOGLE_ADS.STATE_USER_MISMATCH,
@@ -20,6 +21,7 @@ const ERROR_MAP: Record<string, string> = {
   invalid_state_signature: ERROR_MESSAGES.GOOGLE_ADS.INVALID_CREDENTIALS,
   invalid_state_format: ERROR_MESSAGES.GOOGLE_ADS.INVALID_CREDENTIALS,
   invalid_state_payload: ERROR_MESSAGES.GOOGLE_ADS.INVALID_CREDENTIALS,
+  missing_refresh_token: ERROR_MESSAGES.GOOGLE_ADS.MISSING_REFRESH_TOKEN,
   server_error: ERROR_MESSAGES.GOOGLE_ADS.SERVER_ERROR,
 };
 
