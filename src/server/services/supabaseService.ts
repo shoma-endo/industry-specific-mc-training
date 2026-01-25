@@ -1011,15 +1011,11 @@ export class SupabaseService {
       .from('google_ads_credentials')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // レコードが見つからない場合は null を返す
-        return null;
-      }
       console.error('Error fetching Google Ads credential:', error);
-      throw new Error(`Google Ads認証情報の取得に失敗しました: ${error.message}`);
+      return null;
     }
 
     if (!data) {
