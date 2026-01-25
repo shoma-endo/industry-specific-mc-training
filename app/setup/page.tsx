@@ -5,6 +5,8 @@ import SetupDashboard from '@/components/SetupDashboard';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { toGscConnectionStatus } from '@/server/lib/gsc-status';
+import { toUser } from '@/types/user';
+import { isAdmin } from '@/authUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +47,21 @@ export default async function SetupPage() {
   const gscCredential = await supabaseService.getGscCredentialByUserId(authResult.userId);
   const gscStatus = toGscConnectionStatus(gscCredential);
 
+  // ユーザー情報を取得して管理者かどうかを判定
+  const userResult = await supabaseService.getUserById(authResult.userId);
+  const user = userResult.success && userResult.data ? toUser(userResult.data) : null;
+  const userIsAdmin = user ? isAdmin(user.role) : false;
+
+  // 管理者の場合のみ Google Ads の状態を取得
+  let googleAdsStatus = undefined;
+  if (userIsAdmin) {
+    const googleAdsCredential = await supabaseService.getGoogleAdsCredential(authResult.userId);
+    googleAdsStatus = {
+      connected: !!googleAdsCredential,
+      googleAccountEmail: googleAdsCredential?.googleAccountEmail ?? null,
+    };
+  }
+
   return (
     <SetupDashboard
       wordpressSettings={{
@@ -54,6 +71,8 @@ export default async function SetupPage() {
         ...(wordpressSettings?.wpSiteUrl && { siteUrl: wordpressSettings.wpSiteUrl }),
       }}
       gscStatus={gscStatus}
+      googleAdsStatus={googleAdsStatus}
+      isAdmin={userIsAdmin}
     />
   );
 }

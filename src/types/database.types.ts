@@ -221,6 +221,50 @@ export type Database = {
           },
         ];
       };
+      google_ads_credentials: {
+        Row: {
+          access_token: string;
+          access_token_expires_at: string;
+          created_at: string;
+          google_account_email: string | null;
+          id: string;
+          refresh_token: string;
+          scope: string[];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          access_token: string;
+          access_token_expires_at: string;
+          created_at?: string;
+          google_account_email?: string | null;
+          id?: string;
+          refresh_token: string;
+          scope?: string[];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          access_token?: string;
+          access_token_expires_at?: string;
+          created_at?: string;
+          google_account_email?: string | null;
+          id?: string;
+          refresh_token?: string;
+          scope?: string[];
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'google_ads_credentials_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       gsc_article_evaluation_history: {
         Row: {
           content_annotation_id: string;
