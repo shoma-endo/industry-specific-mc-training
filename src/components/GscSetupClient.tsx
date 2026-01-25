@@ -1,10 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -13,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { GscConnectionStatus } from '@/types/gsc';
+import type { Ga4ConnectionStatus } from '@/types/ga4';
 import {
   ArrowLeft,
   Plug,
@@ -27,21 +31,28 @@ import {
   disconnectGsc,
   saveGscProperty,
 } from '@/server/actions/gscSetup.actions';
+import { saveGa4Settings } from '@/server/actions/ga4Setup.actions';
 import { formatDate } from '@/lib/date-utils';
 import { GscStatusBadge } from '@/components/ui/GscStatusBadge';
 import { useGscSetup } from '@/hooks/useGscSetup';
+import { useGa4Setup } from '@/hooks/useGa4Setup';
 import { handleAsyncAction } from '@/lib/async-handler';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { useLiffContext } from '@/components/LiffProvider';
 
 interface GscSetupClientProps {
   initialStatus: GscConnectionStatus;
+  initialGa4Status: Ga4ConnectionStatus;
   isOauthConfigured: boolean;
 }
 
 const OAUTH_START_PATH = '/api/gsc/oauth/start';
 
-export default function GscSetupClient({ initialStatus, isOauthConfigured }: GscSetupClientProps) {
+export default function GscSetupClient({
+  initialStatus,
+  initialGa4Status,
+  isOauthConfigured,
+}: GscSetupClientProps) {
   const { user } = useLiffContext();
   const {
     status,
@@ -55,6 +66,20 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
     refreshStatus,
     refetchProperties,
   } = useGscSetup(initialStatus);
+  const {
+    status: ga4Status,
+    properties: ga4Properties,
+    keyEvents: ga4KeyEvents,
+    isSyncingStatus: isGa4SyncingStatus,
+    isLoadingProperties: isGa4LoadingProperties,
+    isLoadingKeyEvents: isGa4LoadingKeyEvents,
+    alertMessage: ga4AlertMessage,
+    setStatus: setGa4Status,
+    setAlertMessage: setGa4AlertMessage,
+    refreshStatus: refreshGa4Status,
+    refetchProperties: refetchGa4Properties,
+    refetchKeyEvents,
+  } = useGa4Setup(initialGa4Status);
 
   const isStaffUser = Boolean(user?.ownerUserId);
   // Setup画面は閲覧モード対象外（オーナーは常に操作可能）
@@ -64,11 +89,34 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
 
   const [isUpdatingProperty, setIsUpdatingProperty] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isSavingGa4, setIsSavingGa4] = useState(false);
+  const [isGa4Syncing, setIsGa4Syncing] = useState(false);
+
+  const [selectedGa4PropertyId, setSelectedGa4PropertyId] = useState(
+    ga4Status.propertyId ?? ''
+  );
+  const [selectedGa4Events, setSelectedGa4Events] = useState<string[]>(
+    ga4Status.conversionEvents ?? []
+  );
+  const [ga4EngagementThreshold, setGa4EngagementThreshold] = useState<string>(
+    ga4Status.thresholdEngagementSec != null ? String(ga4Status.thresholdEngagementSec) : ''
+  );
+  const [ga4ReadRateThreshold, setGa4ReadRateThreshold] = useState<string>(
+    ga4Status.thresholdReadRate != null ? String(ga4Status.thresholdReadRate) : ''
+  );
 
   const connectedProperty = useMemo(() => {
     if (!status.propertyUri) return null;
     return properties.find(property => property.siteUrl === status.propertyUri) ?? null;
   }, [status.propertyUri, properties]);
+
+  const connectedGa4Property = useMemo(() => {
+    if (!selectedGa4PropertyId) return null;
+    return ga4Properties.find(property => property.propertyId === selectedGa4PropertyId) ?? null;
+  }, [selectedGa4PropertyId, ga4Properties]);
+
+  const ga4NeedsReauth = ga4Status.needsReauth ?? false;
+  const ga4ScopeMissing = ga4Status.scopeMissing ?? false;
 
   const selectValueProps: { value?: string } = status.propertyUri
     ? { value: status.propertyUri }
@@ -106,6 +154,94 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
       defaultErrorMessage: '連携解除に失敗しました',
     });
   };
+
+  const handleGa4PropertyChange = async (value: string) => {
+    setSelectedGa4PropertyId(value);
+    setSelectedGa4Events([]);
+    if (value) {
+      await refetchKeyEvents(value);
+    }
+  };
+
+  const handleGa4EventToggle = (eventName: string, checked: boolean) => {
+    setSelectedGa4Events(prev => {
+      if (checked) {
+        return Array.from(new Set([...prev, eventName]));
+      }
+      return prev.filter(name => name !== eventName);
+    });
+  };
+
+  const handleSaveGa4Settings = async () => {
+    const parsedEngagement =
+      ga4EngagementThreshold.trim() === '' ? null : Number(ga4EngagementThreshold);
+    const parsedReadRate =
+      ga4ReadRateThreshold.trim() === '' ? null : Number(ga4ReadRateThreshold);
+    const thresholdEngagement = Number.isNaN(parsedEngagement) ? null : parsedEngagement;
+    const thresholdReadRate = Number.isNaN(parsedReadRate) ? null : parsedReadRate;
+
+    await handleAsyncAction(
+      () =>
+        saveGa4Settings({
+          propertyId: selectedGa4PropertyId,
+          propertyName: connectedGa4Property?.displayName ?? null,
+          conversionEvents: selectedGa4Events,
+          thresholdEngagementSec: thresholdEngagement,
+          thresholdReadRate,
+        }),
+      {
+        onSuccess: data => {
+          setGa4Status(data as Ga4ConnectionStatus);
+          setGa4AlertMessage('GA4設定を保存しました');
+        },
+        setLoading: setIsSavingGa4,
+        setMessage: setGa4AlertMessage,
+        defaultErrorMessage: 'GA4設定の保存に失敗しました',
+      }
+    );
+  };
+
+  const handleGa4ManualSync = async () => {
+    await handleAsyncAction(
+      async () => {
+        const response = await fetch('/api/ga4/sync', { method: 'POST' });
+        const json = (await response.json()) as { success: boolean; error?: string };
+        if (!json.success) {
+          throw new Error(json.error || 'GA4同期に失敗しました');
+        }
+        return json;
+      },
+      {
+        onSuccess: () => {
+          setGa4AlertMessage('GA4同期を開始しました');
+        },
+        setLoading: setIsGa4Syncing,
+        setMessage: setGa4AlertMessage,
+        defaultErrorMessage: 'GA4同期に失敗しました',
+      }
+    );
+  };
+
+  useEffect(() => {
+    if (ga4Status.propertyId) {
+      setSelectedGa4PropertyId(ga4Status.propertyId);
+    }
+    if (Array.isArray(ga4Status.conversionEvents)) {
+      setSelectedGa4Events(ga4Status.conversionEvents);
+    }
+    if (ga4Status.thresholdEngagementSec != null) {
+      setGa4EngagementThreshold(String(ga4Status.thresholdEngagementSec));
+    }
+    if (ga4Status.thresholdReadRate != null) {
+      setGa4ReadRateThreshold(String(ga4Status.thresholdReadRate));
+    }
+  }, [ga4Status]);
+
+  useEffect(() => {
+    if (selectedGa4PropertyId) {
+      refetchKeyEvents(selectedGa4PropertyId);
+    }
+  }, [selectedGa4PropertyId, refetchKeyEvents]);
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8 space-y-6">
@@ -375,6 +511,225 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
           </CardContent>
         </Card>
       )}
+
+      {/* GA4 再認証が必要な場合の警告パネル */}
+      {ga4NeedsReauth && (
+        <div className="rounded-lg border border-orange-300 bg-orange-50 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-orange-800">
+            <AlertTriangle className="h-5 w-5" />
+            <p className="font-semibold">GA4の再認証が必要です</p>
+          </div>
+          <div className="text-sm text-orange-700 space-y-2">
+            <p>
+              GA4の権限が不足しているか、認証トークンが期限切れ/取り消しされています。再認証してください。
+            </p>
+            {ga4ScopeMissing && (
+              <p className="text-sm text-orange-700">
+                GA4の読み取り権限を追加するため、再認証が必要です。
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {ga4AlertMessage && !ga4NeedsReauth && (
+        <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
+          {ga4AlertMessage}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-lg font-semibold">GA4 連携ステータス</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refetchGa4Properties}
+            disabled={isGa4LoadingProperties || isReadOnly}
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className={`h-4 w-4 ${isGa4LoadingProperties ? 'animate-spin' : ''}`} />
+            再読込
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-gray-500">現在の状態</span>
+              <Badge variant={ga4Status.connected ? 'secondary' : 'outline'}>
+                {ga4Status.connected ? '接続OK' : '未設定'}
+              </Badge>
+            </div>
+            {isOauthConfigured ? (
+              isReadOnly ? (
+                <Button disabled variant="outline">
+                  オーナーのみ操作できます
+                </Button>
+              ) : (
+                <GoogleSignInButton asChild>
+                  <a href={OAUTH_START_PATH}>Googleでログイン</a>
+                </GoogleSignInButton>
+              )
+            ) : (
+              <Button disabled variant="outline">
+                OAuth設定が無効です
+              </Button>
+            )}
+          </div>
+
+          {ga4Status.connected && (
+            <div className="grid gap-3 text-sm text-gray-700">
+              <div>
+                <span className="font-medium text-gray-500 block">接続プロパティ</span>
+                <span>{ga4Status.propertyName ?? ga4Status.propertyId ?? '未選択'}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-500 block">CVイベント数</span>
+                <span>{ga4Status.conversionEvents?.length ?? 0}件</span>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                {ga4Status.lastSyncedAt && (
+                  <Badge variant="outline">最終同期: {formatDate(ga4Status.lastSyncedAt)}</Badge>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">GA4 設定</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">プロパティ</span>
+            <Select
+              value={selectedGa4PropertyId || ''}
+              onValueChange={handleGa4PropertyChange}
+              disabled={isReadOnly || isGa4LoadingProperties || ga4Properties.length === 0}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="GA4プロパティを選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {ga4Properties.map(property => (
+                  <SelectItem key={property.propertyId} value={property.propertyId}>
+                    <div className="flex flex-col">
+                      <span>{property.displayName}</span>
+                      <span className="text-xs text-gray-500">{property.propertyId}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="text-xs text-gray-500">
+              {isGa4LoadingProperties && 'GA4プロパティ一覧を取得中です...'}
+              {!isGa4LoadingProperties && ga4Properties.length === 0 && (
+                <span>権限のあるGA4プロパティが見つかりません。</span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-sm font-medium text-gray-700">前段CVイベント</span>
+            <p className="text-xs text-gray-500">
+              GA4のキーイベントから前段CVとして扱うイベントを選択してください（scroll_90は自動保存）。
+            </p>
+            <div className="rounded-md border border-gray-200 p-3 space-y-2">
+              {isGa4LoadingKeyEvents ? (
+                <p className="text-xs text-gray-500">キーイベントを取得中です...</p>
+              ) : ga4KeyEvents.length === 0 ? (
+                <p className="text-xs text-gray-500">選択可能なキーイベントがありません。</p>
+              ) : (
+                ga4KeyEvents.map(event => (
+                  <div key={event.eventName} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`ga4-event-${event.eventName}`}
+                      checked={selectedGa4Events.includes(event.eventName)}
+                      onCheckedChange={checked =>
+                        handleGa4EventToggle(event.eventName, Boolean(checked))
+                      }
+                      disabled={isReadOnly}
+                    />
+                    <Label htmlFor={`ga4-event-${event.eventName}`} className="text-sm">
+                      {event.eventName}
+                    </Label>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="ga4-engagement-threshold">滞在時間の閾値（秒）</Label>
+              <Input
+                id="ga4-engagement-threshold"
+                type="number"
+                value={ga4EngagementThreshold}
+                onChange={event => setGa4EngagementThreshold(event.target.value)}
+                disabled={isReadOnly}
+                placeholder="例: 60"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ga4-readrate-threshold">読了率の閾値（0〜1）</Label>
+              <Input
+                id="ga4-readrate-threshold"
+                type="number"
+                step="0.01"
+                value={ga4ReadRateThreshold}
+                onChange={event => setGa4ReadRateThreshold(event.target.value)}
+                disabled={isReadOnly}
+                placeholder="例: 0.4"
+              />
+            </div>
+          </div>
+
+          {connectedGa4Property && (
+            <div className="rounded-md bg-gray-50 p-4 text-sm text-gray-700 space-y-1">
+              <div>
+                <span className="font-medium">プロパティ:</span> {connectedGa4Property.displayName}
+              </div>
+              <div>
+                <span className="font-medium">ID:</span> {connectedGa4Property.propertyId}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={refreshGa4Status}
+              disabled={isReadOnly || isGa4SyncingStatus}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isGa4SyncingStatus ? 'animate-spin' : ''}`} />
+              ステータス再取得
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveGa4Settings}
+              disabled={isReadOnly || isSavingGa4 || !selectedGa4PropertyId}
+              className="flex items-center gap-2"
+            >
+              保存
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGa4ManualSync}
+              disabled={isReadOnly || isGa4Syncing || !selectedGa4PropertyId}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              GA4日次同期を実行
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 設定ガイド */}
       <Card>

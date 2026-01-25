@@ -1,0 +1,244 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { SupabaseService } from '@/server/services/supabaseService';
+import { GscService } from '@/server/services/gscService';
+import { Ga4Service } from '@/server/services/ga4Service';
+import { ga4SettingsSchema } from '@/server/schemas/ga4.schema';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
+import { toGa4ConnectionStatus } from '@/server/lib/ga4-status';
+import type { Ga4ConnectionStatus, Ga4KeyEvent, Ga4PropertySummary } from '@/types/ga4';
+import { isGa4ReauthError } from '@/domain/errors/ga4-error-handlers';
+import { GA4_SCOPE } from '@/lib/constants';
+
+const supabaseService = new SupabaseService();
+const gscService = new GscService();
+const ga4Service = new Ga4Service();
+
+const ACCESS_TOKEN_SAFETY_MARGIN_MS = 60 * 1000;
+const OWNER_ONLY_ERROR_MESSAGE = ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED;
+
+type CredentialWithActiveToken = {
+  accessToken: string;
+  accessTokenExpiresAt: string;
+};
+
+const hasReusableAccessToken = (
+  credential: { accessToken?: string | null; accessTokenExpiresAt?: string | null }
+): credential is CredentialWithActiveToken => {
+  if (!credential.accessToken || !credential.accessTokenExpiresAt) {
+    return false;
+  }
+  const expiresAtMs = new Date(credential.accessTokenExpiresAt).getTime();
+  return expiresAtMs - Date.now() > ACCESS_TOKEN_SAFETY_MARGIN_MS;
+};
+
+const ensureAccessToken = async (userId: string, refreshToken: string, credential: {
+  accessToken?: string | null;
+  accessTokenExpiresAt?: string | null;
+}) => {
+  if (hasReusableAccessToken(credential)) {
+    return credential.accessToken;
+  }
+  const refreshed = await gscService.refreshAccessToken(refreshToken);
+  const expiresAt = refreshed.expiresIn
+    ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
+    : null;
+  await supabaseService.updateGscCredential(userId, {
+    accessToken: refreshed.accessToken,
+    accessTokenExpiresAt: expiresAt,
+    scope: refreshed.scope ?? null,
+  });
+  return refreshed.accessToken;
+};
+
+const getAuthUserId = async () => {
+  const { accessToken, refreshToken } = await getLiffTokensFromCookies();
+  const authResult = await authMiddleware(accessToken, refreshToken);
+  if (authResult.error || !authResult.userId) {
+    return { error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+  }
+  const realUserId = authResult.actorUserId || authResult.userId;
+  const isViewModeAsOwner = !!authResult.actorUserId;
+
+  return {
+    userId: realUserId,
+    ownerUserId: isViewModeAsOwner ? null : (authResult.ownerUserId ?? null),
+  };
+};
+
+export async function fetchGa4Status() {
+  const { userId, ownerUserId, error } = await getAuthUserId();
+  if (error || !userId) {
+    return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+  }
+  if (ownerUserId) {
+    return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
+  }
+
+  const credential = await supabaseService.getGscCredentialByUserId(userId);
+  const status = toGa4ConnectionStatus(credential);
+  return { success: true, data: status };
+}
+
+export async function fetchGa4Properties() {
+  try {
+    const { userId, ownerUserId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+    }
+    if (ownerUserId) {
+      return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
+    }
+
+    const credential = await supabaseService.getGscCredentialByUserId(userId);
+    if (!credential) {
+      return { success: false, error: ERROR_MESSAGES.GA4.NOT_CONNECTED };
+    }
+
+    const scope = credential.scope ?? [];
+    if (!scope.includes(GA4_SCOPE)) {
+      return { success: false, error: ERROR_MESSAGES.GA4.SCOPE_MISSING, needsReauth: true };
+    }
+
+    const accessToken = await ensureAccessToken(userId, credential.refreshToken, credential);
+    const properties = await ga4Service.listProperties(accessToken);
+
+    return { success: true, data: properties as Ga4PropertySummary[] };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GA4.PROPERTIES_FETCH_FAILED;
+    console.error('[GA4 Setup] fetch properties failed', error);
+    if (isGa4ReauthError(message)) {
+      return {
+        success: false,
+        error: ERROR_MESSAGES.GA4.AUTH_EXPIRED_OR_REVOKED,
+        needsReauth: true,
+      };
+    }
+    return { success: false, error: ERROR_MESSAGES.GA4.PROPERTIES_FETCH_FAILED };
+  }
+}
+
+export async function fetchGa4KeyEvents(propertyId: string) {
+  try {
+    const { userId, ownerUserId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+    }
+    if (ownerUserId) {
+      return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
+    }
+    if (!propertyId) {
+      return { success: false, error: ERROR_MESSAGES.GA4.PROPERTY_ID_REQUIRED };
+    }
+
+    const credential = await supabaseService.getGscCredentialByUserId(userId);
+    if (!credential) {
+      return { success: false, error: ERROR_MESSAGES.GA4.NOT_CONNECTED };
+    }
+
+    const scope = credential.scope ?? [];
+    if (!scope.includes(GA4_SCOPE)) {
+      return { success: false, error: ERROR_MESSAGES.GA4.SCOPE_MISSING, needsReauth: true };
+    }
+
+    const accessToken = await ensureAccessToken(userId, credential.refreshToken, credential);
+    const keyEvents = await ga4Service.listKeyEvents(accessToken, propertyId);
+
+    return { success: true, data: keyEvents as Ga4KeyEvent[] };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ERROR_MESSAGES.GA4.KEY_EVENTS_FETCH_FAILED;
+    console.error('[GA4 Setup] fetch key events failed', error);
+    if (isGa4ReauthError(message)) {
+      return {
+        success: false,
+        error: ERROR_MESSAGES.GA4.AUTH_EXPIRED_OR_REVOKED,
+        needsReauth: true,
+      };
+    }
+    return { success: false, error: ERROR_MESSAGES.GA4.KEY_EVENTS_FETCH_FAILED };
+  }
+}
+
+export async function saveGa4Settings(input: unknown) {
+  try {
+    const { userId, ownerUserId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+    }
+    if (ownerUserId) {
+      return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
+    }
+
+    const parsed = ga4SettingsSchema.safeParse(input);
+    if (!parsed.success) {
+      console.error('[GA4 Setup] validation failed', z.prettifyError(parsed.error));
+      return { success: false, error: ERROR_MESSAGES.COMMON.UPDATE_FAILED };
+    }
+
+    const conversionEvents = Array.isArray(parsed.data.conversionEvents)
+      ? Array.from(new Set(parsed.data.conversionEvents))
+      : [];
+
+    await supabaseService.updateGscCredential(userId, {
+      ga4PropertyId: parsed.data.propertyId,
+      ga4PropertyName: parsed.data.propertyName ?? null,
+      ga4ConversionEvents: conversionEvents,
+      ga4ThresholdEngagementSec: parsed.data.thresholdEngagementSec ?? null,
+      ga4ThresholdReadRate: parsed.data.thresholdReadRate ?? null,
+    });
+
+    const updatedCredential = await supabaseService.getGscCredentialByUserId(userId);
+    revalidatePath('/setup');
+    revalidatePath('/setup/gsc');
+
+    return { success: true, data: toGa4ConnectionStatus(updatedCredential) };
+  } catch (error) {
+    console.error('[GA4 Setup] save settings failed', error);
+    return { success: false, error: ERROR_MESSAGES.GA4.SETTINGS_SAVE_FAILED };
+  }
+}
+
+export async function refetchGa4StatusWithValidation(): Promise<
+  | { success: true; data: Ga4ConnectionStatus; needsReauth: boolean }
+  | { success: false; error: string; needsReauth?: boolean }
+> {
+  try {
+    const statusResult = await fetchGa4Status();
+    if (!statusResult.success || !statusResult.data) {
+      return {
+        success: false,
+        error: statusResult.error || ERROR_MESSAGES.GA4.PROPERTIES_FETCH_FAILED,
+      };
+    }
+
+    const status = statusResult.data as Ga4ConnectionStatus;
+
+    if (status.connected) {
+      const propertiesResult = await fetchGa4Properties();
+      if (
+        !propertiesResult.success &&
+        'needsReauth' in propertiesResult &&
+        propertiesResult.needsReauth
+      ) {
+        return {
+          success: true,
+          data: status,
+          needsReauth: true,
+        };
+      }
+    }
+
+    return {
+      success: true,
+      data: status,
+      needsReauth: false,
+    };
+  } catch (error) {
+    console.error('GA4ステータス取得エラー:', error);
+    return { success: false, error: ERROR_MESSAGES.GA4.PROPERTIES_FETCH_FAILED };
+  }
+}
