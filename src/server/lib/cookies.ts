@@ -23,7 +23,7 @@ export function setLineTokens(
     response.cookies.set('line_access_token', liffAccessToken, {
       httpOnly: true, // JSからはアクセス不可にする
       secure: !isLocal, // 本番はHTTPS必須、ローカルは無効
-      sameSite: isLocal ? 'lax' : 'none', // クロスサイト制限の設定
+      sameSite: 'lax', // CSRF対策: プロジェクト全体で 'lax' に統一
       path: '/', // Cookieの適用パス
       maxAge: 30 * 24 * 60 * 60, // 有効期限：30日
     });
@@ -34,7 +34,7 @@ export function setLineTokens(
     response.cookies.set('line_refresh_token', refreshToken, {
       httpOnly: true,
       secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
+      sameSite: 'lax', // CSRF対策: プロジェクト全体で 'lax' に統一
       path: '/',
       maxAge: 90 * 24 * 60 * 60, // 有効期限：90日
     });
