@@ -196,9 +196,7 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
                   オーナーのみ操作できます
                 </Button>
               ) : (
-                <GoogleSignInButton asChild>
-                  <a href={OAUTH_START_PATH}>Googleでログイン</a>
-                </GoogleSignInButton>
+                <GoogleSignInButton href={OAUTH_START_PATH}>Googleでログイン</GoogleSignInButton>
               )
             ) : (
               <Button disabled variant="outline">

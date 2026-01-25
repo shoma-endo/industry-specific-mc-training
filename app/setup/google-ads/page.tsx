@@ -8,6 +8,7 @@ import { CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { getGoogleAdsConnectionStatus } from '@/server/actions/googleAds.actions';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
 // エラーコードとメッセージのマッピング
 const ERROR_MAP: Record<string, string> = {
@@ -104,7 +105,7 @@ async function GoogleAdsSetupContent({
         <CardHeader>
           <CardTitle>Google Ads アカウント連携</CardTitle>
           <CardDescription>
-            「連携する」ボタンを押すとGoogleの認証画面に移動します。
+            「Googleでログイン」ボタンを押すとGoogleの認証画面に移動します。
             広告データの読み取り権限を許可してください。
           </CardDescription>
         </CardHeader>
@@ -122,12 +123,9 @@ async function GoogleAdsSetupContent({
             </ul>
           </div>
 
-          <a
-            href="/api/google-ads/oauth/start"
-            className="inline-flex items-center justify-center w-full rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2"
-          >
-            {isConnected ? 'Google Ads を再連携する' : 'Google Ads と連携する'}
-          </a>
+          <GoogleSignInButton href="/api/google-ads/oauth/start">
+            Googleでログイン
+          </GoogleSignInButton>
 
           {isConnected && (
             <p className="text-xs text-center text-gray-500">
