@@ -164,14 +164,13 @@ export async function fetchKeywordMetrics(
       try {
         const googleAdsService = new GoogleAdsService();
         const newTokens = await googleAdsService.refreshAccessToken(credential.refreshToken);
-        googleAccessToken = newTokens.access_token;
+        googleAccessToken = newTokens.accessToken;
 
         // 新しいトークンを保存
-        await supabaseService.updateGoogleAdsCredential(authResult.userId, {
-          accessToken: newTokens.access_token,
-          accessTokenExpiresAt: new Date(
-            Date.now() + (newTokens.expires_in ?? 3600) * 1000
-          ).toISOString(),
+        await supabaseService.saveGoogleAdsCredential(authResult.userId, {
+          accessToken: newTokens.accessToken,
+          refreshToken: credential.refreshToken,
+          expiresIn: newTokens.expiresIn,
         });
       } catch (refreshError) {
         console.error('[fetchKeywordMetrics] Token refresh failed:', refreshError);
@@ -190,7 +189,7 @@ export async function fetchKeywordMetrics(
       customerId: parseResult.data.customerId,
       startDate: parseResult.data.startDate,
       endDate: parseResult.data.endDate,
-      campaignIds: parseResult.data.campaignIds,
+      ...(parseResult.data.campaignIds && { campaignIds: parseResult.data.campaignIds }),
     });
 
     if (!result.success) {
@@ -200,7 +199,7 @@ export async function fetchKeywordMetrics(
       };
     }
 
-    return { success: true, data: result.data };
+    return { success: true, data: result.data ?? [] };
   } catch (error) {
     console.error('[fetchKeywordMetrics] Unexpected error:', error);
     return {
