@@ -24,6 +24,7 @@ import {
 
 // ===== キャンペーン集計モックデータ =====
 interface CampaignMetrics {
+  campaignId: string;
   campaignName: string;
   status: 'ENABLED' | 'PAUSED';
   // 基本指標
@@ -42,6 +43,7 @@ interface CampaignMetrics {
 
 const MOCK_CAMPAIGNS: CampaignMetrics[] = [
   {
+    campaignId: '12345678901',
     campaignName: '整体院 検索キャンペーン',
     status: 'ENABLED',
     clicks: 2498,
@@ -56,6 +58,7 @@ const MOCK_CAMPAIGNS: CampaignMetrics[] = [
     conversionRate: 0.033,
   },
   {
+    campaignId: '12345678902',
     campaignName: 'マッサージ キャンペーン',
     status: 'ENABLED',
     clicks: 333,
@@ -70,6 +73,7 @@ const MOCK_CAMPAIGNS: CampaignMetrics[] = [
     conversionRate: 0.045,
   },
   {
+    campaignId: '12345678903',
     campaignName: 'スポーツ整体キャンペーン',
     status: 'ENABLED',
     clicks: 289,
@@ -84,6 +88,7 @@ const MOCK_CAMPAIGNS: CampaignMetrics[] = [
     conversionRate: 0.038,
   },
   {
+    campaignId: '12345678904',
     campaignName: 'リピーター向けキャンペーン',
     status: 'PAUSED',
     clicks: 0,
@@ -302,7 +307,7 @@ export default function GoogleAdsDashboardPage() {
               </TableHeader>
               <TableBody>
                 {MOCK_CAMPAIGNS.map((campaign) => (
-                  <TableRow key={campaign.campaignName}>
+                  <TableRow key={campaign.campaignId}>
                     <TableCell className="font-medium">{campaign.campaignName}</TableCell>
                     <TableCell>
                       <span
