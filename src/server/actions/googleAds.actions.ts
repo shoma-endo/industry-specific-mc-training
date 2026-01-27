@@ -69,11 +69,16 @@ export async function getGoogleAdsConnectionStatus(): Promise<{
       googleAccountEmail: credential.googleAccountEmail,
     };
   } catch (error) {
-    console.error('Error fetching Google Ads connection status:', error);
+    // 詳細ログはサーバー側のみに出力
+    console.error('[getGoogleAdsConnectionStatus] Unexpected error:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    // クライアントには共通メッセージのみ返却（内部情報を露出しない）
     return {
       connected: false,
       googleAccountEmail: null,
-      error: error instanceof Error ? error.message : ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
+      error: ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
     };
   }
 }
@@ -201,10 +206,15 @@ export async function fetchKeywordMetrics(
 
     return { success: true, data: result.data ?? [] };
   } catch (error) {
-    console.error('[fetchKeywordMetrics] Unexpected error:', error);
+    // 詳細ログはサーバー側のみに出力
+    console.error('[fetchKeywordMetrics] Unexpected error:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    // クライアントには共通メッセージのみ返却（内部情報を露出しない）
     return {
       success: false,
-      error: error instanceof Error ? error.message : ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
+      error: ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
     };
   }
 }
