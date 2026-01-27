@@ -26,7 +26,12 @@ import {
 import { useServerAction } from '@/hooks/useServerAction';
 import { useLiffContext } from '@/components/LiffProvider';
 
-export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDashboardProps) {
+export default function SetupDashboard({
+  wordpressSettings,
+  gscStatus,
+  googleAdsStatus,
+  isAdmin,
+}: SetupDashboardProps) {
   const { isOwnerViewMode, user } = useLiffContext();
   const [wpStatus, setWpStatus] = useState<WordPressConnectionStatus | null>(null);
   const [gscConnection, setGscConnection] = useState(gscStatus);
@@ -331,6 +336,77 @@ export default function SetupDashboard({ wordpressSettings, gscStatus }: SetupDa
             </div>
           </CardContent>
         </Card>
+
+        {/* Google Ads 連携（管理者のみ） */}
+        {isAdmin && googleAdsStatus && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <Plug className="text-blue-500" size={24} />
+                Google Ads 連携
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {googleAdsStatus.connected ? (
+                      <>
+                        <CheckCircle className="text-green-500" size={20} />
+                        <span className="text-green-700 font-medium">接続済み</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="text-orange-500" size={20} />
+                        <span className="text-orange-700 font-medium">未設定</span>
+                      </>
+                    )}
+                  </div>
+                  <Badge
+                    variant={googleAdsStatus.connected ? 'default' : 'secondary'}
+                    className={`text-xs ${
+                      googleAdsStatus.connected
+                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {googleAdsStatus.connected ? '接続OK' : '未設定'}
+                  </Badge>
+                </div>
+
+                {googleAdsStatus.connected ? (
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>アカウント: {googleAdsStatus.googleAccountEmail ?? '取得中'}</p>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>
+                      Google Ads アカウントと連携し、広告パフォーマンスデータを取得・分析できます。
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      ※ 現在は管理者のみ利用可能です（審査完了まで）
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Button
+                      asChild
+                      variant={googleAdsStatus.connected ? 'outline' : 'default'}
+                      className={`w-full ${googleAdsStatus.connected ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
+                    >
+                      <Link href="/setup/google-ads">
+                        <Settings size={16} className="mr-2" />
+                        {googleAdsStatus.connected ? '連携を管理' : '連携を開始'}
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* 初回セットアップガイド */}

@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
@@ -5,6 +7,7 @@ import { cn } from '@/lib/utils';
 interface GoogleSignInButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label?: string;
   asChild?: boolean;
+  href?: string;
 }
 
 function GoogleLogo() {
@@ -36,13 +39,22 @@ export function GoogleSignInButton({
   asChild = false,
   type = 'button',
   children,
+  href,
+  onClick,
   ...props
 }: GoogleSignInButtonProps) {
   const Comp = asChild ? Slot : 'button';
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    onClick?.(event);
+    if (event.defaultPrevented || !href) return;
+    window.location.assign(href);
+  };
+  const resolvedOnClick = !asChild && href ? handleClick : onClick;
 
   return (
     <Comp
       {...(!asChild && { type })}
+      onClick={resolvedOnClick}
       className={cn(
         'inline-flex h-10 items-center justify-center gap-3 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
         'bg-white text-[#1F1F1F] text-[14px] leading-5 font-medium font-[\'Roboto\',sans-serif]',
