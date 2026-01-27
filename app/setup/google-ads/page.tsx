@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -161,9 +160,7 @@ export default async function GoogleAdsSetupPage({
 
   return (
     <div className="container mx-auto py-10 px-4">
-      <Suspense fallback={<div>Loading...</div>}>
-        <GoogleAdsSetupContent searchParams={resolvedParams} />
-      </Suspense>
+      <GoogleAdsSetupContent searchParams={resolvedParams} />
     </div>
   );
 }

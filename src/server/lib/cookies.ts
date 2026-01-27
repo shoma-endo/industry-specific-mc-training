@@ -13,10 +13,9 @@ export function setLineTokens(
   liffAccessToken?: string,
   refreshToken?: string
 ) {
-  // ローカル環境かどうかを判定（httpsで始まらない場合はローカルとみなす）
-  const isLocal =
-    typeof process.env.NEXT_PUBLIC_SITE_URL === 'string' &&
-    !process.env.NEXT_PUBLIC_SITE_URL.startsWith('https');
+  // ローカル環境かどうかを判定（未設定 or httpsで始まらない場合はローカルとみなす）
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const isLocal = !siteUrl || !siteUrl.startsWith('https');
 
   // アクセストークンが存在する場合にCookieをセット
   if (liffAccessToken) {

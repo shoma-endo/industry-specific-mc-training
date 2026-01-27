@@ -228,6 +228,7 @@ export type Database = {
           created_at: string;
           google_account_email: string | null;
           id: string;
+          manager_customer_id: string | null;
           refresh_token: string;
           scope: string[];
           updated_at: string;
@@ -239,6 +240,7 @@ export type Database = {
           created_at?: string;
           google_account_email?: string | null;
           id?: string;
+          manager_customer_id?: string | null;
           refresh_token: string;
           scope?: string[];
           updated_at?: string;
@@ -250,6 +252,7 @@ export type Database = {
           created_at?: string;
           google_account_email?: string | null;
           id?: string;
+          manager_customer_id?: string | null;
           refresh_token?: string;
           scope?: string[];
           updated_at?: string;

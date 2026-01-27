@@ -70,7 +70,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<{
     return {
       connected: false,
       googleAccountEmail: null,
-      error: error instanceof Error ? error.message : ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
+      error: ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
     };
   }
 }

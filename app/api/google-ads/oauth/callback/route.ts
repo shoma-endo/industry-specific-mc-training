@@ -122,7 +122,18 @@ export async function GET(request: NextRequest) {
       response.cookies.delete(stateCookieName);
       return response;
     }
-    const user = toUser(userResult.data);
+    let user;
+    try {
+      user = toUser(userResult.data);
+    } catch (error) {
+      console.error('❌ ユーザー情報の変換に失敗しました:', error);
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=server_error', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      return response;
+    }
+
     if (!isAdmin(user.role)) {
       console.warn('⚠️ 非管理者ユーザーが Google Ads 連携を試行:', targetUserId);
       const response = NextResponse.redirect(new URL('/unauthorized', baseUrl));
