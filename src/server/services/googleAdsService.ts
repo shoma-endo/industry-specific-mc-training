@@ -127,8 +127,9 @@ export class GoogleAdsService {
     `;
 
     // キャンペーン ID フィルタを追加（任意）
+    // campaignIds は数値のみ（スキーマでバリデーション済み）のため、クオートなしで結合
     if (campaignIds && campaignIds.length > 0) {
-      const campaignIdList = campaignIds.map((id) => `'${id}'`).join(', ');
+      const campaignIdList = campaignIds.join(', ');
       query += ` AND campaign.id IN (${campaignIdList})`;
     }
 
