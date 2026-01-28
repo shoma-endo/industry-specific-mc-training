@@ -87,11 +87,11 @@ export class GoogleAdsService {
           // Google Ads API固有のエラー詳細を抽出
           if (errorData.error.details && errorData.error.details.length > 0) {
             const adsError = errorData.error.details[0];
-            if (adsError.errors && adsError.errors.length > 0) {
+            if (adsError && adsError.errors && adsError.errors.length > 0) {
               const firstError = adsError.errors[0];
-              if (firstError.errorCode?.authenticationError === 'NOT_ADS_USER') {
+              if (firstError?.errorCode?.authenticationError === 'NOT_ADS_USER') {
                 errorMessage = '認証したGoogleアカウントがGoogle Adsアカウントと関連付けられていません。Google Adsアカウントにアクセス権限があるGoogleアカウントで再認証してください。';
-              } else if (firstError.message) {
+              } else if (firstError?.message) {
                 errorMessage = firstError.message;
               }
             }
