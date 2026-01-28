@@ -21,10 +21,18 @@ export async function POST(request: NextRequest) {
     const { userId, credential } = authResult;
 
     // リクエストボディから customerId を取得
-    const body = await request.json();
-    const { customerId } = body;
+    let customerId: string | null = null;
+    try {
+      const body = (await request.json()) as Record<string, unknown>;
+      const value = body.customerId;
+      if (typeof value === 'string') {
+        customerId = value;
+      }
+    } catch {
+      // JSONパース失敗時も400エラーを返す（不正なリクエストボディ）
+    }
 
-    if (!customerId || typeof customerId !== 'string') {
+    if (!customerId) {
       return NextResponse.json(
         { error: ERROR_MESSAGES.GOOGLE_ADS.CUSTOMER_ID_REQUIRED },
         { status: 400 }

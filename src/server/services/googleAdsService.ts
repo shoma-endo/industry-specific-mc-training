@@ -198,17 +198,24 @@ export class GoogleAdsService {
         return null;
       }
 
-      const data = (await response.json()) as {
+      // Google Ads API REST の searchStream は JSON 配列を返す
+      // 各要素が SearchGoogleAdsStreamResponse オブジェクトで、その中に results プロパティがある
+      const dataArray = (await response.json()) as Array<{
         results?: Array<{
           customer?: {
             descriptiveName?: string;
             descriptive_name?: string;
           };
         }>;
-      };
+      }>;
 
-      // searchStream の結果から最初の結果の descriptive_name を取得
-      const firstResult = data.results?.[0];
+      // 配列の最初の要素から results を取得
+      const firstResponse = dataArray[0];
+      if (!firstResponse?.results || firstResponse.results.length === 0) {
+        return null;
+      }
+
+      const firstResult = firstResponse.results[0];
       if (!firstResult?.customer) {
         return null;
       }

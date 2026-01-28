@@ -66,6 +66,7 @@ export function GoogleAdsAccountSelector({
   };
 
   const handleAccountChange = async (value: string) => {
+    const previousCustomerId = selectedCustomerId;
     setSelectedCustomerId(value);
     setAlertMessage(null);
 
@@ -102,6 +103,10 @@ export function GoogleAdsAccountSelector({
               router.refresh();
             }, 1000);
           }
+        },
+        onError: () => {
+          // 失敗時は元の選択状態に戻す
+          setSelectedCustomerId(previousCustomerId ?? null);
         },
         setLoading: setIsSaving,
         setMessage: setAlertMessage,
