@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { formatNumber, formatCurrency, formatPercent } from '@/lib/utils';
 
 // ===== キャンペーン集計モックデータ =====
 interface CampaignMetrics {
@@ -131,28 +132,6 @@ const summary = {
     return enabled.reduce((sum, c) => sum + (c.searchImpressionShare ?? 0), 0) / enabled.length;
   },
 };
-
-/**
- * 数値をフォーマット（カンマ区切り）
- */
-function formatNumber(value: number): string {
-  return value.toLocaleString('ja-JP');
-}
-
-/**
- * 金額をフォーマット（円記号 + カンマ区切り）
- */
-function formatCurrency(value: number): string {
-  return `¥${value.toLocaleString('ja-JP')}`;
-}
-
-/**
- * パーセンテージをフォーマット
- */
-function formatPercent(value: number | null): string {
-  if (value === null) return '-';
-  return `${(value * 100).toFixed(2)}%`;
-}
 
 export default function GoogleAdsDashboardPage() {
   return (
