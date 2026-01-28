@@ -8,6 +8,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { getGoogleAdsConnectionStatus } from '@/server/actions/googleAds.actions';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { GoogleAdsAccountSelector } from '@/components/GoogleAdsAccountSelector';
 
 // エラーコードとメッセージのマッピング
 const ERROR_MAP: Record<string, string> = {
@@ -22,6 +23,8 @@ const ERROR_MAP: Record<string, string> = {
   invalid_state_format: ERROR_MESSAGES.GOOGLE_ADS.INVALID_CREDENTIALS,
   invalid_state_payload: ERROR_MESSAGES.GOOGLE_ADS.INVALID_CREDENTIALS,
   missing_refresh_token: ERROR_MESSAGES.GOOGLE_ADS.MISSING_REFRESH_TOKEN,
+  account_list_fetch_failed: ERROR_MESSAGES.GOOGLE_ADS.ACCOUNT_LIST_FETCH_FAILED,
+  no_accessible_accounts: ERROR_MESSAGES.GOOGLE_ADS.NO_ACCESSIBLE_ACCOUNTS,
   server_error: ERROR_MESSAGES.GOOGLE_ADS.SERVER_ERROR,
 };
 
@@ -36,7 +39,7 @@ async function GoogleAdsSetupContent({
 
   // エラーメッセージの解決
   const errorMessage = error
-    ? ERROR_MAP[error] || error || ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR
+    ? ERROR_MAP[error] || ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR
     : null;
 
   // DB から連携状態を取得
@@ -88,6 +91,9 @@ async function GoogleAdsSetupContent({
                 連携アカウント: {connectionStatus.googleAccountEmail}
               </span>
             )}
+            {connectionStatus.customerId && (
+              <span className="block mt-1">選択アカウントID: {connectionStatus.customerId}</span>
+            )}
           </AlertDescription>
         </Alert>
       )}
@@ -122,18 +128,45 @@ async function GoogleAdsSetupContent({
             </ul>
           </div>
 
-          <GoogleSignInButton href="/api/google-ads/oauth/start">
-            Googleでログイン
-          </GoogleSignInButton>
-
-          {isConnected && (
-            <p className="text-xs text-center text-gray-500">
-              ※ 連携を解除する場合は、Google
-              アカウントの「アカウントにアクセスできるアプリ」から削除してください。
-            </p>
+          {!isConnected ? (
+            <>
+              <GoogleSignInButton href="/api/google-ads/oauth/start">
+                Googleでログイン
+              </GoogleSignInButton>
+              <p className="text-xs text-center text-gray-500">
+                ※ 連携を解除する場合は、Google
+                アカウントの「アカウントにアクセスできるアプリ」から削除してください。
+              </p>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <GoogleSignInButton href="/api/google-ads/oauth/start">
+                別のアカウントで再認証
+              </GoogleSignInButton>
+              <p className="text-xs text-center text-gray-500">
+                ※ 連携を解除する場合は、Google
+                アカウントの「アカウントにアクセスできるアプリ」から削除してください。
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
+
+      {isConnected && (
+        <Card>
+          <CardHeader>
+            <CardTitle>アカウント選択</CardTitle>
+            <CardDescription>
+              MCCアカウントでログインした場合、配下のアカウントから分析対象とするアカウントをいつでも切り替えできます。
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GoogleAdsAccountSelector
+              initialCustomerId={connectionStatus.customerId}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

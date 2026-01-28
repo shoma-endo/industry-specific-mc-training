@@ -56,6 +56,15 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - 記事ごとの順位評価と改善提案ステップを `gsc_article_evaluations` / `gsc_article_evaluation_history` で管理し、デフォルト30日間隔で「タイトル→書き出し→本文→ペルソナ」の順にエスカレーション。改善が確認できたらステージをリセット。
 - 評価間隔は30日固定（将来のユーザー別設定拡張を見込んでサーバー側で取得関数を用意）。
 
+### Google Ads 連携
+
+- `/setup/google-ads` で OAuth 認証状態・接続アカウント・アカウント選択を管理（現在は管理者のみ利用可能）
+- `app/api/google-ads/oauth/*` が Google OAuth 2.0 の開始／コールバックに対応し、Supabase `google_ads_credentials` テーブルへリフレッシュトークンを保存
+- MCC（My Client Center）アカウントでログインした場合、配下のアカウント一覧を取得し、ユーザーが選択可能
+- アカウントが1つの場合は自動的に選択、複数の場合は選択画面を表示
+- 選択されたアカウントID（`customer_id`）は `google_ads_credentials` テーブルに保存され、今後のAPI呼び出しで使用
+- Google Ads API の開発者トークン（`GOOGLE_ADS_DEVELOPER_TOKEN`）が必要（MCCアカウントの管理者が発行）
+
 ### サブスクリプションと権限
 
 - Stripe v17.7 で Checkout / Billing Portal / Subscription 状態確認を実装（`SubscriptionService`）
@@ -79,6 +88,7 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 
 - `/setup/wordpress` で WordPress 連携の初期設定を案内
 - `/setup/gsc` で Google Search Console OAuth 連携とプロパティ選択を管理
+- `/setup/google-ads` で Google Ads OAuth 連携とアカウント選択を管理（管理者のみ）
 - `/analytics` で WordPress 投稿と注釈を照合
 
 ## 🏗️ システムアーキテクチャ
@@ -302,7 +312,7 @@ sequenceDiagram
 ### 認証
 
 - **LINE**: LIFF v2.25.1
-- **OAuth 2.0**: WordPress.com, Google (Search Console)
+- **OAuth 2.0**: WordPress.com, Google (Search Console, Google Ads)
 - **セッション管理**: Vercel Edge Cookie ストア
 - **アクセス制御**: 独自ミドルウェアによるロール判定
 
@@ -314,6 +324,7 @@ sequenceDiagram
 
 - **WordPress REST API**: 投稿取得・同期
 - **Google Search Console API**: 検索パフォーマンスデータ取得・記事評価
+- **Google Ads API**: 広告パフォーマンスデータ取得（MCCアカウント対応）
 
 ### 開発ツール
 
@@ -521,12 +532,27 @@ erDiagram
         timestamptz created_at
     }
 
+    google_ads_credentials {
+        uuid id PK
+        uuid user_id UK,FK
+        text google_account_email
+        text access_token
+        text refresh_token
+        timestamptz access_token_expires_at
+        text[] scope
+        text customer_id
+        text manager_customer_id
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     users ||--o{ chat_sessions : owns
     chat_sessions ||--o{ chat_messages : contains
     users ||--|| briefs : "stores one brief"
     users ||--o{ content_annotations : annotates
     users ||--o| wordpress_settings : configures
     users ||--o| gsc_credentials : "has GSC auth"
+    users ||--o| google_ads_credentials : "has Google Ads auth"
     users ||--o{ gsc_page_metrics : owns
     users ||--o{ gsc_query_metrics : owns
     users ||--o{ gsc_article_evaluation_history : owns
@@ -540,7 +566,7 @@ erDiagram
     gsc_article_evaluations ||--o{ gsc_article_evaluation_history : "has history"
 ```
 
-## 📋 環境変数（22 項目: 必須12項目、オプション10項目）
+## 📋 環境変数（24 項目: 必須12項目、オプション12項目）
 
 `src/env.ts` で厳格にバリデーションされる環境変数に加え、Route Handler で直接参照する `CRON_SECRET` を含みます。`.env.local` を手動で用意してください。
 
@@ -557,10 +583,12 @@ erDiagram
 | Server | `GOOGLE_OAUTH_CLIENT_ID`             | 任意（GSC 連携利用時は必須）       | Google Search Console OAuth 用クライアント ID                                          |
 | Server | `GOOGLE_OAUTH_CLIENT_SECRET`         | 任意（GSC 連携利用時は必須）       | Google Search Console OAuth 用クライアントシークレット                                 |
 | Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC 連携利用時は必須）       | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など）          |
+| Server | `GOOGLE_ADS_REDIRECT_URI`            | 任意（Google Ads 連携利用時は必須）| Google Ads OAuth のリダイレクト先（`https://<host>/api/google-ads/oauth/callback` など）|
+| Server | `GOOGLE_ADS_DEVELOPER_TOKEN`         | 任意（Google Ads 連携利用時は必須）| Google Ads API 開発者トークン（MCCアカウントの管理者が発行）                           |
 | Server | `WORDPRESS_COM_CLIENT_ID`            | 任意（WordPress 連携利用時は必須） | WordPress.com OAuth 用クライアント ID                                                  |
 | Server | `WORDPRESS_COM_CLIENT_SECRET`        | 任意（WordPress 連携利用時は必須） | WordPress.com OAuth 用クライアントシークレット                                         |
 | Server | `WORDPRESS_COM_REDIRECT_URI`         | 任意（WordPress 連携利用時は必須） | WordPress OAuth のリダイレクト先（`https://<host>/api/wordpress/oauth/callback` など） |
-| Server | `COOKIE_SECRET`                      | 任意                               | WordPress / Google Search Console OAuth のセキュアな Cookie 管理用シークレット         |
+| Server | `COOKIE_SECRET`                      | 任意                               | WordPress / Google Search Console / Google Ads OAuth のセキュアな Cookie 管理用シークレット|
 | Server | `CRON_SECRET`                         | 任意（GSC評価バッチ利用時は必須）  | `/api/cron/gsc-evaluate` の Bearer 認証用シークレット                                  |
 | Client | `NEXT_PUBLIC_LIFF_ID`                | ✅                                 | LIFF アプリ ID                                                                         |
 | Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID`        | ✅                                 | LIFF Channel ID                                                                        |
@@ -781,7 +809,123 @@ GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback 
 - `Error: The caller does not have permission` → Search Console API が有効化されていない、または認証したアカウントにプロパティへのアクセス権限がない
 - `Error: Insufficient Permission` → OAuth consent screen のスコープ設定が不十分
 
-### 6. 環境変数の設定
+### 6. Google Ads の設定（Google Ads 連携機能を使用する場合）
+
+#### 6.1 Google Cloud Console での設定
+
+**重要**: Google Ads 連携機能を使用する場合は、Google Cloud Console で OAuth 2.0 クライアント ID を作成する必要があります。GSC 連携と同じ OAuth クライアント ID を使用できますが、別途作成することも可能です。
+
+##### 6.1.1 OAuth consent screen の設定
+
+Google Ads 連携では、GSC 連携と同じ OAuth consent screen を使用できますが、以下のスコープを追加する必要があります：
+
+1. 「API とサービス」→「OAuth consent screen」に移動
+2. **スコープ**を追加：
+   - `https://www.googleapis.com/auth/adwords`（Google Ads API へのアクセス）
+   - `https://www.googleapis.com/auth/userinfo.email`（メールアドレス取得）
+   - `openid`（OpenID Connect）
+
+**注意**: GSC 連携と Google Ads 連携で同じ OAuth クライアント ID を使用する場合、両方のスコープを追加してください。
+
+##### 6.1.2 OAuth 2.0 クライアント ID の設定
+
+GSC 連携と同じ OAuth クライアント ID を使用する場合、既存のクライアント ID にリダイレクト URI を追加します：
+
+1. 「API とサービス」→「認証情報」に移動
+2. 既存の OAuth クライアント ID を選択（または新規作成）
+3. **承認済みのリダイレクト URI**を追加：
+   - **ローカル開発用**: `http://localhost:3000/api/google-ads/oauth/callback`
+   - **ngrok 利用時**: `https://your-static-domain.ngrok-free.dev/api/google-ads/oauth/callback`（静的ドメイン）
+   - **本番環境用**: `https://your-domain.com/api/google-ads/oauth/callback`
+
+##### 6.1.3 Google Ads API の有効化
+
+1. 「API とサービス」→「ライブラリ」に移動
+2. 「Google Ads API」を検索
+3. 「有効にする」をクリック
+
+##### 6.1.4 開発者トークンの取得
+
+Google Ads API を使用するには、開発者トークンが必要です：
+
+1. [Google Ads](https://ads.google.com/) にログイン
+2. MCC（My Client Center）アカウントでログインしていることを確認
+3. 「ツールと設定」→「設定」→「APIセンター」に移動
+4. 「開発者トークン」セクションで、既存のトークンを確認するか、新規に申請
+5. 開発者トークンをコピー（後で `.env.local` に設定します）
+
+**重要**: 開発者トークンは MCC アカウントの管理者のみが取得・管理できます。
+
+#### 6.2 環境変数の設定
+
+作成した OAuth 2.0 クライアント ID とシークレット、開発者トークンを `.env.local` に設定します：
+
+```bash
+# ────────────────────────────────────────────────────────
+# Google Ads OAuth 設定（Google Ads連携利用時は必須）
+# ────────────────────────────────────────────────────────
+# 注意: GSC連携と同じ OAuth クライアント ID を使用できます
+GOOGLE_OAUTH_CLIENT_ID=your_google_oauth_client_id  # GSC連携と同じ値を使用可能
+GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret  # GSC連携と同じ値を使用可能
+GOOGLE_ADS_REDIRECT_URI=http://localhost:3000/api/google-ads/oauth/callback  # ローカル開発時
+# GOOGLE_ADS_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/google-ads/oauth/callback  # ngrok 利用時（静的ドメイン）
+# GOOGLE_ADS_REDIRECT_URI=https://your-domain.com/api/google-ads/oauth/callback  # 本番環境
+# Google Ads API 開発者トークン（MCCアカウントの管理者が発行）
+GOOGLE_ADS_DEVELOPER_TOKEN=your_google_ads_developer_token
+```
+
+**redirect_uri の使い分け:**
+
+- **ローカル開発**: `http://localhost:3000/api/google-ads/oauth/callback` を使用（Google Cloud Console にも同じ URI を登録）
+- **ngrok 利用時**: 静的ドメインを使用（例: `https://your-static-domain.ngrok-free.dev/api/google-ads/oauth/callback`）。一度設定すれば変更不要
+- **本番環境**: デプロイ先のドメインを使用（例: `https://your-domain.com/api/google-ads/oauth/callback`）
+
+**重要**:
+
+- Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_ADS_REDIRECT_URI` は完全に一致させる必要があります
+- GSC 連携と Google Ads 連携で同じ OAuth クライアント ID を使用する場合、両方のリダイレクト URI を登録してください
+- 開発者トークンは MCC アカウントの管理者のみが取得できます
+
+#### 6.3 期待される動作とトラブルシューティング
+
+##### 正常な動作フロー
+
+1. `/setup/google-ads` にアクセスし、「Googleでログイン」ボタンをクリック（管理者のみ）
+2. Google 認証画面が表示され、`adwords` スコープの許可を求められる
+3. 認証完了後、`/api/google-ads/oauth/callback` 経由でコールバックが処理される
+4. MCC アカウントでログインした場合、配下のアカウント一覧が表示され、選択可能
+5. アカウントが1つの場合は自動的に選択、複数の場合は選択画面を表示
+6. アカウント選択後、Supabase `google_ads_credentials` テーブルに認証情報と選択されたアカウントIDが保存される
+
+##### よくあるエラーと対処法
+
+##### エラー: `redirect_uri_mismatch`
+
+- **原因**: Google Cloud Console の「承認済みのリダイレクト URI」と `.env.local` の `GOOGLE_ADS_REDIRECT_URI` が一致していない
+- **対処**: 両方の設定を確認し、完全に一致させる（プロトコル、ホスト、パスすべて）
+
+##### エラー: `invalid_client`
+
+- **原因**: クライアント ID またはシークレットが間違っている
+- **対処**: `.env.local` の `GOOGLE_OAUTH_CLIENT_ID` と `GOOGLE_OAUTH_CLIENT_SECRET` を確認
+
+##### エラー: アカウント一覧が表示されない、または空のリスト
+
+- **原因**:
+  - Google Ads API が有効化されていない
+  - 開発者トークンが設定されていない、または無効
+  - 認証した Google アカウントに Google Ads アカウントへのアクセス権限がない
+- **対処**:
+  - Google Cloud Console で Google Ads API が有効化されているか確認
+  - `.env.local` の `GOOGLE_ADS_DEVELOPER_TOKEN` が正しく設定されているか確認
+  - 認証に使用した Google アカウントで [Google Ads](https://ads.google.com/) にアクセスし、アカウントが存在するか確認
+
+##### エラー: `指定されたアカウントIDにアクセス権限がありません`（403エラー）
+
+- **原因**: アカウント選択時に、`listAccessibleCustomers` で取得したアカウント一覧に含まれないアカウントIDを指定した
+- **対処**: アカウント選択画面に表示されているアカウントの中から選択してください。表示されていないアカウントIDを直接指定することはできません
+
+### 7. 環境変数の設定
 
 プロジェクトルートに `.env.local` ファイルを作成し、以下の環境変数を設定してください：
 
@@ -838,6 +982,17 @@ GOOGLE_OAUTH_CLIENT_SECRET=your_google_oauth_client_secret
 GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=http://localhost:3000/api/gsc/oauth/callback  # ローカル開発時
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/gsc/oauth/callback  # ngrok 利用時（静的ドメイン）
 # GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://your-domain.com/api/gsc/oauth/callback  # 本番環境
+
+# ────────────────────────────────────────────────────────
+# Google Ads OAuth 設定（任意、Google Ads連携利用時は必須）
+# ────────────────────────────────────────────────────────
+# 詳細は「6. Google Ads の設定」セクションを参照してください。
+# 注意: GSC連携と同じ OAuth クライアント ID を使用できます
+GOOGLE_ADS_REDIRECT_URI=http://localhost:3000/api/google-ads/oauth/callback  # ローカル開発時
+# GOOGLE_ADS_REDIRECT_URI=https://your-static-domain.ngrok-free.dev/api/google-ads/oauth/callback  # ngrok 利用時（静的ドメイン）
+# GOOGLE_ADS_REDIRECT_URI=https://your-domain.com/api/google-ads/oauth/callback  # 本番環境
+# Google Ads API 開発者トークン（MCCアカウントの管理者が発行）
+GOOGLE_ADS_DEVELOPER_TOKEN=your_google_ads_developer_token
 
 # ────────────────────────────────────────────────────────
 # Cron Secret（任意：GSC評価バッチ利用時は必須）
@@ -1002,7 +1157,8 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 2. **事業者情報の登録**: `/business-info` で 5W2H などの基本情報を入力
 3. **WordPress 連携**（任意）: `/setup/wordpress` で WordPress サイトを接続
 4. **Google Search Console 連携**（任意）: `/setup/gsc` で GSC プロパティを接続
-5. **プロンプトテンプレートの確認**: `/admin/prompts` でデフォルトテンプレートを確認・編集
+5. **Google Ads 連携**（任意、管理者のみ）: `/setup/google-ads` で Google Ads アカウントを接続
+6. **プロンプトテンプレートの確認**: `/admin/prompts` でデフォルトテンプレートを確認・編集
 
 ### ローカル開発のポイント
 
@@ -1091,6 +1247,10 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 | `/api/gsc/evaluate`                | POST     | GSC記事評価の手動実行                                                        | Cookie                         |
 | `/api/gsc/evaluations`             | GET      | GSC評価履歴取得                                                              | Cookie                         |
 | `/api/cron/gsc-evaluate`           | POST     | GSC記事評価の定期実行（外部スケジューラ経由で Bearer 認証）                  | Authorization ヘッダー         |
+| `/api/google-ads/oauth/start`     | GET      | Google Ads OAuth リダイレクト開始                                            | 公開（環境変数必須）           |
+| `/api/google-ads/oauth/callback`  | GET      | Google Ads OAuth コールバック                                                | Cookie                         |
+| `/api/google-ads/accounts`        | GET      | Google Adsアカウント一覧取得                                                 | Cookie + admin ロール          |
+| `/api/google-ads/accounts/select` | POST     | Google Adsアカウント選択保存                                                 | Cookie + admin ロール          |
 
 ### GSC 評価バッチ（外部スケジューラからの実行）
 

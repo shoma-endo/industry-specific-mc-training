@@ -59,6 +59,7 @@ export default async function SetupPage() {
     googleAdsStatus = {
       connected: !!googleAdsCredential,
       googleAccountEmail: googleAdsCredential?.googleAccountEmail ?? null,
+      customerId: googleAdsCredential?.customerId ?? null,
     };
   }
 

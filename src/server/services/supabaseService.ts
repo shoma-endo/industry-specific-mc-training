@@ -970,7 +970,7 @@ export class SupabaseService {
       scope?: string[] | undefined;
       googleAccountEmail?: string | null | undefined;
     }
-  ): Promise<void> {
+  ): Promise<SupabaseResult<void>> {
     const expiresAt = new Date();
     if (tokens.expiresIn) {
       expiresAt.setSeconds(expiresAt.getSeconds() + tokens.expiresIn);
@@ -992,9 +992,14 @@ export class SupabaseService {
     );
 
     if (error) {
-      console.error('Error upserting Google Ads credential:', error);
-      throw new Error(`Google Ads認証情報の保存に失敗しました: ${error.message}`);
+      return this.failure('Google Ads認証情報の保存に失敗しました', {
+        error,
+        developerMessage: 'Error upserting Google Ads credential',
+        context: { userId },
+      });
     }
+
+    return this.success(undefined);
   }
 
   /**
@@ -1006,6 +1011,7 @@ export class SupabaseService {
     accessTokenExpiresAt: string;
     googleAccountEmail: string | null;
     scope: string[];
+    customerId: string | null;
   } | null> {
     const { data, error } = await this.supabase
       .from('google_ads_credentials')
@@ -1028,7 +1034,44 @@ export class SupabaseService {
       accessTokenExpiresAt: data.access_token_expires_at,
       googleAccountEmail: data.google_account_email,
       scope: data.scope || [],
+      customerId: data.customer_id ?? null,
     };
+  }
+
+  /**
+   * Google Ads の customer_id を更新
+   * @returns 更新が成功した場合true、該当する行が存在しない場合false
+   */
+  async updateGoogleAdsCustomerId(
+    userId: string,
+    customerId: string
+  ): Promise<SupabaseResult<void>> {
+    const { data, error } = await this.supabase
+      .from('google_ads_credentials')
+      .update({
+        customer_id: customerId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('Google AdsアカウントIDの更新に失敗しました', {
+        error,
+        developerMessage: 'Error updating Google Ads customer ID',
+        context: { userId, customerId },
+      });
+    }
+
+    if (!data) {
+      return this.failure('Google Ads認証情報が見つかりません', {
+        developerMessage: 'No Google Ads credential found for user',
+        context: { userId },
+      });
+    }
+
+    return this.success(undefined);
   }
 
   /**
@@ -1158,6 +1201,34 @@ export class SupabaseService {
       });
       throw new Error(`Google Search Console資格情報の削除に失敗しました: ${error.message}`);
     }
+  }
+
+  /**
+   * Google Ads 資格情報を削除
+   */
+  async deleteGoogleAdsCredential(userId: string): Promise<SupabaseResult<void>> {
+    const { error } = await this.supabase
+      .from('google_ads_credentials')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('[SupabaseService] deleteGoogleAdsCredential: エラー詳細', {
+        userId,
+        errorCode: error.code,
+        errorMessage: error.message,
+        errorDetails: error.details,
+        errorHint: error.hint,
+        fullError: error,
+      });
+      return this.failure('Google Ads資格情報の削除に失敗しました', {
+        error,
+        developerMessage: 'Error deleting Google Ads credential',
+        context: { userId },
+      });
+    }
+
+    return this.success(undefined);
   }
 
   async upsertGscQueryMetrics(
