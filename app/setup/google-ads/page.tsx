@@ -133,20 +133,12 @@ async function GoogleAdsSetupContent({
               <GoogleSignInButton href="/api/google-ads/oauth/start">
                 Googleでログイン
               </GoogleSignInButton>
-              <p className="text-xs text-center text-gray-500">
-                ※ 連携を解除する場合は、Google
-                アカウントの「アカウントにアクセスできるアプリ」から削除してください。
-              </p>
             </>
           ) : (
             <div className="space-y-2">
               <GoogleSignInButton href="/api/google-ads/oauth/start">
                 別のアカウントで再認証
               </GoogleSignInButton>
-              <p className="text-xs text-center text-gray-500">
-                ※ 連携を解除する場合は、Google
-                アカウントの「アカウントにアクセスできるアプリ」から削除してください。
-              </p>
             </div>
           )}
         </CardContent>
