@@ -377,6 +377,11 @@ export default function SetupDashboard({
                 {googleAdsStatus.connected ? (
                   <div className="text-sm text-gray-600 space-y-1">
                     <p>アカウント: {googleAdsStatus.googleAccountEmail ?? '取得中'}</p>
+                    {googleAdsStatus.customerId && (
+                      <p className="text-xs text-gray-500">
+                        選択アカウントID: {googleAdsStatus.customerId}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="text-sm text-gray-600 space-y-1">
