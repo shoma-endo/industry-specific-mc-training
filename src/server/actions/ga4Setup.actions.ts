@@ -13,47 +13,27 @@ import { toGa4ConnectionStatus } from '@/server/lib/ga4-status';
 import type { Ga4ConnectionStatus, Ga4KeyEvent, Ga4PropertySummary } from '@/types/ga4';
 import { isGa4ReauthError } from '@/domain/errors/ga4-error-handlers';
 import { GA4_SCOPE } from '@/lib/constants';
+import { ensureValidAccessToken } from '@/server/services/googleTokenService';
 
 const supabaseService = new SupabaseService();
 const gscService = new GscService();
 const ga4Service = new Ga4Service();
 
-const ACCESS_TOKEN_SAFETY_MARGIN_MS = 60 * 1000;
 const OWNER_ONLY_ERROR_MESSAGE = ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED;
-
-type CredentialWithActiveToken = {
-  accessToken: string;
-  accessTokenExpiresAt: string;
-};
-
-const hasReusableAccessToken = (
-  credential: { accessToken?: string | null; accessTokenExpiresAt?: string | null }
-): credential is CredentialWithActiveToken => {
-  if (!credential.accessToken || !credential.accessTokenExpiresAt) {
-    return false;
-  }
-  const expiresAtMs = new Date(credential.accessTokenExpiresAt).getTime();
-  return expiresAtMs - Date.now() > ACCESS_TOKEN_SAFETY_MARGIN_MS;
-};
 
 const ensureAccessToken = async (userId: string, refreshToken: string, credential: {
   accessToken?: string | null;
   accessTokenExpiresAt?: string | null;
-}) => {
-  if (hasReusableAccessToken(credential)) {
-    return credential.accessToken;
-  }
-  const refreshed = await gscService.refreshAccessToken(refreshToken);
-  const expiresAt = refreshed.expiresIn
-    ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
-    : null;
-  await supabaseService.updateGscCredential(userId, {
-    accessToken: refreshed.accessToken,
-    accessTokenExpiresAt: expiresAt,
-    scope: refreshed.scope ?? null,
+}) =>
+  ensureValidAccessToken({ ...credential, refreshToken }, {
+    refreshAccessToken: (rt) => gscService.refreshAccessToken(rt),
+    persistToken: (accessToken, expiresAt, scope) =>
+      supabaseService.updateGscCredential(userId, {
+        accessToken,
+        accessTokenExpiresAt: expiresAt,
+        scope: scope ?? null,
+      }),
   });
-  return refreshed.accessToken;
-};
 
 const getAuthUserId = async () => {
   const { accessToken, refreshToken } = await getLiffTokensFromCookies();
