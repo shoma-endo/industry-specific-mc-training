@@ -421,6 +421,74 @@ export const ERROR_MESSAGES = {
   },
 
   /**
+   * Google Ads関連のエラーメッセージ
+   */
+  GOOGLE_ADS: {
+    /** Google認証に失敗した場合 */
+    AUTH_FAILED: 'Google認証に失敗しました',
+
+    /** 認証パラメータが不足している場合 */
+    MISSING_PARAMS: '認証パラメータが不足しています',
+
+    /** 不正なリクエストの場合 */
+    INVALID_STATE: '不正なリクエストです。もう一度お試しください',
+
+    /** セッションが無効（Cookie不一致）の場合 */
+    STATE_COOKIE_MISMATCH: 'セッションが無効です（Cookie不一致）。もう一度お試しください',
+
+    /** ユーザー情報が一致しない場合 */
+    STATE_USER_MISMATCH: 'ユーザー情報が一致しません。再度ログインしてください',
+
+    /** 認証セッションの有効期限が切れた場合 */
+    STATE_EXPIRED: '認証セッションの有効期限が切れました。もう一度お試しください',
+
+    /** 認証情報の形式が不正な場合 */
+    INVALID_CREDENTIALS: '認証情報の形式が不正です。もう一度お試しください',
+
+    /** サーバーエラー */
+    SERVER_ERROR: 'サーバーエラーが発生しました。時間をおいて再度お試しください',
+
+    /** アカウント一覧の取得に失敗した場合 */
+    ACCOUNT_LIST_FETCH_FAILED: 'アカウント一覧の取得に失敗しました。再認証してください',
+
+    /** アクセス可能なアカウントが存在しない場合 */
+    NO_ACCESSIBLE_ACCOUNTS:
+      'アクセス可能なGoogle Adsアカウントが見つかりませんでした。Google Adsアカウントへのアクセス権限を確認してください',
+
+    /** Google Adsアカウントが関連付けられていない場合 */
+    NOT_ADS_USER:
+      '認証したGoogleアカウントがGoogle Adsアカウントと関連付けられていません。Google Adsアカウントを作成するか、既存のGoogle Adsアカウントにアクセス権限を追加してください。',
+
+    /** リフレッシュトークンが取得できなかった場合 */
+    MISSING_REFRESH_TOKEN:
+      'リフレッシュトークンを取得できませんでした。Googleアカウントの「アカウントにアクセスできるアプリ」からアクセス権を削除し、再度連携してください',
+
+    /** 連携解除に失敗した場合 */
+    DISCONNECT_FAILED: 'Google Ads連携の解除に失敗しました',
+
+    /** customerId が指定されていない場合 */
+    CUSTOMER_ID_REQUIRED: 'アカウントを選択してください',
+
+    /** 認証情報が見つからない場合 */
+    CREDENTIAL_NOT_FOUND: 'Google Ads認証情報が見つかりません。再認証してください。',
+
+    /** アクセストークンの更新に失敗した場合 */
+    TOKEN_REFRESH_FAILED: 'アクセストークンの更新に失敗しました。再認証してください。',
+
+    /** アカウント一覧の取得に失敗した場合（select route用） */
+    ACCOUNT_LIST_FETCH_FAILED_SELECT: 'アカウント一覧の取得に失敗しました',
+
+    /** 指定されたアカウントIDにアクセス権限がない場合 */
+    ACCOUNT_ACCESS_DENIED: '指定されたアカウントIDにアクセス権限がありません',
+
+    /** アカウント選択の保存に失敗した場合 */
+    ACCOUNT_SELECT_FAILED: 'アカウント選択の保存に失敗しました',
+
+    /** 不明なエラー */
+    UNKNOWN_ERROR: '不明なエラーが発生しました',
+  },
+
+  /**
    * プロンプト関連のエラーメッセージ
    */
   PROMPT: {

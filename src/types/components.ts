@@ -47,9 +47,17 @@ export interface ExistingWordPressSettings {
   updatedAt?: string | undefined;
 }
 
+export interface GoogleAdsConnectionStatus {
+  connected: boolean;
+  googleAccountEmail: string | null;
+  customerId: string | null;
+}
+
 export interface SetupDashboardProps {
   wordpressSettings: WordPressSettingsState;
   gscStatus: GscConnectionStatus;
+  googleAdsStatus?: GoogleAdsConnectionStatus | undefined;
+  isAdmin?: boolean | undefined;
 }
 
 export interface WordPressSettingsState {
