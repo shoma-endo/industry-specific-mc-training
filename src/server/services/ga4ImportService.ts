@@ -1,6 +1,7 @@
 import { GscService } from '@/server/services/gscService';
 import { Ga4Service } from '@/server/services/ga4Service';
 import { SupabaseService } from '@/server/services/supabaseService';
+import { ensureValidAccessToken } from '@/server/services/googleTokenService';
 import {
   GA4_EVENT_SCROLL_90,
   ga4DateStringToIso,
@@ -43,7 +44,6 @@ export class Ga4ImportService {
   static readonly MAX_DURATION_MS = 280_000;
   static readonly MAX_ROWS_PER_REQUEST = 10_000;
   static readonly MAX_TOTAL_ROWS = 50_000;
-  static readonly ACCESS_TOKEN_SAFETY_MARGIN_MS = 60 * 1000;
 
   private readonly supabaseService = new SupabaseService();
   private readonly gscService = new GscService();
@@ -172,36 +172,19 @@ export class Ga4ImportService {
     };
   }
 
-  private hasReusableAccessToken(credential: {
-    accessToken?: string | null;
-    accessTokenExpiresAt?: string | null;
-  }): credential is { accessToken: string; accessTokenExpiresAt: string } {
-    if (!credential.accessToken || !credential.accessTokenExpiresAt) {
-      return false;
-    }
-    const expiresAtMs = new Date(credential.accessTokenExpiresAt).getTime();
-    return expiresAtMs - Date.now() > Ga4ImportService.ACCESS_TOKEN_SAFETY_MARGIN_MS;
-  }
-
   private async ensureAccessToken(
     userId: string,
     credential: { refreshToken: string; accessToken?: string | null; accessTokenExpiresAt?: string | null }
   ): Promise<string> {
-    if (this.hasReusableAccessToken(credential)) {
-      return credential.accessToken;
-    }
-    const refreshed = await this.gscService.refreshAccessToken(credential.refreshToken);
-    const expiresAt = refreshed.expiresIn
-      ? new Date(Date.now() + refreshed.expiresIn * 1000).toISOString()
-      : null;
-
-    await this.supabaseService.updateGscCredential(userId, {
-      accessToken: refreshed.accessToken,
-      accessTokenExpiresAt: expiresAt,
-      scope: refreshed.scope ?? null,
+    return ensureValidAccessToken(credential, {
+      refreshAccessToken: (rt) => this.gscService.refreshAccessToken(rt),
+      persistToken: (accessToken, expiresAt, scope) =>
+        this.supabaseService.updateGscCredential(userId, {
+          accessToken,
+          accessTokenExpiresAt: expiresAt,
+          scope: scope ?? null,
+        }),
     });
-
-    return refreshed.accessToken;
   }
 
   private async fetchBaseReport(
