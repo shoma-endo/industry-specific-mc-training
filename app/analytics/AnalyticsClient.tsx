@@ -4,16 +4,19 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import AnalyticsTable from '@/components/AnalyticsTable';
 import { Download, Settings, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import type { AnalyticsContentItem } from '@/types/analytics';
+import { useRouter } from 'next/navigation';
 
 interface AnalyticsClientProps {
   items: AnalyticsContentItem[];
   unreadAnnotationIds: string[];
   error?: string | null;
+  ga4Error?: string | null;
   total: number;
   totalPages: number;
   currentPage: number;
@@ -21,12 +24,15 @@ interface AnalyticsClientProps {
   nextHref: string;
   prevDisabled: boolean;
   nextDisabled: boolean;
+  startDate: string;
+  endDate: string;
 }
 
 export default function AnalyticsClient({
   items,
   unreadAnnotationIds,
   error,
+  ga4Error,
   total,
   totalPages,
   currentPage,
@@ -34,12 +40,30 @@ export default function AnalyticsClient({
   nextHref,
   prevDisabled,
   nextDisabled,
+  startDate,
+  endDate,
 }: AnalyticsClientProps) {
+  const router = useRouter();
   const unreadAnnotationSet = React.useMemo(
     () => new Set(unreadAnnotationIds),
     [unreadAnnotationIds]
   );
   const shouldRenderTable = items.length > 0;
+  const [rangeStart, setRangeStart] = React.useState(startDate);
+  const [rangeEnd, setRangeEnd] = React.useState(endDate);
+
+  React.useEffect(() => {
+    setRangeStart(startDate);
+    setRangeEnd(endDate);
+  }, [startDate, endDate]);
+
+  const applyDateRange = () => {
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('start', rangeStart);
+    params.set('end', rangeEnd);
+    router.push(`/analytics?${params.toString()}`);
+  };
 
   return (
     <div className="w-full px-4 py-8">
@@ -81,6 +105,39 @@ export default function AnalyticsClient({
               <ErrorAlert error={error} variant="default" />
             </div>
           ) : null}
+          {ga4Error ? (
+            <div className="mb-4 rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+              {ga4Error}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500">開始日</span>
+              <Input
+                type="date"
+                value={rangeStart}
+                onChange={event => setRangeStart(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500">終了日</span>
+              <Input
+                type="date"
+                value={rangeEnd}
+                onChange={event => setRangeEnd(event.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className={cn(
+                buttonVariants({ variant: 'outline' }),
+                'h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10'
+              )}
+              onClick={applyDateRange}
+            >
+              期間を適用
+            </button>
+          </div>
           {shouldRenderTable ? (
             <AnalyticsTable
               items={items}
