@@ -411,10 +411,10 @@ export const ERROR_MESSAGES = {
     STATE_EXPIRED: '認証セッションの有効期限が切れました。もう一度お試しください',
 
     /** 認証情報の形式が不正な場合 */
-    INVALID_CREDENTIALS: '認証情報の形式が不正です',
+    INVALID_CREDENTIALS: '認証情報の形式が不正です。もう一度お試しください',
 
     /** サーバーエラー */
-    SERVER_ERROR: 'サーバーエラーが発生しました',
+    SERVER_ERROR: 'サーバーエラーが発生しました。時間をおいて再度お試しください',
 
     /** アカウント一覧の取得に失敗した場合 */
     ACCOUNT_LIST_FETCH_FAILED: 'アカウント一覧の取得に失敗しました。再認証してください',
@@ -435,7 +435,7 @@ export const ERROR_MESSAGES = {
     DISCONNECT_FAILED: 'Google Ads連携の解除に失敗しました',
 
     /** customerId が指定されていない場合 */
-    CUSTOMER_ID_REQUIRED: 'customerId が指定されていません',
+    CUSTOMER_ID_REQUIRED: 'アカウントを選択してください',
 
     /** 認証情報が見つからない場合 */
     CREDENTIAL_NOT_FOUND: 'Google Ads認証情報が見つかりません。再認証してください。',
