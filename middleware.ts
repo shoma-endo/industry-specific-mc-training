@@ -6,6 +6,9 @@ import { hasPaidFeatureAccess, type UserRole } from '@/types/user';
 const ADMIN_REQUIRED_PATHS = ['/admin'] as const;
 const PAID_FEATURE_REQUIRED_PATHS = ['/setup', '/analytics'] as const;
 
+// Google Ads 連携は審査完了まで管理者のみアクセス可能
+const GOOGLE_ADS_PATHS = ['/setup/google-ads', '/google-ads-dashboard'] as const;
+
 // 認証不要なパスの定義
 const PUBLIC_PATHS = ['/login', '/unauthorized', '/', '/home', '/privacy'] as const;
 
@@ -68,6 +71,13 @@ export async function middleware(request: NextRequest) {
       }
     }
 
+    // 🔍 6-1. Google Ads 機能へのアクセス制限（審査完了まで管理者のみ）
+    if (requiresGoogleAdsAccess(pathname)) {
+      if (!isAdmin(authResult.role)) {
+        return NextResponse.redirect(new URL('/unauthorized', request.url));
+      }
+    }
+
     // 🔍 7. 成功時のレスポンス
     // レスポンスヘッダーにユーザー情報を付与（オプション）
     const response = NextResponse.next();
@@ -121,6 +131,10 @@ function requiresAdminAccess(pathname: string): boolean {
 
 function requiresPaidFeatureAccess(pathname: string): boolean {
   return PAID_FEATURE_REQUIRED_PATHS.some(path => pathname.startsWith(path));
+}
+
+function requiresGoogleAdsAccess(pathname: string): boolean {
+  return GOOGLE_ADS_PATHS.some(path => pathname.startsWith(path));
 }
 
 // 🚀 パフォーマンス最適化：メモリキャッシュ
