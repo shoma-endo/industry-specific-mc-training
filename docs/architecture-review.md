@@ -2,7 +2,7 @@
 
 ## 総評
 
-LINE LIFF認証を軸にしたB2B SaaS として、Next.js App Router / Supabase / Stripe / Anthropic を組み合わせた構成は合理的。TypeScript strict + Zod + 自動生成型による型安全性、環境変数のProxy保護、RLSベースのアクセス制御など、セキュリティ基盤はしっかりしている。ただし、急速な機能追加による「巨大ファイル問題」と「一貫性の欠如」が技術的負債として顕在化し始めている。
+LINE LIFF認証を軸にしたB2B SaaS として、Next.js App Router / Supabase / Stripe / Anthropic を組み合わせた構成は合理的。以下に示す型安全性・環境変数保護・RLSアクセス制御の基盤が整備されている一方、急速な機能追加による「巨大ファイル問題」と「層設計規約の逸脱」が技術的負債として顕在化し始めている。
 
 ---
 
@@ -21,42 +21,41 @@ LINE LIFF認証を軸にしたB2B SaaS として、Next.js App Router / Supabase
 
 ### 副次特性: 第2章 多層アーキテクチャ（弱い）
 
-以下の層構造は存在するが、**層の跨ぎが散見されるため「厳密な多層」ではない**。
+以下の層構造は存在するが、**層の跨ぎが複数箇所で確認されており「厳密な多層」ではない**。
 
 ```
-┌─────────────────────────────────┐
-│  Presentation Layer             │  app/ (Pages, Components)
-│  └─ React Components + Hooks   │  src/components/, src/hooks/
-├─────────────────────────────────┤
-│  Application Layer              │  src/server/actions/ (Server Actions)
-│  └─ Route Handlers + Actions   │  app/api/ (Route Handlers)
-├─────────────────────────────────┤
-│  Domain Layer                   │  src/domain/ (Services, Errors)
-│  └─ Business Logic + Errors    │  src/lib/prompts/
-├─────────────────────────────────┤
-│  Infrastructure Layer           │  src/server/services/ (Supabase, Stripe, LLM)
-│  └─ External Service Adapters  │  src/lib/client-manager.ts
-├─────────────────────────────────┤
-│  Data Layer                     │  Supabase (PostgreSQL + RLS)
-│  └─ DB + Migrations            │  supabase/migrations/
-└─────────────────────────────────┘
+Presentation Layer    : app/ (Pages, Components), src/components/, src/hooks/
+Application Layer     : src/server/actions/ (Server Actions), app/api/ (Route Handlers)
+Domain Layer          : src/domain/ (Services, Errors), src/lib/prompts/
+Infrastructure Layer  : src/server/services/ (Supabase, Stripe, LLM), src/lib/client-manager.ts
+Data Layer            : Supabase (PostgreSQL + RLS), supabase/migrations/
 ```
 
 **層の跨ぎの具体例:**
 
-1. **Presentation → Infrastructure 直結**: `app/setup/page.tsx:6` で `SupabaseService` を直接import・インスタンス化し、Application層・Domain層を完全にバイパスしている
-2. **Application → Infrastructure 直結（Domain層バイパス）**: `src/server/actions/gscNotification.actions.ts:5` が `SupabaseService` を直接呼び出し、Domain層の `gscService` 等を経由していない
+1. **Presentation → Infrastructure 直結（Application層・Domain層を完全バイパス）**:
+   - `app/setup/page.tsx:6` で `SupabaseService` を直接import・インスタンス化し、`:47` `:51` `:58` でDB操作を直接実行
+   - `app/setup/gsc/page.tsx:5` でも同様に `SupabaseService` を直接import（`:10` でインスタンス化、`:32` でDB操作）
+2. **Application → Infrastructure 直結（Domain層バイパス）**: Server Actions の大半が `SupabaseService` を直接呼び出し、Domain層を経由していない。確認された箇所:
+   - `src/server/actions/gscNotification.actions.ts:5`
+   - `src/server/actions/gscSetup.actions.ts:5`
+   - `src/server/actions/gscDashboard.actions.ts:5`
+   - `src/server/actions/brief.actions.ts:4`
+   - `src/server/actions/chat.actions.ts:12`
+   - `src/server/actions/googleAds.actions.ts:4`
+   - `src/server/actions/wordpress.actions.ts:8`
+   - `src/server/actions/wordpressImport.actions.ts:6`
 3. **Server Actions と Route Handlers の責務境界が不明確**: 同一機能に対して両方が存在するケースがある
 
 ### 副次特性: 第11章 サーバーレス
 
 Vercelホスティング + `app/api/**/route.ts` による関数単位の構成。
 
-`maxDuration` をルート単位で明示しており、サーバーレスのタイムアウト制御が実装されている:
+`maxDuration` はルート単位で設定されており、特定のサーバーレス関数に対するタイムアウト制御として実装されている:
 
 | ルート | maxDuration | 用途 |
-|-------|-------------|------|
-| `app/api/chat/anthropic/stream/route.ts:14` | 800秒 | AI チャットストリーミング |
+|--------|-------------|------|
+| `app/api/chat/anthropic/stream/route.ts:14` | 800秒 | AIチャットストリーミング |
 | `app/api/chat/canvas/stream/route.ts:13` | 800秒 | Canvas編集ストリーミング |
 | `app/api/cron/gsc-evaluate/route.ts:51` | 300秒 | GSC定期評価バッチ |
 
@@ -64,44 +63,56 @@ Vercelホスティング + `app/api/**/route.ts` による関数単位の構成�
 
 ### 該当しないアーキテクチャ
 
-| アーキテクチャ | 不該当の理由 |
-|--------------|-------------|
-| 第1章 モノリシック | 機能ドメイン別のフォルダ分割とモジュール構造が存在するため、純粋なモノリスではない |
-| 第3章 パイプライン | データの段階的変換パイプラインではない。SSEストリーミングは存在するが内部処理はパイプライン構成ではない |
-| 第4章 マイクロカーネル | コアシステム＋プラグインの構成ではない。拡張ポイントやプラグイン機構が未実装 |
-| 第5章 SOA | サービスレジストリやESBが存在しない。サービス間通信はTypeScript importであり、標準プロトコルによるサービス間通信ではない |
-| 第6章 EDA | イベントバス・メッセージキューが存在しない。SSEはUIへの配信手段であり、内部コンポーネント間のイベント駆動通信ではない |
-| 第7章 スペースベース | 分散ノードやデータレプリケーション戦略が存在しない |
-| 第8章 オーケストレーション主導SOA | 集中型オーケストレータが存在しない |
-| 第9章 マイクロサービス | 独立デプロイ可能なサービスに分割されていない。全機能が単一デプロイ単位 |
-| 第12章 クリーンアーキテクチャ | 依存関係の逆転（DI）が徹底されていない。Infrastructure層がDomain層に直接依存している箇所がある |
-| 第13章 オニオンアーキテクチャ | 同心円状の層構成と厳密な依存方向の制約が実装されていない |
+| 章 | アーキテクチャ | 不該当の理由 |
+|----|--------------|-------------|
+| 第1章 | モノリシック | 機能ドメイン別のフォルダ分割とモジュール構造が存在するため、純粋なモノリスではない |
+| 第3章 | パイプライン | データの段階的変換パイプラインではない。SSEは存在するが内部処理はパイプライン構成ではない |
+| 第4章 | マイクロカーネル | コアシステム+プラグインの構成ではない。拡張ポイントやプラグイン機構が未実装 |
+| 第5章 | SOA | サービスレジストリやESBが存在しない。サービス間通信はTypeScript importで完結 |
+| 第6章 | EDA | イベントバスやメッセージキューが存在しない。SSEはUI配信手段であり内部イベント駆動ではない |
+| 第7章 | スペースベース | 分散ノードやデータレプリケーション戦略が存在しない |
+| 第8章 | オーケストレーション主導SOA | 集中型オーケストレータが存在しない |
+| 第9章 | マイクロサービス | 独立デプロイ可能なサービスに分割されていない。全機能が単一デプロイ単位 |
+| 第12章 | クリーンアーキテクチャ | 依存関係の逆転(DI)が徹底されていない。Infrastructure層がDomain層を直接依存する箇所あり |
+| 第13章 | オニオンアーキテクチャ | 同心円状の層構成と厳密な依存方向の制約が実装されていない |
 
 ---
 
 ## 評価できる点
 
-### 1. 型安全性の設計（高評価）
+### 1. 型安全性の設計
 
-- `src/env.ts` の Proxy + Zod によるサーバー専用変数の漏洩防止
-- `database.types.ts` の自動生成 → ドメインモデル変換の2層構造
-- `authUtils.ts` のヘルパー関数によるロール判定の一元化
+**根拠:**
 
-### 2. SSEストリーミング実装（高評価）
+- `tsconfig.json:7` で `strict: true` に加え、`:26`-`:39` で `noImplicitAny`, `strictNullChecks`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `useUnknownInCatchVariables` 等を個別に有効化。TypeScript の厳格モードを最大限活用している
+- `src/env.ts:97`-`:121` で Zod スキーマ + `Proxy` によるサーバー専用環境変数の漏洩防止を実装。クライアント側からサーバー専用変数にアクセスすると `:112` で即座にエラーをスロー
+- Zod スキーマによるランタイムバリデーションは `src/server/schemas/chat.schema.ts`, `src/server/schemas/brief.schema.ts` で利用
+- `src/types/database.types.ts`（自動生成）から `src/types/user.ts`, `src/types/chat.ts` 等のドメインモデルへの変換関数を用意した2層構造
 
-- 20秒間隔のping + 5分アイドルタイムアウトの組み合わせ（`app/api/chat/anthropic/stream/route.ts`）
-- クライアントのdisconnect検知と適切なcleanup処理
-- Anthropicのprompt caching（`cache_control: { type: 'ephemeral' }`）導入済み
+### 2. SSEストリーミング実装
 
-### 3. RLS + Service Role の使い分け（適切）
+**根拠:**
 
-- `get_accessible_user_ids` RPCによるオーナー/スタッフ共有アクセス
-- `SupabaseClientManager` のシングルトンでService Roleのクライアント側漏洩を防止
+- `app/api/chat/anthropic/stream/route.ts:170`-`:175` で20秒間隔のping送信を実装
+- 同ファイル `:155`-`:159` で300,000ms（5分）のアイドルタイムアウトを設定
+- `app/api/chat/canvas/stream/route.ts:288`-`:308` でも同一パターンを実装
+- Anthropicのprompt cachingは `app/api/chat/anthropic/stream/route.ts:130` および `:203` で `cache_control: { type: 'ephemeral' as const }` として設定。`app/api/chat/canvas/stream/route.ts:327` `:433` `:641` と `src/server/services/llmService.ts:113` でも同様に適用
 
-### 4. ドメインエラー階層（構造的に良い）
+### 3. RLS + Service Role の使い分け
 
-- `BaseError` → `ChatError` / `LiffError` / `SubscriptionError` の階層
-- ユーザー向けメッセージと開発者向けメッセージの分離
+**根拠:**
+
+- `supabase/migrations/20260107000000_add_get_accessible_user_ids.sql` で `get_accessible_user_ids` RPCを定義し、オーナー/スタッフ共有アクセスを実現
+- `supabase/migrations/20260107000002_update_rls_policies.sql` で `chat_sessions`, `chat_messages`, `content_annotations`, `wordpress_settings`, `gsc_credentials` 等9テーブルに `get_accessible_user_ids` を用いたRLSポリシーを適用
+- `src/lib/client-manager.ts` のシングルトンパターンでService Roleクライアントの生成を制御し、`typeof window !== 'undefined'` チェックでクライアント側からのアクセスを防止
+
+### 4. ドメインエラー階層
+
+**根拠:**
+
+- `src/domain/errors/BaseError.ts` に `DomainError` 基底クラスを定義（`code`, `userMessage`, `context`, `timestamp` を保持）
+- `src/domain/errors/ChatError.ts`, `LiffError`, `SubscriptionError` が継承
+- ユーザー向けメッセージ（`userMessage`）と開発者向けメッセージ（`message`）を分離し、UIにはユーザー向けのみを表示
 
 ---
 
@@ -114,7 +125,11 @@ Vercelホスティング + `app/api/**/route.ts` による関数単位の構成�
 | `src/server/services/supabaseService.ts` | 1,695行 | 全テーブル操作が1クラスに集約（God Class） |
 | `src/server/actions/wordpress.actions.ts` | 1,633行 | 複数責務が混在 |
 | `app/chat/components/ChatLayout.tsx` | 1,507行 | UIオーケストレーション全体が1コンポーネント |
-| `app/chat/components/CanvasPanel.tsx` | 1,393行 | エディタ＋エクスポート＋バージョン管理 |
+| `app/chat/components/CanvasPanel.tsx` | 1,393行 | エディタ+エクスポート+バージョン管理 |
+
+**どの層の設計規約が破られているか:**
+
+`src/server/services/supabaseService.ts` は本来 Infrastructure 層としてドメイン別に分割されるべきだが、単一クラスが全ドメインのDB操作を担っている。さらに上記「層の跨ぎ」で示したとおり、Server Actions（Application層）の8ファイル中すべてが Domain層を経由せずこの God Class を直接呼び出している。結果として Application → Infrastructure が事実上の標準経路となり、Domain層（`src/domain/`）が形骸化している。
 
 ### 2. フロントエンド状態管理の限界
 
@@ -131,8 +146,8 @@ React Context + `useState` のみで状態管理ライブラリなし。
 | 箇所 | パターン |
 |------|---------|
 | Server Actions | `{ success: false, error: string }` |
-| API Routes（SSE） | `sendSSE('error', { type: code, message: string })` |
-| Services | `throw ChatError` / `return { success, error: {...} }` |
+| API Routes (SSE) | `sendSSE('error', { type: code, message: string })` |
+| Services | `throw ChatError` または `return { success, error: {...} }` |
 
 `useEffect` 内の未処理Promise rejectionが散見される。Error Boundaryの適用範囲も限定的。
 
@@ -142,9 +157,13 @@ React Context + `useState` のみで状態管理ライブラリなし。
 - Server Actionの重複リクエスト排除なし（連打で同一クエリが多重実行）
 - トークンリフレッシュのmutex/lockがなく、並行リクエストで競合の可能性
 
-### 5. N+1クエリの潜在リスク
+### 5. N+1クエリの実例
 
-セッション一覧取得後に個別メッセージをフェッチするパターンが存在。`get_sessions_with_messages` RPCで一部は対応済みだが、他のリレーション取得で同様の問題が残る。
+**具体例:** `src/server/services/gscImportService.ts:167`-`:204` の `upsertPageMetrics` メソッド
+
+`metrics` 配列をforループで反復し、各要素に対して `supabase.from('gsc_page_metrics').upsert()` を個別実行している。メトリクス100件で101回のDB呼び出しが発生する。
+
+同ファイル `:512`-`:513` の `gscQueryMetrics` では `upsertGscQueryMetrics()` によるバッチ処理が実装済みであり、`upsertPageMetrics` にも同様のバッチ化が適用可能。
 
 ---
 
@@ -152,10 +171,10 @@ React Context + `useState` のみで状態管理ライブラリなし。
 
 ### 良い点
 
-- Service Role のクライアント側アクセス防止（`src/lib/client-manager.ts`）
+- Service Role のクライアント側アクセス防止（`src/lib/client-manager.ts` で `typeof window` チェック）
 - View Mode のサーバー側検証（`viewUser.ownerUserId === actor.id`）
 - HttpOnly + Secure + SameSite cookies
-- `src/env.ts` のProxy保護
+- `src/env.ts:110`-`:113` の Proxy によるサーバー専用環境変数のクライアント側漏洩防止
 
 ### 懸念点
 
@@ -171,7 +190,7 @@ React Context + `useState` のみで状態管理ライブラリなし。
 
 - Supabase の接続プーリングに依存（Serverless環境では接続枯渇リスク）
 - SSEストリーミングはサーバーメモリを保持するため、同時接続数に制約
-- マイグレーション102本は管理コスト増大の兆候（squash検討時期）
+- マイグレーション95本超は管理コスト増大の兆候（squash検討時期）
 
 ### 将来課題
 
@@ -183,17 +202,17 @@ React Context + `useState` のみで状態管理ライブラリなし。
 
 ## 推奨アクションプラン（優先度順）
 
-| 優先度 | 施策 | 理由 |
-|-------|------|------|
-| **P0** | `supabaseService.ts` のドメイン別分割 | 変更影響範囲の制御、テスタビリティ向上 |
-| **P0** | 全APIエンドポイントへのZod入力バリデーション追加 | インジェクション防止 |
-| **P1** | `ChatLayout.tsx` の責務分割 + Context導入 | 保守性・パフォーマンス改善 |
-| **P1** | リクエスト重複排除の導入 | DB負荷軽減、UX改善 |
-| **P1** | トークンリフレッシュのmutex実装 | 競合条件の排除 |
-| **P2** | エラーハンドリングパターンの統一 | デバッグ効率向上 |
-| **P2** | Sentry等のオブザーバビリティ導入 | 本番障害対応 |
-| **P3** | マイグレーションのsquash | 運用コスト削減 |
-| **P3** | E2Eテスト基盤の構築 | リグレッション防止 |
+| 優先度 | 施策 | 影響範囲 | 検証方針 |
+|-------|------|---------|---------|
+| **P0** | `supabaseService.ts` のドメイン別分割 | Server Actions 8ファイル、API Routes 全域 | 分割後に全Server Actionsのimportパスが正常に解決されることを確認。`npm run lint` + `npm run build` で型エラーなし |
+| **P0** | 全APIエンドポイントへのZod入力バリデーション追加 | `app/api/` 配下の33ルート | 各エンドポイントに対し、不正入力でのレスポンスコード確認（400返却） |
+| **P1** | `ChatLayout.tsx` の責務分割 + Context導入 | `app/chat/` 配下のコンポーネント全体 | チャット機能の手動検証（送信・受信・Canvas編集・サイドバー操作） |
+| **P1** | リクエスト重複排除の導入 | Server Actions全体 | 同一操作の連打テストでDB呼び出し回数が1回であることをログ確認 |
+| **P1** | トークンリフレッシュのmutex実装 | `src/server/middleware/auth.middleware.ts` | 並行リクエスト発行時にリフレッシュが1回のみ実行されることを確認 |
+| **P2** | エラーハンドリングパターンの統一 | Server Actions, API Routes, Services全域 | エラー発生時のレスポンス形式が統一されていることをAPI呼び出しで確認 |
+| **P2** | Sentry等のオブザーバビリティ導入 | 本番環境全体 | エラー発生時にSentryダッシュボードで捕捉されることを確認 |
+| **P3** | マイグレーションのsquash | `supabase/migrations/`（95本超） | squash後に `supabase db push` が正常完了することを確認 |
+| **P3** | E2Eテスト基盤の構築 | プロジェクト全体 | 主要ユーザーフロー（ログイン、チャット、設定）のE2Eテストがパスすること |
 
 ---
 
@@ -207,7 +226,7 @@ React Context + `useState` のみで状態管理ライブラリなし。
 
 ### エンジニアリングマネージャー視点
 
-- 1人〜少人数での開発には十分整理された構成
+- 1人から少人数での開発には十分整理された構成
 - 1,500行超のコンポーネントは新規メンバーのオンボーディング障壁
 - 自動テスト不在のため、リファクタリング時のリグレッションリスクが高い
 - CLAUDE.md の指示が詳細で、AI支援開発との相性は良い
@@ -216,13 +235,13 @@ React Context + `useState` のみで状態管理ライブラリなし。
 
 - LINE LIFF認証によるシームレスなログイン体験は良い
 - SSEストリーミングによるリアルタイムAI応答はUXとして適切
-- Error Boundary の不足により、エラー時にUIが壊れる可能性がある
+- Error Boundaryの不足により、エラー時にUIが壊れる可能性がある
 - オフライン/低速回線対応の考慮がない
 
 ---
 
 ## 結論
 
-**モジュール型モノリスが主分類**であり、現在のプロジェクト規模（TSファイル144、APIルート33）には適切な選択。多層アーキテクチャの特性も持つが、`app/setup/page.tsx` の SupabaseService 直接参照や `gscNotification.actions.ts` の Domain層バイパスに見られるように層の分離は厳密ではない。サーバーレスの特性はVercelデプロイとルート単位の `maxDuration` 設定で実現されている。
+**モジュール型モノリスが主分類**であり、現在のプロジェクト規模（TSファイル144、APIルート33）には適切な選択。多層アーキテクチャの特性も持つが、`app/setup/page.tsx`, `app/setup/gsc/page.tsx` の SupabaseService 直接参照（Presentation→Infrastructure直結）や、Server Actions 8ファイルでの Domain層バイパスに見られるように層の分離は厳密ではない。サーバーレスの特性はVercelデプロイとルート単位の `maxDuration` 設定（上記3ルート）で実現されている。
 
 進化の方向としては、**モジュール型モノリスを維持しつつモジュール境界を再定義する**のが最善。クリーンアーキテクチャやマイクロサービスへの移行は、現在のチーム規模・トラフィック量では過剰設計となる。
