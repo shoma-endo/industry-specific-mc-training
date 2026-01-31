@@ -7,26 +7,19 @@ import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
  * GET /api/google-ads/keywords
  *
  * クエリパラメータ:
- * - customerId: Google Ads カスタマー ID（ハイフンなし 10桁）
  * - startDate: 開始日（YYYY-MM-DD 形式）
  * - endDate: 終了日（YYYY-MM-DD 形式）
+ *
+ * customerId は DB に保存された選択済みアカウントを使用
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    const customerId = searchParams.get('customerId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
     // 必須パラメータのチェック
-    if (!customerId) {
-      return NextResponse.json(
-        { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.CUSTOMER_ID_REQUIRED },
-        { status: 400 }
-      );
-    }
-
     if (!startDate || !endDate) {
       return NextResponse.json(
         { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.DATE_RANGE_REQUIRED },
@@ -36,7 +29,6 @@ export async function GET(request: NextRequest) {
 
     // 入力バリデーション
     const parseResult = keywordMetricsQuerySchema.safeParse({
-      customerId,
       startDate,
       endDate,
     });
@@ -49,8 +41,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Server Action を呼び出し
-    const result = await fetchKeywordMetrics(customerId, startDate, endDate);
+    // Server Action を呼び出し（customerId は DB から取得）
+    const result = await fetchKeywordMetrics(startDate, endDate);
 
     if (!result.success) {
       // 認証エラーの場合は 401 を返す
@@ -64,6 +56,11 @@ export async function GET(request: NextRequest) {
       // 権限エラーの場合は 403 を返す
       if (result.error === ERROR_MESSAGES.USER.ADMIN_REQUIRED) {
         return NextResponse.json({ success: false, error: result.error }, { status: 403 });
+      }
+
+      // アカウント未選択の場合は 400 を返す
+      if (result.error === ERROR_MESSAGES.GOOGLE_ADS.ACCOUNT_NOT_SELECTED) {
+        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }
 
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });

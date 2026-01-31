@@ -102,14 +102,13 @@ interface FetchKeywordMetricsResult {
 
 /**
  * キーワード指標を取得する Server Action
+ * customerId は DB に保存された選択済みアカウントを使用
  *
- * @param customerId - Google Ads カスタマー ID（ハイフンなし 10桁）
  * @param startDate - 開始日（YYYY-MM-DD 形式）
  * @param endDate - 終了日（YYYY-MM-DD 形式）
  * @param campaignIds - キャンペーン ID でフィルタ（任意）
  */
 export async function fetchKeywordMetrics(
-  customerId: string,
   startDate: string,
   endDate: string,
   campaignIds?: string[]
@@ -117,7 +116,6 @@ export async function fetchKeywordMetrics(
   try {
     // 入力バリデーション
     const parseResult = getKeywordMetricsSchema.safeParse({
-      customerId,
       startDate,
       endDate,
       campaignIds,
@@ -161,6 +159,11 @@ export async function fetchKeywordMetrics(
       return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.NOT_CONNECTED };
     }
 
+    // 選択済みアカウント（customerId）が設定されているかチェック
+    if (!credential.customerId) {
+      return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.ACCOUNT_NOT_SELECTED };
+    }
+
     // アクセストークンの有効期限をチェック
     let googleAccessToken = credential.accessToken;
     const expiresAt = credential.accessTokenExpiresAt
@@ -195,11 +198,11 @@ export async function fetchKeywordMetrics(
       return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
     }
 
-    // キーワード指標を取得
+    // キーワード指標を取得（DB に保存された customerId を使用）
     const googleAdsService = new GoogleAdsService();
     const result = await googleAdsService.getKeywordMetrics({
       accessToken: googleAccessToken,
-      customerId: parseResult.data.customerId,
+      customerId: credential.customerId,
       startDate: parseResult.data.startDate,
       endDate: parseResult.data.endDate,
       ...(parseResult.data.campaignIds && { campaignIds: parseResult.data.campaignIds }),

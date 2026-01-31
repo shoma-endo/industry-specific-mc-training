@@ -458,6 +458,9 @@ export const ERROR_MESSAGES = {
     /** Google Ads が未接続の場合 */
     NOT_CONNECTED: 'Google Ads が未接続です',
 
+    /** アカウントが選択されていない場合 */
+    ACCOUNT_NOT_SELECTED: 'アカウントが選択されていません。設定画面からアカウントを選択してください',
+
     /** Google Ads 認証が期限切れまたは取り消されている場合 */
     AUTH_EXPIRED_OR_REVOKED: 'Google Ads の認証が期限切れまたは取り消されています',
 
@@ -466,9 +469,6 @@ export const ERROR_MESSAGES = {
 
     /** 日付範囲が必須の場合 */
     DATE_RANGE_REQUIRED: 'startDate と endDate は必須です',
-
-    /** カスタマー ID が必須の場合 */
-    CUSTOMER_ID_REQUIRED: 'カスタマー ID は必須です',
 
     /** 入力パラメータが不正な場合 */
     INVALID_INPUT: (errors: string): string => `入力パラメータが不正です: ${errors}`,
