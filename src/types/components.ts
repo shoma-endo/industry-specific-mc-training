@@ -50,6 +50,7 @@ export interface ExistingWordPressSettings {
 export interface GoogleAdsConnectionStatus {
   connected: boolean;
   googleAccountEmail: string | null;
+  customerId: string | null;
 }
 
 export interface SetupDashboardProps {

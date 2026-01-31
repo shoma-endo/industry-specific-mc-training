@@ -122,7 +122,18 @@ export async function GET(request: NextRequest) {
       response.cookies.delete(stateCookieName);
       return response;
     }
-    const user = toUser(userResult.data);
+    let user;
+    try {
+      user = toUser(userResult.data);
+    } catch (error) {
+      console.error('❌ ユーザー情報の変換に失敗しました:', error);
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=server_error', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      return response;
+    }
+
     if (!isAdmin(user.role)) {
       console.warn('⚠️ 非管理者ユーザーが Google Ads 連携を試行:', targetUserId);
       const response = NextResponse.redirect(new URL('/unauthorized', baseUrl));
@@ -152,17 +163,95 @@ export async function GET(request: NextRequest) {
       console.warn('Failed to fetch Google user info:', err);
     }
 
-    // DB保存
-    await supabaseService.saveGoogleAdsCredential(targetUserId, {
+    // DB保存（トークンのみ、customer_idは後で選択）
+    const saveResult = await supabaseService.saveGoogleAdsCredential(targetUserId, {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresIn: tokens.expiresIn,
       scope: tokens.scope || [],
       googleAccountEmail,
     });
+    if (!saveResult.success) {
+      console.error('Failed to save Google Ads credential:', {
+        userMessage: saveResult.error.userMessage,
+        developerMessage: saveResult.error.developerMessage,
+        context: saveResult.error.context,
+      });
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=server_error', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      setLineTokens(response, liffAccessToken, refreshToken);
+      return response;
+    }
 
-    // 成功
-    const response = NextResponse.redirect(new URL('/setup/google-ads?success=true', baseUrl));
+    // アクセス可能なアカウント一覧を取得
+    let customerIds: string[] = [];
+    try {
+      customerIds = await googleAdsService.listAccessibleCustomers(tokens.accessToken);
+    } catch (err) {
+      console.error('Failed to fetch accessible customers:', err);
+      // アカウント一覧取得に失敗した場合も、トークンは保存済みなので設定画面にリダイレクト
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=account_list_fetch_failed', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      setLineTokens(response, liffAccessToken, refreshToken);
+      return response;
+    }
+
+    // アクセス可能なアカウントがない場合
+    if (customerIds.length === 0) {
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?error=no_accessible_accounts', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      setLineTokens(response, liffAccessToken, refreshToken);
+      return response;
+    }
+
+    // アカウントが1つしかない場合は自動的に選択
+    if (customerIds.length === 1) {
+      const customerId = customerIds[0];
+      if (!customerId) {
+        // この分岐は理論上到達しないが、TypeScriptの型チェックのために必要
+        const response = NextResponse.redirect(
+          new URL('/setup/google-ads?error=server_error', baseUrl)
+        );
+        response.cookies.delete(stateCookieName);
+        setLineTokens(response, liffAccessToken, refreshToken);
+        return response;
+      }
+      const updateResult = await supabaseService.updateGoogleAdsCustomerId(
+        targetUserId,
+        customerId
+      );
+      if (!updateResult.success) {
+        console.error('Failed to update customer ID:', {
+          userMessage: updateResult.error.userMessage,
+          developerMessage: updateResult.error.developerMessage,
+          context: updateResult.error.context,
+        });
+        // トークンは保存済みなので、アカウント選択画面へフォールバック
+        const response = NextResponse.redirect(
+          new URL('/setup/google-ads?select_account=true', baseUrl)
+        );
+        response.cookies.delete(stateCookieName);
+        setLineTokens(response, liffAccessToken, refreshToken);
+        return response;
+      }
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?success=true', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      setLineTokens(response, liffAccessToken, refreshToken);
+      return response;
+    }
+
+    // 複数アカウントがある場合は選択画面にリダイレクト
+    const response = NextResponse.redirect(
+      new URL('/setup/google-ads?select_account=true', baseUrl)
+    );
 
     // state Cookie 削除
     response.cookies.delete(stateCookieName);
@@ -177,6 +266,7 @@ export async function GET(request: NextRequest) {
       new URL('/setup/google-ads?error=server_error', baseUrl)
     );
     response.cookies.delete(stateCookieName);
+    setLineTokens(response, liffAccessToken, refreshToken);
     return response;
   }
 }

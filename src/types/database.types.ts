@@ -226,8 +226,10 @@ export type Database = {
           access_token: string;
           access_token_expires_at: string;
           created_at: string;
+          customer_id: string | null;
           google_account_email: string | null;
           id: string;
+          manager_customer_id: string | null;
           refresh_token: string;
           scope: string[];
           updated_at: string;
@@ -237,8 +239,10 @@ export type Database = {
           access_token: string;
           access_token_expires_at: string;
           created_at?: string;
+          customer_id?: string | null;
           google_account_email?: string | null;
           id?: string;
+          manager_customer_id?: string | null;
           refresh_token: string;
           scope?: string[];
           updated_at?: string;
@@ -248,8 +252,10 @@ export type Database = {
           access_token?: string;
           access_token_expires_at?: string;
           created_at?: string;
+          customer_id?: string | null;
           google_account_email?: string | null;
           id?: string;
+          manager_customer_id?: string | null;
           refresh_token?: string;
           scope?: string[];
           updated_at?: string;
