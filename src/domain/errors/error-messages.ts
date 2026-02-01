@@ -454,6 +454,24 @@ export const ERROR_MESSAGES = {
 
     /** 不明なエラー */
     UNKNOWN_ERROR: '不明なエラーが発生しました',
+
+    /** Google Ads が未接続の場合 */
+    NOT_CONNECTED: 'Google Ads が未接続です',
+
+    /** アカウントが選択されていない場合 */
+    ACCOUNT_NOT_SELECTED: 'アカウントが選択されていません。設定画面からアカウントを選択してください',
+
+    /** Google Ads 認証が期限切れまたは取り消されている場合 */
+    AUTH_EXPIRED_OR_REVOKED: 'Google Ads の認証が期限切れまたは取り消されています',
+
+    /** キーワード指標の取得に失敗した場合 */
+    KEYWORD_METRICS_FETCH_FAILED: 'キーワード指標の取得に失敗しました',
+
+    /** 日付範囲が必須の場合 */
+    DATE_RANGE_REQUIRED: 'startDate と endDate は必須です',
+
+    /** 入力パラメータが不正な場合 */
+    INVALID_INPUT: (errors: string): string => `入力パラメータが不正です: ${errors}`,
   },
 
   /**
