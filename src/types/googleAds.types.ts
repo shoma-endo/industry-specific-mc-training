@@ -58,6 +58,8 @@ export interface GetKeywordMetricsInput {
   endDate: string;
   /** キャンペーン ID でフィルタ（任意） */
   campaignIds?: string[];
+  /** MCC（マネージャー）アカウントID（ハイフンなし 10桁）を login-customer-id ヘッダーに設定（任意） */
+  loginCustomerId?: string;
 }
 
 /**

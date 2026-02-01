@@ -39,17 +39,29 @@ export default async function GoogleAdsDashboardPage() {
     // Server Action がクッキーから認証情報を取得
     const result = await fetchKeywordMetrics(startDate, endDate);
 
-    if (!result.success || !result.data) {
-      // 未認証・エラー時は空のデータを表示
+    if (!result.success) {
+      // エラー情報を渡してエラー表示（デバッグ用）
       console.error('[GoogleAdsDashboard] Failed to fetch keyword metrics:', result.error);
-      return <DashboardContent campaigns={[]} isMockData={false} />;
+      return (
+        <DashboardContent
+          campaigns={[]}
+          isMockData={false}
+          error={result.error}
+        />
+      );
     }
 
     // キーワードデータをキャンペーン単位に集計
-    const campaigns = aggregateKeywordsToCampaigns(result.data);
+    const campaigns = aggregateKeywordsToCampaigns(result.data ?? []);
     return <DashboardContent campaigns={campaigns} isMockData={false} />;
   } catch (error) {
     console.error('[GoogleAdsDashboard] Error:', error);
-    return <DashboardContent campaigns={[]} isMockData={false} />;
+    return (
+      <DashboardContent
+        campaigns={[]}
+        isMockData={false}
+        error="予期しないエラーが発生しました"
+      />
+    );
   }
 }
