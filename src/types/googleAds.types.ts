@@ -117,3 +117,49 @@ export interface GoogleAdsApiError {
     }>;
   };
 }
+
+/**
+ * キャンペーン単位の集計指標
+ * keyword_view から取得したデータをキャンペーン単位で集計した結果
+ */
+export interface GoogleAdsCampaignMetrics {
+  /** キャンペーン名 */
+  campaignName: string;
+  /** ステータス */
+  status: 'ENABLED' | 'PAUSED';
+  /** クリック数 */
+  clicks: number;
+  /** 表示回数 */
+  impressions: number;
+  /** 費用（円） */
+  cost: number;
+  /** CTR（クリック率）: 0〜1 の割合 */
+  ctr: number;
+  /** CPC（平均クリック単価）: 円 */
+  cpc: number;
+  /** 品質スコア（キャンペーン内の平均）: 1〜10、未算出の場合は null */
+  qualityScore: number | null;
+  /** コンバージョン数 */
+  conversions: number;
+  /** コンバージョン単価: 円、コンバージョンがない場合は null */
+  costPerConversion: number | null;
+  /** 検索インプレッションシェア: 0〜1 の割合、未算出の場合は null */
+  searchImpressionShare: number | null;
+  /** コンバージョン率: 0〜1 の割合 */
+  conversionRate: number | null;
+}
+
+/**
+ * キャンペーン集計のサマリー指標
+ */
+export interface GoogleAdsCampaignSummary {
+  totalClicks: number;
+  totalImpressions: number;
+  totalCost: number;
+  totalConversions: number;
+  avgCtr: number;
+  avgCpc: number;
+  avgConversionRate: number;
+  avgCostPerConversion: number;
+  avgSearchImpressionShare: number | null;
+}
