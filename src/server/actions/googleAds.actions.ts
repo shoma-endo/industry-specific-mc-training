@@ -171,6 +171,8 @@ export async function fetchKeywordMetrics(
       : null;
     const now = new Date();
 
+    const googleAdsService = new GoogleAdsService();
+
     // トークンが期限切れまたは期限間近（5分以内）の場合はリフレッシュ
     if (!googleAccessToken || !expiresAt || expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
       if (!credential.refreshToken) {
@@ -178,7 +180,6 @@ export async function fetchKeywordMetrics(
       }
 
       try {
-        const googleAdsService = new GoogleAdsService();
         const newTokens = await googleAdsService.refreshAccessToken(credential.refreshToken);
         googleAccessToken = newTokens.accessToken;
 
@@ -199,7 +200,6 @@ export async function fetchKeywordMetrics(
     }
 
     // キーワード指標を取得（DB に保存された customerId を使用）
-    const googleAdsService = new GoogleAdsService();
     const result = await googleAdsService.getKeywordMetrics({
       accessToken: googleAccessToken,
       customerId: credential.customerId,
