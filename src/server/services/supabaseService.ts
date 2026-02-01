@@ -969,6 +969,7 @@ export class SupabaseService {
       expiresIn?: number | undefined;
       scope?: string[] | undefined;
       googleAccountEmail?: string | null | undefined;
+      managerCustomerId?: string | null | undefined;
     }
   ): Promise<SupabaseResult<void>> {
     const expiresAt = new Date();
@@ -986,6 +987,7 @@ export class SupabaseService {
         access_token_expires_at: expiresAt.toISOString(),
         google_account_email: tokens.googleAccountEmail ?? null,
         scope: tokens.scope || [],
+        manager_customer_id: tokens.managerCustomerId ?? null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' }
