@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { ArrowLeft, BarChart3 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MetricsCards } from './metrics-cards';
 import { CampaignsTable } from './campaigns-table';
@@ -19,13 +18,6 @@ export function DashboardContent({ campaigns, isMockData }: DashboardContentProp
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <Link
-            href="/setup"
-            className="inline-flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors mb-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1.5" />
-            設定に戻る
-          </Link>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <BarChart3 className="h-8 w-8 text-blue-600" />
             Google Ads パフォーマンス
