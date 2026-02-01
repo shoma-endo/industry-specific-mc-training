@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { FullNameDialog } from '@/components/FullNameDialog';
 import { hasPaidFeatureAccess } from '@/types/user';
 import { InviteDialog } from '@/components/InviteDialog';
-import { hasOwnerRole, isAdmin as isAdminRole } from '@/authUtils';
+import { canInviteEmployee, hasOwnerRole, isAdmin as isAdminRole } from '@/authUtils';
 import { toast } from 'sonner';
 
 interface EmployeeInfo {
@@ -292,8 +292,7 @@ export default function Home() {
   const hasManagementAccess = hasPaidFeatureAccess(userRole);
   const canManageIntegrations =
     !isOwnerViewMode && !isStaffUser && (isOwnerRole || hasManagementAccess);
-  const canInvite =
-    !isOwnerViewMode && (userRole === 'admin' || userRole === 'paid') && !user?.ownerUserId;
+  const canInvite = !isOwnerViewMode && !isStaffUser && canInviteEmployee(userRole);
 
   // フルネーム未入力チェック
   useEffect(() => {
