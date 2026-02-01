@@ -183,11 +183,12 @@ export async function fetchKeywordMetrics(
         const newTokens = await googleAdsService.refreshAccessToken(credential.refreshToken);
         googleAccessToken = newTokens.accessToken;
 
-        // 新しいトークンを保存
+        // 新しいトークンを保存（managerCustomerId を保持）
         await supabaseService.saveGoogleAdsCredential(authResult.userId, {
           accessToken: newTokens.accessToken,
           refreshToken: credential.refreshToken,
           expiresIn: newTokens.expiresIn,
+          managerCustomerId: credential.managerCustomerId,
         });
       } catch (refreshError) {
         console.error('[fetchKeywordMetrics] Token refresh failed:', refreshError);
