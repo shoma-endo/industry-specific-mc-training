@@ -36,8 +36,8 @@ export function CampaignsTable({ campaigns }: CampaignsTableProps) {
                 <TableHead className="text-right">CV数</TableHead>
                 <TableHead className="text-right">CVR</TableHead>
                 <TableHead className="text-right">CPA</TableHead>
-                <TableHead className="text-right">検索IS</TableHead>
-                <TableHead className="text-right">品質</TableHead>
+                <TableHead className="text-right">検索IS（インプレッションシェア）</TableHead>
+                <TableHead className="text-right">品質スコア</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
