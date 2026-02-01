@@ -343,10 +343,18 @@ export class GoogleAdsService {
       });
 
       if (!response.ok) {
-        const errorBody = (await response.json()) as GoogleAdsApiError;
-        const errorMessage =
-          errorBody.error?.message ?? `HTTP ${response.status}: ${response.statusText}`;
-        console.error('[GoogleAdsService] API error:', errorBody);
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorBody = (await response.json()) as GoogleAdsApiError;
+          errorMessage = errorBody.error?.message ?? errorMessage;
+          console.error('[GoogleAdsService] API error:', errorBody);
+        } catch {
+          console.error(
+            '[GoogleAdsService] API error (non-JSON response):',
+            response.status,
+            response.statusText
+          );
+        }
         return { success: false, error: errorMessage };
       }
 
