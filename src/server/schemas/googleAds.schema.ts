@@ -45,6 +45,18 @@ const campaignIdSchema = z.string().regex(/^\d+$/, {
 });
 
 /**
+ * 開始日と終了日の順序をバリデーションするための共通 refine 設定
+ */
+const dateRangeRefinement = {
+  refine: (data: { startDate: string; endDate: string }) => {
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+    return start <= end;
+  },
+  message: '開始日は終了日より前である必要があります',
+};
+
+/**
  * キーワード指標取得の入力スキーマ
  * customerId は DB から取得するため、ここでは日付とキャンペーン ID のみバリデーション
  */
@@ -54,16 +66,7 @@ export const getKeywordMetricsSchema = z
     endDate: dateStringSchema,
     campaignIds: z.array(campaignIdSchema).optional(),
   })
-  .refine(
-    (data) => {
-      const start = new Date(data.startDate);
-      const end = new Date(data.endDate);
-      return start <= end;
-    },
-    {
-      message: '開始日は終了日より前である必要があります',
-    }
-  );
+  .refine(dateRangeRefinement.refine, { message: dateRangeRefinement.message });
 
 /**
  * カスタマー ID のバリデーション（DB から取得した値の検証用）
@@ -79,6 +82,6 @@ export type GetKeywordMetricsSchemaInput = z.infer<typeof getKeywordMetricsSchem
 export const keywordMetricsQuerySchema = z.object({
   startDate: dateStringSchema,
   endDate: dateStringSchema,
-});
+}).refine(dateRangeRefinement.refine, { message: dateRangeRefinement.message });
 
 export type KeywordMetricsQueryInput = z.infer<typeof keywordMetricsQuerySchema>;
