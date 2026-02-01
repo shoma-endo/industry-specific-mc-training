@@ -137,7 +137,7 @@ async function GoogleAdsSetupContent({
           ) : (
             <div className="space-y-2">
               <GoogleSignInButton href="/api/google-ads/oauth/start">
-                別のアカウントで再認証
+                再認証
               </GoogleSignInButton>
             </div>
           )}

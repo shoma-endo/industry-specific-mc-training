@@ -8,13 +8,13 @@ import { updateUserFullName } from '@/server/actions/user.actions';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import Image from 'next/image';
-import { Settings, Shield, List, UserPlus, UserX } from 'lucide-react';
+import { Settings, Shield, List, UserPlus, UserX, Plug } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FullNameDialog } from '@/components/FullNameDialog';
 import { hasPaidFeatureAccess } from '@/types/user';
 import { InviteDialog } from '@/components/InviteDialog';
-import { hasOwnerRole } from '@/authUtils';
+import { canInviteEmployee, hasOwnerRole, isAdmin as isAdminRole } from '@/authUtils';
 import { toast } from 'sonner';
 
 interface EmployeeInfo {
@@ -81,7 +81,7 @@ const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProp
   }
 
   return (
-    <Card className="w-full max-w-md mb-6 border-blue-200 bg-blue-50">
+    <Card className="border-blue-200 bg-blue-50">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
           <Shield className="h-6 w-6 text-blue-600" />
@@ -90,7 +90,11 @@ const AdminAccessCard = ({ isAdmin, isLoggedIn, isLoading }: AdminAccessCardProp
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          <p className="text-sm text-gray-600 text-center mb-4">管理者権限でログインしています</p>
+          <p className="text-sm text-gray-600 text-center mb-4">
+            管理者権限でログインしています。
+            <br />
+            管理者のみ編集/閲覧できます。
+          </p>
 
           <Button
             asChild
@@ -121,7 +125,7 @@ const EmployeeInviteCard = ({ canInvite, isLoggedIn, isLoading }: EmployeeInvite
   }
 
   return (
-    <Card className="w-full max-w-md mb-6 border-emerald-200 bg-emerald-50">
+    <Card className="border-emerald-200 bg-emerald-50">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
           <UserPlus className="h-5 w-5 text-emerald-600" />
@@ -130,7 +134,9 @@ const EmployeeInviteCard = ({ canInvite, isLoggedIn, isLoading }: EmployeeInvite
       </CardHeader>
       <CardContent>
         <p className="text-sm text-gray-700 text-center mb-4">
-          招待リンクを発行してスタッフを招待できます。
+          招待リンクを発行して
+          <br />
+          スタッフを招待できます。
         </p>
         <div className="flex justify-center w-full">
           <InviteDialog
@@ -212,7 +218,7 @@ const OwnerEmployeeCard = ({ isOwnerRole, isLoggedIn, isLoading }: OwnerEmployee
 
   return (
     <>
-      <Card className="w-full max-w-md mb-6 border-amber-200 bg-amber-50">
+      <Card className="border-amber-200 bg-amber-50">
         <CardHeader>
           <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
             <UserPlus className="h-5 w-5 text-amber-600" />
@@ -281,13 +287,12 @@ export default function Home() {
   // フルネーム関連ステート
   const [showFullNameDialog, setShowFullNameDialog] = useState(false);
 
-  const isAdmin = userRole === 'admin';
+  const isAdmin = isAdminRole(userRole);
   const isOwnerRole = hasOwnerRole(userRole);
   const hasManagementAccess = hasPaidFeatureAccess(userRole);
   const canManageIntegrations =
     !isOwnerViewMode && !isStaffUser && (isOwnerRole || hasManagementAccess);
-  const canInvite =
-    !isOwnerViewMode && (userRole === 'admin' || userRole === 'paid') && !user?.ownerUserId;
+  const canInvite = !isOwnerViewMode && !isStaffUser && canInviteEmployee(userRole);
 
   // フルネーム未入力チェック
   useEffect(() => {
@@ -317,10 +322,12 @@ export default function Home() {
       <FullNameDialog open={showFullNameDialog} onSave={handleSaveFullName} />
 
       {!isLoading && isLoggedIn && (
-        <div className="flex flex-col items-center justify-center min-h-screen p-8">
+        <div className="flex flex-col items-center justify-center min-h-screen p-4 lg:p-8">
           <h1 className="text-3xl font-bold mb-8">GrowMate</h1>
 
           <ProfileDisplay />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-md lg:max-w-6xl">
           <AdminAccessCard
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
@@ -339,7 +346,7 @@ export default function Home() {
 
           {/* 有料/管理者向け 設定ページ導線 */}
           {isLoggedIn && canManageIntegrations && !isRoleLoading && (
-            <Card className="w-full max-w-md mb-6">
+            <Card className="">
               <CardHeader>
                 <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
                   <Settings className="h-5 w-5" />
@@ -361,7 +368,7 @@ export default function Home() {
 
           {/* 有料/管理者向け コンテンツ一覧導線 */}
           {isLoggedIn && hasManagementAccess && !isRoleLoading && (
-            <Card className="w-full max-w-md mb-6">
+            <Card className="">
               <CardHeader>
                 <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2 -ml-2">
                   <List className="h-5 w-5" />
@@ -376,6 +383,35 @@ export default function Home() {
                 </p>
                 <Button asChild className="w-full" aria-label="コンテンツ一覧へ移動" tabIndex={0}>
                   <Link href="/analytics">一覧を開く</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 管理者向け Google Ads 分析導線 */}
+          {isAdmin && !isRoleLoading && (
+            <Card className="border-indigo-200 bg-indigo-50">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
+                  <Plug className="h-5 w-5 text-indigo-600" />
+                  Google Ads 分析
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-700 text-center mb-4">
+                  広告キャンペーンのパフォーマンスを
+                  <br />
+                  確認・分析できます
+                </p>
+                <Button
+                  asChild
+                  className="w-full bg-indigo-600 hover:bg-indigo-700"
+                  aria-label="Google Ads ダッシュボードへ移動"
+                  tabIndex={0}
+                >
+                  <Link href="/google-ads-dashboard">
+                    ダッシュボードを開く
+                  </Link>
                 </Button>
               </CardContent>
             </Card>
@@ -524,6 +560,7 @@ export default function Home() {
               </CardContent>
             </Card>
           )} */}
+          </div>
         </div>
       )}
     </>
