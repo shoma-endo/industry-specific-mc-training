@@ -12,6 +12,7 @@ interface DashboardContentProps {
 
 export function DashboardContent({ campaigns, isMockData }: DashboardContentProps) {
   const summary = calculateCampaignSummary(campaigns);
+  const hasData = campaigns.length > 0;
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-8 space-y-6">
@@ -34,11 +35,18 @@ export function DashboardContent({ campaigns, isMockData }: DashboardContentProp
         </div>
       </div>
 
+      {/* データがない場合 */}
+      {!hasData && (
+        <div className="text-center py-12 text-gray-500">
+          <p>表示できるデータがありません</p>
+        </div>
+      )}
+
       {/* Metrics Cards */}
-      <MetricsCards summary={summary} />
+      {hasData && <MetricsCards summary={summary} />}
 
       {/* Campaigns Table */}
-      <CampaignsTable campaigns={campaigns} />
+      {hasData && <CampaignsTable campaigns={campaigns} />}
     </div>
   );
 }

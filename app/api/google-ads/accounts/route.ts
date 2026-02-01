@@ -55,9 +55,22 @@ export async function GET() {
     try {
       const customerIds = await googleAdsService.listAccessibleCustomers(accessToken);
 
-      // MCCアカウントを特定（credential.customerId が設定されている場合はそれをMCCアカウントとみなす）
-      // 設定されていない場合は、listAccessibleCustomers の最初の結果をMCCアカウントと仮定
-      const mccCustomerId = authResult.credential.customerId || customerIds[0] || null;
+      // MCCアカウントを特定（managerCustomerId があればそれを優先、次に customerId）
+      const mccCustomerId =
+        authResult.credential.managerCustomerId ||
+        authResult.credential.customerId ||
+        customerIds[0] ||
+        null;
+
+      // デバッグログ: MCCアカウントの特定状況を確認
+      console.log('[Google Ads] MCC specification:', {
+        managerCustomerId: authResult.credential.managerCustomerId || '(not set)',
+        credentialCustomerId: authResult.credential.customerId || '(not set)',
+        firstAccessibleCustomer: customerIds[0] || '(empty)',
+        resolvedMccCustomerId: mccCustomerId || '(null)',
+        accessibleCustomerCount: customerIds.length,
+        allAccessibleCustomers: customerIds,
+      });
 
       // 各アカウントの表示名を取得（失敗した場合はIDをそのまま表示名として使用）
       const accounts = await Promise.all(

@@ -67,9 +67,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // customer_id を更新
+    // MCC（マネージャー）アカウントIDを特定
+    // listAccessibleCustomers の最初のアカウントを MCC と仮定
+    const managerCustomerId = accessibleCustomerIds[0] || null;
+
+    // customer_id と manager_customer_id を更新
     const supabaseService = new SupabaseService();
-    const updateResult = await supabaseService.updateGoogleAdsCustomerId(userId, customerId);
+    const updateResult = await supabaseService.updateGoogleAdsCustomerId(
+      userId,
+      customerId,
+      managerCustomerId
+    );
     if (!updateResult.success) {
       return NextResponse.json(
         { error: updateResult.error.userMessage },

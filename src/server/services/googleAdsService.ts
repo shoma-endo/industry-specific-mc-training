@@ -185,6 +185,13 @@ export class GoogleAdsService {
         headers['login-customer-id'] = loginCustomerId;
       }
 
+      // デバッグログ: 実際に使用される値を確認
+      console.log('[Google Ads] getCustomerDisplayName:', {
+        targetCustomerId: customerId,
+        loginCustomerId: loginCustomerId || '(none)',
+        hasLoginCustomerId: !!loginCustomerId,
+      });
+
       const response = await fetch(url, {
         method: 'POST',
         headers,
@@ -291,7 +298,7 @@ export class GoogleAdsService {
    * @returns キーワード指標の配列
    */
   async getKeywordMetrics(input: GetKeywordMetricsInput): Promise<GetKeywordMetricsResult> {
-    const { accessToken, customerId, startDate, endDate, campaignIds } = input;
+    const { accessToken, customerId, startDate, endDate, campaignIds, loginCustomerId } = input;
 
     // GAQL クエリを構築
     let query = `
@@ -331,14 +338,22 @@ export class GoogleAdsService {
 
     const url = `${GOOGLE_ADS_API_BASE_URL}/customers/${customerId}/googleAds:searchStream`;
 
+    // リクエストヘッダーを構築
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN ?? '',
+    };
+
+    // MCCアカウントから子アカウントの情報を取得する場合は login-customer-id が必要
+    if (loginCustomerId) {
+      headers['login-customer-id'] = loginCustomerId;
+    }
+
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN ?? '',
-        },
+        headers,
         body: JSON.stringify({ query: query.trim() }),
       });
 
@@ -347,7 +362,19 @@ export class GoogleAdsService {
         try {
           const errorBody = (await response.json()) as GoogleAdsApiError;
           errorMessage = errorBody.error?.message ?? errorMessage;
-          console.error('[GoogleAdsService] API error:', errorBody);
+
+          // デバッグ用: エラー詳細をログ出力（エラーコードを含む）
+          const errorDetails = errorBody.error?.details?.[0];
+          const errorCode = errorDetails?.errors?.[0]?.errorCode
+            ? Object.values(errorDetails.errors[0].errorCode)[0]
+            : undefined;
+
+          console.error('[GoogleAdsService] API error:', {
+            status: response.status,
+            message: errorMessage,
+            errorCode,
+            customerId,
+          });
         } catch {
           console.error(
             '[GoogleAdsService] API error (non-JSON response):',

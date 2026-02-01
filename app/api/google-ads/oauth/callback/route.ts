@@ -222,9 +222,11 @@ export async function GET(request: NextRequest) {
         setLineTokens(response, liffAccessToken, refreshToken);
         return response;
       }
+      // 1つしかないアカウントは MCC とみなす
       const updateResult = await supabaseService.updateGoogleAdsCustomerId(
         targetUserId,
-        customerId
+        customerId,
+        customerId  // managerCustomerId にも同じ ID をセット
       );
       if (!updateResult.success) {
         console.error('Failed to update customer ID:', {

@@ -206,6 +206,9 @@ export async function fetchKeywordMetrics(
       startDate: parseResult.data.startDate,
       endDate: parseResult.data.endDate,
       ...(parseResult.data.campaignIds && { campaignIds: parseResult.data.campaignIds }),
+      ...(credential.managerCustomerId && {
+        loginCustomerId: credential.managerCustomerId,
+      }),
     });
 
     if (!result.success) {

@@ -2,6 +2,9 @@ import { DashboardContent } from './_components/dashboard-content';
 import { MOCK_CAMPAIGNS, aggregateKeywordsToCampaigns } from '@/lib/mock-data/google-ads';
 import { fetchKeywordMetrics } from '@/server/actions/googleAds.actions';
 
+// 動的レンダリングを強制（Server Action で cookies を使用するため）
+export const dynamic = 'force-dynamic';
+
 /**
  * 過去30日間の日付範囲を取得
  */
@@ -39,14 +42,13 @@ export default async function GoogleAdsDashboardPage() {
     // Server Action がクッキーから認証情報を取得
     const result = await fetchKeywordMetrics(startDate, endDate);
 
-    if (!result.success || !result.data) {
-      // 未認証・エラー時は空のデータを表示
+    if (!result.success) {
       console.error('[GoogleAdsDashboard] Failed to fetch keyword metrics:', result.error);
       return <DashboardContent campaigns={[]} isMockData={false} />;
     }
 
     // キーワードデータをキャンペーン単位に集計
-    const campaigns = aggregateKeywordsToCampaigns(result.data);
+    const campaigns = aggregateKeywordsToCampaigns(result.data ?? []);
     return <DashboardContent campaigns={campaigns} isMockData={false} />;
   } catch (error) {
     console.error('[GoogleAdsDashboard] Error:', error);
