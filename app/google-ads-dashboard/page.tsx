@@ -2,6 +2,9 @@ import { DashboardContent } from './_components/dashboard-content';
 import { MOCK_CAMPAIGNS, aggregateKeywordsToCampaigns } from '@/lib/mock-data/google-ads';
 import { fetchKeywordMetrics } from '@/server/actions/googleAds.actions';
 
+// 動的レンダリングを強制（Server Action で cookies を使用するため）
+export const dynamic = 'force-dynamic';
+
 /**
  * 過去30日間の日付範囲を取得
  */
