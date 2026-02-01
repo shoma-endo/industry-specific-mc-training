@@ -55,24 +55,24 @@ export function CampaignsTable({ campaigns }: CampaignsTableProps) {
                       {campaign.status === 'ENABLED' ? '有効' : '一時停止'}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">{formatNumber(campaign.clicks)}</TableCell>
-                  <TableCell className="text-right">{formatNumber(campaign.impressions)}</TableCell>
-                  <TableCell className="text-right">{formatPercent(campaign.ctr)}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">{formatNumber(campaign.clicks)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">{formatNumber(campaign.impressions)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">{formatPercent(campaign.ctr)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
                     {campaign.cpc > 0 ? formatCurrency(campaign.cpc) : '-'}
                   </TableCell>
-                  <TableCell className="text-right">{formatCurrency(campaign.cost)}</TableCell>
-                  <TableCell className="text-right">{campaign.conversions}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">{formatCurrency(campaign.cost)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">{campaign.conversions}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
                     {formatPercent(campaign.conversionRate)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
                     {campaign.costPerConversion ? formatCurrency(campaign.costPerConversion) : '-'}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
                     {formatPercent(campaign.searchImpressionShare)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
                     {campaign.qualityScore !== null ? (
                       <span
                         className={`font-medium ${
