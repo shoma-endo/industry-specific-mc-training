@@ -40,15 +40,8 @@ export default async function GoogleAdsDashboardPage() {
     const result = await fetchKeywordMetrics(startDate, endDate);
 
     if (!result.success) {
-      // エラー情報を渡してエラー表示（デバッグ用）
       console.error('[GoogleAdsDashboard] Failed to fetch keyword metrics:', result.error);
-      return (
-        <DashboardContent
-          campaigns={[]}
-          isMockData={false}
-          error={result.error}
-        />
-      );
+      return <DashboardContent campaigns={[]} isMockData={false} />;
     }
 
     // キーワードデータをキャンペーン単位に集計
@@ -56,12 +49,6 @@ export default async function GoogleAdsDashboardPage() {
     return <DashboardContent campaigns={campaigns} isMockData={false} />;
   } catch (error) {
     console.error('[GoogleAdsDashboard] Error:', error);
-    return (
-      <DashboardContent
-        campaigns={[]}
-        isMockData={false}
-        error="予期しないエラーが発生しました"
-      />
-    );
+    return <DashboardContent campaigns={[]} isMockData={false} />;
   }
 }
