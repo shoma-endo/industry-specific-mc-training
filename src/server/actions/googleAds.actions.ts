@@ -96,6 +96,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
           accessToken: newTokens.accessToken,
           refreshToken: credential.refreshToken,
           expiresIn: newTokens.expiresIn,
+          googleAccountEmail: credential.googleAccountEmail,
           managerCustomerId: credential.managerCustomerId,
         });
         if (!saveResult.success) {
@@ -238,6 +239,7 @@ export async function fetchKeywordMetrics(
           accessToken: newTokens.accessToken,
           refreshToken: credential.refreshToken,
           expiresIn: newTokens.expiresIn,
+          googleAccountEmail: credential.googleAccountEmail,
           managerCustomerId: credential.managerCustomerId,
         });
         if (!saveResult.success) {
