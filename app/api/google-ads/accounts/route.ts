@@ -72,7 +72,7 @@ export async function GET() {
             return { id, info };
           } catch (infoError) {
             console.warn('Failed to resolve Google Ads customer info', {
-              customerId: id,
+              customerId: process.env.NODE_ENV === 'development' ? id : '(redacted)',
               error: infoError instanceof Error ? infoError.message : String(infoError),
             });
             return { id, info: null };
@@ -87,11 +87,12 @@ export async function GET() {
         }
       }
       const storedManagerId = authResult.credential.managerCustomerId || null;
+      const storedManagerIsManager =
+        !!storedManagerId &&
+        infoResults.find(r => r.id === storedManagerId)?.info?.isManager === true;
       const detectedManagerId = infoResults.find(r => r.info?.isManager)?.id || null;
       const mccCustomerId: string | null =
-        (storedManagerId && customerIds.includes(storedManagerId))
-          ? storedManagerId
-          : detectedManagerId;
+        storedManagerIsManager ? storedManagerId : detectedManagerId;
 
       // デバッグログ: MCCアカウントの特定状況を確認（開発環境のみ）
       if (process.env.NODE_ENV === 'development') {
@@ -118,8 +119,8 @@ export async function GET() {
                 }
               } catch (retryError) {
                 console.warn('Failed to resolve Google Ads customer info (with MCC)', {
-                  customerId: id,
-                  mccCustomerId,
+                  customerId: process.env.NODE_ENV === 'development' ? id : '(redacted)',
+                  mccCustomerId: process.env.NODE_ENV === 'development' ? mccCustomerId : '(redacted)',
                   error: retryError instanceof Error ? retryError.message : String(retryError),
                 });
               }
