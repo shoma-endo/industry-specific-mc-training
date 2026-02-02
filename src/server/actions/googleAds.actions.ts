@@ -11,35 +11,36 @@ import { isAdmin } from '@/authUtils';
 import { getKeywordMetricsSchema } from '@/server/schemas/googleAds.schema';
 import type { GoogleAdsKeywordMetric } from '@/types/googleAds.types';
 
+/** トークン期限切れ判定の閾値（5分） */
+const TOKEN_EXPIRY_THRESHOLD_MS = 5 * 60 * 1000;
+
 /**
  * Google Ads 連携状態を取得
  */
 export async function getGoogleAdsConnectionStatus(): Promise<{
   connected: boolean;
+  needsReauth: boolean;
   googleAccountEmail: string | null;
   customerId: string | null;
   error?: string;
 }> {
+  const disconnected = {
+    connected: false,
+    needsReauth: false,
+    googleAccountEmail: null,
+    customerId: null,
+  };
+
   try {
     const { accessToken, refreshToken } = await getLiffTokensFromCookies();
 
     if (!accessToken) {
-      return {
-        connected: false,
-        googleAccountEmail: null,
-        customerId: null,
-        error: ERROR_MESSAGES.AUTH.NOT_LOGGED_IN,
-      };
+      return { ...disconnected, error: ERROR_MESSAGES.AUTH.NOT_LOGGED_IN };
     }
 
     const authResult = await authMiddleware(accessToken, refreshToken);
     if (authResult.error || !authResult.userId) {
-      return {
-        connected: false,
-        googleAccountEmail: null,
-        customerId: null,
-        error: ERROR_MESSAGES.AUTH.UNAUTHENTICATED,
-      };
+      return { ...disconnected, error: ERROR_MESSAGES.AUTH.UNAUTHENTICATED };
     }
 
     const supabaseService = new SupabaseService();
@@ -47,43 +48,77 @@ export async function getGoogleAdsConnectionStatus(): Promise<{
     // 管理者権限チェック（Google Ads 連携は審査完了まで管理者のみ）
     const userResult = await supabaseService.getUserById(authResult.userId);
     if (!userResult.success || !userResult.data) {
-      return {
-        connected: false,
-        googleAccountEmail: null,
-        customerId: null,
-        error: ERROR_MESSAGES.USER.USER_INFO_NOT_FOUND,
-      };
+      return { ...disconnected, error: ERROR_MESSAGES.USER.USER_INFO_NOT_FOUND };
     }
     const user = toUser(userResult.data);
     if (!isAdmin(user.role)) {
-      return {
-        connected: false,
-        googleAccountEmail: null,
-        customerId: null,
-        error: ERROR_MESSAGES.USER.ADMIN_REQUIRED,
-      };
+      return { ...disconnected, error: ERROR_MESSAGES.USER.ADMIN_REQUIRED };
     }
 
     const credential = await supabaseService.getGoogleAdsCredential(authResult.userId);
 
     if (!credential) {
-      return { connected: false, googleAccountEmail: null, customerId: null };
+      return disconnected;
+    }
+
+    // トークンの有効期限をチェックし、期限切れ／期限間近の場合はリフレッシュを試行
+    const expiresAt = credential.accessTokenExpiresAt
+      ? new Date(credential.accessTokenExpiresAt)
+      : null;
+    const now = new Date();
+    const isTokenExpiredOrExpiring =
+      !credential.accessToken ||
+      !expiresAt ||
+      expiresAt.getTime() - now.getTime() < TOKEN_EXPIRY_THRESHOLD_MS;
+
+    if (isTokenExpiredOrExpiring) {
+      if (!credential.refreshToken) {
+        return {
+          connected: true,
+          needsReauth: true,
+          googleAccountEmail: credential.googleAccountEmail,
+          customerId: credential.customerId,
+          error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
+        };
+      }
+
+      try {
+        const googleAdsService = new GoogleAdsService();
+        const newTokens = await googleAdsService.refreshAccessToken(credential.refreshToken);
+
+        // リフレッシュ成功 → 新しいトークンを保存
+        await supabaseService.saveGoogleAdsCredential(authResult.userId, {
+          accessToken: newTokens.accessToken,
+          refreshToken: credential.refreshToken,
+          expiresIn: newTokens.expiresIn,
+          managerCustomerId: credential.managerCustomerId,
+        });
+      } catch (refreshError) {
+        console.error('[getGoogleAdsConnectionStatus] Token refresh failed:', refreshError);
+        return {
+          connected: true,
+          needsReauth: true,
+          googleAccountEmail: credential.googleAccountEmail,
+          customerId: credential.customerId,
+          error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
+        };
+      }
     }
 
     return {
       connected: true,
+      needsReauth: false,
       googleAccountEmail: credential.googleAccountEmail,
       customerId: credential.customerId,
     };
   } catch (error) {
-    // 詳細ログはサーバー側のみに出力
     console.error('[getGoogleAdsConnectionStatus] Unexpected error:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
     });
-    // クライアントには共通メッセージのみ返却（内部情報を露出しない）
     return {
       connected: false,
+      needsReauth: false,
       googleAccountEmail: null,
       customerId: null,
       error: ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
@@ -174,7 +209,7 @@ export async function fetchKeywordMetrics(
     const googleAdsService = new GoogleAdsService();
 
     // トークンが期限切れまたは期限間近（5分以内）の場合はリフレッシュ
-    if (!googleAccessToken || !expiresAt || expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+    if (!googleAccessToken || !expiresAt || expiresAt.getTime() - now.getTime() < TOKEN_EXPIRY_THRESHOLD_MS) {
       if (!credential.refreshToken) {
         return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
       }

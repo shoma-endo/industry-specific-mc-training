@@ -49,6 +49,7 @@ export interface ExistingWordPressSettings {
 
 export interface GoogleAdsConnectionStatus {
   connected: boolean;
+  needsReauth: boolean;
   googleAccountEmail: string | null;
   customerId: string | null;
 }

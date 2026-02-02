@@ -350,7 +350,12 @@ export default function SetupDashboard({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {googleAdsStatus.connected ? (
+                    {googleAdsStatus.needsReauth ? (
+                      <>
+                        <AlertTriangle className="text-orange-500" size={20} />
+                        <span className="text-orange-700 font-medium">要再認証</span>
+                      </>
+                    ) : googleAdsStatus.connected ? (
                       <>
                         <CheckCircle className="text-green-500" size={20} />
                         <span className="text-green-700 font-medium">接続済み</span>
@@ -363,18 +368,44 @@ export default function SetupDashboard({
                     )}
                   </div>
                   <Badge
-                    variant={googleAdsStatus.connected ? 'default' : 'secondary'}
+                    variant={
+                      googleAdsStatus.needsReauth
+                        ? 'default'
+                        : googleAdsStatus.connected
+                          ? 'default'
+                          : 'secondary'
+                    }
                     className={`text-xs ${
-                      googleAdsStatus.connected
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-800'
+                      googleAdsStatus.needsReauth
+                        ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                        : googleAdsStatus.connected
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-800'
                     }`}
                   >
-                    {googleAdsStatus.connected ? '接続OK' : '未設定'}
+                    {googleAdsStatus.needsReauth
+                      ? '要再認証'
+                      : googleAdsStatus.connected
+                        ? '接続OK'
+                        : '未設定'}
                   </Badge>
                 </div>
 
-                {googleAdsStatus.connected ? (
+                {googleAdsStatus.needsReauth ? (
+                  <div className="text-sm space-y-2">
+                    <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                      <p className="text-orange-800 font-medium">
+                        Googleアカウントの再認証が必要です
+                      </p>
+                      <p className="text-orange-700 text-xs mt-1">
+                        認証トークンが期限切れまたは取り消されています。再認証してください。
+                      </p>
+                    </div>
+                    <p className="text-gray-600">
+                      アカウント: {googleAdsStatus.googleAccountEmail ?? '取得中'}
+                    </p>
+                  </div>
+                ) : googleAdsStatus.connected ? (
                   <div className="text-sm text-gray-600 space-y-1">
                     <p>アカウント: {googleAdsStatus.googleAccountEmail ?? '取得中'}</p>
                     {googleAdsStatus.customerId && (
@@ -396,16 +427,25 @@ export default function SetupDashboard({
 
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Button
-                      asChild
-                      variant={googleAdsStatus.connected ? 'outline' : 'default'}
-                      className={`w-full ${googleAdsStatus.connected ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
-                    >
-                      <Link href="/setup/google-ads">
-                        <Settings size={16} className="mr-2" />
-                        {googleAdsStatus.connected ? '連携を管理' : '連携を開始'}
-                      </Link>
-                    </Button>
+                    {googleAdsStatus.needsReauth ? (
+                      <Button asChild className="w-full bg-orange-600 hover:bg-orange-700">
+                        <Link href="/setup/google-ads">
+                          <AlertTriangle size={16} className="mr-2" />
+                          再認証する
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        variant={googleAdsStatus.connected ? 'outline' : 'default'}
+                        className={`w-full ${googleAdsStatus.connected ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
+                      >
+                        <Link href="/setup/google-ads">
+                          <Settings size={16} className="mr-2" />
+                          {googleAdsStatus.connected ? '連携を管理' : '連携を開始'}
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
