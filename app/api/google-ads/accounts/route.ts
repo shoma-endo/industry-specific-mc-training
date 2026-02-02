@@ -105,8 +105,8 @@ export async function GET() {
         await Promise.all(
           customerIds.map(async id => {
             const existing = customerInfoMap.get(id);
-            // MCC自身でなく、まだ情報が取得できていないアカウントのみ再試行
-            if (id !== mccCustomerId && !existing) {
+            // MCC自身でなく、情報未取得または名前が取得できていないアカウントを再試行
+            if (id !== mccCustomerId && (!existing || !existing.name)) {
               try {
                 const info = await googleAdsService.getCustomerInfo(id, accessToken, mccCustomerId);
                 if (info) {
