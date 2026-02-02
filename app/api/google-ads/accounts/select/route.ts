@@ -68,8 +68,25 @@ export async function POST(request: NextRequest) {
     }
 
     // MCC（マネージャー）アカウントIDを特定
-    // listAccessibleCustomers の最初のアカウントを MCC と仮定
-    const managerCustomerId = accessibleCustomerIds[0] || null;
+    // customer.manager フィールドで各アカウントがMCCかどうかを判定
+    const mccInfoResults = await Promise.all(
+      accessibleCustomerIds.map(async id => {
+        try {
+          const info = await googleAdsService.getCustomerInfo(id, accessToken);
+          return { id, isManager: info?.isManager ?? false };
+        } catch {
+          // MCC判定失敗は無視（managerCustomerId = null のまま）
+          return { id, isManager: false };
+        }
+      })
+    );
+
+    // 選択アカウント以外でMCCを探す
+    const otherManagerId = mccInfoResults.find(r => r.id !== customerId && r.isManager)?.id ?? null;
+
+    // 他にMCCがなければ、選択アカウント自身がMCCか確認
+    const selfInfo = mccInfoResults.find(r => r.id === customerId);
+    const managerCustomerId = otherManagerId ?? (selfInfo?.isManager ? customerId : null);
 
     // customer_id と manager_customer_id を更新
     const supabaseService = new SupabaseService();

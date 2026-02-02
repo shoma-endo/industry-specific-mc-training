@@ -156,15 +156,15 @@ export class GoogleAdsService {
   }
 
   /**
-   * 指定した customerId の表示名（descriptiveName）を取得する
+   * 指定した customerId の表示名とマネージャーアカウントかどうかを取得する
    * searchStream を使って Customer リソースを取得
    * 取得に失敗した場合は null を返す（呼び出し側でフォールバックする想定）
    */
-  async getCustomerDisplayName(
+  async getCustomerInfo(
     customerId: string,
     accessToken: string,
     loginCustomerId?: string | null
-  ): Promise<string | null> {
+  ): Promise<{ name: string | null; isManager: boolean } | null> {
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
     if (!developerToken) {
       throw new Error('Google Ads開発者トークンが設定されていません');
@@ -185,24 +185,26 @@ export class GoogleAdsService {
         headers['login-customer-id'] = loginCustomerId;
       }
 
-      // デバッグログ: 実際に使用される値を確認
-      console.log('[Google Ads] getCustomerDisplayName:', {
-        targetCustomerId: customerId,
-        loginCustomerId: loginCustomerId || '(none)',
-        hasLoginCustomerId: !!loginCustomerId,
-      });
+      // デバッグログ: 実際に使用される値を確認（開発環境のみ）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Google Ads] getCustomerInfo:', {
+          targetCustomerId: customerId,
+          loginCustomerId: loginCustomerId || '(none)',
+          hasLoginCustomerId: !!loginCustomerId,
+        });
+      }
 
       const response = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          query: `SELECT customer.descriptive_name FROM customer WHERE customer.id = ${customerId}`,
+          query: `SELECT customer.descriptive_name, customer.manager FROM customer WHERE customer.id = ${customerId}`,
         }),
       });
 
       if (!response.ok) {
         const text = await response.text();
-        
+
         // CUSTOMER_NOT_ENABLED エラー（審査中や無効化されたアカウント）の場合は静かにフォールバック
         try {
           const errorData = JSON.parse(text) as {
@@ -217,21 +219,20 @@ export class GoogleAdsService {
               }>;
             };
           };
-          
+
           const firstError = errorData.error?.details?.[0]?.errors?.[0];
           const authError = firstError?.errorCode?.authorizationError;
-          
+
           if (authError === 'CUSTOMER_NOT_ENABLED') {
-            // 審査中や無効化されたアカウント → 名前取得は諦めて静かにフォールバック
-            // ログは出さない（ID表示で問題ない）
+            // 審査中や無効化されたアカウント → 情報取得は諦めて静かにフォールバック
             return null;
           }
         } catch {
           // JSONパースに失敗した場合は通常のエラーログを出力
         }
-        
+
         // その他のエラーのみログに出力
-        console.warn('Google Ads API エラー (getCustomerDisplayName):', {
+        console.warn('Google Ads API エラー (getCustomerInfo):', {
           status: response.status,
           body: text,
           customerId,
@@ -246,6 +247,7 @@ export class GoogleAdsService {
           customer?: {
             descriptiveName?: string;
             descriptive_name?: string;
+            manager?: boolean;
           };
         }>;
       }>;
@@ -265,9 +267,12 @@ export class GoogleAdsService {
         firstResult.customer.descriptiveName ??
         firstResult.customer.descriptive_name ??
         null;
-      return name && name.trim().length > 0 ? name : null;
+      return {
+        name: name && name.trim().length > 0 ? name : null,
+        isManager: firstResult.customer.manager === true,
+      };
     } catch (error) {
-      console.error('Failed to fetch customer display name:', {
+      console.error('Failed to fetch customer info:', {
         customerId,
         error,
       });

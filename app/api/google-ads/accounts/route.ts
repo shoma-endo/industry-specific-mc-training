@@ -6,6 +6,11 @@ import {
   refreshGoogleAdsTokenIfNeeded,
 } from '@/server/lib/google-auth';
 
+interface CustomerInfo {
+  name: string | null;
+  isManager: boolean;
+}
+
 /**
  * アクセス可能なGoogle Adsアカウント一覧を取得
  */
@@ -55,54 +60,83 @@ export async function GET() {
     try {
       const customerIds = await googleAdsService.listAccessibleCustomers(accessToken);
 
-      // MCCアカウントを特定（managerCustomerId があればそれを優先、次に customerId）
-      const mccCustomerId =
-        authResult.credential.managerCustomerId ||
-        authResult.credential.customerId ||
-        customerIds[0] ||
-        null;
+      // 各アカウントの情報（表示名 + MCC判定）を取得
+      // 1パス目: login-customer-id なしで各アカウントの情報を取得しMCCを特定
+      const customerInfoMap = new Map<string, CustomerInfo>();
 
-      // デバッグログ: MCCアカウントの特定状況を確認
-      console.log('[Google Ads] MCC specification:', {
-        managerCustomerId: authResult.credential.managerCustomerId || '(not set)',
-        credentialCustomerId: authResult.credential.customerId || '(not set)',
-        firstAccessibleCustomer: customerIds[0] || '(empty)',
-        resolvedMccCustomerId: mccCustomerId || '(null)',
-        accessibleCustomerCount: customerIds.length,
-        allAccessibleCustomers: customerIds,
-      });
-
-      // 各アカウントの表示名を取得（失敗した場合はIDをそのまま表示名として使用）
-      const accounts = await Promise.all(
+      // 各アカウントの情報を並列取得
+      const infoResults = await Promise.all(
         customerIds.map(async id => {
-          let displayName = id;
           try {
-            // MCCアカウント自体の場合は login-customer-id なし、子アカウントの場合は login-customer-id を指定
-            const loginCustomerId = mccCustomerId && id !== mccCustomerId ? mccCustomerId : null;
-            const name = await googleAdsService.getCustomerDisplayName(
-              id,
-              accessToken,
-              loginCustomerId
-            );
-            
-            if (name) {
-              displayName = name;
-            }
-          } catch (nameError) {
-            // 403エラー（CUSTOMER_NOT_ENABLED）などは無視して、IDをそのまま使用
-            console.warn('Failed to resolve Google Ads customer display name', {
-              customerId: id,
-              error:
-                nameError instanceof Error ? nameError.message : String(nameError),
+            const info = await googleAdsService.getCustomerInfo(id, accessToken);
+            return { id, info };
+          } catch (infoError) {
+            console.warn('Failed to resolve Google Ads customer info', {
+              customerId: process.env.NODE_ENV === 'development' ? id : '(redacted)',
+              error: infoError instanceof Error ? infoError.message : String(infoError),
             });
+            return { id, info: null };
           }
-
-          return {
-            customerId: id,
-            displayName,
-          };
         })
       );
+
+      // 結果をMapに格納し、MCCを特定（競合状態を回避）
+      for (const { id, info } of infoResults) {
+        if (info) {
+          customerInfoMap.set(id, info);
+        }
+      }
+      const storedManagerId = authResult.credential.managerCustomerId || null;
+      const storedManagerIsManager =
+        !!storedManagerId &&
+        infoResults.find(r => r.id === storedManagerId)?.info?.isManager === true;
+      const detectedManagerId = infoResults.find(r => r.info?.isManager)?.id || null;
+      const mccCustomerId: string | null =
+        storedManagerIsManager ? storedManagerId : detectedManagerId;
+
+      // デバッグログ: MCCアカウントの特定状況を確認（開発環境のみ）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Google Ads] MCC specification:', {
+          managerCustomerId: authResult.credential.managerCustomerId || '(not set)',
+          detectedMccCustomerId: mccCustomerId || '(null)',
+          accessibleCustomerCount: customerIds.length,
+          allAccessibleCustomers: customerIds,
+          managerAccounts: customerIds.filter(id => customerInfoMap.get(id)?.isManager),
+        });
+      }
+
+      // 2パス目: MCC配下の子アカウントで名前が取得できなかった場合、login-customer-id を指定して再取得
+      if (mccCustomerId) {
+        await Promise.all(
+          customerIds.map(async id => {
+            const existing = customerInfoMap.get(id);
+            // MCC自身でなく、情報未取得または名前が取得できていないアカウントを再試行
+            if (id !== mccCustomerId && (!existing || !existing.name)) {
+              try {
+                const info = await googleAdsService.getCustomerInfo(id, accessToken, mccCustomerId);
+                if (info) {
+                  customerInfoMap.set(id, info);
+                }
+              } catch (retryError) {
+                console.warn('Failed to resolve Google Ads customer info (with MCC)', {
+                  customerId: process.env.NODE_ENV === 'development' ? id : '(redacted)',
+                  mccCustomerId: process.env.NODE_ENV === 'development' ? mccCustomerId : '(redacted)',
+                  error: retryError instanceof Error ? retryError.message : String(retryError),
+                });
+              }
+            }
+          })
+        );
+      }
+
+      const accounts = customerIds.map(id => {
+        const info = customerInfoMap.get(id);
+        return {
+          customerId: id,
+          displayName: info?.name || id,
+          isManager: info?.isManager ?? false,
+        };
+      });
 
       return NextResponse.json({
         accounts,
