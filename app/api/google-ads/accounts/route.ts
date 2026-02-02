@@ -72,7 +72,7 @@ export async function GET() {
             return { id, info };
           } catch (infoError) {
             console.warn('Failed to resolve Google Ads customer info', {
-              customerId: id,
+              customerId: process.env.NODE_ENV === 'development' ? id : '(redacted)',
               error: infoError instanceof Error ? infoError.message : String(infoError),
             });
             return { id, info: null };
@@ -118,8 +118,8 @@ export async function GET() {
                 }
               } catch (retryError) {
                 console.warn('Failed to resolve Google Ads customer info (with MCC)', {
-                  customerId: id,
-                  mccCustomerId,
+                  customerId: process.env.NODE_ENV === 'development' ? id : '(redacted)',
+                  mccCustomerId: process.env.NODE_ENV === 'development' ? mccCustomerId : '(redacted)',
                   error: retryError instanceof Error ? retryError.message : String(retryError),
                 });
               }
