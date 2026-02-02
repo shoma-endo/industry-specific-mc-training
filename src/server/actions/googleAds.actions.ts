@@ -15,15 +15,20 @@ import type { GoogleAdsKeywordMetric } from '@/types/googleAds.types';
 const TOKEN_EXPIRY_THRESHOLD_MS = 5 * 60 * 1000;
 
 /**
- * Google Ads 連携状態を取得
+ * Google Ads 連携状態の結果型
  */
-export async function getGoogleAdsConnectionStatus(): Promise<{
+interface GoogleAdsConnectionStatusResult {
   connected: boolean;
   needsReauth: boolean;
   googleAccountEmail: string | null;
   customerId: string | null;
   error?: string;
-}> {
+}
+
+/**
+ * Google Ads 連携状態を取得
+ */
+export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectionStatusResult> {
   const disconnected = {
     connected: false,
     needsReauth: false,
