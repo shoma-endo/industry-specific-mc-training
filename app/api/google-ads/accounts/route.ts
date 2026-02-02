@@ -58,26 +58,31 @@ export async function GET() {
       // 各アカウントの情報（表示名 + MCC判定）を取得
       // 1パス目: login-customer-id なしで各アカウントの情報を取得しMCCを特定
       const customerInfoMap = new Map<string, { name: string | null; isManager: boolean }>();
-      let mccCustomerId: string | null = authResult.credential.managerCustomerId || null;
 
-      await Promise.all(
+      // 各アカウントの情報を並列取得
+      const infoResults = await Promise.all(
         customerIds.map(async id => {
           try {
             const info = await googleAdsService.getCustomerInfo(id, accessToken);
-            if (info) {
-              customerInfoMap.set(id, info);
-              if (info.isManager && !mccCustomerId) {
-                mccCustomerId = id;
-              }
-            }
+            return { id, info };
           } catch (infoError) {
             console.warn('Failed to resolve Google Ads customer info', {
               customerId: id,
               error: infoError instanceof Error ? infoError.message : String(infoError),
             });
+            return { id, info: null };
           }
         })
       );
+
+      // 結果をMapに格納し、MCCを特定（競合状態を回避）
+      for (const { id, info } of infoResults) {
+        if (info) {
+          customerInfoMap.set(id, info);
+        }
+      }
+      const mccCustomerId: string | null = authResult.credential.managerCustomerId ||
+        infoResults.find(r => r.info?.isManager)?.id || null;
 
       // デバッグログ: MCCアカウントの特定状況を確認（開発環境のみ）
       if (process.env.NODE_ENV === 'development') {

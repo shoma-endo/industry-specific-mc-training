@@ -69,21 +69,22 @@ export async function POST(request: NextRequest) {
 
     // MCC（マネージャー）アカウントIDを特定
     // customer.manager フィールドで各アカウントがMCCかどうかを判定
-    let managerCustomerId: string | null = null;
-    await Promise.all(
+    const mccInfoResults = await Promise.all(
       accessibleCustomerIds.map(async id => {
         // 選択されたアカウント自体は MCC 判定の対象外（子アカウントとして利用するため）
-        if (id === customerId) return;
+        if (id === customerId) return { id, isManager: false };
         try {
           const info = await googleAdsService.getCustomerInfo(id, accessToken);
-          if (info?.isManager && !managerCustomerId) {
-            managerCustomerId = id;
-          }
+          return { id, isManager: info?.isManager ?? false };
         } catch {
           // MCC判定失敗は無視（managerCustomerId = null のまま）
+          return { id, isManager: false };
         }
       })
     );
+
+    // 競合状態を回避して逐次的にMCCを特定
+    let managerCustomerId: string | null = mccInfoResults.find(r => r.isManager)?.id || null;
 
     // 選択アカウント自身がMCCの場合（MCC直接選択）
     if (!managerCustomerId) {
