@@ -102,10 +102,8 @@ export async function POST(request: NextRequest) {
     ) as Array<{ managerId: string; level: number }>;
 
     // 最も近い（level が最小）マネージャーを採用
-    const managerCustomerId =
-      validManagers.length > 0
-        ? validManagers.toSorted((a, b) => a.level - b.level)[0].managerId
-        : null;
+    const sortedManagers = validManagers.toSorted((a, b) => a.level - b.level);
+    const managerCustomerId = sortedManagers[0]?.managerId ?? null;
 
     // customer_id と manager_customer_id を更新
     const supabaseService = new SupabaseService();

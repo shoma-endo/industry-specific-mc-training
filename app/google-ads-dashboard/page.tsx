@@ -59,7 +59,7 @@ export default async function GoogleAdsDashboardPage() {
         <DashboardContent
           campaigns={[]}
           isMockData={false}
-          errorMessage={result.error}
+          errorMessage={result.error ?? ERROR_MESSAGES.GOOGLE_ADS.DASHBOARD_FETCH_FAILED}
           errorKind={errorKind}
         />
       );
