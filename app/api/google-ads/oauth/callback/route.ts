@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
       expiresIn: tokens.expiresIn,
       scope: tokens.scope || [],
       googleAccountEmail,
-      managerCustomerId: existingCredential?.managerCustomerId ?? undefined,
+      managerCustomerId: existingCredential?.managerCustomerId,
     });
     if (!saveResult.success) {
       console.error('Failed to save Google Ads credential:', {
