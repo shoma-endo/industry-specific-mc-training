@@ -81,7 +81,7 @@ export async function GET() {
           customerInfoMap.set(id, info);
         }
       }
-      let mccCustomerId: string | null = authResult.credential.managerCustomerId ||
+      const mccCustomerId: string | null = authResult.credential.managerCustomerId ||
         infoResults.find(r => r.info?.isManager)?.id || null;
 
       // デバッグログ: MCCアカウントの特定状況を確認（開発環境のみ）
