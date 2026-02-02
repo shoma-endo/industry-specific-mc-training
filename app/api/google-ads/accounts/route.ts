@@ -79,14 +79,16 @@ export async function GET() {
         })
       );
 
-      // デバッグログ: MCCアカウントの特定状況を確認
-      console.log('[Google Ads] MCC specification:', {
-        managerCustomerId: authResult.credential.managerCustomerId || '(not set)',
-        detectedMccCustomerId: mccCustomerId || '(null)',
-        accessibleCustomerCount: customerIds.length,
-        allAccessibleCustomers: customerIds,
-        managerAccounts: customerIds.filter(id => customerInfoMap.get(id)?.isManager),
-      });
+      // デバッグログ: MCCアカウントの特定状況を確認（開発環境のみ）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Google Ads] MCC specification:', {
+          managerCustomerId: authResult.credential.managerCustomerId || '(not set)',
+          detectedMccCustomerId: mccCustomerId || '(null)',
+          accessibleCustomerCount: customerIds.length,
+          allAccessibleCustomers: customerIds,
+          managerAccounts: customerIds.filter(id => customerInfoMap.get(id)?.isManager),
+        });
+      }
 
       // 2パス目: MCC配下の子アカウントで名前が取得できなかった場合、login-customer-id を指定して再取得
       if (mccCustomerId) {

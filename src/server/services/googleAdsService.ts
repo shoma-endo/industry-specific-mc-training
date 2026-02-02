@@ -185,12 +185,14 @@ export class GoogleAdsService {
         headers['login-customer-id'] = loginCustomerId;
       }
 
-      // デバッグログ: 実際に使用される値を確認
-      console.log('[Google Ads] getCustomerInfo:', {
-        targetCustomerId: customerId,
-        loginCustomerId: loginCustomerId || '(none)',
-        hasLoginCustomerId: !!loginCustomerId,
-      });
+      // デバッグログ: 実際に使用される値を確認（開発環境のみ）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Google Ads] getCustomerInfo:', {
+          targetCustomerId: customerId,
+          loginCustomerId: loginCustomerId || '(none)',
+          hasLoginCustomerId: !!loginCustomerId,
+        });
+      }
 
       const response = await fetch(url, {
         method: 'POST',
