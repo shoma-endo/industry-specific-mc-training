@@ -87,12 +87,22 @@ export async function getGoogleAdsConnectionStatus(): Promise<{
         const newTokens = await googleAdsService.refreshAccessToken(credential.refreshToken);
 
         // リフレッシュ成功 → 新しいトークンを保存
-        await supabaseService.saveGoogleAdsCredential(authResult.userId, {
+        const saveResult = await supabaseService.saveGoogleAdsCredential(authResult.userId, {
           accessToken: newTokens.accessToken,
           refreshToken: credential.refreshToken,
           expiresIn: newTokens.expiresIn,
           managerCustomerId: credential.managerCustomerId,
         });
+        if (!saveResult.success) {
+          console.error('[getGoogleAdsConnectionStatus] Token save failed');
+          return {
+            connected: true,
+            needsReauth: true,
+            googleAccountEmail: credential.googleAccountEmail,
+            customerId: credential.customerId,
+            error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
+          };
+        }
       } catch (refreshError) {
         console.error('[getGoogleAdsConnectionStatus] Token refresh failed:', refreshError);
         return {
@@ -219,12 +229,16 @@ export async function fetchKeywordMetrics(
         googleAccessToken = newTokens.accessToken;
 
         // 新しいトークンを保存（managerCustomerId を保持）
-        await supabaseService.saveGoogleAdsCredential(authResult.userId, {
+        const saveResult = await supabaseService.saveGoogleAdsCredential(authResult.userId, {
           accessToken: newTokens.accessToken,
           refreshToken: credential.refreshToken,
           expiresIn: newTokens.expiresIn,
           managerCustomerId: credential.managerCustomerId,
         });
+        if (!saveResult.success) {
+          console.error('[fetchKeywordMetrics] Token save failed');
+          return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
+        }
       } catch (refreshError) {
         console.error('[fetchKeywordMetrics] Token refresh failed:', refreshError);
         return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
