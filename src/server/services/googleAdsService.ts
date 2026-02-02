@@ -11,6 +11,7 @@ import type {
   GoogleAdsSearchStreamRow,
   GoogleAdsApiError,
 } from '@/types/googleAds.types';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 /** Google Ads API v22 のベース URL */
 const GOOGLE_ADS_API_BASE_URL = 'https://googleads.googleapis.com/v22';
@@ -76,7 +77,7 @@ export class GoogleAdsService {
   async listAccessibleCustomers(accessToken: string): Promise<string[]> {
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
     if (!developerToken) {
-      throw new Error('Google Ads開発者トークンが設定されていません');
+      throw new Error(ERROR_MESSAGES.GOOGLE_ADS.DEVELOPER_TOKEN_MISSING);
     }
 
     const API_VERSION = 'v22';
@@ -167,7 +168,7 @@ export class GoogleAdsService {
   ): Promise<{ name: string | null; isManager: boolean } | null> {
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
     if (!developerToken) {
-      throw new Error('Google Ads開発者トークンが設定されていません');
+      throw new Error(ERROR_MESSAGES.GOOGLE_ADS.DEVELOPER_TOKEN_MISSING);
     }
 
     const API_VERSION = 'v22';
@@ -274,6 +275,96 @@ export class GoogleAdsService {
     } catch (error) {
       console.error('Failed to fetch customer info:', {
         customerId,
+        error,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 指定したマネージャーアカウント配下にクライアントが存在するかを確認し、階層レベルを返す
+   * 見つからない場合は null を返す
+   */
+  async getClientLevelUnderManager(
+    managerCustomerId: string,
+    clientCustomerId: string,
+    accessToken: string
+  ): Promise<number | null> {
+    const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    if (!developerToken) {
+      throw new Error(ERROR_MESSAGES.GOOGLE_ADS.DEVELOPER_TOKEN_MISSING);
+    }
+
+    const API_VERSION = 'v22';
+    const url = `https://googleads.googleapis.com/${API_VERSION}/customers/${managerCustomerId}/googleAds:searchStream`;
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'developer-token': developerToken,
+        Authorization: `Bearer ${accessToken}`,
+        'login-customer-id': managerCustomerId,
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query: `SELECT customer_client.level FROM customer_client WHERE customer_client.client_customer = 'customers/${clientCustomerId}'`,
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.warn('Google Ads API エラー (getClientLevelUnderManager):', {
+          status: response.status,
+          body: text,
+          managerCustomerId,
+          clientCustomerId,
+        });
+        return null;
+      }
+
+      const text = await response.text();
+      let responses: Array<{
+        results?: Array<{
+          customerClient?: {
+            level?: number;
+          };
+        }>;
+      }> = [];
+
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        if (Array.isArray(parsed)) {
+          responses = parsed as typeof responses;
+        } else if (parsed && typeof parsed === 'object') {
+          responses = [parsed as typeof responses[number]];
+        }
+      } catch {
+        const lines = text.split('\n').filter(line => line.trim().length > 0);
+        for (const line of lines) {
+          try {
+            responses.push(JSON.parse(line) as typeof responses[number]);
+          } catch {
+            // 不正な行はスキップ
+          }
+        }
+      }
+
+      for (const responseChunk of responses) {
+        const result = responseChunk.results?.[0];
+        const level = result?.customerClient?.level;
+        if (typeof level === 'number') {
+          return level;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch customer client level:', {
+        managerCustomerId,
+        clientCustomerId,
         error,
       });
       return null;

@@ -7,63 +7,69 @@ import type {
 /**
  * 開発環境用のモックキャンペーンデータ
  */
+function createCampaignMetrics(
+  base: Pick<
+    GoogleAdsCampaignMetrics,
+    | 'campaignName'
+    | 'status'
+    | 'clicks'
+    | 'impressions'
+    | 'cost'
+    | 'qualityScore'
+    | 'conversions'
+    | 'searchImpressionShare'
+  >
+): GoogleAdsCampaignMetrics {
+  return {
+    ...base,
+    ctr: base.impressions > 0 ? base.clicks / base.impressions : 0,
+    cpc: base.clicks > 0 ? base.cost / base.clicks : 0,
+    costPerConversion: base.conversions > 0 ? base.cost / base.conversions : null,
+    conversionRate: base.clicks > 0 ? base.conversions / base.clicks : null,
+  };
+}
+
 export const MOCK_CAMPAIGNS: GoogleAdsCampaignMetrics[] = [
-  {
+  createCampaignMetrics({
     campaignName: '整体院 検索キャンペーン',
     status: 'ENABLED',
     clicks: 2498,
     impressions: 46840,
     cost: 405216,
-    ctr: 0.0533,
-    cpc: 162,
     qualityScore: 7,
     conversions: 83,
-    costPerConversion: 4882,
     searchImpressionShare: 0.58,
-    conversionRate: 0.033,
-  },
-  {
+  }),
+  createCampaignMetrics({
     campaignName: 'マッサージ キャンペーン',
     status: 'ENABLED',
     clicks: 333,
     impressions: 4680,
     cost: 61938,
-    ctr: 0.0712,
-    cpc: 186,
     qualityScore: 7,
     conversions: 15,
-    costPerConversion: 4129,
     searchImpressionShare: 0.62,
-    conversionRate: 0.045,
-  },
-  {
+  }),
+  createCampaignMetrics({
     campaignName: 'スポーツ整体キャンペーン',
     status: 'ENABLED',
     clicks: 289,
     impressions: 4260,
     cost: 65025,
-    ctr: 0.0678,
-    cpc: 225,
     qualityScore: 8,
     conversions: 11,
-    costPerConversion: 5911,
     searchImpressionShare: 0.55,
-    conversionRate: 0.038,
-  },
-  {
+  }),
+  createCampaignMetrics({
     campaignName: 'リピーター向けキャンペーン',
-    status: 'PAUSED',
+    status: 'ENABLED',
     clicks: 0,
     impressions: 0,
     cost: 0,
-    ctr: 0,
-    cpc: 0,
     qualityScore: null,
     conversions: 0,
-    costPerConversion: null,
     searchImpressionShare: null,
-    conversionRate: null,
-  },
+  }),
 ];
 
 /**

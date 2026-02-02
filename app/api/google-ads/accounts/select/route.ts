@@ -68,25 +68,44 @@ export async function POST(request: NextRequest) {
     }
 
     // MCC（マネージャー）アカウントIDを特定
-    // customer.manager フィールドで各アカウントがMCCかどうかを判定
-    const mccInfoResults = await Promise.all(
+    // customer.manager フィールドでマネージャー候補を抽出
+    const managerCandidates = await Promise.all(
       accessibleCustomerIds.map(async id => {
         try {
           const info = await googleAdsService.getCustomerInfo(id, accessToken);
           return { id, isManager: info?.isManager ?? false };
         } catch {
-          // MCC判定失敗は無視（managerCustomerId = null のまま）
+          console.warn(`Failed to get customer info for ${id}, treating as non-manager`);
           return { id, isManager: false };
         }
       })
     );
 
-    // 選択アカウント以外でMCCを探す
-    const otherManagerId = mccInfoResults.find(r => r.id !== customerId && r.isManager)?.id ?? null;
+    const managerCandidateIds = managerCandidates
+      .filter(candidate => candidate.isManager)
+      .map(candidate => candidate.id);
 
-    // 他にMCCがなければ、選択アカウント自身がMCCか確認
-    const selfInfo = mccInfoResults.find(r => r.id === customerId);
-    const managerCustomerId = otherManagerId ?? (selfInfo?.isManager ? customerId : null);
+    // 各マネージャー候補に対して、選択アカウントが配下に存在するかを確認
+    const managerLevels = await Promise.all(
+      managerCandidateIds.map(async managerId => {
+        const level = await googleAdsService.getClientLevelUnderManager(
+          managerId,
+          customerId,
+          accessToken
+        );
+        return { managerId, level };
+      })
+    );
+
+    const validManagers = managerLevels.filter(
+      manager => typeof manager.level === 'number'
+    ) as Array<{ managerId: string; level: number }>;
+
+    // 最も近い（level が最小）マネージャーを採用
+    const managerCustomerId =
+      validManagers.length > 0
+        ? validManagers.toSorted((a, b) => a.level - b.level)[0].managerId
+        : null;
 
     // customer_id と manager_customer_id を更新
     const supabaseService = new SupabaseService();
