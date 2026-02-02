@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
       expiresIn: tokens.expiresIn,
       scope: tokens.scope || [],
       googleAccountEmail,
-      managerCustomerId: existingCredential?.managerCustomerId ?? undefined,
+      managerCustomerId: existingCredential?.managerCustomerId,
     });
     if (!saveResult.success) {
       console.error('Failed to save Google Ads credential:', {
@@ -214,8 +214,8 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // 既にアカウント選択済みの場合は success にリダイレクト（再認証時）
-    if (existingCredential?.customerId) {
+    // 既にアカウント選択済みで、かつそのアカウントが現在もアクセス可能な場合（再認証時）
+    if (existingCredential?.customerId && customerIds.includes(existingCredential.customerId)) {
       const response = NextResponse.redirect(
         new URL('/setup/google-ads?success=true', baseUrl)
       );
