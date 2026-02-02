@@ -6,6 +6,11 @@ import {
   refreshGoogleAdsTokenIfNeeded,
 } from '@/server/lib/google-auth';
 
+interface CustomerInfo {
+  name: string | null;
+  isManager: boolean;
+}
+
 /**
  * アクセス可能なGoogle Adsアカウント一覧を取得
  */
@@ -57,7 +62,7 @@ export async function GET() {
 
       // 各アカウントの情報（表示名 + MCC判定）を取得
       // 1パス目: login-customer-id なしで各アカウントの情報を取得しMCCを特定
-      const customerInfoMap = new Map<string, { name: string | null; isManager: boolean }>();
+      const customerInfoMap = new Map<string, CustomerInfo>();
 
       // 各アカウントの情報を並列取得
       const infoResults = await Promise.all(
