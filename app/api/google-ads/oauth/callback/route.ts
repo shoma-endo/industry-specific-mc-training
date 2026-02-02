@@ -163,13 +163,17 @@ export async function GET(request: NextRequest) {
       console.warn('Failed to fetch Google user info:', err);
     }
 
-    // DB保存（トークンのみ、customer_idは後で選択）
+    // 再認証時に既存の customer_id と manager_customer_id を保持するため、既存の credential を取得
+    const existingCredential = await supabaseService.getGoogleAdsCredential(targetUserId);
+
+    // DB保存（トークン更新時も既存のアカウント選択情報を保持）
     const saveResult = await supabaseService.saveGoogleAdsCredential(targetUserId, {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresIn: tokens.expiresIn,
       scope: tokens.scope || [],
       googleAccountEmail,
+      managerCustomerId: existingCredential?.managerCustomerId,
     });
     if (!saveResult.success) {
       console.error('Failed to save Google Ads credential:', {
@@ -204,6 +208,16 @@ export async function GET(request: NextRequest) {
     if (customerIds.length === 0) {
       const response = NextResponse.redirect(
         new URL('/setup/google-ads?error=no_accessible_accounts', baseUrl)
+      );
+      response.cookies.delete(stateCookieName);
+      setLineTokens(response, liffAccessToken, refreshToken);
+      return response;
+    }
+
+    // 既にアカウント選択済みで、かつそのアカウントが現在もアクセス可能な場合（再認証時）
+    if (existingCredential?.customerId && customerIds.includes(existingCredential.customerId)) {
+      const response = NextResponse.redirect(
+        new URL('/setup/google-ads?success=true', baseUrl)
       );
       response.cookies.delete(stateCookieName);
       setLineTokens(response, liffAccessToken, refreshToken);
