@@ -87,11 +87,12 @@ export async function GET() {
         }
       }
       const storedManagerId = authResult.credential.managerCustomerId || null;
+      const storedManagerIsManager =
+        !!storedManagerId &&
+        infoResults.find(r => r.id === storedManagerId)?.info?.isManager === true;
       const detectedManagerId = infoResults.find(r => r.info?.isManager)?.id || null;
       const mccCustomerId: string | null =
-        (storedManagerId && customerIds.includes(storedManagerId))
-          ? storedManagerId
-          : detectedManagerId;
+        storedManagerIsManager ? storedManagerId : detectedManagerId;
 
       // デバッグログ: MCCアカウントの特定状況を確認（開発環境のみ）
       if (process.env.NODE_ENV === 'development') {
