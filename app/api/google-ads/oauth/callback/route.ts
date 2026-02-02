@@ -222,11 +222,25 @@ export async function GET(request: NextRequest) {
         setLineTokens(response, liffAccessToken, refreshToken);
         return response;
       }
-      // 1つしかないアカウントは MCC とみなす
+
+      // customer.manager フィールドで MCC かどうかを判定
+      let managerCustomerId: string | undefined;
+      try {
+        const customerInfo = await googleAdsService.getCustomerInfo(
+          customerId,
+          tokens.accessToken
+        );
+        if (customerInfo?.isManager) {
+          managerCustomerId = customerId;
+        }
+      } catch (infoErr) {
+        console.warn('Failed to check if account is manager:', infoErr);
+      }
+
       const updateResult = await supabaseService.updateGoogleAdsCustomerId(
         targetUserId,
         customerId,
-        customerId  // managerCustomerId にも同じ ID をセット
+        managerCustomerId ?? null
       );
       if (!updateResult.success) {
         console.error('Failed to update customer ID:', {

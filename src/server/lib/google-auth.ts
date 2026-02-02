@@ -155,6 +155,7 @@ export async function refreshGoogleAdsTokenIfNeeded(
         expiresIn: refreshed.expiresIn,
         scope: refreshed.scope || credential.scope || [],
         googleAccountEmail: credential.googleAccountEmail,
+        managerCustomerId: credential.managerCustomerId,
       });
       if (!saveResult.success) {
         console.warn('Failed to persist refreshed token:', {
