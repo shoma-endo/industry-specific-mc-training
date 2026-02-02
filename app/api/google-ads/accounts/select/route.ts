@@ -71,8 +71,6 @@ export async function POST(request: NextRequest) {
     // customer.manager フィールドで各アカウントがMCCかどうかを判定
     const mccInfoResults = await Promise.all(
       accessibleCustomerIds.map(async id => {
-        // 選択されたアカウント自体は MCC 判定の対象外（子アカウントとして利用するため）
-        if (id === customerId) return { id, isManager: false };
         try {
           const info = await googleAdsService.getCustomerInfo(id, accessToken);
           return { id, isManager: info?.isManager ?? false };
@@ -83,20 +81,12 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // 競合状態を回避して逐次的にMCCを特定
-    let managerCustomerId: string | null = mccInfoResults.find(r => r.isManager)?.id || null;
+    // 選択アカウント以外でMCCを探す
+    const otherManagerId = mccInfoResults.find(r => r.id !== customerId && r.isManager)?.id ?? null;
 
-    // 選択アカウント自身がMCCの場合（MCC直接選択）
-    if (!managerCustomerId) {
-      try {
-        const selfInfo = await googleAdsService.getCustomerInfo(customerId, accessToken);
-        if (selfInfo?.isManager) {
-          managerCustomerId = customerId;
-        }
-      } catch {
-        // MCC判定失敗は無視
-      }
-    }
+    // 他にMCCがなければ、選択アカウント自身がMCCか確認
+    const selfInfo = mccInfoResults.find(r => r.id === customerId);
+    const managerCustomerId = otherManagerId ?? (selfInfo?.isManager ? customerId : null);
 
     // customer_id と manager_customer_id を更新
     const supabaseService = new SupabaseService();
