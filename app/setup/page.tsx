@@ -7,6 +7,7 @@ import { SupabaseService } from '@/server/services/supabaseService';
 import { toGscConnectionStatus } from '@/server/lib/gsc-status';
 import { toUser } from '@/types/user';
 import { isAdmin } from '@/authUtils';
+import { getGoogleAdsConnectionStatus } from '@/server/actions/googleAds.actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,14 +53,15 @@ export default async function SetupPage() {
   const user = userResult.success && userResult.data ? toUser(userResult.data) : null;
   const userIsAdmin = user ? isAdmin(user.role) : false;
 
-  // 管理者の場合のみ Google Ads の状態を取得
+  // 管理者の場合のみ Google Ads の状態を取得（トークン有効性検証込み）
   let googleAdsStatus = undefined;
   if (userIsAdmin) {
-    const googleAdsCredential = await supabaseService.getGoogleAdsCredential(authResult.userId);
+    const result = await getGoogleAdsConnectionStatus();
     googleAdsStatus = {
-      connected: !!googleAdsCredential,
-      googleAccountEmail: googleAdsCredential?.googleAccountEmail ?? null,
-      customerId: googleAdsCredential?.customerId ?? null,
+      connected: result.connected,
+      needsReauth: result.needsReauth,
+      googleAccountEmail: result.googleAccountEmail,
+      customerId: result.customerId,
     };
   }
 

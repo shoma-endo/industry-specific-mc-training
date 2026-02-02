@@ -80,7 +80,22 @@ async function GoogleAdsSetupContent({
         </Alert>
       )}
 
-      {!success && isConnected && (
+      {!success && isConnected && connectionStatus.needsReauth && (
+        <Alert className="bg-orange-50 border-orange-200">
+          <AlertTriangle className="h-5 w-5 text-orange-600" />
+          <AlertTitle className="text-orange-800 font-medium">要再認証</AlertTitle>
+          <AlertDescription className="text-orange-700">
+            認証トークンが期限切れまたは取り消されています。再認証してください。
+            {connectionStatus.googleAccountEmail && (
+              <span className="block mt-1">
+                連携アカウント: {connectionStatus.googleAccountEmail}
+              </span>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!success && isConnected && !connectionStatus.needsReauth && (
         <Alert className="bg-blue-50 border-blue-200">
           <CheckCircle2 className="h-5 w-5 text-blue-600" />
           <AlertTitle className="text-blue-800 font-medium">連携済み</AlertTitle>
