@@ -163,19 +163,9 @@ async function GoogleAdsSetupContent({
             </ul>
           </div>
 
-          {!isConnected ? (
-            <>
-              <GoogleSignInButton href="/api/google-ads/oauth/start">
-                Googleでログイン
-              </GoogleSignInButton>
-            </>
-          ) : (
-            <div className="space-y-2">
-              <GoogleSignInButton href="/api/google-ads/oauth/start">
-                再認証
-              </GoogleSignInButton>
-            </div>
-          )}
+          <GoogleSignInButton href="/api/google-ads/oauth/start">
+            Googleでログイン
+          </GoogleSignInButton>
         </CardContent>
       </Card>
 
