@@ -86,8 +86,10 @@ export async function POST(request: NextRequest) {
       .map(candidate => candidate.id);
 
     // 各マネージャー候補に対して、選択アカウントが配下に存在するかを確認
+    // 自己参照を避けるため、customerId自身をマネージャー候補から除外
+    const managerIdsToCheck = managerCandidateIds.filter(id => id !== customerId);
     const managerLevels = await Promise.all(
-      managerCandidateIds.map(async managerId => {
+      managerIdsToCheck.map(async managerId => {
         const level = await googleAdsService.getClientLevelUnderManager(
           managerId,
           customerId,
@@ -102,8 +104,12 @@ export async function POST(request: NextRequest) {
     ) as Array<{ managerId: string; level: number }>;
 
     // 最も近い（level が最小）マネージャーを採用
-  const sortedManagers = [...validManagers].sort((a, b) => a.level - b.level);
-    const managerCustomerId = sortedManagers[0]?.managerId ?? null;
+    const sortedManagers = [...validManagers].sort((a, b) => a.level - b.level);
+    const isSelectedManager = managerCandidates.some(
+      candidate => candidate.id === customerId && candidate.isManager
+    );
+    const managerCustomerId =
+      sortedManagers[0]?.managerId ?? (isSelectedManager ? customerId : null);
 
     // customer_id と manager_customer_id を更新
     const supabaseService = new SupabaseService();
