@@ -22,6 +22,7 @@ interface GoogleAdsConnectionStatusResult {
   needsReauth: boolean;
   googleAccountEmail: string | null;
   customerId: string | null;
+  managerCustomerId: string | null;
   error?: string;
 }
 
@@ -34,6 +35,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
     needsReauth: false,
     googleAccountEmail: null,
     customerId: null,
+    managerCustomerId: null,
   };
 
   try {
@@ -83,6 +85,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
           needsReauth: true,
           googleAccountEmail: credential.googleAccountEmail,
           customerId: credential.customerId,
+          managerCustomerId: credential.managerCustomerId,
           error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
         };
       }
@@ -106,6 +109,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
             needsReauth: true,
             googleAccountEmail: credential.googleAccountEmail,
             customerId: credential.customerId,
+            managerCustomerId: credential.managerCustomerId,
             error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
           };
         }
@@ -116,6 +120,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
           needsReauth: true,
           googleAccountEmail: credential.googleAccountEmail,
           customerId: credential.customerId,
+          managerCustomerId: credential.managerCustomerId,
           error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
         };
       }
@@ -126,6 +131,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
       needsReauth: false,
       googleAccountEmail: credential.googleAccountEmail,
       customerId: credential.customerId,
+      managerCustomerId: credential.managerCustomerId,
     };
   } catch (error) {
     console.error('[getGoogleAdsConnectionStatus] Unexpected error:', {
@@ -137,6 +143,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
       needsReauth: false,
       googleAccountEmail: null,
       customerId: null,
+      managerCustomerId: null,
       error: ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
     };
   }
