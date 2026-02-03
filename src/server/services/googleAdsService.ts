@@ -456,8 +456,9 @@ export class GoogleAdsService {
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        const errorText = await response.text();
         try {
-          const errorBody = (await response.json()) as GoogleAdsApiError;
+          const errorBody = JSON.parse(errorText) as GoogleAdsApiError;
           errorMessage = errorBody.error?.message ?? errorMessage;
 
           // デバッグ用: エラー詳細をログ出力（エラーコードを含む）
@@ -479,6 +480,9 @@ export class GoogleAdsService {
             response.statusText
           );
         }
+
+        console.error('[GoogleAdsService] API error body:', errorText);
+
         return { success: false, error: errorMessage };
       }
 
