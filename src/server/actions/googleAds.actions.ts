@@ -9,7 +9,7 @@ import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { toUser } from '@/types/user';
 import { isAdmin } from '@/authUtils';
 import { getKeywordMetricsSchema } from '@/server/schemas/googleAds.schema';
-import type { GoogleAdsKeywordMetric } from '@/types/googleAds.types';
+import type { DisconnectGoogleAdsResult, GoogleAdsKeywordMetric } from '@/types/googleAds.types';
 
 /** トークン期限切れ判定の閾値（5分） */
 const TOKEN_EXPIRY_THRESHOLD_MS = 5 * 60 * 1000;
@@ -22,6 +22,7 @@ interface GoogleAdsConnectionStatusResult {
   needsReauth: boolean;
   googleAccountEmail: string | null;
   customerId: string | null;
+  managerCustomerId: string | null;
   error?: string;
 }
 
@@ -34,6 +35,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
     needsReauth: false,
     googleAccountEmail: null,
     customerId: null,
+    managerCustomerId: null,
   };
 
   try {
@@ -83,6 +85,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
           needsReauth: true,
           googleAccountEmail: credential.googleAccountEmail,
           customerId: credential.customerId,
+          managerCustomerId: credential.managerCustomerId,
           error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
         };
       }
@@ -106,6 +109,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
             needsReauth: true,
             googleAccountEmail: credential.googleAccountEmail,
             customerId: credential.customerId,
+            managerCustomerId: credential.managerCustomerId,
             error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
           };
         }
@@ -116,6 +120,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
           needsReauth: true,
           googleAccountEmail: credential.googleAccountEmail,
           customerId: credential.customerId,
+          managerCustomerId: credential.managerCustomerId,
           error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED,
         };
       }
@@ -126,6 +131,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
       needsReauth: false,
       googleAccountEmail: credential.googleAccountEmail,
       customerId: credential.customerId,
+      managerCustomerId: credential.managerCustomerId,
     };
   } catch (error) {
     console.error('[getGoogleAdsConnectionStatus] Unexpected error:', {
@@ -137,6 +143,7 @@ export async function getGoogleAdsConnectionStatus(): Promise<GoogleAdsConnectio
       needsReauth: false,
       googleAccountEmail: null,
       customerId: null,
+      managerCustomerId: null,
       error: ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
     };
   }
@@ -293,7 +300,7 @@ export async function fetchKeywordMetrics(
 /**
  * Google Ads 連携を解除
  */
-export async function disconnectGoogleAds() {
+export async function disconnectGoogleAds(): Promise<DisconnectGoogleAdsResult> {
   try {
     const { accessToken, refreshToken } = await getLiffTokensFromCookies();
 

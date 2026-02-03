@@ -67,8 +67,10 @@ async function GoogleAdsSetupContent({
 
       {success && (
         <Alert className="bg-green-50 border-green-200">
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-          <AlertTitle className="text-green-800 font-medium">連携完了</AlertTitle>
+          <AlertTitle className="text-green-800 font-medium flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <span>連携完了</span>
+          </AlertTitle>
           <AlertDescription className="text-green-700">
             Google Ads アカウントとの連携が完了しました。
             {connectionStatus.googleAccountEmail && (
@@ -82,8 +84,10 @@ async function GoogleAdsSetupContent({
 
       {!success && isConnected && connectionStatus.needsReauth && (
         <Alert className="bg-orange-50 border-orange-200">
-          <AlertTriangle className="h-5 w-5 text-orange-600" />
-          <AlertTitle className="text-orange-800 font-medium">要再認証</AlertTitle>
+          <AlertTitle className="text-orange-800 font-medium flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-orange-600" />
+            <span>要再認証</span>
+          </AlertTitle>
           <AlertDescription className="text-orange-700">
             認証トークンが期限切れまたは取り消されています。再認証してください。
             {connectionStatus.googleAccountEmail && (
@@ -97,8 +101,10 @@ async function GoogleAdsSetupContent({
 
       {!success && isConnected && !connectionStatus.needsReauth && (
         <Alert className="bg-blue-50 border-blue-200">
-          <CheckCircle2 className="h-5 w-5 text-blue-600" />
-          <AlertTitle className="text-blue-800 font-medium">連携済み</AlertTitle>
+          <AlertTitle className="text-blue-800 font-medium flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-blue-600" />
+            <span>連携済み</span>
+          </AlertTitle>
           <AlertDescription className="text-blue-700">
             Google Ads アカウントと連携済みです。
             {connectionStatus.googleAccountEmail && (
@@ -106,6 +112,10 @@ async function GoogleAdsSetupContent({
                 連携アカウント: {connectionStatus.googleAccountEmail}
               </span>
             )}
+            <span className="block mt-1">
+              アカウント種別:{' '}
+              {connectionStatus.managerCustomerId ? 'MCC（マネージャー）' : '通常'}
+            </span>
             {connectionStatus.customerId && (
               <span className="block mt-1">選択アカウントID: {connectionStatus.customerId}</span>
             )}
@@ -115,8 +125,10 @@ async function GoogleAdsSetupContent({
 
       {errorMessage && (
         <Alert variant="destructive">
-          <AlertTriangle className="h-5 w-5" />
-          <AlertTitle>連携エラー</AlertTitle>
+          <AlertTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span>連携エラー</span>
+          </AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}
@@ -143,19 +155,9 @@ async function GoogleAdsSetupContent({
             </ul>
           </div>
 
-          {!isConnected ? (
-            <>
-              <GoogleSignInButton href="/api/google-ads/oauth/start">
-                Googleでログイン
-              </GoogleSignInButton>
-            </>
-          ) : (
-            <div className="space-y-2">
-              <GoogleSignInButton href="/api/google-ads/oauth/start">
-                再認証
-              </GoogleSignInButton>
-            </div>
-          )}
+          <GoogleSignInButton href="/api/google-ads/oauth/start">
+            Googleでログイン
+          </GoogleSignInButton>
         </CardContent>
       </Card>
 
