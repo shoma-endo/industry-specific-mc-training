@@ -72,6 +72,14 @@ export interface GetKeywordMetricsResult {
 }
 
 /**
+ * Google Ads 連携解除の結果
+ */
+export interface DisconnectGoogleAdsResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
  * Google Ads API の searchStream レスポンス行
  */
 export interface GoogleAdsSearchStreamRow {
