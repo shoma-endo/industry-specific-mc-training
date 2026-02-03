@@ -84,11 +84,9 @@ async function GoogleAdsSetupContent({
 
       {!success && isConnected && connectionStatus.needsReauth && (
         <Alert className="bg-orange-50 border-orange-200">
-          <AlertTitle className="text-orange-800 font-medium">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-              <span>要再認証</span>
-            </div>
+          <AlertTitle className="text-orange-800 font-medium flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-orange-600" />
+            <span>要再認証</span>
           </AlertTitle>
           <AlertDescription className="text-orange-700">
             認証トークンが期限切れまたは取り消されています。再認証してください。
@@ -103,11 +101,9 @@ async function GoogleAdsSetupContent({
 
       {!success && isConnected && !connectionStatus.needsReauth && (
         <Alert className="bg-blue-50 border-blue-200">
-          <AlertTitle className="text-blue-800 font-medium">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-blue-600" />
-              <span>連携済み</span>
-            </div>
+          <AlertTitle className="text-blue-800 font-medium flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-blue-600" />
+            <span>連携済み</span>
           </AlertTitle>
           <AlertDescription className="text-blue-700">
             Google Ads アカウントと連携済みです。
@@ -129,11 +125,9 @@ async function GoogleAdsSetupContent({
 
       {errorMessage && (
         <Alert variant="destructive">
-          <AlertTitle>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              <span>連携エラー</span>
-            </div>
+          <AlertTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span>連携エラー</span>
           </AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
