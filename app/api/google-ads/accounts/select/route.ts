@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     ) as Array<{ managerId: string; level: number }>;
 
     // 最も近い（level が最小）マネージャーを採用
-    const sortedManagers = validManagers.toSorted((a, b) => a.level - b.level);
+  const sortedManagers = [...validManagers].sort((a, b) => a.level - b.level);
     const managerCustomerId = sortedManagers[0]?.managerId ?? null;
 
     // customer_id と manager_customer_id を更新
