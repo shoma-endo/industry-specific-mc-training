@@ -354,8 +354,9 @@ export class GoogleAdsService {
 
       for (const responseChunk of responses) {
         const result = responseChunk.results?.[0];
-        const level = result?.customerClient?.level;
-        if (typeof level === 'number') {
+        const rawLevel = result?.customerClient?.level;
+        const level = typeof rawLevel === 'string' ? Number(rawLevel) : rawLevel;
+        if (typeof level === 'number' && Number.isFinite(level)) {
           return level;
         }
       }
