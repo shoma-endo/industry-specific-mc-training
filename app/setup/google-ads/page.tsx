@@ -67,11 +67,9 @@ async function GoogleAdsSetupContent({
 
       {success && (
         <Alert className="bg-green-50 border-green-200">
-          <AlertTitle className="text-green-800 font-medium">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <span>連携完了</span>
-            </div>
+          <AlertTitle className="text-green-800 font-medium flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <span>連携完了</span>
           </AlertTitle>
           <AlertDescription className="text-green-700">
             Google Ads アカウントとの連携が完了しました。
