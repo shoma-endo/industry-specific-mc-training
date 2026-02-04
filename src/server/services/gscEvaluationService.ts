@@ -241,7 +241,7 @@ export class GscEvaluationService {
       // インポート一括失敗フラグが立っている場合は import_failed、そうでなければ no_metrics
       const errorCode = bulkImportFailed ? 'import_failed' : 'no_metrics';
       const errorMessage = bulkImportFailed
-        ? 'GSCデータの一括インポートに失敗したため、最新の指標を取得できませんでした。'
+        ? 'Google Search Consoleのデータ一括取得に失敗したため、最新の指標を取得できませんでした。'
         : `この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。（次回再試行予定日: ${nextRetryDate}）`;
 
       const { error: historyError } = await this.supabaseService
