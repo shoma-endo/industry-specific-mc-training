@@ -102,9 +102,14 @@ export function EvaluationHistoryTab({
         <CardContent className="pt-6">
           <div className="space-y-3">
             {history.map(item => {
-              const isError = item.outcomeType === 'error';
+              const isNoMetrics = item.outcomeType === 'error' && item.errorCode === 'no_metrics';
+              const isError = item.outcomeType === 'error' && !isNoMetrics;
               const showUnreadBadge =
-                !isError && !item.is_read && item.outcome !== null && item.outcome !== 'improved';
+                !isError &&
+                !isNoMetrics &&
+                !item.is_read &&
+                item.outcome !== null &&
+                item.outcome !== 'improved';
 
               return (
                 <div
@@ -132,6 +137,10 @@ export function EvaluationHistoryTab({
                         {isError ? (
                           <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-red-50 text-red-700 ring-red-600/20">
                             評価失敗
+                          </span>
+                        ) : isNoMetrics ? (
+                          <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-gray-50 text-gray-700 ring-gray-500/10">
+                            データ未取得
                           </span>
                         ) : item.outcome && GSC_EVALUATION_OUTCOME_CONFIG[item.outcome] ? (
                           <span
@@ -190,7 +199,8 @@ export function EvaluationHistoryTab({
           </DialogHeader>
           {selectedHistory && (
             <div className="space-y-4">
-              {selectedHistory.outcomeType === 'error' ? (
+              {selectedHistory.outcomeType === 'error' &&
+              selectedHistory.errorCode !== 'no_metrics' ? (
                 // エラー時の表示
                 <Alert variant="destructive">
                   <div className="flex gap-3">
@@ -205,6 +215,32 @@ export function EvaluationHistoryTab({
                           {selectedHistory.errorCode === 'import_failed'
                             ? 'GSCデータ取得失敗'
                             : 'メトリクスデータなし'}
+                        </p>
+                        <p className="text-sm">
+                          <span className="font-medium">詳細: </span>
+                          {selectedHistory.errorMessage}
+                        </p>
+                        <p className="text-sm">
+                          <span className="font-medium">発生日時: </span>
+                          {formatDateTime(selectedHistory.created_at)}
+                        </p>
+                      </AlertDescription>
+                    </div>
+                  </div>
+                </Alert>
+              ) : selectedHistory.outcomeType === 'error' &&
+                selectedHistory.errorCode === 'no_metrics' ? (
+                <Alert>
+                  <div className="flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 space-y-3">
+                      <AlertTitle className="text-gray-900 font-semibold text-base">
+                        データ未取得
+                      </AlertTitle>
+                      <AlertDescription className="text-gray-700 space-y-2">
+                        <p className="text-sm">
+                          <span className="font-medium">理由: </span>
+                          Google Search Console に該当ページの指標がまだありません。
                         </p>
                         <p className="text-sm">
                           <span className="font-medium">詳細: </span>
