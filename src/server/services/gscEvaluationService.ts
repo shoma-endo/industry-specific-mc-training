@@ -266,22 +266,7 @@ export class GscEvaluationService {
       }
 
       if (!bulkImportFailed) {
-        const { error: cooldownError } = await this.supabaseService
-          .getClient()
-          .from('gsc_article_evaluations')
-          .update({
-            last_evaluated_on: today,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', evaluation.id)
-          .eq('user_id', userId);
-
-        if (cooldownError) {
-          console.error(
-            `[gscEvaluationService] Failed to update last_evaluated_on for ${evaluation.id}:`,
-            cooldownError
-          );
-        }
+        await this.updateCooldown(evaluation.id, userId, today);
       }
 
       return { status: bulkImportFailed ? 'skipped_import_failed' : 'skipped_no_metrics' };
@@ -313,6 +298,8 @@ export class GscEvaluationService {
           historyInsertError
         );
       }
+
+      await this.updateCooldown(evaluation.id, userId, today);
 
       return { status: 'skipped_no_metrics' };
     }
@@ -591,6 +578,25 @@ export class GscEvaluationService {
     if (currentPos < lastSeen) return 'improved';
     if (currentPos > lastSeen) return 'worse';
     return 'no_change';
+  }
+
+  private async updateCooldown(evaluationId: string, userId: string, today: string): Promise<void> {
+    const { error } = await this.supabaseService
+      .getClient()
+      .from('gsc_article_evaluations')
+      .update({
+        last_evaluated_on: today,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', evaluationId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error(
+        `[gscEvaluationService] Failed to update last_evaluated_on for ${evaluationId}:`,
+        error
+      );
+    }
   }
 
   private todayISO(): string {
