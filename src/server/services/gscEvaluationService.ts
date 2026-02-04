@@ -237,11 +237,12 @@ export class GscEvaluationService {
 
     // 3. 最終的なメトリクスチェック
     if (!metric) {
+      const nextRetryDate = addDaysISO(today, evaluation.cycle_days || 30);
       // インポート一括失敗フラグが立っている場合は import_failed、そうでなければ no_metrics
       const errorCode = bulkImportFailed ? 'import_failed' : 'no_metrics';
       const errorMessage = bulkImportFailed
         ? 'GSCデータの一括インポートに失敗したため、最新の指標を取得できませんでした。'
-        : 'この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。';
+        : `この記事のメトリクスデータが見つかりませんでした。Google Search Consoleに記事が表示されているか確認してください。（次回再試行予定日: ${nextRetryDate}）`;
 
       const { error: historyError } = await this.supabaseService
         .getClient()
@@ -290,6 +291,7 @@ export class GscEvaluationService {
     const currentPos = this.toNumberOrNull(metric.position);
 
     if (currentPos === null) {
+      const nextRetryDate = addDaysISO(today, evaluation.cycle_days || 30);
       // 履歴にエラーを記録
       const { error: historyInsertError } = await this.supabaseService
         .getClient()
@@ -300,7 +302,7 @@ export class GscEvaluationService {
           evaluation_date: today,
           outcome_type: 'error',
           error_code: 'no_metrics',
-          error_message: '検索順位データ（position）が取得できませんでした。',
+          error_message: `検索順位データ（position）が取得できませんでした。（次回再試行予定日: ${nextRetryDate}）`,
           suggestion_applied: false,
           created_at: new Date().toISOString(),
         });
