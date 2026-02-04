@@ -157,7 +157,7 @@ export function EvaluationHistoryTab({
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {!isError && (
+                    {!isError && !isNoMetrics && (
                       <div className="text-right">
                         <div className="flex items-baseline gap-2 justify-end">
                           <span className="text-xs text-gray-500">
