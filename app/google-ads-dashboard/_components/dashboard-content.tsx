@@ -43,7 +43,6 @@ export function DashboardContent({
           </h1>
           <p className="text-gray-500">
             連携済みアカウントの広告パフォーマンス概要
-            {isMockData && <span className="text-orange-500 ml-2">（開発用モックデータ）</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">

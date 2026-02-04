@@ -29,54 +29,15 @@ function getLast30DaysRange(): { startDate: string; endDate: string } {
 }
 
 export default async function GoogleAdsDashboardPage() {
-  const isDev = process.env.NODE_ENV === 'development';
-
-  // 開発環境ではモックデータを使用
-  if (isDev) {
-    return <DashboardContent campaigns={MOCK_CAMPAIGNS} isMockData={true} />;
-  }
-
-  // 本番環境では API からデータを取得
-  const { startDate, endDate } = getLast30DaysRange();
-
-  try {
-    // Server Action がクッキーから認証情報を取得
-    const result = await fetchKeywordMetrics(startDate, endDate);
-
-    if (!result.success) {
-      console.error('[GoogleAdsDashboard] Failed to fetch keyword metrics:', result.error);
-      let errorKind: 'not_connected' | 'not_selected' | 'auth_expired' | 'admin_required' | 'unknown' = 'unknown';
-      if (result.error === ERROR_MESSAGES.GOOGLE_ADS.NOT_CONNECTED) {
-        errorKind = 'not_connected';
-      } else if (result.error === ERROR_MESSAGES.GOOGLE_ADS.ACCOUNT_NOT_SELECTED) {
-        errorKind = 'not_selected';
-      } else if (result.error === ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED) {
-        errorKind = 'auth_expired';
-      } else if (result.error === ERROR_MESSAGES.USER.ADMIN_REQUIRED) {
-        errorKind = 'admin_required';
-      }
-      return (
-        <DashboardContent
-          campaigns={[]}
-          isMockData={false}
-          errorMessage={result.error ?? ERROR_MESSAGES.GOOGLE_ADS.DASHBOARD_FETCH_FAILED}
-          errorKind={errorKind}
-        />
-      );
-    }
-
-    // キーワードデータをキャンペーン単位に集計
-    const campaigns = aggregateKeywordsToCampaigns(result.data ?? []);
-    return <DashboardContent campaigns={campaigns} isMockData={false} />;
-  } catch (error) {
-    console.error('[GoogleAdsDashboard] Error:', error);
-    return (
-      <DashboardContent
-        campaigns={[]}
-        isMockData={false}
-        errorMessage={ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR}
-        errorKind="unknown"
-      />
-    );
-  }
+  return (
+    <div className="space-y-3">
+      <div className="mx-auto max-w-7xl px-4 pt-6">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          The dashboard currently displays sample data for demo purposes, and will show real
+          Google Ads API data (keyword_view) after API access approval.
+        </div>
+      </div>
+      <DashboardContent campaigns={MOCK_CAMPAIGNS} isMockData={true} />
+    </div>
+  );
 }
