@@ -136,6 +136,15 @@ export default function PrivacyPolicyPage() {
                 モデルの学習データに転用されません。分析処理は Supabase 上で実施し、結果のみを UI
                 とチャットに返します。
               </div>
+              <div className="bg-gray-50 border border-gray-200 p-4 mt-4 text-sm text-gray-800 rounded-lg">
+                <p className="font-semibold">Google User Data Policy (English)</p>
+                <p className="mt-2">
+                  GrowMate uses the Google Ads API to retrieve and display advertising performance
+                  data. We comply with the Google API Services User Data Policy, including the
+                  Limited Use requirements. We do not transfer or sell Google user data to third
+                  parties for purposes unrelated to the core functionality of this service.
+                </p>
+              </div>
             </section>
 
             <section id="storage">
