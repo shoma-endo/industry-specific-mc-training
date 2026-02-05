@@ -225,6 +225,14 @@ export function EvaluationSettings({
                     データが遅延する場合でも最終取得日の数値で評価されます。
                   </span>
                 </div>
+                <div className="inline-flex items-start gap-2 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800 ring-1 ring-blue-200">
+                  <Info className="h-4 w-4 mt-[1px] flex-shrink-0" />
+                  <span>
+                    対象ページが未インデックス、または検索実績（表示回数）がない場合は「データ未取得」になることがあります。
+                    Search
+                    Consoleの反映には通常2〜3日の遅延があるため、しばらく待ってから再確認してください。
+                  </span>
+                </div>
                 <div className="space-y-2">
                   <label
                     htmlFor="evaluation-date"
@@ -248,54 +256,58 @@ export function EvaluationSettings({
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="cycle-days" className="text-sm font-medium text-gray-700 block">
-                    評価サイクル日数
-                  </label>
-                  <Input
-                    id="cycle-days"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={cycleDays}
-                    onChange={e => setCycleDays(Math.max(1, Math.min(365, Number(e.target.value))))}
-                    className="max-w-[250px] text-base"
-                    disabled={isReadOnly}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    1〜365日の範囲で指定できます（デフォルト: 30日）
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="evaluation-hour"
-                    className="text-sm font-medium text-gray-700 block"
-                  >
-                    評価実行時間
-                  </label>
-                  <div className="relative">
-                    <Select
-                      value={evaluationHour.toString()}
-                      onValueChange={v => setEvaluationHour(Number(v))}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="cycle-days" className="text-sm font-medium text-gray-700 block">
+                      評価サイクル日数
+                    </label>
+                    <Input
+                      id="cycle-days"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={cycleDays}
+                      onChange={e =>
+                        setCycleDays(Math.max(1, Math.min(365, Number(e.target.value))))
+                      }
+                      className="w-full text-base"
                       disabled={isReadOnly}
-                    >
-                      <SelectTrigger className="max-w-[250px] pl-10 text-base">
-                        <SelectValue placeholder="時間を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {HOUR_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Clock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      1〜365日の範囲で指定できます（デフォルト: 30日）
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    評価バッチが実行される時間（日本時間）
-                  </p>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="evaluation-hour"
+                      className="text-sm font-medium text-gray-700 block"
+                    >
+                      評価実行時間
+                    </label>
+                    <div className="relative">
+                      <Select
+                        value={evaluationHour.toString()}
+                        onValueChange={v => setEvaluationHour(Number(v))}
+                        disabled={isReadOnly}
+                      >
+                        <SelectTrigger className="w-full pl-10 text-base">
+                          <SelectValue placeholder="時間を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {HOUR_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Clock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      評価バッチが実行される時間（日本時間）
+                    </p>
+                  </div>
                 </div>
 
                 {dateStr && (
