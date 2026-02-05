@@ -72,6 +72,73 @@ export const MOCK_CAMPAIGNS: GoogleAdsCampaignMetrics[] = [
   }),
 ];
 
+function createKeywordMetric(
+  base: Pick<
+    GoogleAdsKeywordMetric,
+    | 'keywordId'
+    | 'keywordText'
+    | 'matchType'
+    | 'campaignName'
+    | 'adGroupName'
+    | 'clicks'
+    | 'impressions'
+    | 'cost'
+    | 'qualityScore'
+    | 'conversions'
+    | 'searchImpressionShare'
+  >
+): GoogleAdsKeywordMetric {
+  return {
+    ...base,
+    ctr: base.impressions > 0 ? base.clicks / base.impressions : 0,
+    cpc: base.clicks > 0 ? base.cost / base.clicks : 0,
+    costPerConversion: base.conversions > 0 ? base.cost / base.conversions : null,
+    conversionRate: base.clicks > 0 ? base.conversions / base.clicks : null,
+  };
+}
+
+export const MOCK_KEYWORDS: GoogleAdsKeywordMetric[] = [
+  createKeywordMetric({
+    keywordId: '1000001',
+    keywordText: 'google ads api tool',
+    matchType: 'EXACT',
+    campaignName: 'Search Demo Campaign',
+    adGroupName: 'API Tools',
+    qualityScore: 8,
+    conversions: 12,
+    searchImpressionShare: 0.61,
+    impressions: 2840,
+    clicks: 151,
+    cost: 22700,
+  }),
+  createKeywordMetric({
+    keywordId: '1000002',
+    keywordText: 'marketing automation',
+    matchType: 'PHRASE',
+    campaignName: 'Search Demo Campaign',
+    adGroupName: 'Automation',
+    qualityScore: 7,
+    conversions: 9,
+    searchImpressionShare: 0.54,
+    impressions: 2330,
+    clicks: 109,
+    cost: 18312,
+  }),
+  createKeywordMetric({
+    keywordId: '1000003',
+    keywordText: 'keyword analysis dashboard',
+    matchType: 'BROAD',
+    campaignName: 'Search Demo Campaign',
+    adGroupName: 'Analytics',
+    qualityScore: 7,
+    conversions: 6,
+    searchImpressionShare: 0.49,
+    impressions: 2678,
+    clicks: 101,
+    cost: 12187,
+  }),
+];
+
 /**
  * キャンペーンデータからサマリーを計算
  */
