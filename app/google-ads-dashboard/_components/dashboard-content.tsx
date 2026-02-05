@@ -1,14 +1,24 @@
 import { BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { MetricsCards } from './metrics-cards';
-import { CampaignsTable } from './campaigns-table';
 import { calculateCampaignSummary } from '@/lib/mock-data/google-ads';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
-import type { GoogleAdsCampaignMetrics } from '@/types/googleAds.types';
+import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils';
+import type { GoogleAdsCampaignMetrics, GoogleAdsKeywordMetric } from '@/types/googleAds.types';
 
 interface DashboardContentProps {
   campaigns: GoogleAdsCampaignMetrics[];
+  keywordMetrics: GoogleAdsKeywordMetric[];
   isMockData: boolean;
   errorMessage?: string;
   errorKind?: 'not_connected' | 'not_selected' | 'auth_expired' | 'admin_required' | 'unknown';
@@ -16,6 +26,7 @@ interface DashboardContentProps {
 
 export function DashboardContent({
   campaigns,
+  keywordMetrics,
   isMockData,
   errorMessage,
   errorKind = 'unknown',
@@ -80,8 +91,47 @@ export function DashboardContent({
       {/* Metrics Cards */}
       {hasData && <MetricsCards summary={summary} />}
 
-      {/* Campaigns Table */}
-      {hasData && <CampaignsTable campaigns={campaigns} />}
+      {/* Campaigns Table (審査用デモでは非表示) */}
+      {/* {hasData && <CampaignsTable campaigns={campaigns} />} */}
+
+      {/* Keyword View Table */}
+      {keywordMetrics.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>keyword_view Sample</CardTitle>
+            <CardDescription>
+              Fields mapped to keyword_view: ad_group_criterion.keyword.text, metrics.clicks,
+              metrics.impressions, metrics.cost_micros (converted), metrics.ctr.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-md overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Keyword</TableHead>
+                    <TableHead className="text-right">Clicks</TableHead>
+                    <TableHead className="text-right">Impressions</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
+                    <TableHead className="text-right">CTR</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {keywordMetrics.map((metric) => (
+                    <TableRow key={metric.keywordId}>
+                      <TableCell className="font-medium">{metric.keywordText}</TableCell>
+                      <TableCell className="text-right">{formatNumber(metric.clicks)}</TableCell>
+                      <TableCell className="text-right">{formatNumber(metric.impressions)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(metric.cost)}</TableCell>
+                      <TableCell className="text-right">{formatPercent(metric.ctr)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
