@@ -109,9 +109,8 @@ const createEmptyForm = (): Record<AnnotationFieldKey, string> =>
 
 export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
   const router = useRouter();
-  const { getAccessToken, isOwnerViewMode, user } = useLiffContext();
-  const isStaffUser = Boolean(user?.ownerUserId);
-  const isReadOnly = isOwnerViewMode || isStaffUser;
+  const { getAccessToken, isOwnerViewMode } = useLiffContext();
+  const isReadOnly = isOwnerViewMode;
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
   const [editingRowKey, setEditingRowKey] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<Record<AnnotationFieldKey, string>>(createEmptyForm);

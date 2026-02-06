@@ -330,17 +330,34 @@ export class Ga4ImportService {
     for (const row of baseRows) {
       const normalizedPath = normalizeToPath(row.pagePath);
       const key = `${row.date}::${normalizedPath}`;
-      map.set(key, {
-        date: row.date,
-        pagePath: row.pagePath,
-        normalizedPath,
-        sessions: row.sessions ?? 0,
-        users: row.users ?? 0,
-        engagementTimeSec: row.engagementTimeSec ?? 0,
-        bounceRate: row.bounceRate ?? 0,
-        cvEventCount: 0,
-        scroll90EventCount: 0,
-      });
+      const sessions = row.sessions ?? 0;
+      const users = row.users ?? 0;
+      const engagementTimeSec = row.engagementTimeSec ?? 0;
+      const bounceRate = row.bounceRate ?? 0;
+
+      const existing = map.get(key);
+      if (existing) {
+        const totalSessions = existing.sessions + sessions;
+        existing.bounceRate =
+          totalSessions > 0
+            ? (existing.bounceRate * existing.sessions + bounceRate * sessions) / totalSessions
+            : 0;
+        existing.sessions = totalSessions;
+        existing.users += users;
+        existing.engagementTimeSec += engagementTimeSec;
+      } else {
+        map.set(key, {
+          date: row.date,
+          pagePath: row.pagePath,
+          normalizedPath,
+          sessions,
+          users,
+          engagementTimeSec,
+          bounceRate,
+          cvEventCount: 0,
+          scroll90EventCount: 0,
+        });
+      }
     }
 
     for (const row of eventRows) {
