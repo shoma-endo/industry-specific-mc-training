@@ -17,8 +17,12 @@ function isValidDate(dateStr: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return false;
   }
-  const timestamp = Date.parse(dateStr);
-  return !Number.isNaN(timestamp);
+  const parts = dateStr.split('-');
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
 }
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
