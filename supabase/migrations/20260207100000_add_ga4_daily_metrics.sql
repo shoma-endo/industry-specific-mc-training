@@ -1,4 +1,7 @@
 -- GA4 daily metrics cache (MVP)
+-- 統合: ga4_daily_metrics + bounce_rate 範囲制約 (0〜1)
+-- GIN インデックス (gin_trgm_ops) に pg_trgm 拡張が必要
+create extension if not exists pg_trgm;
 
 -- URL path normalization for GA4 pagePath join
 create or replace function public.normalize_to_path(input_text text)
@@ -93,7 +96,7 @@ comment on column public.gsc_credentials.ga4_threshold_engagement_sec is 'Engage
 comment on column public.gsc_credentials.ga4_threshold_read_rate is 'Read rate threshold (0-1)';
 comment on column public.gsc_credentials.ga4_last_synced_at is 'Last GA4 sync timestamp';
 
--- GA4 daily page metrics
+-- GA4 daily page metrics (bounce_rate: GA4 API は 0〜1 の小数)
 create table if not exists public.ga4_page_metrics_daily (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -104,7 +107,7 @@ create table if not exists public.ga4_page_metrics_daily (
   sessions integer not null default 0 check (sessions >= 0),
   users integer not null default 0 check (users >= 0),
   engagement_time_sec integer not null default 0 check (engagement_time_sec >= 0),
-  bounce_rate numeric(5,4) not null default 0,
+  bounce_rate numeric(5,4) not null default 0 check (bounce_rate >= 0 and bounce_rate <= 1),
   cv_event_count integer not null default 0 check (cv_event_count >= 0),
   scroll_90_event_count integer not null default 0 check (scroll_90_event_count >= 0),
   is_sampled boolean not null default false,
@@ -135,5 +138,23 @@ create policy "ga4_page_metrics_daily_select_own_or_owner"
   for select
   using (user_id = any(get_accessible_user_ids((select auth.uid()))));
 -- Rollback: drop policy if exists "ga4_page_metrics_daily_select_own_or_owner" on public.ga4_page_metrics_daily;
+
+-- updated_at 自動更新トリガー
+create or replace function public.update_ga4_metrics_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$;
+
+create trigger trg_ga4_page_metrics_daily_updated_at
+  before update on public.ga4_page_metrics_daily
+  for each row
+  execute function public.update_ga4_metrics_updated_at();
+-- Rollback: drop trigger if exists trg_ga4_page_metrics_daily_updated_at on public.ga4_page_metrics_daily;
+-- Rollback: drop function if exists public.update_ga4_metrics_updated_at;
 
 -- Service Role専用のため、明示的な書き込みポリシーは作成しない

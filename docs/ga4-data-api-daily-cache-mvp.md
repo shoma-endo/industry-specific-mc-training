@@ -314,7 +314,12 @@ const MAX_DURATION_MS = 300_000 - TIMEOUT_BUFFER_MS;
 
 ## 付録A: DDL（フラグメント除去・列確定版）
 
+> **拡張機能**: `idx_ga4_page_metrics_path_trgm`（GIN + `gin_trgm_ops`）を使用するため、`pg_trgm` 拡張が必要です。未導入の場合は先頭の `CREATE EXTENSION` で有効化してください。
+
 ```sql
+-- 必要な拡張機能を有効化
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE OR REPLACE FUNCTION public.normalize_to_path(input_url text)
 RETURNS text
 LANGUAGE plpgsql
