@@ -4,6 +4,7 @@ import GscSetupClient from '@/components/GscSetupClient';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { toGscConnectionStatus } from '@/server/lib/gsc-status';
+import { toGa4ConnectionStatus } from '@/server/lib/ga4-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,13 @@ export default async function GscSetupPage() {
 
   const credential = await supabaseService.getGscCredentialByUserId(authResult.userId);
   const initialStatus = toGscConnectionStatus(credential);
+  const initialGa4Status = toGa4ConnectionStatus(credential);
 
-  return <GscSetupClient initialStatus={initialStatus} isOauthConfigured={isOauthConfigured} />;
+  return (
+    <GscSetupClient
+      initialStatus={initialStatus}
+      initialGa4Status={initialGa4Status}
+      isOauthConfigured={isOauthConfigured}
+    />
+  );
 }
