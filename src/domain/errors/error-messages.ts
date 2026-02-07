@@ -395,6 +395,9 @@ export const ERROR_MESSAGES = {
     /** GA4が未接続の場合 */
     NOT_CONNECTED: 'GA4が未接続です',
 
+    /** ステータスの取得に失敗した場合 */
+    STATUS_FETCH_FAILED: 'ステータスの取得に失敗しました',
+
     /** GA4の権限が不足している場合 */
     INSUFFICIENT_PERMISSION: 'GA4の権限が不足しています',
 
