@@ -41,7 +41,9 @@ const getAuthUserId = async () => {
   if (authResult.error || !authResult.userId) {
     return { error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
+  // View Modeの場合でも、Setup画面の操作は本来のユーザー（オーナー）として実行する
   const realUserId = authResult.actorUserId || authResult.userId;
+  // actorUserIdがある = View Modeでオーナーとして操作中
   const isViewModeAsOwner = !!authResult.actorUserId;
 
   return {
@@ -51,17 +53,22 @@ const getAuthUserId = async () => {
 };
 
 export async function fetchGa4Status() {
-  const { userId, ownerUserId, error } = await getAuthUserId();
-  if (error || !userId) {
-    return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
-  }
-  if (ownerUserId) {
-    return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
-  }
+  try {
+    const { userId, ownerUserId, error } = await getAuthUserId();
+    if (error || !userId) {
+      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+    }
+    if (ownerUserId) {
+      return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
+    }
 
-  const credential = await supabaseService.getGscCredentialByUserId(userId);
-  const status = toGa4ConnectionStatus(credential);
-  return { success: true, data: status };
+    const credential = await supabaseService.getGscCredentialByUserId(userId);
+    const status = toGa4ConnectionStatus(credential);
+    return { success: true, data: status };
+  } catch (error) {
+    console.error('[GA4 Setup] fetch status failed', error);
+    return { success: false, error: ERROR_MESSAGES.GA4.STATUS_FETCH_FAILED };
+  }
 }
 
 export async function fetchGa4Properties() {

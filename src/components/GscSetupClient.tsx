@@ -155,12 +155,9 @@ export default function GscSetupClient({
     });
   };
 
-  const handleGa4PropertyChange = async (value: string) => {
+  const handleGa4PropertyChange = (value: string) => {
     setSelectedGa4PropertyId(value);
     setSelectedGa4Events([]);
-    if (value) {
-      await refetchKeyEvents(value);
-    }
   };
 
   const handleGa4EventToggle = (eventName: string, checked: boolean) => {

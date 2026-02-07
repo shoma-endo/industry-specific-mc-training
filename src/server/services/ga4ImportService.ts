@@ -79,10 +79,10 @@ export class Ga4ImportService {
 
       try {
         await this.syncUser(target.userId);
+        processed += 1;
       } catch (error) {
         console.error('[ga4ImportService] sync failed for user', target.userId, error);
       }
-      processed += 1;
       if (processed >= Ga4ImportService.MAX_USERS_PER_BATCH) {
         stoppedReason = 'max_users';
         break;

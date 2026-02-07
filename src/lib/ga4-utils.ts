@@ -38,29 +38,5 @@ export function ga4DateStringToIso(dateString: string): string {
   return `${dateString.slice(0, 4)}-${dateString.slice(4, 6)}-${dateString.slice(6, 8)}`;
 }
 
-export function formatJstDateISO(date: Date): string {
-  const parts = new Intl.DateTimeFormat('ja-JP', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-
-  const year = parts.find(part => part.type === 'year')?.value;
-  const month = parts.find(part => part.type === 'month')?.value;
-  const day = parts.find(part => part.type === 'day')?.value;
-
-  if (!year || !month || !day) {
-    return date.toISOString().slice(0, 10);
-  }
-
-  return `${year}-${month}-${day}`;
-}
-
-export function getJstDateISOFromTimestamp(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
-    return formatJstDateISO(new Date());
-  }
-  return formatJstDateISO(date);
-}
+// 日付ロジックは date-utils に集約（JST フォールバック含む）
+export { formatJstDateISO, getJstDateISOFromTimestamp } from '@/lib/date-utils';
