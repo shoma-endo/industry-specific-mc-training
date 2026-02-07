@@ -486,6 +486,44 @@ export const ERROR_MESSAGES = {
 
     /** 不明なエラー */
     UNKNOWN_ERROR: '不明なエラーが発生しました',
+
+    /** Google Ads が未接続の場合 */
+    NOT_CONNECTED: 'Google Adsが未接続です',
+
+    /** アカウントが選択されていない場合 */
+    ACCOUNT_NOT_SELECTED: 'アカウントが選択されていません。設定画面からアカウントを選択してください',
+
+    /** Google Ads 認証が期限切れまたは取り消されている場合 */
+    AUTH_EXPIRED_OR_REVOKED: 'Google Adsの認証が期限切れまたは取り消されています',
+
+    /** キーワード指標の取得に失敗した場合 */
+    KEYWORD_METRICS_FETCH_FAILED: 'キーワード指標の取得に失敗しました',
+
+    /** Google Ads開発者トークンが設定されていない場合 */
+    DEVELOPER_TOKEN_MISSING: 'Google Ads開発者トークンが設定されていません',
+
+    /** 日付範囲が必須の場合 */
+    DATE_RANGE_REQUIRED: 'startDate と endDate は必須です',
+
+    /** 入力パラメータが不正な場合 */
+    INVALID_INPUT: (errors: string): string => `入力パラメータが不正です: ${errors}`,
+
+    /** Google Ads ダッシュボードのデータ取得に失敗した場合 */
+    DASHBOARD_FETCH_FAILED: 'データ取得に失敗しました',
+
+    /** Google Ads ダッシュボードのデータ取得ガイダンス（未連携） */
+    DASHBOARD_GUIDANCE_NOT_CONNECTED: 'Google Ads が未連携です。連携設定を完了してください。',
+
+    /** Google Ads ダッシュボードのデータ取得ガイダンス（未選択） */
+    DASHBOARD_GUIDANCE_NOT_SELECTED:
+      'MCC 配下のアカウントが選択されていません。設定画面で対象アカウントを選択してください。',
+
+    /** Google Ads ダッシュボードのデータ取得ガイダンス（認証期限） */
+    DASHBOARD_GUIDANCE_AUTH_EXPIRED:
+      '認証が期限切れまたは取り消されています。再認証してください。',
+
+    /** Google Ads ダッシュボードのデータ取得ガイダンス（汎用） */
+    DASHBOARD_GUIDANCE_UNKNOWN: '取得に失敗しました。時間をおいて再試行してください。',
   },
 
   /**

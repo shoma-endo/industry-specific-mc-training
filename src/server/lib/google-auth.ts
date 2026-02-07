@@ -26,6 +26,7 @@ export type GoogleAdsAuthResult =
         googleAccountEmail: string | null;
         scope: string[];
         customerId: string | null;
+        managerCustomerId: string | null;
       };
     }
   | {
@@ -108,6 +109,7 @@ export async function ensureGoogleAdsAuth(): Promise<GoogleAdsAuthResult> {
       googleAccountEmail: credential.googleAccountEmail,
       scope: credential.scope,
       customerId: credential.customerId,
+      managerCustomerId: credential.managerCustomerId,
     },
   };
 }
@@ -124,6 +126,7 @@ export async function refreshGoogleAdsTokenIfNeeded(
     accessTokenExpiresAt: string;
     googleAccountEmail: string | null;
     scope: string[];
+    managerCustomerId?: string | null;
   }
 ): Promise<
   | { success: true; accessToken: string }
@@ -152,6 +155,7 @@ export async function refreshGoogleAdsTokenIfNeeded(
         expiresIn: refreshed.expiresIn,
         scope: refreshed.scope || credential.scope || [],
         googleAccountEmail: credential.googleAccountEmail,
+        managerCustomerId: credential.managerCustomerId,
       });
       if (!saveResult.success) {
         console.warn('Failed to persist refreshed token:', {

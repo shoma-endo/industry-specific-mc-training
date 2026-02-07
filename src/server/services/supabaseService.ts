@@ -981,6 +981,7 @@ export class SupabaseService {
       expiresIn?: number | undefined;
       scope?: string[] | undefined;
       googleAccountEmail?: string | null | undefined;
+      managerCustomerId?: string | null | undefined;
     }
   ): Promise<SupabaseResult<void>> {
     const expiresAt = new Date();
@@ -998,6 +999,7 @@ export class SupabaseService {
         access_token_expires_at: expiresAt.toISOString(),
         google_account_email: tokens.googleAccountEmail ?? null,
         scope: tokens.scope || [],
+        manager_customer_id: tokens.managerCustomerId ?? null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' }
@@ -1024,6 +1026,7 @@ export class SupabaseService {
     googleAccountEmail: string | null;
     scope: string[];
     customerId: string | null;
+    managerCustomerId: string | null;  // MCC（マネージャー）アカウントID
   } | null> {
     const { data, error } = await this.supabase
       .from('google_ads_credentials')
@@ -1047,23 +1050,37 @@ export class SupabaseService {
       googleAccountEmail: data.google_account_email,
       scope: data.scope || [],
       customerId: data.customer_id ?? null,
+      managerCustomerId: data.manager_customer_id ?? null,  // MCC ID を追加
     };
   }
 
   /**
    * Google Ads の customer_id を更新
+   * @param managerCustomerId - MCC（マネージャー）アカウントID（任意）
    * @returns 更新が成功した場合true、該当する行が存在しない場合false
    */
   async updateGoogleAdsCustomerId(
     userId: string,
-    customerId: string
+    customerId: string,
+    managerCustomerId?: string | null
   ): Promise<SupabaseResult<void>> {
+    const updateData: {
+      customer_id: string;
+      updated_at: string;
+      manager_customer_id?: string | null;
+    } = {
+      customer_id: customerId,
+      updated_at: new Date().toISOString(),
+    };
+
+    // managerCustomerId が指定された場合は更新に含める
+    if (managerCustomerId !== undefined) {
+      updateData.manager_customer_id = managerCustomerId;
+    }
+
     const { data, error } = await this.supabase
       .from('google_ads_credentials')
-      .update({
-        customer_id: customerId,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('user_id', userId)
       .select('id')
       .maybeSingle();
@@ -1072,7 +1089,7 @@ export class SupabaseService {
       return this.failure('Google AdsアカウントIDの更新に失敗しました', {
         error,
         developerMessage: 'Error updating Google Ads customer ID',
-        context: { userId, customerId },
+        context: { userId, customerId, managerCustomerId },
       });
     }
 

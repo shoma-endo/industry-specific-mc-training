@@ -67,9 +67,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // customer_id を更新
+    // MCC（マネージャー）アカウントIDを特定
+    // customer.manager フィールドでマネージャー候補を抽出
+    const managerCandidates = await Promise.all(
+      accessibleCustomerIds.map(async id => {
+        try {
+          const info = await googleAdsService.getCustomerInfo(id, accessToken);
+          return { id, isManager: info?.isManager ?? false };
+        } catch {
+          console.warn(`Failed to get customer info for ${id}, treating as non-manager`);
+          return { id, isManager: false };
+        }
+      })
+    );
+
+    const managerCandidateIds = managerCandidates
+      .filter(candidate => candidate.isManager)
+      .map(candidate => candidate.id);
+
+    // 各マネージャー候補に対して、選択アカウントが配下に存在するかを確認
+    // 自己参照を避けるため、customerId自身をマネージャー候補から除外
+    const managerIdsToCheck = managerCandidateIds.filter(id => id !== customerId);
+    const managerLevels = await Promise.all(
+      managerIdsToCheck.map(async managerId => {
+        const level = await googleAdsService.getClientLevelUnderManager(
+          managerId,
+          customerId,
+          accessToken
+        );
+        return { managerId, level };
+      })
+    );
+
+    const validManagers = managerLevels.filter(
+      manager => typeof manager.level === 'number'
+    ) as Array<{ managerId: string; level: number }>;
+
+    // 最も近い（level が最小）マネージャーを採用
+    const sortedManagers = [...validManagers].sort((a, b) => a.level - b.level);
+    const isSelectedManager = managerCandidates.some(
+      candidate => candidate.id === customerId && candidate.isManager
+    );
+    const managerCustomerId =
+      sortedManagers[0]?.managerId ?? (isSelectedManager ? customerId : null);
+
+    // customer_id と manager_customer_id を更新
     const supabaseService = new SupabaseService();
-    const updateResult = await supabaseService.updateGoogleAdsCustomerId(userId, customerId);
+    const updateResult = await supabaseService.updateGoogleAdsCustomerId(
+      userId,
+      customerId,
+      managerCustomerId
+    );
     if (!updateResult.success) {
       return NextResponse.json(
         { error: updateResult.error.userMessage },

@@ -213,10 +213,19 @@ async function checkActiveUsers() {
         const wpSiteUrl = wpSettingsMap.get(userIdStr) || null;
         const briefData = briefsMap.get(userIdStr) || {};
 
-        // briefsのdataから5W2Hを抽出
+        // briefsのdataから5W2Hを抽出（新形式: services[0] を優先）
+        const services = Array.isArray((briefData as { services?: unknown }).services)
+          ? ((briefData as { services?: unknown }).services as unknown[])
+          : [];
+        const firstService = services[0] as Record<string, unknown> | undefined;
+
         const extract5W2H = (key: string) => {
-          const value = briefData[key];
-          return value && typeof value === 'string' ? value : null;
+          const serviceValue = firstService?.[key];
+          if (serviceValue && typeof serviceValue === 'string') {
+            return serviceValue;
+          }
+          const legacyValue = (briefData as Record<string, unknown>)[key];
+          return legacyValue && typeof legacyValue === 'string' ? legacyValue : null;
         };
 
         return {
