@@ -4,7 +4,8 @@ import { isAdmin, isUnavailable, getUserRoleWithRefresh } from '@/authUtils';
 import { hasPaidFeatureAccess, type UserRole } from '@/types/user';
 
 const ADMIN_REQUIRED_PATHS = ['/admin'] as const;
-const PAID_FEATURE_REQUIRED_PATHS = ['/setup', '/analytics'] as const;
+const PAID_FEATURE_REQUIRED_PATHS = ['/analytics'] as const;
+const SETUP_PATHS = ['/setup'] as const;
 
 // Google Ads 連携は審査完了まで管理者のみアクセス可能
 const GOOGLE_ADS_PATHS = ['/setup/google-ads', '/google-ads-dashboard'] as const;
@@ -61,6 +62,11 @@ export async function middleware(request: NextRequest) {
     }
 
     if (requiresPaidFeatureAccess(pathname) && !hasPaidFeatureAccess(authResult.role)) {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+
+    // 🔍 5-2. Setup画面のアクセス制御（owner も許可）
+    if (requiresSetupAccess(pathname) && !hasSetupAccess(authResult.role)) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 
@@ -131,6 +137,14 @@ function requiresAdminAccess(pathname: string): boolean {
 
 function requiresPaidFeatureAccess(pathname: string): boolean {
   return PAID_FEATURE_REQUIRED_PATHS.some(path => pathname.startsWith(path));
+}
+
+function requiresSetupAccess(pathname: string): boolean {
+  return SETUP_PATHS.some(path => pathname.startsWith(path));
+}
+
+function hasSetupAccess(role: UserRole | null): boolean {
+  return role === 'paid' || role === 'admin' || role === 'owner';
 }
 
 function requiresGoogleAdsAccess(pathname: string): boolean {
