@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { isAdmin, isUnavailable, getUserRoleWithRefresh } from '@/authUtils';
+import { isAdmin, isUnavailable, getUserRoleWithRefresh, hasOwnerRole } from '@/authUtils';
 import { hasPaidFeatureAccess, type UserRole } from '@/types/user';
 
 const ADMIN_REQUIRED_PATHS = ['/admin'] as const;
@@ -144,7 +144,7 @@ function requiresSetupAccess(pathname: string): boolean {
 }
 
 function hasSetupAccess(role: UserRole | null): boolean {
-  return role === 'paid' || role === 'admin' || role === 'owner';
+  return hasPaidFeatureAccess(role) || hasOwnerRole(role);
 }
 
 function requiresGoogleAdsAccess(pathname: string): boolean {
