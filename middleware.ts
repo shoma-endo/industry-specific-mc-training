@@ -61,12 +61,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/unavailable', request.url));
     }
 
-    if (requiresPaidFeatureAccess(pathname) && !hasPaidFeatureAccess(authResult.role)) {
+    // 🔍 5-1. Setup画面のアクセス制御（paid / admin / owner を許可）
+    // NOTE: /setup は owner にも開放するため、paid 限定チェックより先に評価する
+    if (requiresSetupAccess(pathname) && !hasSetupAccess(authResult.role)) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 
-    // 🔍 5-2. Setup画面のアクセス制御（owner も許可）
-    if (requiresSetupAccess(pathname) && !hasSetupAccess(authResult.role)) {
+    // 🔍 5-2. 有料機能のアクセス制御（paid / admin のみ）
+    if (requiresPaidFeatureAccess(pathname) && !hasPaidFeatureAccess(authResult.role)) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 
