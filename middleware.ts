@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { isAdmin, isUnavailable, getUserRoleWithRefresh } from '@/authUtils';
+import { isAdmin, isUnavailable, getUserRoleWithRefresh, hasOwnerRole } from '@/authUtils';
 import { hasPaidFeatureAccess, type UserRole } from '@/types/user';
 
 const ADMIN_REQUIRED_PATHS = ['/admin'] as const;
-const PAID_FEATURE_REQUIRED_PATHS = ['/setup', '/analytics'] as const;
+const PAID_FEATURE_REQUIRED_PATHS = ['/analytics'] as const;
+const SETUP_PATHS = ['/setup'] as const;
 
 // Google Ads 連携は審査完了まで管理者のみアクセス可能
 const GOOGLE_ADS_PATHS = ['/setup/google-ads', '/google-ads-dashboard'] as const;
@@ -60,6 +61,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/unavailable', request.url));
     }
 
+    // 🔍 5-1. Setup画面のアクセス制御（paid / admin / owner を許可）
+    // NOTE: /setup は owner にも開放するため、paid 限定チェックより先に評価する
+    if (requiresSetupAccess(pathname) && !hasSetupAccess(authResult.role)) {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+
+    // 🔍 5-2. 有料機能のアクセス制御（paid / admin のみ）
     if (requiresPaidFeatureAccess(pathname) && !hasPaidFeatureAccess(authResult.role)) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
@@ -131,6 +139,14 @@ function requiresAdminAccess(pathname: string): boolean {
 
 function requiresPaidFeatureAccess(pathname: string): boolean {
   return PAID_FEATURE_REQUIRED_PATHS.some(path => pathname.startsWith(path));
+}
+
+function requiresSetupAccess(pathname: string): boolean {
+  return SETUP_PATHS.some(path => pathname.startsWith(path));
+}
+
+function hasSetupAccess(role: UserRole | null): boolean {
+  return hasPaidFeatureAccess(role) || hasOwnerRole(role);
 }
 
 function requiresGoogleAdsAccess(pathname: string): boolean {
