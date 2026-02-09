@@ -42,6 +42,25 @@ export function canInviteEmployee(role: UserRole | null): boolean {
   return role === 'paid' || role === 'admin';
 }
 
+/**
+ * 一括インポート（WordPress / GSC）の操作別認可
+ * - role が null / unavailable は不可
+ * - スタッフ（ownerUserIdあり）は不可
+ * - role='owner' は可（能力定義上の許可）
+ * - それ以外は閲覧モード中のみ不可
+ */
+export function canRunBulkImport(params: {
+  role: UserRole | null;
+  ownerUserId: string | null | undefined;
+  isOwnerViewMode: boolean;
+}): boolean {
+  const { role, ownerUserId, isOwnerViewMode } = params;
+  if (!role || role === 'unavailable') return false;
+  if (isActualOwner(role, ownerUserId)) return true;
+  if (ownerUserId) return false;
+  return !isOwnerViewMode;
+}
+
 export function getRoleDisplayName(role: UserRole | null): string {
   switch (role) {
     case 'admin':

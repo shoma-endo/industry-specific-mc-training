@@ -19,6 +19,7 @@ import { fetchGscStatus } from '@/server/actions/gscSetup.actions';
 import { getQuerySummaryLabels } from '@/lib/gsc-import';
 import type { GscConnectionStatus } from '@/types/gsc';
 import { useLiffContext } from '@/components/LiffProvider';
+import { canRunBulkImport } from '@/authUtils';
 
 type ImportResponse = {
   success: boolean;
@@ -85,7 +86,12 @@ export default function GscImportPage() {
     ? getQuerySummaryLabels(result.data.querySummary)
     : null;
   const isStaffUser = Boolean(user?.ownerUserId);
-  const isReadOnly = isStaffUser || isOwnerViewMode;
+  const canImport = canRunBulkImport({
+    role: user?.role ?? null,
+    ownerUserId: user?.ownerUserId,
+    isOwnerViewMode,
+  });
+  const isReadOnly = !canImport;
 
   // 期間（日数）を計算
   const calculateDaysDiff = (start: string, end: string): number => {
@@ -99,7 +105,7 @@ export default function GscImportPage() {
   const showWarning = daysDiff > 90 || normalizedMaxRows > 2000;
 
   useEffect(() => {
-    if (isStaffUser || isOwnerViewMode) {
+    if (isReadOnly) {
       setIsLoadingGscStatus(false);
       return;
     }
@@ -132,7 +138,7 @@ export default function GscImportPage() {
     return () => {
       isMounted = false;
     };
-  }, [isOwnerViewMode, isStaffUser]);
+  }, [isReadOnly]);
 
   const handleSubmit = async () => {
     if (isReadOnly) return;
@@ -160,7 +166,7 @@ export default function GscImportPage() {
 
   return (
     <div className="w-full px-4 py-8">
-      {isStaffUser || isOwnerViewMode ? (
+      {isReadOnly ? (
         <div className="mx-auto max-w-3xl">
           <Alert>
             <AlertDescription>
