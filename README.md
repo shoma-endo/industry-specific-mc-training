@@ -71,7 +71,9 @@ LINE LIFF を入り口に、業界特化のマーケティングコンテンツ�
 - `SubscriptionService` とカスタムフック `useSubscriptionStatus` で UI 側から有効プランを判定
 - `authMiddleware` が `requiresSubscription` を返し、有料機能へアクセス制御を適用
 - ユーザー権限（`trial` / `paid` / `admin` / `unavailable`）を Supabase 側で管理し、LIFF ログイン時に自動同期（`trial` はチャット送信が1日3回まで、`paid` は無制限）
-- オーナー/スタッフ共有アクセスでは、オーナーは読み取り専用、スタッフはオーナーの参照を許可
+- オーナー/スタッフ共有アクセスでは、オーナーは読み取り中心の権限、スタッフはオーナーの参照を許可
+- `role='owner'` の能力定義: 閲覧（可）/ 一般的な編集・保存（不可）/ 認証フロー（可）/ 一括インポート（WordPress・Google Search Console のみ可）
+- 一括インポートの実行可否は `canRunBulkImport` に準拠（許可: `owner` / `paid(owner)` / `admin` / `trial`、拒否: `paid(staff)` / `unavailable` / `null`）
 
 ### 管理者ダッシュボード
 
