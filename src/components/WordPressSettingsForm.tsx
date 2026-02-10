@@ -108,7 +108,7 @@ export default function WordPressSettingsForm({
   const [expandedPanel, setExpandedPanel] = useState<'save' | 'connection' | null>(null);
   const isStaffUser = Boolean(user?.ownerUserId);
   const isReadOnly = isOwnerViewMode || isStaffUser;
-  const isConnectionSuccessful = Boolean(connectionStatus?.success);
+  const [isImportChecking, setIsImportChecking] = useState(false);
 
   // フォームの状態
   const isAdmin = isAdminRole(role);
@@ -225,6 +225,45 @@ export default function WordPressSettingsForm({
     window.location.href = '/api/wordpress/oauth/start';
   };
 
+  const executeConnectionTest = async (): Promise<{
+    success: boolean;
+    data?: TestConnectionActionResult;
+    error?: StatusOutcome;
+  }> => {
+    try {
+      const data: TestConnectionActionResult = await testWordPressConnectionAction();
+      if (data.success) {
+        return { success: true, data };
+      }
+      const details = data.error || '';
+      const { cause, hints } = diagnoseWordPressError(details);
+      return {
+        success: false,
+        error: {
+          success: false,
+          primary: data.error || '接続テストに失敗しました',
+          details,
+          cause,
+          hints,
+          needsOAuth: Boolean(data.needsWordPressAuth),
+        },
+      };
+    } catch (error) {
+      const details = error instanceof Error ? error.message : 'Unknown error';
+      const { cause, hints } = diagnoseWordPressError(details);
+      return {
+        success: false,
+        error: {
+          success: false,
+          primary: `接続テストでエラーが発生しました: ${details}`,
+          details,
+          cause,
+          hints,
+        },
+      };
+    }
+  };
+
   const handleTestConnection = async () => {
     if (isReadOnly) return;
     if (!isAdmin && wpType !== 'self_hosted') {
@@ -257,39 +296,33 @@ export default function WordPressSettingsForm({
     setConnectionStatus(null);
     setExpandedPanel(prev => (prev === 'connection' ? null : prev));
 
-    try {
-      const data: TestConnectionActionResult = await testWordPressConnectionAction();
+    const result = await executeConnectionTest();
+    setIsTestingConnection(false);
 
-      if (data.success) {
-        setConnectionStatus({
-          success: true,
-          primary: data.message || 'WordPress接続テストが成功しました',
-        });
-        setExpandedPanel(prev => (prev === 'connection' ? null : prev));
-      } else {
-        const details = data.error || '';
-        const { cause, hints } = diagnoseWordPressError(details);
-        setConnectionStatus({
-          success: false,
-          primary: data.error || '接続テストに失敗しました',
-          details,
-          cause,
-          hints,
-          needsOAuth: Boolean(data.needsWordPressAuth),
-        });
-      }
-    } catch (error) {
-      const details = error instanceof Error ? error.message : 'Unknown error';
-      const { cause, hints } = diagnoseWordPressError(details);
+    if (result.success) {
       setConnectionStatus({
-        success: false,
-        primary: `接続テストでエラーが発生しました: ${details}`,
-        details,
-        cause,
-        hints,
+        success: true,
+        primary: result.data?.message || 'WordPress接続テストが成功しました',
       });
-    } finally {
-      setIsTestingConnection(false);
+    } else if (result.error) {
+      setConnectionStatus(result.error);
+    }
+  };
+
+  const handleImportClick = async () => {
+    if (isReadOnly) return;
+
+    setIsImportChecking(true);
+    setConnectionStatus(null);
+    setExpandedPanel(prev => (prev === 'connection' ? null : prev));
+
+    const result = await executeConnectionTest();
+    setIsImportChecking(false);
+
+    if (result.success) {
+      router.push('/wordpress-import');
+    } else if (result.error) {
+      setConnectionStatus(result.error);
     }
   };
 
@@ -480,52 +513,29 @@ export default function WordPressSettingsForm({
             <div className="space-y-4">
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
                 onClick={handleTestConnection}
-                disabled={isTestingConnection || !hasSavedSettings || isReadOnly}
+                disabled={isTestingConnection || isImportChecking || !hasSavedSettings || isReadOnly}
                 className="w-full"
                 title={hasSavedSettings ? undefined : '先に設定を保存してください'}
               >
+                <Plug className="h-4 w-4" />
                 {isTestingConnection ? '接続テスト中...' : '接続テスト'}
               </Button>
-              {!hasSavedSettings || isReadOnly || !isConnectionSuccessful ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled
-                  className="w-full flex items-center gap-2"
-                  title={
-                    !hasSavedSettings
-                      ? '先に設定を保存してください'
-                      : !isConnectionSuccessful
-                        ? '接続テストに成功してからインポートできます'
-                        : undefined
-                  }
-                >
-                  <Download className="h-4 w-4" />
-                  WordPress記事一括インポート
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  asChild
-                  variant="secondary"
-                  className="w-full flex items-center gap-2"
-                >
-                  <Link href="/wordpress-import">
-                    <Download className="h-4 w-4" />
-                    WordPress記事一括インポート
-                  </Link>
-                </Button>
-              )}
+              <Button
+                type="button"
+                onClick={handleImportClick}
+                variant="outline"
+                disabled={isImportChecking || isTestingConnection || !hasSavedSettings || isReadOnly}
+                className="w-full flex items-center gap-2 text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                title={hasSavedSettings ? undefined : '先に設定を保存してください'}
+              >
+                <Download className="h-4 w-4" />
+                {isImportChecking ? '接続確認中...' : 'WordPress記事一括インポート'}
+              </Button>
               {!hasSavedSettings && (
                 <p className="text-xs text-gray-500">
                   接続テストとインポートを行うには、先に設定を保存してください。
-                </p>
-              )}
-              {hasSavedSettings && !isConnectionSuccessful && (
-                <p className="text-xs text-gray-500">
-                  インポートを行うには、接続テストの成功が必要です。
                 </p>
               )}
 
