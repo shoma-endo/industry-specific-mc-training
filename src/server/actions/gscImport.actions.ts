@@ -7,6 +7,7 @@ import { gscEvaluationService } from '@/server/services/gscEvaluationService';
 import { splitRangeByDays, aggregateImportResults } from '@/server/lib/gsc-import-utils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
+import { canRunBulkImport } from '@/authUtils';
 
 export interface GscImportParams {
   startDate: string;
@@ -24,13 +25,18 @@ export async function runGscImport(params: GscImportParams) {
     if (authResult.error || !authResult.userId) {
       return { success: false, error: authResult.error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
-    if (authResult.viewMode || authResult.ownerUserId) {
+    const canImport = canRunBulkImport({
+      role: authResult.userDetails?.role ?? null,
+      ownerUserId: authResult.ownerUserId,
+      isOwnerViewMode: Boolean(authResult.viewMode),
+    });
+    if (!canImport) {
       return {
         success: false,
         error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
       };
     }
-    // 本人のオーナーアカウントのみがインポート操作を実行可能（View Mode・スタッフアカウント禁止）
+    // canRunBulkImport に定義したロール別条件でインポート可否を判定
 
     const { startDate, endDate, searchType = 'web', maxRows = 1000, runEvaluation = true } = params;
 

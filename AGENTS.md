@@ -192,9 +192,16 @@ if (!canInviteEmployee(user.role)) {
 
 #### 閲覧専用オーナー (`role='owner'`)
 
-- 自身およびスタッフのデータを**読み取り専用**で参照可能
-- 編集・保存操作は一切不可
+- 能力定義: 閲覧（可） / 一般的な編集・保存（不可） / 認証フロー（可） / 一括インポート（WordPress・Google Search Console のみ可）
 - View Mode（閲覧モード）でスタッフの画面を確認可能
+- 一括インポートは `canRunBulkImport` に準拠:
+- 閲覧専用オーナー（`role='owner'`）: WordPress・GSC のみ許可
+- 有料契約オーナー（`role='paid'` + `ownerUserId=null`）: 許可
+- 管理者（`role='admin'`）: 許可
+- トライアル（`role='trial'`）: 許可（閲覧モード時は不可）
+- スタッフ（`role='paid'` + `ownerUserId` あり）: 常に拒否
+- 利用停止（`role='unavailable'`）: 常に拒否
+- `role=null` はロール定義外の防御的ガード（未認証・異常系）として常に拒否
 
 #### スタッフ (`role='paid' + ownerUserId`)
 

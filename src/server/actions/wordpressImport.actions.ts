@@ -20,6 +20,7 @@ import {
   normalizeText,
   parseWpPostId,
 } from '@/lib/utils';
+import { canRunBulkImport } from '@/authUtils';
 
 export async function runWordpressBulkImport(accessToken: string) {
   try {
@@ -27,13 +28,18 @@ export async function runWordpressBulkImport(accessToken: string) {
     if (authResult.error || !authResult.userId) {
       return { success: false, error: authResult.error || ERROR_MESSAGES.AUTH.LIFF_AUTH_FAILED };
     }
-    if (authResult.viewMode || authResult.ownerUserId) {
+    const canImport = canRunBulkImport({
+      role: authResult.userDetails?.role ?? null,
+      ownerUserId: authResult.ownerUserId,
+      isOwnerViewMode: Boolean(authResult.viewMode),
+    });
+    if (!canImport) {
       return {
         success: false,
         error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED,
       };
     }
-    // 本人のオーナーアカウントのみがインポート操作を実行可能（View Mode・スタッフアカウント禁止）
+    // canRunBulkImport に定義したロール別条件でインポート可否を判定
 
     const supabaseService = new SupabaseService();
     const supabaseClient = supabaseService.getClient();
