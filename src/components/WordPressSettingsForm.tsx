@@ -527,7 +527,7 @@ export default function WordPressSettingsForm({
                 onClick={handleImportClick}
                 variant="outline"
                 disabled={isImportChecking || isTestingConnection || !hasSavedSettings || isReadOnly}
-                className="w-full flex items-center gap-2 text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                className="w-full flex items-center gap-2 text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:text-muted-foreground disabled:border-input"
                 title={hasSavedSettings ? undefined : '先に設定を保存してください'}
               >
                 <Download className="h-4 w-4" />
