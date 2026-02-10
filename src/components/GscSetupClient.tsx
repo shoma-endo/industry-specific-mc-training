@@ -319,12 +319,22 @@ export default function GscSetupClient({ initialStatus, isOauthConfigured }: Gsc
                 プロパティ再取得
               </Button>
               {!canImport ? (
-                <Button type="button" disabled className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled
+                  className="flex items-center gap-2"
+                >
                   <BarChart3 className="h-4 w-4" />
                   Google Search Console 日次指標インポート
                 </Button>
               ) : (
-                <Button type="button" asChild className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  asChild
+                  className="flex items-center gap-2 text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                >
                   <Link href="/gsc-import">
                     <BarChart3 className="h-4 w-4" />
                     Google Search Console 日次指標インポート
