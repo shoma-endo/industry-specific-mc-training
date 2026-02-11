@@ -268,6 +268,10 @@ interface ChatLayoutCtx {
   onServiceChange: (serviceId: string) => void;
   servicesError: string | null;
   onDismissServicesError: () => void;
+  // Step5 バージョン管理トグル
+  step5VersioningEnabled: boolean;
+  onStep5VersioningChange: (enabled: boolean) => void;
+  step5JustReEnabled: boolean;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -305,6 +309,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onServiceChange,
     servicesError,
     onDismissServicesError,
+    step5VersioningEnabled,
+    onStep5VersioningChange,
+    step5JustReEnabled,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
@@ -501,6 +508,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           services={services}
           selectedServiceId={selectedServiceId}
           onServiceChange={onServiceChange}
+          step5VersioningEnabled={step5VersioningEnabled}
+          onStep5VersioningChange={onStep5VersioningChange}
+          step5JustReEnabled={step5JustReEnabled}
         />
       </div>
 
@@ -537,6 +547,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
+  // Step5 バージョン管理トグル状態
+  const [step5VersioningEnabled, setStep5VersioningEnabled] = useState(true);
+  const [step5JustReEnabled, setStep5JustReEnabled] = useState(false);
+  const [step5GuardMessageCount, setStep5GuardMessageCount] = useState<number | null>(null);
   const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [isGeneratingTitleMeta, setIsGeneratingTitleMeta] = useState(false);
@@ -864,6 +878,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setIsEditingTitle(false);
     setTitleError(null);
     setIsSavingTitle(false);
+    // Step5 バージョン管理トグルをリセット
+    setStep5VersioningEnabled(true);
+    setStep5JustReEnabled(false);
+    setStep5GuardMessageCount(null);
     prevSessionIdRef.current = nextSessionId;
   }, [chatSession.state.currentSessionId]);
 
@@ -985,6 +1003,24 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   }, [latestBlogStep, selectedModel]);
 
+  // Step5 バージョン管理の派生状態（useEffect/useMemo不要、React Compilerに委ねる）
+  // Step5以外では常に ON として扱う
+  const effectiveStep5VersioningEnabled =
+    latestBlogStep === 'step5' ? step5VersioningEnabled : true;
+
+  // ガード解除条件を計算で判定
+  const isGuardReleaseConditionMet = (() => {
+    if (!step5JustReEnabled || step5GuardMessageCount === null) return false;
+    if (chatSession.state.isLoading || chatSession.state.error !== null) return false;
+
+    const newMessages = chatSession.state.messages.slice(step5GuardMessageCount);
+    return newMessages.some(
+      m => m.role === 'assistant' && m.model === 'blog_creation_step5'
+    );
+  })();
+
+  const effectiveStep5JustReEnabled = step5JustReEnabled && !isGuardReleaseConditionMet;
+
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = useCallback(
     async (content: string, model: string) => {
@@ -1072,6 +1108,23 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setAnnotationLoading(false);
     }
   };
+
+  // Step5 バージョン管理トグル変更ハンドラ
+  const handleStep5VersioningChange = useCallback(
+    (enabled: boolean) => {
+      setStep5VersioningEnabled(enabled);
+      if (enabled) {
+        // OFF→ON 復帰時: ガードを有効化し、現在のメッセージ数をスナップショット
+        setStep5JustReEnabled(true);
+        setStep5GuardMessageCount(chatSession.state.messages.length);
+      } else {
+        // ON→OFF: ガードをリセット
+        setStep5JustReEnabled(false);
+        setStep5GuardMessageCount(null);
+      }
+    },
+    [chatSession.state.messages.length]
+  );
 
   const handleGenerateTitleMeta = async () => {
     const sessionId = chatSession.state.currentSessionId;
@@ -1483,9 +1536,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onServiceChange: handleServiceChange,
           servicesError,
           onDismissServicesError: dismissServicesError,
+          step5VersioningEnabled: effectiveStep5VersioningEnabled,
+          onStep5VersioningChange: handleStep5VersioningChange,
+          step5JustReEnabled: effectiveStep5JustReEnabled,
         }}
       />
-      {canvasPanelOpen && (
+      {canvasPanelOpen && !(latestBlogStep === 'step5' && !effectiveStep5VersioningEnabled) && (
         <CanvasPanel
           onClose={() => {
             setCanvasPanelOpen(false);
