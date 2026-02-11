@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -104,6 +104,7 @@ export default function GscSetupClient({
   const [ga4ReadRateThreshold, setGa4ReadRateThreshold] = useState<string>(
     ga4Status.thresholdReadRate != null ? String(ga4Status.thresholdReadRate) : ''
   );
+  const isGa4DirtyRef = useRef(false);
 
   const connectedProperty = useMemo(() => {
     if (!status.propertyUri) return null;
@@ -156,11 +157,13 @@ export default function GscSetupClient({
   };
 
   const handleGa4PropertyChange = (value: string) => {
+    isGa4DirtyRef.current = true;
     setSelectedGa4PropertyId(value);
     setSelectedGa4Events([]);
   };
 
   const handleGa4EventToggle = (eventName: string, checked: boolean) => {
+    isGa4DirtyRef.current = true;
     setSelectedGa4Events(prev => {
       if (checked) {
         return Array.from(new Set([...prev, eventName]));
@@ -188,6 +191,7 @@ export default function GscSetupClient({
         }),
       {
         onSuccess: data => {
+          isGa4DirtyRef.current = false;
           setGa4Status(data as Ga4ConnectionStatus);
           setGa4AlertMessage('GA4設定を保存しました');
         },
@@ -220,6 +224,9 @@ export default function GscSetupClient({
   };
 
   useEffect(() => {
+    if (isGa4DirtyRef.current) {
+      return;
+    }
     if (ga4Status.propertyId) {
       setSelectedGa4PropertyId(ga4Status.propertyId);
     }
@@ -673,7 +680,10 @@ export default function GscSetupClient({
                 id="ga4-engagement-threshold"
                 type="number"
                 value={ga4EngagementThreshold}
-                onChange={event => setGa4EngagementThreshold(event.target.value)}
+                onChange={event => {
+                  isGa4DirtyRef.current = true;
+                  setGa4EngagementThreshold(event.target.value);
+                }}
                 disabled={isReadOnly}
                 placeholder="例: 60"
               />
@@ -685,7 +695,10 @@ export default function GscSetupClient({
                 type="number"
                 step="0.01"
                 value={ga4ReadRateThreshold}
-                onChange={event => setGa4ReadRateThreshold(event.target.value)}
+                onChange={event => {
+                  isGa4DirtyRef.current = true;
+                  setGa4ReadRateThreshold(event.target.value);
+                }}
                 disabled={isReadOnly}
                 placeholder="例: 0.4"
               />
