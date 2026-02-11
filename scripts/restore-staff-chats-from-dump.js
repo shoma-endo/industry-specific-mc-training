@@ -7,6 +7,10 @@
  * 出力順: 依存関係を満たす順（chat_sessions → chat_messages → content_annotations）
  *
  * Usage:
+ *   # オーナーに紐づくスタッフ UUID 一覧を表示（復元前にスタッフを特定する）
+ *   node scripts/restore-staff-chats-from-dump.js --dump <data.sql> --owner-id <owner-uuid> --list-staff
+ *
+ *   # 復元用 SQL を生成
  *   node scripts/restore-staff-chats-from-dump.js \
  *     --dump /path/to/YYYYMMDDTHHMMSSZ_data.sql \
  *     --staff-id <deleted-staff-uuid> \
@@ -28,6 +32,7 @@ function parseArgs() {
   let dumpPath = null;
   let staffId = null;
   let ownerId = null;
+  let listStaff = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dump' && args[i + 1]) {
       dumpPath = args[++i];
@@ -35,19 +40,28 @@ function parseArgs() {
       staffId = args[++i];
     } else if (args[i] === '--owner-id' && args[i + 1]) {
       ownerId = args[++i];
+    } else if (args[i] === '--list-staff') {
+      listStaff = true;
     }
   }
-  if (!dumpPath || !staffId || !ownerId) {
-    console.error(
-      'Usage: node restore-staff-chats-from-dump.js --dump <data.sql> --staff-id <uuid> --owner-id <uuid>'
-    );
+  if (!dumpPath) {
+    console.error('使い方: node restore-staff-chats-from-dump.js --dump <data.sql> [--owner-id <uuid> --list-staff | --staff-id <uuid> --owner-id <uuid>]');
+    process.exit(1);
+  }
+  if (listStaff) {
+    if (!ownerId) {
+      console.error('--list-staff の場合は --owner-id を指定してください。');
+      process.exit(1);
+    }
+  } else if (!staffId || !ownerId) {
+    console.error('使い方: node restore-staff-chats-from-dump.js --dump <data.sql> --staff-id <uuid> --owner-id <uuid>');
     process.exit(1);
   }
   if (!fs.existsSync(dumpPath)) {
-    console.error('Error: Dump file not found:', dumpPath);
+    console.error('エラー: ダンプファイルが見つかりません:', dumpPath);
     process.exit(1);
   }
-  return { dumpPath, staffId, ownerId };
+  return { dumpPath, staffId, ownerId, listStaff };
 }
 
 /**
@@ -78,14 +92,44 @@ function parseCopyBlocks(content) {
 
 function indexOfColumn(columns, name) {
   const i = columns.findIndex((c) => c.toLowerCase() === name.toLowerCase());
-  if (i === -1) throw new Error(`Column "${name}" not found in [${columns.join(', ')}]`);
+  if (i === -1) throw new Error(`カラム "${name}" が [${columns.join(', ')}] にありません。`);
   return i;
 }
 
 function main() {
-  const { dumpPath, staffId, ownerId } = parseArgs();
+  const { dumpPath, staffId, ownerId, listStaff } = parseArgs();
   const content = fs.readFileSync(dumpPath, 'utf-8');
   const blocks = parseCopyBlocks(content);
+
+  if (listStaff) {
+    const usersBlock = blocks.get('public.users');
+    if (!usersBlock) {
+      console.error('エラー: ダンプに public.users の COPY ブロックが含まれていません。');
+      process.exit(1);
+    }
+    const { columns, rows } = usersBlock;
+    const idIdx = indexOfColumn(columns, 'id');
+    const ownerUserIdIdx = indexOfColumn(columns, 'owner_user_id');
+    let nameIdx = -1;
+    try {
+      nameIdx = indexOfColumn(columns, 'line_display_name');
+    } catch {
+      // optional
+    }
+    const staffRows = rows.filter(
+      (row) => row[ownerUserIdIdx] === ownerId && row[ownerUserIdIdx] !== '' && row[ownerUserIdIdx] !== '\\N'
+    );
+    if (staffRows.length === 0) {
+      console.error('オーナー UUID に紐づくスタッフが見つかりません。');
+      process.exit(1);
+    }
+    console.error(`オーナーに紐づくスタッフが ${staffRows.length} 件見つかりました (owner_user_id=${ownerId}):`);
+    staffRows.forEach((row) => {
+      const name = nameIdx >= 0 ? row[nameIdx] ?? '' : '';
+      process.stdout.write(row[idIdx] + (name ? `\t${name}` : '') + '\n');
+    });
+    process.exit(0);
+  }
 
   const out = [];
   let restoredSessionIds = new Set();
@@ -151,6 +195,11 @@ function main() {
     // 既存のCOPY形式データはそのまま出力し、user_id のみ置換する
     if (tableName === 'public.content_annotations') {
       // 一意制約衝突を避けるため、一時表に COPY してから行単位 INSERT（unique_violation はスキップ）
+      // normalized_url は GENERATED 列のため INSERT で指定不可。列リストから除外する。
+      const insertColumns = columns.filter(
+        (c) => c.toLowerCase() !== 'normalized_url'
+      );
+      const insertColList = insertColumns.join(', ');
       out.push('CREATE TEMP TABLE _restore_content_annotations (LIKE public.content_annotations INCLUDING DEFAULTS);');
       out.push(`COPY _restore_content_annotations (${columns.join(', ')}) FROM stdin;`);
       filteredRows.forEach((row) => {
@@ -163,7 +212,8 @@ DECLARE
 BEGIN
   FOR r IN SELECT * FROM _restore_content_annotations LOOP
     BEGIN
-      INSERT INTO public.content_annotations SELECT * FROM _restore_content_annotations WHERE id = r.id;
+      INSERT INTO public.content_annotations (${insertColList})
+      SELECT ${insertColList} FROM _restore_content_annotations WHERE id = r.id;
     EXCEPTION WHEN unique_violation THEN
       NULL;
     END;
@@ -183,7 +233,7 @@ $$;`);
   }
 
   if (out.length === 0) {
-    console.error('No rows matched staff_id. Check that the dump contains data for that user.');
+    console.error('スタッフ ID に一致する行がありません。ダンプにそのユーザーのデータが含まれているか確認してください。');
     process.exit(1);
   }
 

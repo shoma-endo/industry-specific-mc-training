@@ -35,11 +35,29 @@ gunzip -k "${BACKUP_PREFIX}_data.sql.gz"
 
 ## 2. 復元用 SQL の生成
 
+### 2.1 スタッフの UUID が分からない場合（オーナーから特定）
+
+スタッフは本番から削除済みでダンプにしかいない場合、**オーナーの UUID** とダンプから該当スタッフを一覧できます。
+
+```bash
+OWNER_USER_ID="yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+DATA_SQL="/path/to/20260208T040130Z_data.sql"   # 解凍済みのデータダンプ
+
+node scripts/restore-staff-chats-from-dump.js \
+  --dump "$DATA_SQL" \
+  --owner-id "$OWNER_USER_ID" \
+  --list-staff
+```
+
+- 出力: 1行1件で `スタッフのUUID` と（あれば）`line_display_name`。復元したいスタッフの UUID をコピーして 2.2 の `STAFF_USER_ID` に使う。
+
+### 2.2 復元用 SQL の生成
+
 リポジトリの `scripts/restore-staff-chats-from-dump.js` で、スタッフの `user_id` をオーナーの `user_id` に置き換えた復元用 SQL を出力します。
 
 ```bash
 # スタッフの UUID とオーナーの UUID を指定する
-STAFF_USER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+STAFF_USER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"   # --list-staff で取得した値
 OWNER_USER_ID="yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
 DATA_SQL="${BACKUP_PREFIX}_data.sql"
 
@@ -50,7 +68,7 @@ node scripts/restore-staff-chats-from-dump.js \
   > restore_owner_$(date +%Y%m%d).sql
 ```
 
-- **スタッフの UUID**: 削除したスタッフの `users.id`（バックアップや管理画面で確認した値）
+- **スタッフの UUID**: 削除したスタッフの `users.id`（`--list-staff` で取得するか、管理画面等で確認した値）
 - **オーナーの UUID**: 引き継ぎ先オーナーの `users.id`（現在ログインしているオーナー）
 
 生成される SQL は次のテーブルのみを対象とします（依存順で出力）。
