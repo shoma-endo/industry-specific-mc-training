@@ -15,6 +15,7 @@ import type { GscCredential } from '@/types/gsc';
 import { isGa4ReauthError } from '@/domain/errors/ga4-error-handlers';
 import { GA4_SCOPE } from '@/lib/constants';
 import { ensureValidAccessToken } from '@/server/services/googleTokenService';
+import type { ServerActionResult } from '@/lib/async-handler';
 
 const supabaseService = new SupabaseService();
 const gscService = new GscService();
@@ -98,7 +99,7 @@ type Ga4ActionContextResult =
 const resolveGa4ActionContext = async (): Promise<Ga4ActionContextResult> => {
   const authResult = await getAuthUserId();
   if ('error' in authResult) {
-    return { success: false, error: authResult.error };
+    return { success: false, error: authResult.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
   const { userId, ownerUserId } = authResult;
   if (ownerUserId) {
@@ -118,11 +119,11 @@ const resolveGa4ActionContext = async (): Promise<Ga4ActionContextResult> => {
   return { success: true, data: { userId, credential } };
 };
 
-export async function fetchGa4Status() {
+export async function fetchGa4Status(): Promise<ServerActionResult<Ga4ConnectionStatus>> {
   try {
     const authResult = await getAuthUserId();
     if ('error' in authResult) {
-      return { success: false, error: authResult.error };
+      return { success: false, error: authResult.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     const { userId, ownerUserId } = authResult;
     if (ownerUserId) {
@@ -208,12 +209,9 @@ export async function saveGa4Settings(input: unknown) {
   try {
     const authResult = await getAuthUserId();
     if ('error' in authResult) {
-      return { success: false, error: authResult.error };
+      return { success: false, error: authResult.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
     const { userId, ownerUserId } = authResult;
-    if (error || !userId) {
-      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
-    }
     if (ownerUserId) {
       return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
     }

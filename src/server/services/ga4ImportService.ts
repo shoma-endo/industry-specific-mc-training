@@ -105,6 +105,7 @@ export class Ga4ImportService {
     if (!credential?.ga4PropertyId) {
       return null;
     }
+    const propertyId = credential.ga4PropertyId;
     const scope = credential.scope ?? [];
     if (!scope.includes(GA4_SCOPE)) {
       throw new Error('GA4 scope is missing');
@@ -131,12 +132,12 @@ export class Ga4ImportService {
       : [];
     const eventNames = Array.from(new Set([GA4_EVENT_SCROLL_90, ...conversionEvents]));
 
-    const baseReport = await this.fetchBaseReport(accessToken, credential.ga4PropertyId, {
+    const baseReport = await this.fetchBaseReport(accessToken, propertyId, {
       startDate,
       endDate,
     });
 
-    const eventReport = await this.fetchEventReport(accessToken, credential.ga4PropertyId, {
+    const eventReport = await this.fetchEventReport(accessToken, propertyId, {
       startDate,
       endDate,
       eventNames,
@@ -147,7 +148,7 @@ export class Ga4ImportService {
 
     const rowsToSave = merged.map(row => ({
       userId,
-      propertyId: credential.ga4PropertyId,
+      propertyId,
       date: row.date,
       pagePath: row.pagePath,
       normalizedPath: row.normalizedPath,
@@ -170,7 +171,7 @@ export class Ga4ImportService {
 
     return {
       userId,
-      propertyId: credential.ga4PropertyId,
+      propertyId,
       startDate,
       endDate,
       upserted: rowsToSave.length,
