@@ -82,8 +82,25 @@ alter table public.gsc_credentials
 -- Rollback: alter table public.gsc_credentials drop column if exists ga4_threshold_engagement_sec;
 
 alter table public.gsc_credentials
-  add column if not exists ga4_threshold_read_rate numeric(3,2);
+  add column if not exists ga4_threshold_read_rate numeric(3,2)
+  check (ga4_threshold_read_rate >= 0 and ga4_threshold_read_rate <= 1);
 -- Rollback: alter table public.gsc_credentials drop column if exists ga4_threshold_read_rate;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'gsc_credentials_ga4_threshold_read_rate_range'
+      and conrelid = 'public.gsc_credentials'::regclass
+  ) then
+    alter table public.gsc_credentials
+      add constraint gsc_credentials_ga4_threshold_read_rate_range
+      check (ga4_threshold_read_rate >= 0 and ga4_threshold_read_rate <= 1);
+  end if;
+end
+$$;
+-- Rollback: alter table public.gsc_credentials drop constraint if exists gsc_credentials_ga4_threshold_read_rate_range;
 
 alter table public.gsc_credentials
   add column if not exists ga4_last_synced_at timestamptz;
