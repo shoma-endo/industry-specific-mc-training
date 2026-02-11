@@ -77,7 +77,6 @@ export default function GscSetupClient({
     setStatus: setGa4Status,
     setAlertMessage: setGa4AlertMessage,
     refreshStatus: refreshGa4Status,
-    refetchProperties: refetchGa4Properties,
     refetchKeyEvents,
   } = useGa4Setup(initialGa4Status);
 
@@ -556,11 +555,11 @@ export default function GscSetupClient({
           <Button
             variant="ghost"
             size="sm"
-            onClick={refetchGa4Properties}
-            disabled={isGa4LoadingProperties || isReadOnly}
+            onClick={refreshGa4Status}
+            disabled={isGa4SyncingStatus || isReadOnly}
             className="flex items-center gap-1"
           >
-            <RefreshCw className={`h-4 w-4 ${isGa4LoadingProperties ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isGa4SyncingStatus ? 'animate-spin' : ''}`} />
             再読込
           </Button>
         </CardHeader>
