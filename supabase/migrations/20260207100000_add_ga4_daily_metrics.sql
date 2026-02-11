@@ -148,7 +148,7 @@ alter table public.ga4_page_metrics_daily enable row level security;
 create policy "ga4_page_metrics_daily_select_own_or_owner"
   on public.ga4_page_metrics_daily
   for select
-  using (user_id = any(get_accessible_user_ids((select auth.uid()))));
+  using (user_id = any(public.get_accessible_user_ids((select auth.uid()))::uuid[]));
 -- Rollback: drop policy if exists "ga4_page_metrics_daily_select_own_or_owner" on public.ga4_page_metrics_daily;
 
 -- updated_at 自動更新トリガー
