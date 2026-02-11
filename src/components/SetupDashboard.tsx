@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
 import { refetchGscStatusWithValidation } from '@/server/actions/gscSetup.actions';
+import { refetchGa4StatusWithValidation } from '@/server/actions/ga4Setup.actions';
 import {
   fetchWordPressStatusAction,
   type WordPressConnectionStatus,
@@ -29,6 +30,7 @@ import { useLiffContext } from '@/components/LiffProvider';
 export default function SetupDashboard({
   wordpressSettings,
   gscStatus,
+  ga4Status,
   googleAdsStatus,
   isAdmin,
 }: SetupDashboardProps) {
@@ -37,6 +39,9 @@ export default function SetupDashboard({
   const [gscConnection, setGscConnection] = useState(gscStatus);
   const [gscNeedsReauth, setGscNeedsReauth] = useState(false);
   const [isLoadingGscStatus, setIsLoadingGscStatus] = useState(false);
+  const [ga4Connection, setGa4Connection] = useState(ga4Status);
+  const [ga4NeedsReauth, setGa4NeedsReauth] = useState(false);
+  const [isLoadingGa4Status, setIsLoadingGa4Status] = useState(false);
   const isStaffUser = Boolean(user?.ownerUserId);
   const isReadOnly = isOwnerViewMode || isStaffUser;
 
@@ -54,6 +59,10 @@ export default function SetupDashboard({
   useEffect(() => {
     setGscConnection(gscStatus);
   }, [gscStatus]);
+
+  useEffect(() => {
+    setGa4Connection(ga4Status);
+  }, [ga4Status]);
 
   const refetchGscStatus = useCallback(async () => {
     setGscNeedsReauth(false);
@@ -76,6 +85,28 @@ export default function SetupDashboard({
   useEffect(() => {
     refetchGscStatus();
   }, [refetchGscStatus]);
+
+  const refetchGa4Status = useCallback(async () => {
+    setGa4NeedsReauth(false);
+    setIsLoadingGa4Status(true);
+    try {
+      const result = await refetchGa4StatusWithValidation();
+      if (result.success) {
+        setGa4Connection(result.data);
+        setGa4NeedsReauth(result.needsReauth);
+      } else {
+        console.error('GA4ステータス取得エラー:', result.error);
+      }
+    } catch (error) {
+      console.error('GA4ステータス取得エラー:', error);
+    } finally {
+      setIsLoadingGa4Status(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refetchGa4Status();
+  }, [refetchGa4Status]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -338,6 +369,132 @@ export default function SetupDashboard({
         </Card>
 
         {/* Google Ads 連携（管理者のみ） */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <Plug className="text-emerald-500" size={24} />
+              Google Analytics 4 連携
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {ga4NeedsReauth ? (
+                    <>
+                      <AlertTriangle className="text-orange-500" size={20} />
+                      <span className="text-orange-700 font-medium">要再認証</span>
+                    </>
+                  ) : ga4Connection.connected ? (
+                    <>
+                      <CheckCircle className="text-green-500" size={20} />
+                      <span className="text-green-700 font-medium">接続済み</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="text-orange-500" size={20} />
+                      <span className="text-orange-700 font-medium">未設定</span>
+                    </>
+                  )}
+                </div>
+                {isLoadingGa4Status ? (
+                  <div className="flex items-center gap-1">
+                    <Loader2 className="animate-spin" size={14} />
+                    <Badge variant="secondary" className="text-xs">
+                      確認中
+                    </Badge>
+                  </div>
+                ) : (
+                  <Badge
+                    variant={
+                      ga4NeedsReauth ? 'default' : ga4Connection.connected ? 'default' : 'secondary'
+                    }
+                    className={`text-xs ${
+                      ga4NeedsReauth
+                        ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                        : ga4Connection.connected
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {ga4NeedsReauth ? '要再認証' : ga4Connection.connected ? '接続OK' : '未設定'}
+                  </Badge>
+                )}
+              </div>
+
+              {ga4NeedsReauth ? (
+                <div className="text-sm space-y-2">
+                  <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                    <p className="text-orange-800 font-medium">Googleアカウントの再認証が必要です</p>
+                    <p className="text-orange-700 text-xs mt-1">
+                      認証トークンが期限切れまたは必要な権限が不足しています。再認証してください。
+                    </p>
+                  </div>
+                  <p className="text-gray-600">
+                    アカウント: {ga4Connection.googleAccountEmail ?? '取得中'}
+                  </p>
+                </div>
+              ) : ga4Connection.connected ? (
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>アカウント: {ga4Connection.googleAccountEmail ?? '取得中'}</p>
+                  <p>
+                    プロパティ: {ga4Connection.propertyName ?? ga4Connection.propertyId ?? '未選択'}
+                  </p>
+                  {ga4Connection.conversionEvents && (
+                    <p className="text-xs text-gray-500">
+                      前段CVイベント数: {ga4Connection.conversionEvents.length}件
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>
+                    Google Analytics
+                    4と連携し、ページごとの行動データを指標化して改善アクションに活用できます。
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    連携後に対象プロパティと前段CVイベントを設定してください。
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  {ga4NeedsReauth ? (
+                    <Button asChild className="w-full bg-orange-600 hover:bg-orange-700">
+                      <Link href="/setup/ga4">
+                        <AlertTriangle size={16} className="mr-2" />
+                        再認証する
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      asChild
+                      variant={ga4Connection.connected ? 'outline' : 'default'}
+                      className={`w-full ${ga4Connection.connected ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
+                    >
+                      <Link href="/setup/ga4">
+                        <Settings size={16} className="mr-2" />
+                        {ga4Connection.connected ? '連携を管理' : '連携を開始'}
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={refetchGa4Status}
+                  disabled={isLoadingGa4Status || isReadOnly}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoadingGa4Status ? 'animate-spin' : ''}`} />
+                  再読込
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {isAdmin && googleAdsStatus && (
           <Card>
             <CardHeader>

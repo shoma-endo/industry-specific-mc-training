@@ -246,7 +246,7 @@ export async function saveGa4Settings(input: unknown) {
 
     const updatedCredential = await supabaseService.getGscCredentialByUserId(userId);
     revalidatePath('/setup');
-    revalidatePath('/setup/gsc');
+    revalidatePath('/setup/ga4');
 
     return { success: true, data: toGa4ConnectionStatus(updatedCredential) };
   } catch (error) {

@@ -1,22 +1,22 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import GscSetupClient from '@/components/GscSetupClient';
+import Ga4SetupClient from '@/components/Ga4SetupClient';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { toGscConnectionStatus } from '@/server/lib/gsc-status';
+import { toGa4ConnectionStatus } from '@/server/lib/ga4-status';
 
 export const dynamic = 'force-dynamic';
 
 const supabaseService = new SupabaseService();
 
-export default async function GscSetupPage() {
+export default async function Ga4SetupPage() {
   const cookieStore = await cookies();
   const liffAccessToken = cookieStore.get('line_access_token')?.value;
   const refreshToken = cookieStore.get('line_refresh_token')?.value;
   const isOauthConfigured = Boolean(
     process.env.GOOGLE_OAUTH_CLIENT_ID &&
-    process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
-    process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
+      process.env.GOOGLE_SEARCH_CONSOLE_REDIRECT_URI
   );
 
   if (!liffAccessToken) {
@@ -27,10 +27,9 @@ export default async function GscSetupPage() {
   if (authResult.error || !authResult.userId) {
     redirect('/login');
   }
-  // Setup pages should be accessible to owners at all times
 
   const credential = await supabaseService.getGscCredentialByUserId(authResult.userId);
-  const initialStatus = toGscConnectionStatus(credential);
+  const initialStatus = toGa4ConnectionStatus(credential);
 
-  return <GscSetupClient initialStatus={initialStatus} isOauthConfigured={isOauthConfigured} />;
+  return <Ga4SetupClient initialStatus={initialStatus} isOauthConfigured={isOauthConfigured} />;
 }
