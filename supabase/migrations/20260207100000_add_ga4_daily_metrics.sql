@@ -82,8 +82,7 @@ alter table public.gsc_credentials
 -- Rollback: alter table public.gsc_credentials drop column if exists ga4_threshold_engagement_sec;
 
 alter table public.gsc_credentials
-  add column if not exists ga4_threshold_read_rate numeric(3,2)
-  check (ga4_threshold_read_rate >= 0 and ga4_threshold_read_rate <= 1);
+  add column if not exists ga4_threshold_read_rate numeric(3,2);
 -- Rollback: alter table public.gsc_credentials drop column if exists ga4_threshold_read_rate;
 
 do $$
@@ -167,6 +166,7 @@ begin
 end;
 $$;
 
+drop trigger if exists trg_ga4_page_metrics_daily_updated_at on public.ga4_page_metrics_daily;
 create trigger trg_ga4_page_metrics_daily_updated_at
   before update on public.ga4_page_metrics_daily
   for each row
