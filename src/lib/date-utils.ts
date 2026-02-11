@@ -148,12 +148,13 @@ export function formatJstDateISO(date: Date): string {
 /**
  * タイムスタンプ文字列を JST の YYYY-MM-DD に変換する
  * @param timestamp - ISO 形式などの日時文字列
- * @returns YYYY-MM-DD 形式の日付文字列（JST）、無効な場合は現在日（JST）
+ * @returns YYYY-MM-DD 形式の日付文字列（JST）
+ * @throws Error タイムスタンプが無効な場合
  */
 export function getJstDateISOFromTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) {
-    return formatJstDateISO(new Date());
+    throw new Error(`Invalid timestamp: ${timestamp}`);
   }
   return formatJstDateISO(date);
 }
