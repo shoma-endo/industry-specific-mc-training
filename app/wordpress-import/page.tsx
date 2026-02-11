@@ -9,6 +9,7 @@ import { useLiffContext } from '@/components/LiffProvider';
 import Link from 'next/link';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import { runWordpressBulkImport } from '@/server/actions/wordpressImport.actions';
+import { canRunBulkImport } from '@/authUtils';
 
 // WordPress OAuth/認証エラーかどうかを判定
 const isWordPressAuthError = (errorMessage: string | undefined): boolean => {
@@ -61,8 +62,13 @@ export default function WordPressImportPage() {
   const [error, setError] = useState<string | undefined>(undefined);
   const { getAccessToken, user, isOwnerViewMode } = useLiffContext();
   const isStaffUser = Boolean(user?.ownerUserId);
+  const canImport = canRunBulkImport({
+    role: user?.role ?? null,
+    ownerUserId: user?.ownerUserId,
+    isOwnerViewMode,
+  });
 
-  if (isStaffUser || isOwnerViewMode) {
+  if (!canImport) {
     return (
       <div className="w-full px-4 py-8">
         <div className="mx-auto max-w-3xl">

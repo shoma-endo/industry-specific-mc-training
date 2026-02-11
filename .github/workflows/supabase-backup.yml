@@ -129,10 +129,17 @@ jobs:
           const statusText = process.env.STATUS === 'success' ? '成功' : '失敗';
           const workflowUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
-          // メッセージ本文を作成
+          // メッセージ本文を作成（成功時は今回のダンプパスを追加）
+          const backupPrefix = process.env.BACKUP_PREFIX || '';
+          const gcsBucket = process.env.GCS_BUCKET_NAME || '';
+          const dumpSection = (process.env.STATUS === 'success' && backupPrefix && gcsBucket)
+            ? `【今回のダンプ（すぐに取得可能）】\n` +
+              `\`gs://${gcsBucket}/supabase-backups/${backupPrefix}/${backupPrefix}_data.sql.gz\`\n\n`
+            : '';
           const messageText = `【Supabaseバックアップ】\n` +
             `ステータス: ${statusEmoji} ${statusText}\n` +
             `詳細: ${workflowUrl}\n\n` +
+            dumpSection +
             `【GCS使用量（supabase-backups）】\n\`\`\`\n${usage}\n\`\`\``;
 
           const payload = {
