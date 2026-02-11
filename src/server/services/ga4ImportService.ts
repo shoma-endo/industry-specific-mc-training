@@ -49,6 +49,10 @@ export class Ga4ImportService {
   private readonly gscService = new GscService();
   private readonly ga4Service = new Ga4Service();
 
+  private static toEndOfDayUtcIso(dateIso: string): string {
+    return `${dateIso}T23:59:59.999Z`;
+  }
+
   /**
    * バッチ処理: 複数ユーザーのGA4データを一括同期
    * 
@@ -115,7 +119,7 @@ export class Ga4ImportService {
 
     if (startDate > endDate) {
       await this.supabaseService.updateGscCredential(userId, {
-        ga4LastSyncedAt: new Date().toISOString(),
+        ga4LastSyncedAt: Ga4ImportService.toEndOfDayUtcIso(endDate),
       });
       return null;
     }
@@ -158,7 +162,8 @@ export class Ga4ImportService {
 
     await this.supabaseService.upsertGa4PageMetricsDaily(rowsToSave);
     await this.supabaseService.updateGscCredential(userId, {
-      ga4LastSyncedAt: new Date().toISOString(),
+      // 次回の startDate を正しく進めるため、同期実行時刻ではなく取り込み済み最終日を保持する
+      ga4LastSyncedAt: Ga4ImportService.toEndOfDayUtcIso(endDate),
     });
 
     return {
@@ -365,6 +370,8 @@ export class Ga4ImportService {
       const normalizedPath = normalizeToPath(row.pagePath);
       const key = `${row.date}::${normalizedPath}`;
       const target = map.get(key);
+      // ベース行（セッションデータ）が存在しないイベントは集計対象外とする
+      // 理由: ページコンテキストなしのイベントは分析上の意味が限定的なため
       if (!target) continue;
 
       const count = row.eventCount ?? 0;

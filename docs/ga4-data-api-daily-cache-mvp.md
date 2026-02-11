@@ -53,9 +53,10 @@ GA4 Data API の制約（`eventName` ディメンション追加でベース指�
 2. `ga4_property_id` が設定済みのユーザーを取得（最大10件、`ga4_last_synced_at` が古い順）
 3. 各ユーザーに対して:
    - `gscService.refreshAccessToken` でトークン更新
+   - 取得期間を計算（`startDate = ga4_last_synced_at(JST日付) + 1日`, `endDate = yesterdayJst`）
    - GA4 Data API を 2レポート取得（ベース/イベント）
    - `ga4_page_metrics_daily` に upsert（Service Role）
-   - `gsc_credentials.ga4_last_synced_at` 更新
+   - `gsc_credentials.ga4_last_synced_at` を「取り込み済み最終日（endDate）」基準で更新
 4. 280秒経過でバッチ終了（残りは次回実行）
 
 ### Analytics 画面表示
@@ -187,7 +188,7 @@ const merged = baseRows.map((base) => {
 | ga4_conversion_events | text[] | CVイベント名（前段CV、複数可） |
 | ga4_threshold_engagement_sec | int | 滞在時間の閾値（秒） |
 | ga4_threshold_read_rate | numeric(3,2) | 読了率の閾値（0〜1） |
-| ga4_last_synced_at | timestamptz | 最終同期日時 |
+| ga4_last_synced_at | timestamptz | 取り込み済み最終日（endDate）を表す同期カーソル |
 
 ### `ga4_page_metrics_daily`
 
@@ -295,6 +296,7 @@ const MAX_DURATION_MS = 300_000 - TIMEOUT_BUFFER_MS;
 ```
 
 - 対象ユーザーは `ga4_last_synced_at ASC NULLS FIRST`（古い順）で選定
+- 同期カーソル運用: `startDate > endDate` の場合でも `ga4_last_synced_at` は `endDate` 基準に更新し、次回実行で再計算する
 - MAX_DURATION_MS を超えたら中断し、次回に持ち越す
 
 ---
