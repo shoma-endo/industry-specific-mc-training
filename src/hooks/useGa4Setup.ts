@@ -85,13 +85,13 @@ export function useGa4Setup(initialStatus: Ga4ConnectionStatus): UseGa4SetupResu
   }, [refreshStatus]);
 
   useEffect(() => {
-    if (status.connected || status.propertyId) {
+    if (!status.needsReauth) {
       refetchProperties();
     } else {
       setProperties([]);
       setKeyEvents([]);
     }
-  }, [status.connected, status.propertyId, refetchProperties]);
+  }, [status.needsReauth, refetchProperties]);
 
   return {
     status,
