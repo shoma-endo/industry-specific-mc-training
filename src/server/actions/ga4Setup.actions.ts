@@ -20,6 +20,26 @@ const gscService = new GscService();
 const ga4Service = new Ga4Service();
 
 const OWNER_ONLY_ERROR_MESSAGE = ERROR_MESSAGES.AUTH.STAFF_OPERATION_NOT_ALLOWED;
+const GA4_SETTINGS_FIELD_LABELS: Record<string, string> = {
+  propertyId: 'GA4プロパティID',
+  propertyName: 'GA4プロパティ名',
+  conversionEvents: '前段CVイベント',
+  thresholdEngagementSec: '滞在時間の閾値',
+  thresholdReadRate: '読了率の閾値',
+};
+
+const formatGa4SettingsValidationError = (error: z.ZodError): string => {
+  const issue = error.issues[0];
+  if (!issue) {
+    return ERROR_MESSAGES.COMMON.UPDATE_FAILED;
+  }
+  const pathKey = String(issue.path[0] ?? '');
+  const fieldLabel = GA4_SETTINGS_FIELD_LABELS[pathKey];
+  if (!fieldLabel) {
+    return issue.message || ERROR_MESSAGES.COMMON.UPDATE_FAILED;
+  }
+  return `${fieldLabel}: ${issue.message}`;
+};
 
 const ensureAccessToken = async (userId: string, refreshToken: string, credential: {
   accessToken?: string | null;
@@ -163,7 +183,7 @@ export async function saveGa4Settings(input: unknown) {
     const parsed = ga4SettingsSchema.safeParse(input);
     if (!parsed.success) {
       console.error('[GA4 Setup] validation failed', z.prettifyError(parsed.error));
-      return { success: false, error: ERROR_MESSAGES.COMMON.UPDATE_FAILED };
+      return { success: false, error: formatGa4SettingsValidationError(parsed.error) };
     }
 
     const conversionEvents = Array.isArray(parsed.data.conversionEvents)
