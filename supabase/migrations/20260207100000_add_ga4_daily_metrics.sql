@@ -55,10 +55,6 @@ begin
     return '/';
   end if;
 
-  if normalized = '/' then
-    return '/';
-  end if;
-
   return normalized;
 end;
 $$;
