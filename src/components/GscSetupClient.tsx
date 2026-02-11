@@ -681,6 +681,7 @@ export default function GscSetupClient({
               <Input
                 id="ga4-engagement-threshold"
                 type="number"
+                min={0}
                 value={ga4EngagementThreshold}
                 onChange={event => {
                   isGa4DirtyRef.current = true;
@@ -696,6 +697,8 @@ export default function GscSetupClient({
                 id="ga4-readrate-threshold"
                 type="number"
                 step="0.01"
+                min={0}
+                max={1}
                 value={ga4ReadRateThreshold}
                 onChange={event => {
                   isGa4DirtyRef.current = true;
