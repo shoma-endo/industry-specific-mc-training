@@ -226,12 +226,16 @@ export async function saveGa4Settings(input: unknown) {
       ? Array.from(new Set(parsed.data.conversionEvents))
       : [];
 
+    const credential = await supabaseService.getGscCredentialByUserId(userId);
+    const propertyChanged = parsed.data.propertyId !== credential?.ga4PropertyId;
+
     await supabaseService.updateGscCredential(userId, {
       ga4PropertyId: parsed.data.propertyId,
       ga4PropertyName: parsed.data.propertyName ?? null,
       ga4ConversionEvents: conversionEvents,
       ga4ThresholdEngagementSec: parsed.data.thresholdEngagementSec ?? null,
       ga4ThresholdReadRate: parsed.data.thresholdReadRate ?? null,
+      ...(propertyChanged && { ga4LastSyncedAt: null }),
     });
 
     const updatedCredential = await supabaseService.getGscCredentialByUserId(userId);
