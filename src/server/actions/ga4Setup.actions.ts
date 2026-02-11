@@ -10,7 +10,7 @@ import { ga4SettingsSchema } from '@/server/schemas/ga4.schema';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 import { toGa4ConnectionStatus } from '@/server/lib/ga4-status';
-import type { Ga4ConnectionStatus, Ga4KeyEvent, Ga4PropertySummary } from '@/types/ga4';
+import type { Ga4ConnectionStatus } from '@/types/ga4';
 import type { GscCredential } from '@/types/gsc';
 import { isGa4ReauthError } from '@/domain/errors/ga4-error-handlers';
 import { GA4_SCOPE } from '@/lib/constants';
@@ -137,7 +137,7 @@ export async function fetchGa4Properties() {
     const accessToken = await ensureAccessToken(userId, credential.refreshToken, credential);
     const properties = await ga4Service.listProperties(accessToken);
 
-    return { success: true, data: properties as Ga4PropertySummary[] };
+    return { success: true, data: properties };
   } catch (error) {
     const message = error instanceof Error ? error.message : ERROR_MESSAGES.GA4.PROPERTIES_FETCH_FAILED;
     console.error('[GA4 Setup] fetch properties failed', error);
@@ -170,7 +170,7 @@ export async function fetchGa4KeyEvents(propertyId: string) {
     const accessToken = await ensureAccessToken(userId, credential.refreshToken, credential);
     const keyEvents = await ga4Service.listKeyEvents(accessToken, propertyId);
 
-    return { success: true, data: keyEvents as Ga4KeyEvent[] };
+    return { success: true, data: keyEvents };
   } catch (error) {
     const message = error instanceof Error ? error.message : ERROR_MESSAGES.GA4.KEY_EVENTS_FETCH_FAILED;
     console.error('[GA4 Setup] fetch key events failed', error);
@@ -237,7 +237,7 @@ export async function refetchGa4StatusWithValidation(): Promise<
       };
     }
 
-    const status = statusResult.data as Ga4ConnectionStatus;
+    const status = statusResult.data;
 
     if (status.connected) {
       const propertiesResult = await fetchGa4Properties();
