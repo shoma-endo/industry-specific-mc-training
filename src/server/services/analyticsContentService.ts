@@ -127,12 +127,34 @@ export class AnalyticsContentService {
 
     const client = supabaseService.getClient();
 
+    const { data: credentials } = await client
+      .from('gsc_credentials')
+      .select('user_id, ga4_property_id')
+      .in('user_id', accessibleIds)
+      .not('ga4_property_id', 'is', null);
+
+    const userPropertyPairs = (credentials ?? []).filter(
+      (r): r is { user_id: string; ga4_property_id: string } =>
+        Boolean(r.user_id && r.ga4_property_id)
+    );
+
+    if (userPropertyPairs.length === 0) {
+      return new Map();
+    }
+
+    const orFilter = userPropertyPairs
+      .map(
+        p =>
+          `and(user_id.eq.${p.user_id},property_id.eq."${String(p.ga4_property_id).replace(/"/g, '""')}")`
+      )
+      .join(',');
+
     const { data, error } = await client
       .from('ga4_page_metrics_daily')
       .select(
         'normalized_path,sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,is_sampled,is_partial'
       )
-      .in('user_id', accessibleIds)
+      .or(orFilter)
       .in('normalized_path', normalizedPaths)
       .gte('date', startDate)
       .lte('date', endDate);
