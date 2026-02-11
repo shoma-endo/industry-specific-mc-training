@@ -24,6 +24,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const summary = await ga4ImportService.syncUser(authResult.userId);
+    if (!summary) {
+      return NextResponse.json(
+        { success: false, error: ERROR_MESSAGES.GA4.NOT_CONNECTED },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ success: true, data: summary });
   } catch (error) {
     console.error('[ga4/sync] manual sync failed', error);
