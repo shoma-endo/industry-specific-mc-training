@@ -81,7 +81,9 @@ export class AnalyticsContentService {
       const items: AnalyticsContentItem[] = annotations.map((annotation, index) => ({
         rowKey: this.buildAnnotationRowKey(annotation, from + index),
         annotation,
-        ga4Summary: ga4Summaries.get(normalizeToPath(annotation?.canonical_url ?? null)) ?? null,
+        ga4Summary: this.hasValidCanonicalUrl(annotation)
+          ? (ga4Summaries.get(normalizeToPath(annotation.canonical_url!)) ?? null)
+          : null,
       }));
 
       return {
@@ -112,7 +114,11 @@ export class AnalyticsContentService {
     }
 
     const normalizedPaths = Array.from(
-      new Set(annotations.map(annotation => normalizeToPath(annotation?.canonical_url ?? null)))
+      new Set(
+        annotations
+          .filter(a => this.hasValidCanonicalUrl(a))
+          .map(a => normalizeToPath(a.canonical_url!))
+      )
     );
 
     if (normalizedPaths.length === 0) {
@@ -217,6 +223,10 @@ export class AnalyticsContentService {
     }
 
     return { userId: authResult.userId };
+  }
+
+  private hasValidCanonicalUrl(a: AnnotationRecord): boolean {
+    return a?.canonical_url != null && String(a.canonical_url).trim() !== '';
   }
 
   private buildAnnotationRowKey(annotation: AnnotationRecord, fallbackIndex: number): string {
