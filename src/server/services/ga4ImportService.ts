@@ -118,9 +118,7 @@ export class Ga4ImportService {
     const endDate = yesterdayJst;
 
     if (startDate > endDate) {
-      await this.supabaseService.updateGscCredential(userId, {
-        ga4LastSyncedAt: Ga4ImportService.toEndOfDayUtcIso(endDate),
-      });
+      // データ未取得時に同期カーソルを進めると欠損の原因になるため、更新しない
       return null;
     }
 
