@@ -57,7 +57,19 @@ const ensureAccessToken = async (userId: string, refreshToken: string, credentia
       }),
   });
 
-const getAuthUserId = async () => {
+interface AuthSuccess {
+  userId: string;
+  ownerUserId: string | null;
+  error?: undefined;
+}
+interface AuthFailure {
+  error: string;
+  userId?: undefined;
+  ownerUserId?: undefined;
+}
+type AuthResult = AuthSuccess | AuthFailure;
+
+const getAuthUserId = async (): Promise<AuthResult> => {
   const { accessToken, refreshToken } = await getLiffTokensFromCookies();
   const authResult = await authMiddleware(accessToken, refreshToken);
   if (authResult.error || !authResult.userId) {
@@ -84,10 +96,11 @@ type Ga4ActionContextResult =
   | { success: false; error: string; needsReauth?: boolean };
 
 const resolveGa4ActionContext = async (): Promise<Ga4ActionContextResult> => {
-  const { userId, ownerUserId, error } = await getAuthUserId();
-  if (error || !userId) {
-    return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+  const authResult = await getAuthUserId();
+  if ('error' in authResult) {
+    return { success: false, error: authResult.error };
   }
+  const { userId, ownerUserId } = authResult;
   if (ownerUserId) {
     return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
   }
@@ -107,10 +120,11 @@ const resolveGa4ActionContext = async (): Promise<Ga4ActionContextResult> => {
 
 export async function fetchGa4Status() {
   try {
-    const { userId, ownerUserId, error } = await getAuthUserId();
-    if (error || !userId) {
-      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+    const authResult = await getAuthUserId();
+    if ('error' in authResult) {
+      return { success: false, error: authResult.error };
     }
+    const { userId, ownerUserId } = authResult;
     if (ownerUserId) {
       return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
     }
@@ -186,9 +200,17 @@ export async function fetchGa4KeyEvents(propertyId: string) {
   }
 }
 
+/**
+ * GA4設定を保存する。DB更新のみでGA4 APIを呼ばないため、
+ * resolveGa4ActionContext（GA4スコープ検証）は行わない。
+ */
 export async function saveGa4Settings(input: unknown) {
   try {
-    const { userId, ownerUserId, error } = await getAuthUserId();
+    const authResult = await getAuthUserId();
+    if ('error' in authResult) {
+      return { success: false, error: authResult.error };
+    }
+    const { userId, ownerUserId } = authResult;
     if (error || !userId) {
       return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
