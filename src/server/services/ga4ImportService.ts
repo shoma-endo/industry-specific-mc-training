@@ -39,6 +39,10 @@ export interface Ga4SyncSummary {
   isPartial: boolean;
 }
 
+export type Ga4SyncResult =
+  | { ok: true; data: Ga4SyncSummary }
+  | { ok: false; reason: 'not_connected' | 'already_synced' };
+
 export class Ga4ImportService {
   static readonly MAX_USERS_PER_BATCH = 10;
   static readonly MAX_DURATION_MS = 280_000;
@@ -100,10 +104,10 @@ export class Ga4ImportService {
     return { processed, attempted, stoppedReason };
   }
 
-  async syncUser(userId: string): Promise<Ga4SyncSummary | null> {
+  async syncUser(userId: string): Promise<Ga4SyncResult> {
     const credential = await this.supabaseService.getGscCredentialByUserId(userId);
     if (!credential?.ga4PropertyId) {
-      return null;
+      return { ok: false, reason: 'not_connected' };
     }
     const propertyId = credential.ga4PropertyId;
     const scope = credential.scope ?? [];
@@ -124,7 +128,7 @@ export class Ga4ImportService {
 
     if (startDate > endDate) {
       // データ未取得時に同期カーソルを進めると欠損の原因になるため、更新しない
-      return null;
+      return { ok: false, reason: 'already_synced' };
     }
 
     const conversionEvents = Array.isArray(credential.ga4ConversionEvents)
@@ -170,13 +174,16 @@ export class Ga4ImportService {
     });
 
     return {
-      userId,
-      propertyId,
-      startDate,
-      endDate,
-      upserted: rowsToSave.length,
-      isSampled: baseReport.isSampled || eventReport.isSampled,
-      isPartial: baseReport.isPartial || eventReport.isPartial,
+      ok: true,
+      data: {
+        userId,
+        propertyId,
+        startDate,
+        endDate,
+        upserted: rowsToSave.length,
+        isSampled: baseReport.isSampled || eventReport.isSampled,
+        isPartial: baseReport.isPartial || eventReport.isPartial,
+      },
     };
   }
 
