@@ -171,17 +171,17 @@ export default function GscSetupClient({
 
   const handleSaveGa4Settings = async () => {
     const parsedEngagement =
-      ga4EngagementThreshold.trim() === '' ? null : Number(ga4EngagementThreshold);
+      ga4EngagementThreshold.trim() === '' ? undefined : Number(ga4EngagementThreshold);
     const parsedReadRate =
-      ga4ReadRateThreshold.trim() === '' ? null : Number(ga4ReadRateThreshold);
-    const thresholdEngagement = Number.isNaN(parsedEngagement) ? null : parsedEngagement;
-    const thresholdReadRate = Number.isNaN(parsedReadRate) ? null : parsedReadRate;
+      ga4ReadRateThreshold.trim() === '' ? undefined : Number(ga4ReadRateThreshold);
+    const thresholdEngagement = Number.isNaN(parsedEngagement) ? undefined : parsedEngagement;
+    const thresholdReadRate = Number.isNaN(parsedReadRate) ? undefined : parsedReadRate;
 
     await handleAsyncAction(
       () =>
         saveGa4Settings({
           propertyId: selectedGa4PropertyId,
-          propertyName: connectedGa4Property?.displayName ?? null,
+          propertyName: connectedGa4Property?.displayName ?? undefined,
           conversionEvents: selectedGa4Events,
           thresholdEngagementSec: thresholdEngagement,
           thresholdReadRate,
