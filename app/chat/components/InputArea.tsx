@@ -85,6 +85,10 @@ interface InputAreaProps {
   services?: Service[];
   selectedServiceId?: string | null;
   onServiceChange?: (serviceId: string) => void;
+  // Step5 バージョン管理トグル
+  step5VersioningEnabled?: boolean;
+  onStep5VersioningChange?: (enabled: boolean) => void;
+  step5JustReEnabled?: boolean;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -130,6 +134,9 @@ const InputArea: React.FC<InputAreaProps> = ({
   services,
   selectedServiceId,
   onServiceChange,
+  step5VersioningEnabled = true,
+  onStep5VersioningChange,
+  step5JustReEnabled = false,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -159,6 +166,12 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS.blog_creation_step1;
       }
 
+      // Step5 OFF時は専用のプレースホルダーを表示
+      const currentStep = initialBlogStep ?? 'step1';
+      if (currentStep === 'step5' && !step5VersioningEnabled) {
+        return BLOG_PLACEHOLDERS.blog_creation_step5_chat;
+      }
+
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
       // ブログ作成進行中（hasDetectedBlogStep === true）の場合のみ適用
       if (nextStepForPlaceholder) {
@@ -169,7 +182,6 @@ const InputArea: React.FC<InputAreaProps> = ({
       // フォールバック: 次のステップのプレースホルダーを表示
       // - waitingActionまたはhasDetectedBlogStep時は次のステップへ
       // - それ以外は現在のステップ
-      const currentStep = initialBlogStep ?? 'step1';
       const currentIdx = BLOG_STEP_IDS.indexOf(currentStep);
       const shouldAdvance = hasDetectedBlogStep; // すでにブログ作成が始まっている場合は次へ
       const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
@@ -223,8 +235,7 @@ const InputArea: React.FC<InputAreaProps> = ({
     try {
       await onLoadBlogArticle();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'ブログ記事の取得に失敗しました';
+      const message = error instanceof Error ? error.message : 'ブログ記事の取得に失敗しました';
       setBlogArticleError(message);
     } finally {
       setIsLoadingBlogArticle(false);
@@ -286,18 +297,31 @@ const InputArea: React.FC<InputAreaProps> = ({
         effectiveModel = `blog_creation_${fallbackStep}`;
         onModelChange?.('blog_creation', fallbackStep);
       } else {
-        const shouldAdvance =
-          blogFlowStatus === 'waitingAction' ||
-          (blogFlowStatus === 'idle' && hasDetectedBlogStep);
+        // Step5 OFF→ON 復帰直後は Step5 に固定（ステップ進行を抑止）
+        if (step5JustReEnabled && currentStep === 'step5') {
+          effectiveModel = 'blog_creation_step5';
+          onModelChange?.('blog_creation', 'step5');
+        }
+        // Step5 + OFF: 見出し修正チャット（バージョン管理対象外）
+        else if (currentStep === 'step5' && !step5VersioningEnabled) {
+          effectiveModel = 'blog_creation_step5_chat';
+          // モデル変更は通知しない（step5のまま）
+        }
+        // 通常のステップ進行ロジック
+        else {
+          const shouldAdvance =
+            blogFlowStatus === 'waitingAction' ||
+            (blogFlowStatus === 'idle' && hasDetectedBlogStep);
 
-        // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
-        const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
-        // 配列範囲内に収める（最後のステップを超えない）
-        const targetIdx = Math.min(nextIdx, BLOG_STEP_IDS.length - 1);
-        const targetStep = BLOG_STEP_IDS[targetIdx] as BlogStepId;
+          // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
+          const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
+          // 配列範囲内に収める（最後のステップを超えない）
+          const targetIdx = Math.min(nextIdx, BLOG_STEP_IDS.length - 1);
+          const targetStep = BLOG_STEP_IDS[targetIdx] as BlogStepId;
 
-        effectiveModel = `blog_creation_${targetStep}`;
-        onModelChange?.('blog_creation', targetStep);
+          effectiveModel = `blog_creation_${targetStep}`;
+          onModelChange?.('blog_creation', targetStep);
+        }
       }
     }
 
@@ -512,10 +536,10 @@ const InputArea: React.FC<InputAreaProps> = ({
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
               onManualStepChange={onManualStepChange}
+              step5VersioningEnabled={step5VersioningEnabled}
+              onStep5VersioningChange={onStep5VersioningChange}
             />
-            {blogArticleError && (
-              <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>
-            )}
+            {blogArticleError && <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>}
           </div>
         )}
         <div className="px-3 py-2">
@@ -539,10 +563,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   <Button
                     type="submit"
                     size="icon"
-                    disabled={
-                      isInputDisabled ||
-                      !input.trim()
-                    }
+                    disabled={isInputDisabled || !input.trim()}
                     className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
                   >
                     <Send size={18} className="text-white" />
