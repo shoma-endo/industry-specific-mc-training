@@ -45,6 +45,7 @@ const formatGa4SettingsValidationError = (error: z.ZodError): string => {
 const ensureAccessToken = async (userId: string, refreshToken: string, credential: {
   accessToken?: string | null;
   accessTokenExpiresAt?: string | null;
+  scope?: string[] | null;
 }) =>
   ensureValidAccessToken({ ...credential, refreshToken }, {
     refreshAccessToken: (rt) => gscService.refreshAccessToken(rt),
@@ -52,7 +53,7 @@ const ensureAccessToken = async (userId: string, refreshToken: string, credentia
       supabaseService.updateGscCredential(userId, {
         accessToken,
         accessTokenExpiresAt: expiresAt,
-        scope: scope ?? null,
+        scope: scope ?? credential.scope ?? null,
       }),
   });
 
