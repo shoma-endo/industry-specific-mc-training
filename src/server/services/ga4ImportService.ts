@@ -182,7 +182,12 @@ export class Ga4ImportService {
 
   private async ensureAccessToken(
     userId: string,
-    credential: { refreshToken: string; accessToken?: string | null; accessTokenExpiresAt?: string | null }
+    credential: {
+      refreshToken: string;
+      accessToken?: string | null;
+      accessTokenExpiresAt?: string | null;
+      scope?: string[] | null;
+    }
   ): Promise<string> {
     return ensureValidAccessToken(credential, {
       refreshAccessToken: (rt) => this.gscService.refreshAccessToken(rt),
@@ -190,7 +195,7 @@ export class Ga4ImportService {
         this.supabaseService.updateGscCredential(userId, {
           accessToken,
           accessTokenExpiresAt: expiresAt,
-          scope: scope ?? null,
+          scope: scope ?? credential.scope ?? null,
         }),
     });
   }
