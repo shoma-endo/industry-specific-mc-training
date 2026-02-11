@@ -226,18 +226,18 @@ export default function GscSetupClient({
     if (isGa4DirtyRef.current) {
       return;
     }
-    if (ga4Status.propertyId) {
-      setSelectedGa4PropertyId(ga4Status.propertyId);
-    }
-    if (Array.isArray(ga4Status.conversionEvents)) {
-      setSelectedGa4Events(ga4Status.conversionEvents);
-    }
-    if (ga4Status.thresholdEngagementSec != null) {
-      setGa4EngagementThreshold(String(ga4Status.thresholdEngagementSec));
-    }
-    if (ga4Status.thresholdReadRate != null) {
-      setGa4ReadRateThreshold(String(ga4Status.thresholdReadRate));
-    }
+    setSelectedGa4PropertyId(ga4Status.propertyId ?? '');
+    setSelectedGa4Events(
+      Array.isArray(ga4Status.conversionEvents) ? ga4Status.conversionEvents : []
+    );
+    setGa4EngagementThreshold(
+      ga4Status.thresholdEngagementSec != null
+        ? String(ga4Status.thresholdEngagementSec)
+        : ''
+    );
+    setGa4ReadRateThreshold(
+      ga4Status.thresholdReadRate != null ? String(ga4Status.thresholdReadRate) : ''
+    );
   }, [
     ga4Status.propertyId,
     ga4Status.conversionEvents,
