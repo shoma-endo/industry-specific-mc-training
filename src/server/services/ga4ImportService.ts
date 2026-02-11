@@ -147,7 +147,7 @@ export class Ga4ImportService {
 
     const rowsToSave = merged.map(row => ({
       userId,
-      propertyId: credential.ga4PropertyId as string,
+      propertyId: credential.ga4PropertyId,
       date: row.date,
       pagePath: row.pagePath,
       normalizedPath: row.normalizedPath,
