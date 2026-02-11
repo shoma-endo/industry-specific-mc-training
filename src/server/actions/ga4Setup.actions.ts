@@ -13,6 +13,7 @@ import { toGa4ConnectionStatus } from '@/server/lib/ga4-status';
 import type { Ga4ConnectionStatus } from '@/types/ga4';
 import type { GscCredential } from '@/types/gsc';
 import { isGa4ReauthError } from '@/domain/errors/ga4-error-handlers';
+import { isActualOwner } from '@/authUtils';
 import { GA4_SCOPE } from '@/lib/constants';
 import { ensureValidAccessToken } from '@/server/services/googleTokenService';
 import type { ServerActionResult } from '@/lib/async-handler';
@@ -61,6 +62,7 @@ const ensureAccessToken = async (userId: string, refreshToken: string, credentia
 interface AuthSuccess {
   userId: string;
   ownerUserId: string | null;
+  role: import('@/types/user').UserRole | null;
   error?: undefined;
 }
 interface AuthFailure {
@@ -84,6 +86,7 @@ const getAuthUserId = async (): Promise<AuthResult> => {
   return {
     userId: realUserId,
     ownerUserId: isViewModeAsOwner ? null : (authResult.ownerUserId ?? null),
+    role: authResult.userDetails?.role ?? null,
   };
 };
 
@@ -211,9 +214,12 @@ export async function saveGa4Settings(input: unknown) {
     if ('error' in authResult) {
       return { success: false, error: authResult.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
-    const { userId, ownerUserId } = authResult;
+    const { userId, ownerUserId, role } = authResult;
     if (ownerUserId) {
       return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
+    }
+    if (isActualOwner(role, ownerUserId)) {
+      return { success: false, error: ERROR_MESSAGES.AUTH.VIEW_MODE_NOT_ALLOWED };
     }
 
     const parsed = ga4SettingsSchema.safeParse(input);
