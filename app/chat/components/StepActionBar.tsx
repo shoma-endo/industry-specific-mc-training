@@ -2,6 +2,8 @@
 import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
 import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { BookMarked, BookOpen, FilePenLine, Loader2, SkipBack, SkipForward } from 'lucide-react';
 
 interface StepActionBarProps {
@@ -19,6 +21,9 @@ interface StepActionBarProps {
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   isLoadBlogArticleLoading?: boolean;
   onManualStepChange?: ((step: BlogStepId) => void) | undefined;
+  // Step5 バージョン管理トグル
+  step5VersioningEnabled?: boolean;
+  onStep5VersioningChange?: (enabled: boolean) => void;
 }
 
 export interface StepActionBarRef {
@@ -42,6 +47,8 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
       onManualStepChange,
+      step5VersioningEnabled = true,
+      onStep5VersioningChange,
     },
     ref
   ) => {
@@ -59,15 +66,18 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     }));
 
     // UI制御
-    const isStepReady = flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
+    const isStepReady =
+      flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
     const isDisabled = disabled || !isStepReady;
     const isStep7 = displayStep === 'step7';
     const isStep1 = displayStep === 'step1';
+    const isStep5 = displayStep === 'step5';
     const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
     const showTitleMetaButton =
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
     const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
+    const showStep5Toggle = isStep5 && typeof onStep5VersioningChange === 'function';
 
     // ラベル
     const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
@@ -98,6 +108,29 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             {nextStepLabel ? ` ／ 次の${nextStepLabel}に進むにはメッセージを送信してください` : ''}
           </span>
         </div>
+        {showStep5Toggle && (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="step5-versioning-toggle"
+                checked={step5VersioningEnabled}
+                onCheckedChange={onStep5VersioningChange}
+                disabled={isDisabled}
+              />
+              <Label
+                htmlFor="step5-versioning-toggle"
+                className="text-xs text-gray-700 cursor-pointer"
+              >
+                バージョンとして保存する
+              </Label>
+            </div>
+            {!step5VersioningEnabled && (
+              <p className="text-xs text-gray-500 max-w-xs">
+                Canvasを使わず通常チャットで修正します。ONに戻して送信するとバージョンとして保存されます。
+              </p>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-2">
           {showBackButton && (
             <Button
