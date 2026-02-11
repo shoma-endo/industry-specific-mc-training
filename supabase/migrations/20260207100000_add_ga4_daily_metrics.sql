@@ -127,7 +127,7 @@ create table if not exists public.ga4_page_metrics_daily (
   imported_at timestamptz not null default timezone('utc', now()),
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
-  unique (user_id, property_id, date, page_path)
+  unique (user_id, property_id, date, normalized_path)
 );
 -- Rollback: drop table if exists public.ga4_page_metrics_daily;
 

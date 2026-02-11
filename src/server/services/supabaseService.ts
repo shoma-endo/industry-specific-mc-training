@@ -1311,7 +1311,7 @@ export class SupabaseService {
       }));
 
       const { error } = await this.supabase.from('ga4_page_metrics_daily').upsert(payload, {
-        onConflict: 'user_id,property_id,date,page_path',
+        onConflict: 'user_id,property_id,date,normalized_path',
       });
 
       if (error) {
