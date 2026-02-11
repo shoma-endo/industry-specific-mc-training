@@ -27,6 +27,7 @@ interface Ga4RunReportResponse {
   metadata?: {
     dataLossFromOtherRow?: boolean;
     subjectToThresholding?: boolean;
+    samplingMetadatas?: unknown[];
   };
 }
 

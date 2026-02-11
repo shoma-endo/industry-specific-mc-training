@@ -219,7 +219,7 @@ export async function saveGa4Settings(input: unknown) {
       return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
     }
     if (isActualOwner(role, ownerUserId)) {
-      return { success: false, error: ERROR_MESSAGES.AUTH.VIEW_MODE_NOT_ALLOWED };
+      return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
     }
 
     const parsed = ga4SettingsSchema.safeParse(input);
