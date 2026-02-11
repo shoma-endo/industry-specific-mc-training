@@ -34,7 +34,7 @@ const ensureAccessToken = async (userId: string, credential: GscCredential): Pro
       supabaseService.updateGscCredential(userId, {
         accessToken,
         accessTokenExpiresAt: expiresAt,
-        scope: scope ?? null,
+        scope: scope ?? credential.scope ?? null,
       }),
   });
 
