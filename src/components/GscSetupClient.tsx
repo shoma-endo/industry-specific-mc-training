@@ -759,7 +759,9 @@ export default function GscSetupClient({
               <h4 className="font-medium mb-2">必要な権限</h4>
               <ul className="list-disc list-inside space-y-1 ml-4">
                 <li>Search Consoleでサイト全体の「所有者」または「フルユーザー」権限が必要です</li>
-                <li>読み取り専用スコープ（webmasters.readonly）のみを使用します</li>
+                <li>
+                  読み取り専用スコープ（webmasters.readonly / analytics.readonly）を使用します
+                </li>
                 <li>データの書き込み・削除は一切行いません</li>
               </ul>
             </div>
