@@ -22,8 +22,8 @@ interface StepActionBarProps {
   isLoadBlogArticleLoading?: boolean;
   onManualStepChange?: ((step: BlogStepId) => void) | undefined;
   // Step5 バージョン管理トグル
-  step5VersioningEnabled?: boolean;
-  onStep5VersioningChange?: (enabled: boolean) => void;
+  step5VersioningEnabled?: boolean | undefined;
+  onStep5VersioningChange?: ((enabled: boolean) => void) | undefined;
 }
 
 export interface StepActionBarRef {
