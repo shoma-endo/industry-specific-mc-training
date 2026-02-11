@@ -726,7 +726,7 @@ export default function GscSetupClient({
               type="button"
               variant="outline"
               onClick={handleGa4ManualSync}
-              disabled={isReadOnly || isGa4Syncing || !selectedGa4PropertyId}
+              disabled={isReadOnly || isGa4Syncing || !ga4Status.propertyId}
               className="flex items-center gap-2"
             >
               <BarChart3 className="h-4 w-4" />
