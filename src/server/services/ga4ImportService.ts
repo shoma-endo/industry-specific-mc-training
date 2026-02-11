@@ -264,9 +264,11 @@ export class Ga4ImportService {
       });
 
       const responseRows = Array.isArray(response.rows) ? response.rows : [];
+      const samplingMetadatas = response.metadata?.samplingMetadatas;
       isSampled ||=
         Boolean(response.metadata?.dataLossFromOtherRow) ||
-        Boolean(response.metadata?.subjectToThresholding);
+        Boolean(response.metadata?.subjectToThresholding) ||
+        (Array.isArray(samplingMetadatas) && samplingMetadatas.length > 0);
 
       if (response.rowCount && response.rowCount > Ga4ImportService.MAX_TOTAL_ROWS) {
         isPartial = true;
