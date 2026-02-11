@@ -49,8 +49,12 @@ export class Ga4ImportService {
   private readonly gscService = new GscService();
   private readonly ga4Service = new Ga4Service();
 
-  private static toEndOfDayUtcIso(dateIso: string): string {
-    return `${dateIso}T23:59:59.999Z`;
+  /**
+   * JST日付(YYYY-MM-DD)を、getJstDateISOFromTimestamp で同じ日付に復元できるUTCタイムスタンプに変換する。
+   * 23:59:59Z だと JST で翌日になるため 0時UTC を使用する。
+   */
+  private static toUtcMidnightIso(dateIso: string): string {
+    return `${dateIso}T00:00:00Z`;
   }
 
   /**
@@ -161,7 +165,7 @@ export class Ga4ImportService {
     await this.supabaseService.upsertGa4PageMetricsDaily(rowsToSave);
     await this.supabaseService.updateGscCredential(userId, {
       // 次回の startDate を正しく進めるため、同期実行時刻ではなく取り込み済み最終日を保持する
-      ga4LastSyncedAt: Ga4ImportService.toEndOfDayUtcIso(endDate),
+      ga4LastSyncedAt: Ga4ImportService.toUtcMidnightIso(endDate),
     });
 
     return {
