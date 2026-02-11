@@ -238,7 +238,12 @@ export default function GscSetupClient({
     if (ga4Status.thresholdReadRate != null) {
       setGa4ReadRateThreshold(String(ga4Status.thresholdReadRate));
     }
-  }, [ga4Status]);
+  }, [
+    ga4Status.propertyId,
+    ga4Status.conversionEvents,
+    ga4Status.thresholdEngagementSec,
+    ga4Status.thresholdReadRate,
+  ]);
 
   useEffect(() => {
     if (selectedGa4PropertyId) {
