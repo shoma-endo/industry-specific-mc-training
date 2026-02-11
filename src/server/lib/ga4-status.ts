@@ -1,18 +1,14 @@
 import type { Ga4ConnectionStatus } from '@/types/ga4';
 import type { GscCredential } from '@/types/gsc';
-
-const ACCESS_TOKEN_SAFETY_MARGIN_MS = 60 * 1000; // 1 minute
-const GA4_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
+import { GA4_SCOPE } from '@/lib/constants';
+import { hasReusableAccessToken } from '@/server/services/googleTokenService';
 
 export function toGa4ConnectionStatus(credential: GscCredential | null): Ga4ConnectionStatus {
   if (!credential) {
     return { connected: false };
   }
 
-  const hasValidToken =
-    credential.accessToken &&
-    credential.accessTokenExpiresAt &&
-    new Date(credential.accessTokenExpiresAt).getTime() - Date.now() > ACCESS_TOKEN_SAFETY_MARGIN_MS;
+  const hasValidToken = hasReusableAccessToken(credential);
 
   const scope = credential.scope ?? [];
   const scopeMissing = !scope.includes(GA4_SCOPE);

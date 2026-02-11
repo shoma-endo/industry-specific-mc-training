@@ -11,6 +11,7 @@ import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { getLiffTokensFromCookies } from '@/server/lib/auth-helpers';
 import { toGa4ConnectionStatus } from '@/server/lib/ga4-status';
 import type { Ga4ConnectionStatus, Ga4KeyEvent, Ga4PropertySummary } from '@/types/ga4';
+import type { GscCredential } from '@/types/gsc';
 import { isGa4ReauthError } from '@/domain/errors/ga4-error-handlers';
 import { GA4_SCOPE } from '@/lib/constants';
 import { ensureValidAccessToken } from '@/server/services/googleTokenService';
@@ -72,6 +73,37 @@ const getAuthUserId = async () => {
   };
 };
 
+interface Ga4ActionContext {
+  userId: string;
+  credential: GscCredential;
+}
+
+type Ga4ActionContextResult =
+  | { success: true; data: Ga4ActionContext }
+  | { success: false; error: string; needsReauth?: boolean };
+
+const resolveGa4ActionContext = async (): Promise<Ga4ActionContextResult> => {
+  const { userId, ownerUserId, error } = await getAuthUserId();
+  if (error || !userId) {
+    return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+  }
+  if (ownerUserId) {
+    return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
+  }
+
+  const credential = await supabaseService.getGscCredentialByUserId(userId);
+  if (!credential) {
+    return { success: false, error: ERROR_MESSAGES.GA4.NOT_CONNECTED };
+  }
+
+  const scope = credential.scope ?? [];
+  if (!scope.includes(GA4_SCOPE)) {
+    return { success: false, error: ERROR_MESSAGES.GA4.SCOPE_MISSING, needsReauth: true };
+  }
+
+  return { success: true, data: { userId, credential } };
+};
+
 export async function fetchGa4Status() {
   try {
     const { userId, ownerUserId, error } = await getAuthUserId();
@@ -93,24 +125,15 @@ export async function fetchGa4Status() {
 
 export async function fetchGa4Properties() {
   try {
-    const { userId, ownerUserId, error } = await getAuthUserId();
-    if (error || !userId) {
-      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
-    }
-    if (ownerUserId) {
-      return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
-    }
-
-    const credential = await supabaseService.getGscCredentialByUserId(userId);
-    if (!credential) {
-      return { success: false, error: ERROR_MESSAGES.GA4.NOT_CONNECTED };
+    const contextResult = await resolveGa4ActionContext();
+    if (!contextResult.success) {
+      if (contextResult.needsReauth) {
+        return { success: false, error: contextResult.error, needsReauth: true };
+      }
+      return { success: false, error: contextResult.error };
     }
 
-    const scope = credential.scope ?? [];
-    if (!scope.includes(GA4_SCOPE)) {
-      return { success: false, error: ERROR_MESSAGES.GA4.SCOPE_MISSING, needsReauth: true };
-    }
-
+    const { userId, credential } = contextResult.data;
     const accessToken = await ensureAccessToken(userId, credential.refreshToken, credential);
     const properties = await ga4Service.listProperties(accessToken);
 
@@ -131,27 +154,19 @@ export async function fetchGa4Properties() {
 
 export async function fetchGa4KeyEvents(propertyId: string) {
   try {
-    const { userId, ownerUserId, error } = await getAuthUserId();
-    if (error || !userId) {
-      return { success: false, error: error || ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
-    }
-    if (ownerUserId) {
-      return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
-    }
     if (!propertyId) {
       return { success: false, error: ERROR_MESSAGES.GA4.PROPERTY_ID_REQUIRED };
     }
 
-    const credential = await supabaseService.getGscCredentialByUserId(userId);
-    if (!credential) {
-      return { success: false, error: ERROR_MESSAGES.GA4.NOT_CONNECTED };
+    const contextResult = await resolveGa4ActionContext();
+    if (!contextResult.success) {
+      if (contextResult.needsReauth) {
+        return { success: false, error: contextResult.error, needsReauth: true };
+      }
+      return { success: false, error: contextResult.error };
     }
 
-    const scope = credential.scope ?? [];
-    if (!scope.includes(GA4_SCOPE)) {
-      return { success: false, error: ERROR_MESSAGES.GA4.SCOPE_MISSING, needsReauth: true };
-    }
-
+    const { userId, credential } = contextResult.data;
     const accessToken = await ensureAccessToken(userId, credential.refreshToken, credential);
     const keyEvents = await ga4Service.listKeyEvents(accessToken, propertyId);
 
