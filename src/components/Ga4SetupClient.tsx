@@ -32,7 +32,7 @@ interface Ga4SetupClientProps {
   isOauthConfigured: boolean;
 }
 
-const OAUTH_START_PATH = '/api/gsc/oauth/start';
+const OAUTH_START_PATH = '/api/gsc/oauth/start?returnTo=/setup/ga4';
 
 export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4SetupClientProps) {
   const { user } = useLiffContext();

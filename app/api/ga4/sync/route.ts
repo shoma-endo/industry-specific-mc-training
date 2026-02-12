@@ -30,9 +30,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (!result.ok && result.reason === 'already_synced') {
+      return NextResponse.json({
+        success: true,
+        data: null,
+        alreadySynced: true,
+      });
+    }
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, error: ERROR_MESSAGES.GA4.SYNC_FAILED },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({
       success: true,
-      data: result.ok ? result.data : null,
+      data: result.data,
     });
   } catch (error) {
     console.error('[ga4/sync] manual sync failed', error);
