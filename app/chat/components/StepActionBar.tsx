@@ -1,6 +1,6 @@
 'use client';
 import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
-import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS, VERSIONING_TOGGLE_STEP } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -71,7 +71,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const isDisabled = disabled || !isStepReady;
     const isStep7 = displayStep === 'step7';
     const isStep1 = displayStep === 'step1';
-    const isStep5 = displayStep === 'step5';
+    const isStep5 = displayStep === VERSIONING_TOGGLE_STEP;
     const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
     const showTitleMetaButton =
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';

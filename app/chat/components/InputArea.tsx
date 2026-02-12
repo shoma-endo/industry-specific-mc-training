@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Bot, Send, Menu, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
+import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId, VERSIONING_TOGGLE_STEP } from '@/lib/constants';
 import { useLiffContext } from '@/components/LiffProvider';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import ChatSearch from './search/ChatSearch';
@@ -168,7 +168,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
       // Step5 OFF時は専用のプレースホルダーを表示
       const currentStep = initialBlogStep ?? 'step1';
-      if (currentStep === 'step5' && !step5VersioningEnabled) {
+      if (currentStep === VERSIONING_TOGGLE_STEP && !step5VersioningEnabled) {
         return BLOG_PLACEHOLDERS.blog_creation_step5_chat;
       }
 
@@ -298,12 +298,12 @@ const InputArea: React.FC<InputAreaProps> = ({
         onModelChange?.('blog_creation', fallbackStep);
       } else {
         // Step5 OFF→ON 復帰直後は Step5 に固定（ステップ進行を抑止）
-        if (step5JustReEnabled && currentStep === 'step5') {
+        if (step5JustReEnabled && currentStep === VERSIONING_TOGGLE_STEP) {
           effectiveModel = 'blog_creation_step5';
           onModelChange?.('blog_creation', 'step5');
         }
         // Step5 + OFF: 見出し修正チャット（バージョン管理対象外）
-        else if (currentStep === 'step5' && !step5VersioningEnabled) {
+        else if (currentStep === VERSIONING_TOGGLE_STEP && !step5VersioningEnabled) {
           effectiveModel = 'blog_creation_step5_chat';
           // モデル変更は通知しない（step5のまま）
         }

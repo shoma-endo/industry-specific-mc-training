@@ -26,7 +26,7 @@ import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
 import { Service } from '@/server/schemas/brief.schema';
-import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_IDS, VERSIONING_TOGGLE_STEP } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
 
@@ -1006,7 +1006,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // Step5 バージョン管理の派生状態（useEffect/useMemo不要、React Compilerに委ねる）
   // Step5以外では常に ON として扱う
   const effectiveStep5VersioningEnabled =
-    latestBlogStep === 'step5' ? step5VersioningEnabled : true;
+    latestBlogStep === VERSIONING_TOGGLE_STEP ? step5VersioningEnabled : true;
 
   // ガード解除条件を計算で判定
   const isGuardReleaseConditionMet = (() => {
@@ -1541,7 +1541,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           step5JustReEnabled: effectiveStep5JustReEnabled,
         }}
       />
-      {canvasPanelOpen && !(latestBlogStep === 'step5' && !effectiveStep5VersioningEnabled) && (
+      {canvasPanelOpen && !(latestBlogStep === VERSIONING_TOGGLE_STEP && !effectiveStep5VersioningEnabled) && (
         <CanvasPanel
           onClose={() => {
             setCanvasPanelOpen(false);

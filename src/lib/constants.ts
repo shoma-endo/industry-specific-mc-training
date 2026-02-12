@@ -130,6 +130,9 @@ export const BLOG_STEP_LABELS: Record<BlogStepId, string> = {
   step7: '7. 本文作成',
 };
 
+// Step5 バージョン管理トグル対象ステップ
+export const VERSIONING_TOGGLE_STEP: BlogStepId = 'step5';
+
 // Step7判定（canonicalUrlsの適用/表示で利用）
 export const isStep7 = (stepOrModel: string) =>
   stepOrModel === 'step7' || stepOrModel === 'blog_creation_step7';
