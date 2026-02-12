@@ -59,7 +59,8 @@ export async function GET(request: NextRequest) {
     stateReturnTo && ALLOWED_RETURN_TO_PATHS.has(stateReturnTo)
       ? stateReturnTo
       : DEFAULT_REDIRECT_PATH;
-  const response = NextResponse.redirect(new URL(`${returnPath}?connected=1`, request.url));
+  const appOrigin = new URL(redirectUri).origin;
+  const response = NextResponse.redirect(`${appOrigin}${returnPath}?connected=1`);
   response.cookies.delete(stateCookieName);
 
   const { accessToken: liffAccessToken, refreshToken } = getLiffTokensFromRequest(request);
