@@ -121,7 +121,6 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
         onSuccess: data => {
           isGa4DirtyRef.current = false;
           setStatus(data as Ga4ConnectionStatus);
-          setAlertMessage('GA4設定を保存しました');
           toast.success('GA4設定を保存しました');
         },
         setLoading: setIsSavingGa4,
