@@ -26,6 +26,7 @@ import { useGa4Setup } from '@/hooks/useGa4Setup';
 import { handleAsyncAction } from '@/lib/async-handler';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { useLiffContext } from '@/components/LiffProvider';
+import { toast } from 'sonner';
 
 interface Ga4SetupClientProps {
   initialStatus: Ga4ConnectionStatus;
@@ -121,6 +122,7 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
           isGa4DirtyRef.current = false;
           setStatus(data as Ga4ConnectionStatus);
           setAlertMessage('GA4設定を保存しました');
+          toast.success('GA4設定を保存しました');
         },
         setLoading: setIsSavingGa4,
         setMessage: setAlertMessage,
@@ -193,10 +195,6 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
       refetchKeyEvents(selectedGa4PropertyId);
     }
   }, [selectedGa4PropertyId, refetchKeyEvents]);
-
-  useEffect(() => {
-    handleRefreshGa4Status();
-  }, [handleRefreshGa4Status]);
 
   useEffect(() => {
     setGa4NeedsReauth(status.needsReauth ?? false);
