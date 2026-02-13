@@ -110,27 +110,28 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
           </span>
         </div>
         {showStep5Toggle && (
-          <div className="flex items-center gap-2">
-            <Switch
-              id="step5-versioning-toggle"
-              checked={step5VersioningEnabled}
-              onCheckedChange={onStep5VersioningChange}
-              disabled={isDisabled}
-            />
-            <Tooltip>
-              <TooltipTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="step5-versioning-toggle"
+                  checked={step5VersioningEnabled}
+                  onCheckedChange={onStep5VersioningChange}
+                  disabled={isDisabled}
+                />
                 <Label
                   htmlFor="step5-versioning-toggle"
                   className="text-xs text-gray-700 cursor-pointer"
                 >
                   バージョンで保存
                 </Label>
-              </TooltipTrigger>
-              <TooltipContent side="top" showArrow={false} className="w-fit bg-gray-800 text-white border-none shadow-md">
-                OFFにするとCanvasを使わず<br />通常チャットで修正します。<br />ONに戻して送信すると<br />バージョンとして保存されます。
-              </TooltipContent>
-            </Tooltip>
-          </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" showArrow={false} align="start" sideOffset={12} className="relative w-fit bg-yellow-100 text-gray-800 border border-yellow-300 shadow-md">
+              OFFにするとCanvasを使わず<br />通常チャットで修正します。<br />ONに戻して送信すると<br />バージョンとして保存されます。
+              <span className="absolute -bottom-1.5 left-4 size-2.5 rotate-45 bg-yellow-100 border-b border-r border-yellow-300" />
+            </TooltipContent>
+          </Tooltip>
         )}
         <div className="flex items-center gap-2">
           {showBackButton && (
