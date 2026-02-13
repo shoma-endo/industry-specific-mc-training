@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Ga4ConnectionStatus } from '@/types/ga4';
-import { ArrowLeft, Plug, RefreshCw, AlertTriangle, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Plug, RefreshCw, AlertTriangle, BarChart3, Loader2 } from 'lucide-react';
 import {
   saveGa4Settings,
   refetchGa4StatusWithValidation,
@@ -33,6 +33,16 @@ interface Ga4SetupClientProps {
 }
 
 const OAUTH_START_PATH = '/api/gsc/oauth/start?returnTo=/setup/ga4';
+const GA4_EVENT_LABELS: Record<string, string> = {
+  scroll_90: '90%スクロール',
+  purchase: '購入完了',
+  close_convert_lead: 'リード獲得完了（クローズ）',
+  qualify_lead: '有望リード判定',
+};
+
+const getGa4EventLabel = (eventName: string): string => {
+  return GA4_EVENT_LABELS[eventName] ?? eventName;
+};
 
 export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4SetupClientProps) {
   const { user } = useLiffContext();
@@ -344,7 +354,7 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
           <div className="space-y-2">
             <span className="text-sm font-medium text-gray-700">前段CVイベント</span>
             <p className="text-xs text-gray-500">
-              GA4のキーイベントから前段CVとして扱うイベントを選択してください（scroll_90は自動保存）。
+              GA4のキーイベントから前段CVとして扱うイベントを選択してください（90%スクロールは自動で保存されます）。
             </p>
             <div className="rounded-md border border-gray-200 p-3 space-y-2">
               {isLoadingKeyEvents ? (
@@ -363,7 +373,7 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
                       disabled={isReadOnly}
                     />
                     <Label htmlFor={`ga4-event-${event.eventName}`} className="text-sm">
-                      {event.eventName}
+                      {getGa4EventLabel(event.eventName)}
                     </Label>
                   </div>
                 ))
@@ -434,7 +444,8 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
               disabled={isReadOnly || isSavingGa4 || !selectedGa4PropertyId}
               className="flex items-center gap-2"
             >
-              保存
+              {isSavingGa4 && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSavingGa4 ? '保存中...' : '保存'}
             </Button>
             <Button
               type="button"
