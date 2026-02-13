@@ -69,6 +69,94 @@ GA4 Data API の制約（`eventName` ディメンション追加でベース指�
 
 ---
 
+## GA4分析専用画面（MVP追記）
+
+### 目的
+
+- `Analytics` 一覧を「記事の優先順位付け（トリアージ）」に集中させる
+- GA4の時系列・分布・比較分析は専用画面で行う
+- GSCダッシュボードと同様に `recharts` を利用し、UI/実装パターンを統一する
+
+### 画面URL（案）
+
+- `GET /ga4-dashboard`
+- クエリパラメータ（初期案）:
+- `start`: `YYYY-MM-DD`（省略時は直近30日）
+- `end`: `YYYY-MM-DD`（省略時は yesterday JST）
+- `annotationId`: 選択記事ID（任意）
+- `path`: `normalized_path`（任意、`annotationId` 未指定時の直接選択）
+
+### アクセス制御
+
+- `/analytics` と同様、認証済みユーザーのみ
+- スタッフはオーナー権限範囲のデータを参照可能（既存の `get_accessible_user_ids` に準拠）
+- `ga4_property_id` 未設定時は設定導線を表示し、`/setup/ga4` へ誘導
+
+### 情報設計（MVP）
+
+優先実装順:
+- 1) サマリーカード → 2) 記事別ランキングテーブル → 3) 時系列グラフ
+- MVPは縦積みレイアウトを採用し、将来のタブ切替/左右分割は Phase 2 で検討する
+
+1. サマリーカード（期間集計）
+- 表示: `sessions`, `users`, `平均滞在時間`, `読了率`, `直帰率`, `CV数`, `CVR`
+- 既存仕様の計算式を使用（本書「指標計算式」）
+
+2. 記事別ランキングテーブル
+- 行: `normalized_path`（必要に応じてタイトルJOIN）
+- 列: 上記主要指標 + `is_sampled` / `is_partial` フラグ
+- ソート: `sessions`, `CVR`, `読了率`, `平均滞在時間`（初期は `sessions DESC`）
+- クリックで下段の時系列グラフ対象を切替
+
+3. 時系列グラフ（選択記事）
+- グラフライブラリ: `recharts`
+- 折れ線: `sessions`, `users`
+- 追加線（切替式）: `読了率`, `直帰率`, `CVR`
+- 補助表示: `is_sampled` / `is_partial` 日をバッジまたは点スタイルで識別
+
+4. 品質フラグ表示
+- 期間内に `is_sampled=true` または `is_partial=true` が存在する場合、画面上部に注意バナーを表示
+- 判定粒度は「期間内に1日でも該当があれば表示」とする
+- 時系列グラフでは日次点ごとに `is_sampled` / `is_partial` を識別できる表示を行う
+
+### データ取得（MVP）
+
+- 取得元は `ga4_page_metrics_daily` のみ（MVPでは追加外部API呼び出しなし）
+- 集計単位:
+- 画面全体サマリー: 期間合算
+- 記事別ランキング: `normalized_path` ごとに期間合算
+- 時系列: 選択記事の `date` 単位
+
+### API / Server Action（初期案）
+
+- `fetchGa4DashboardSummary(start, end)`
+- `fetchGa4DashboardRanking(start, end, limit, sort)`
+- `fetchGa4DashboardTimeseries(start, end, normalizedPath)`
+
+未指定時のデフォルト挙動:
+- `start` / `end` 省略時は Server Action 側で直近30日を適用する
+- `normalizedPath` 未指定時は、同期間の `sessions` 上位1記事を自動選択して時系列を表示する
+- 上位記事が取得できない場合は空グラフ（プレースホルダ）を表示する
+
+> 実装方式は既存方針に従い、App Router + Server Actions を優先する。
+
+### `Analytics` 画面との役割分担
+
+- `Analytics`: 記事一覧 + 注釈編集 + 軽量指標確認（運用導線）
+- `GA4 Dashboard`: 指標分析・比較・傾向把握（分析導線）
+- 相互導線:
+- `Analytics` から「GA4分析を見る」リンク
+- `GA4 Dashboard` から対象記事の `Analytics` 行へ戻る導線
+
+### MVP範囲外（Phase 2）
+
+- セグメント比較（デバイス/流入チャネル/新規既存）
+- 指標しきい値の高度アラート
+- 複数記事同時比較グラフ
+- CSVダウンロード
+
+---
+
 ## OAuth 設計
 
 ### スコープ
