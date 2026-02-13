@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { BookMarked, BookOpen, FilePenLine, Loader2, SkipBack, SkipForward } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface StepActionBarProps {
   step?: BlogStepId | undefined;
@@ -109,26 +110,26 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
           </span>
         </div>
         {showStep5Toggle && (
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="step5-versioning-toggle"
-                checked={step5VersioningEnabled}
-                onCheckedChange={onStep5VersioningChange}
-                disabled={isDisabled}
-              />
-              <Label
-                htmlFor="step5-versioning-toggle"
-                className="text-xs text-gray-700 cursor-pointer"
-              >
-                バージョンとして保存する
-              </Label>
-            </div>
-            {!step5VersioningEnabled && (
-              <p className="text-xs text-gray-500 max-w-xs">
-                Canvasを使わず通常チャットで修正します。ONに戻して送信するとバージョンとして保存されます。
-              </p>
-            )}
+          <div className="flex items-center gap-2">
+            <Switch
+              id="step5-versioning-toggle"
+              checked={step5VersioningEnabled}
+              onCheckedChange={onStep5VersioningChange}
+              disabled={isDisabled}
+            />
+            <Tooltip>
+              <TooltipTrigger>
+                <Label
+                  htmlFor="step5-versioning-toggle"
+                  className="text-xs text-gray-700 cursor-pointer"
+                >
+                  バージョンで保存
+                </Label>
+              </TooltipTrigger>
+              <TooltipContent side="top" showArrow={false} className="w-fit bg-gray-800 text-white border-none shadow-md">
+                OFFにするとCanvasを使わず<br />通常チャットで修正します。<br />ONに戻して送信すると<br />バージョンとして保存されます。
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
         <div className="flex items-center gap-2">
