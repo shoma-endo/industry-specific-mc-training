@@ -117,7 +117,7 @@ export default function AnalyticsClient({
           ) : null}
           <div className="flex flex-wrap items-end gap-3 mb-4">
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-500">開始日</span>
+              <span className="text-xs text-gray-500">GA4集計開始日</span>
               <Input
                 type="date"
                 value={rangeStart}
@@ -125,7 +125,7 @@ export default function AnalyticsClient({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-500">終了日</span>
+              <span className="text-xs text-gray-500">GA4集計終了日</span>
               <Input
                 type="date"
                 value={rangeEnd}
@@ -145,6 +145,9 @@ export default function AnalyticsClient({
               {isApplyingDateRange ? '適用中...' : '期間を適用'}
             </button>
           </div>
+          <p className="mb-4 text-xs text-gray-500">
+            指定期間でGA4指標（滞在時間・読了率・直帰率・CV数・CVR）を集計して表示します。
+          </p>
           {shouldRenderTable ? (
             <AnalyticsTable
               items={items}
