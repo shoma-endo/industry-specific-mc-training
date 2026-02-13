@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AnalyticsTable from '@/components/AnalyticsTable';
-import { Download, Settings, BarChart3 } from 'lucide-react';
+import { Download, Settings, BarChart3, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import type { AnalyticsContentItem } from '@/types/analytics';
@@ -51,13 +51,18 @@ export default function AnalyticsClient({
   const shouldRenderTable = items.length > 0;
   const [rangeStart, setRangeStart] = React.useState(startDate);
   const [rangeEnd, setRangeEnd] = React.useState(endDate);
+  const [isApplyingDateRange, setIsApplyingDateRange] = React.useState(false);
+  const isDateRangeChanged = rangeStart !== startDate || rangeEnd !== endDate;
 
   React.useEffect(() => {
     setRangeStart(startDate);
     setRangeEnd(endDate);
+    setIsApplyingDateRange(false);
   }, [startDate, endDate]);
 
   const applyDateRange = () => {
+    if (!isDateRangeChanged || isApplyingDateRange) return;
+    setIsApplyingDateRange(true);
     const params = new URLSearchParams();
     params.set('page', '1');
     params.set('start', rangeStart);
@@ -134,8 +139,10 @@ export default function AnalyticsClient({
                 'h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10'
               )}
               onClick={applyDateRange}
+              disabled={!isDateRangeChanged || isApplyingDateRange}
             >
-              期間を適用
+              {isApplyingDateRange && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isApplyingDateRange ? '適用中...' : '期間を適用'}
             </button>
           </div>
           {shouldRenderTable ? (
