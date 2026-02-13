@@ -37,6 +37,17 @@ interface GscSetupClientProps {
 }
 
 const OAUTH_START_PATH = '/api/gsc/oauth/start';
+const GSC_PERMISSION_LABELS: Record<string, string> = {
+  siteOwner: '所有者',
+  siteFullUser: 'フル権限',
+  siteRestrictedUser: '制限付き',
+  siteUnverifiedUser: '未検証ユーザー',
+  unknown: '不明',
+};
+
+const getGscPermissionLabel = (permissionLevel: string) => {
+  return GSC_PERMISSION_LABELS[permissionLevel] ?? '不明';
+};
 
 export default function GscSetupClient({
   initialStatus,
@@ -217,7 +228,7 @@ export default function GscSetupClient({
               <div className="flex flex-wrap gap-2 text-xs">
                 {status.permissionLevel && (
                   <Badge variant="secondary">
-                    {status.permissionLevel === 'siteOwner' ? '所有者' : status.permissionLevel}
+                    {getGscPermissionLabel(status.permissionLevel)}
                   </Badge>
                 )}
                 {status.verified ? (
@@ -267,7 +278,7 @@ export default function GscSetupClient({
                       <div className="flex flex-col">
                         <span>{property.displayName}</span>
                         <span className="text-xs text-gray-500">
-                          {property.permissionLevel}
+                          {getGscPermissionLabel(property.permissionLevel)}
                           {property.propertyType === 'sc-domain'
                             ? ' · ドメイン'
                             : ' · URLプレフィックス'}
@@ -291,7 +302,8 @@ export default function GscSetupClient({
             {connectedProperty && (
               <div className="rounded-md bg-gray-50 p-4 text-sm text-gray-700 space-y-1">
                 <div>
-                  <span className="font-medium">権限:</span> {connectedProperty.permissionLevel}
+                  <span className="font-medium">権限:</span>{' '}
+                  {getGscPermissionLabel(connectedProperty.permissionLevel)}
                 </div>
                 <div>
                   <span className="font-medium">種別:</span>{' '}
