@@ -142,7 +142,7 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
       },
       {
         onSuccess: () => {
-          setAlertMessage('GA4同期を開始しました');
+          toast.success('GA4日次同期を開始しました');
         },
         setLoading: setIsGa4Syncing,
         setMessage: setAlertMessage,
@@ -451,8 +451,12 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
               disabled={isReadOnly || isGa4Syncing || !status.propertyId}
               className="flex items-center gap-2"
             >
-              <BarChart3 className="h-4 w-4" />
-              GA4日次同期を実行
+              {isGa4Syncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <BarChart3 className="h-4 w-4" />
+              )}
+              {isGa4Syncing ? '同期中...' : 'GA4日次同期を実行'}
             </Button>
           </div>
         </CardContent>
