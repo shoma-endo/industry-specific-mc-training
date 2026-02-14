@@ -123,9 +123,14 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
                 </Label>
               </div>
             </TooltipTrigger>
-            <TooltipContent side="top" showArrow={false} align="start" sideOffset={12} className="relative w-fit bg-yellow-100 text-gray-800 border border-yellow-300 shadow-md">
+            <TooltipContent
+              side="top"
+              align="start"
+              sideOffset={12}
+              className="w-fit bg-yellow-100 text-gray-800 border border-yellow-300 shadow-md"
+              arrowClassName="bg-yellow-100 fill-yellow-100 border-b border-r border-yellow-300"
+            >
               OFFにするとCanvasを使わず<br />通常チャットで修正します。<br />ONに戻して送信すると<br />バージョンとして保存されます。
-              <span className="absolute -bottom-1.5 left-4 size-2.5 rotate-45 bg-yellow-100 border-b border-r border-yellow-300" />
             </TooltipContent>
           </Tooltip>
         )}
