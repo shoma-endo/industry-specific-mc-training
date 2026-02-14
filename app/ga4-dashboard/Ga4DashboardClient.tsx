@@ -283,7 +283,7 @@ export default function Ga4DashboardClient({
               <ArrowLeft className="w-4 h-4 mr-1.5" />
               コンテンツ一覧に戻る
             </Link>
-            <h1 className="text-3xl font-bold">GA4ダッシュボード</h1>
+            <h1 className="text-3xl font-bold">Google Analytics 4 ダッシュボード</h1>
           </div>
 
           <Alert variant="destructive">
@@ -318,7 +318,7 @@ export default function Ga4DashboardClient({
           コンテンツ一覧に戻る
         </Link>
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">GA4ダッシュボード</h1>
+          <h1 className="text-3xl font-bold">Google Analytics 4 ダッシュボード</h1>
           <Button asChild variant="outline" size="sm">
             <Link href="/setup/ga4">
               <Settings className="w-4 h-4 mr-2" />
