@@ -1001,13 +1001,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   }, [latestBlogStep, selectedModel]);
 
-  // Step5 バージョン管理の派生状態（useEffect/useMemo不要、React Compilerに委ねる）
+  // Step5 バージョン管理の派生状態（単純な三項演算子のためメモ化不要）
   // Step5以外では常に ON として扱う
   const effectiveStep5VersioningEnabled =
     latestBlogStep === VERSIONING_TOGGLE_STEP ? step5VersioningEnabled : true;
 
-  // ガード解除条件を計算で判定
-  const isGuardReleaseConditionMet = (() => {
+  // ガード解除条件をuseMemoでメモ化（messages.slice().some()の再計算を防ぐ）
+  const isGuardReleaseConditionMet = useMemo(() => {
     if (!step5JustReEnabled || step5GuardMessageCount === null) return false;
     if (chatSession.state.isLoading || chatSession.state.error !== null) return false;
 
@@ -1015,7 +1015,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     return newMessages.some(
       m => m.role === 'assistant' && m.model === 'blog_creation_step5'
     );
-  })();
+  }, [
+    step5JustReEnabled,
+    step5GuardMessageCount,
+    chatSession.state.isLoading,
+    chatSession.state.error,
+    chatSession.state.messages,
+  ]);
 
   const effectiveStep5JustReEnabled = step5JustReEnabled && !isGuardReleaseConditionMet;
 
