@@ -14,6 +14,7 @@ const isBlogStepId = (value: string): value is BlogStepId =>
 const extractBlogStepFromModel = (model?: string): BlogStepId | null => {
   if (!model || !model.startsWith(BLOG_MODEL_PREFIX)) return null;
   const candidate = model.slice(BLOG_MODEL_PREFIX.length);
+  if (candidate === 'step5_chat') return 'step5';
   return isBlogStepId(candidate) ? candidate : null;
 };
 
