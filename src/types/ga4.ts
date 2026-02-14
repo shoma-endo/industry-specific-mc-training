@@ -54,3 +54,63 @@ export interface Ga4DailyMetricRow {
   isPartial: boolean;
   importedAt: string;
 }
+
+// GA4 Dashboard用型定義
+export interface Ga4DashboardSummary {
+  totalSessions: number;
+  totalUsers: number;
+  avgEngagementTimeSec: number;
+  avgBounceRate: number; // 0-1
+  totalCvEventCount: number;
+  cvr: number; // 0-100
+  avgReadRate: number; // 0-100
+  hasSampledData: boolean;
+  hasPartialData: boolean;
+}
+
+export interface Ga4DashboardRankingItem {
+  normalizedPath: string;
+  title?: string | null;
+  annotationId?: string | null;
+  sessions: number;
+  users: number;
+  avgEngagementTimeSec: number;
+  bounceRate: number; // 0-1
+  cvEventCount: number;
+  cvr: number; // 0-100
+  readRate: number; // 0-100
+  isSampled: boolean;
+  isPartial: boolean;
+}
+
+export interface Ga4DashboardTimeseriesPoint {
+  date: string;
+  sessions: number;
+  users: number;
+  avgEngagementTimeSec: number;
+  bounceRate: number; // 0-1
+  cvEventCount: number;
+  cvr: number; // 0-100
+  readRate: number; // 0-100
+  isSampled: boolean;
+  isPartial: boolean;
+}
+
+export interface Ga4DashboardChartData {
+  summary: Ga4DashboardSummary;
+  ranking: Ga4DashboardRankingItem[];
+  timeseries: Ga4DashboardTimeseriesPoint[];
+}
+
+export type Ga4DashboardSortKey =
+  | 'sessions'
+  | 'cvr'
+  | 'readRate'
+  | 'avgEngagementTimeSec';
+
+export type Ga4DashboardTimeSeriesMetric =
+  | 'sessions'
+  | 'users'
+  | 'readRate'
+  | 'bounceRate'
+  | 'cvr';

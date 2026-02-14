@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AnalyticsTable from '@/components/AnalyticsTable';
-import { Download, Settings, BarChart3, Loader2 } from 'lucide-react';
+import { Download, Settings, BarChart3, Loader2, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import type { AnalyticsContentItem } from '@/types/analytics';
@@ -101,6 +101,13 @@ export default function AnalyticsClient({
             >
               <BarChart3 className="w-4 h-4" aria-hidden />
               <span>Google Search Console 日次指標インポート</span>
+            </Link>
+            <Link
+              href="/ga4-dashboard"
+              className={cn(buttonVariants(), 'h-9 inline-flex items-center gap-2')}
+            >
+              <TrendingUp className="w-4 h-4" aria-hidden />
+              <span>GA4ダッシュボード</span>
             </Link>
           </div>
         </CardHeader>
