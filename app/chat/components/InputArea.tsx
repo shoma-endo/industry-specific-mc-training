@@ -87,7 +87,7 @@ interface InputAreaProps {
   // Step5 バージョン管理トグル
   versioningEnabled?: boolean;
   onVersioningChange?: (enabled: boolean) => void;
-  step5JustReEnabled?: boolean;
+  justReEnabled?: boolean;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -134,7 +134,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onServiceChange,
   versioningEnabled = true,
   onVersioningChange,
-  step5JustReEnabled = false,
+  justReEnabled = false,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -289,7 +289,7 @@ const InputArea: React.FC<InputAreaProps> = ({
         onModelChange?.('blog_creation', fallbackStep);
       } else {
         // Step7 OFF→ON 復帰直後は Step7 に固定（ステップ進行を抑止）
-        if (step5JustReEnabled && currentStep === VERSIONING_TOGGLE_STEP) {
+        if (justReEnabled && currentStep === VERSIONING_TOGGLE_STEP) {
           effectiveModel = 'blog_creation_step7';
           onModelChange?.('blog_creation', 'step7');
         }

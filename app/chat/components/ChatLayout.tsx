@@ -508,7 +508,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onServiceChange={onServiceChange}
           versioningEnabled={versioningEnabled}
           onVersioningChange={onVersioningChange}
-          step5JustReEnabled={justReEnabled}
+          justReEnabled={justReEnabled}
         />
       </div>
 
