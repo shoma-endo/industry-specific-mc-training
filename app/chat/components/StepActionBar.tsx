@@ -22,8 +22,8 @@ interface StepActionBarProps {
   isLoadBlogArticleLoading?: boolean;
   onManualStepChange?: ((step: BlogStepId) => void) | undefined;
   // トグル対象ステップのバージョン管理トグル
-  step5VersioningEnabled?: boolean | undefined;
-  onStep5VersioningChange?: ((enabled: boolean) => void) | undefined;
+  versioningEnabled?: boolean | undefined;
+  onVersioningChange?: ((enabled: boolean) => void) | undefined;
 }
 
 export interface StepActionBarRef {
@@ -46,8 +46,8 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
       onManualStepChange,
-      step5VersioningEnabled = true,
-      onStep5VersioningChange,
+      versioningEnabled = true,
+      onVersioningChange,
     },
     ref
   ) => {
@@ -74,7 +74,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
     const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
-    const showStep5Toggle = isStep5 && typeof onStep5VersioningChange === 'function';
+    const showStep5Toggle = isStep5 && typeof onVersioningChange === 'function';
 
     // ラベル
     const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
@@ -111,8 +111,8 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
               <div className="flex items-center gap-2">
                 <Switch
                   id="step7-versioning-toggle"
-                  checked={step5VersioningEnabled}
-                  onCheckedChange={onStep5VersioningChange}
+                  checked={versioningEnabled}
+                  onCheckedChange={onVersioningChange}
                   disabled={isDisabled}
                 />
                 <Label

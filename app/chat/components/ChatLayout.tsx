@@ -269,8 +269,8 @@ interface ChatLayoutCtx {
   servicesError: string | null;
   onDismissServicesError: () => void;
   // Step5 バージョン管理トグル
-  step5VersioningEnabled: boolean;
-  onStep5VersioningChange: (enabled: boolean) => void;
+  versioningEnabled: boolean;
+  onVersioningChange: (enabled: boolean) => void;
   step5JustReEnabled: boolean;
 }
 
@@ -309,8 +309,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onServiceChange,
     servicesError,
     onDismissServicesError,
-    step5VersioningEnabled,
-    onStep5VersioningChange,
+    versioningEnabled,
+    onVersioningChange,
     step5JustReEnabled,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
@@ -506,8 +506,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           services={services}
           selectedServiceId={selectedServiceId}
           onServiceChange={onServiceChange}
-          step5VersioningEnabled={step5VersioningEnabled}
-          onStep5VersioningChange={onStep5VersioningChange}
+          versioningEnabled={versioningEnabled}
+          onVersioningChange={onVersioningChange}
           step5JustReEnabled={step5JustReEnabled}
         />
       </div>
@@ -1556,8 +1556,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onServiceChange: handleServiceChange,
           servicesError,
           onDismissServicesError: dismissServicesError,
-          step5VersioningEnabled,
-          onStep5VersioningChange: handleStep5VersioningChange,
+          versioningEnabled: step5VersioningEnabled,
+          onVersioningChange: handleStep5VersioningChange,
           step5JustReEnabled: effectiveStep5JustReEnabled,
         }}
       />

@@ -85,8 +85,8 @@ interface InputAreaProps {
   selectedServiceId?: string | null;
   onServiceChange?: (serviceId: string) => void;
   // Step5 バージョン管理トグル
-  step5VersioningEnabled?: boolean;
-  onStep5VersioningChange?: (enabled: boolean) => void;
+  versioningEnabled?: boolean;
+  onVersioningChange?: (enabled: boolean) => void;
   step5JustReEnabled?: boolean;
 }
 
@@ -132,8 +132,8 @@ const InputArea: React.FC<InputAreaProps> = ({
   services,
   selectedServiceId,
   onServiceChange,
-  step5VersioningEnabled = true,
-  onStep5VersioningChange,
+  versioningEnabled = true,
+  onVersioningChange,
   step5JustReEnabled = false,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
@@ -166,7 +166,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
       // Step7 OFF時は専用のプレースホルダーを表示
       const currentStep = initialBlogStep ?? 'step1';
-      if (currentStep === VERSIONING_TOGGLE_STEP && !step5VersioningEnabled) {
+      if (currentStep === VERSIONING_TOGGLE_STEP && !versioningEnabled) {
         return BLOG_PLACEHOLDERS.blog_creation_step7_chat;
       }
 
@@ -294,7 +294,7 @@ const InputArea: React.FC<InputAreaProps> = ({
           onModelChange?.('blog_creation', 'step7');
         }
         // Step7 + OFF: 見出し修正チャット（バージョン管理対象外）
-        else if (currentStep === VERSIONING_TOGGLE_STEP && !step5VersioningEnabled) {
+        else if (currentStep === VERSIONING_TOGGLE_STEP && !versioningEnabled) {
           effectiveModel = 'blog_creation_step7_chat';
           // モデル変更は通知しない（step7のまま）
         }
@@ -524,8 +524,8 @@ const InputArea: React.FC<InputAreaProps> = ({
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
               onManualStepChange={onManualStepChange}
-              step5VersioningEnabled={step5VersioningEnabled}
-              onStep5VersioningChange={onStep5VersioningChange}
+              versioningEnabled={versioningEnabled}
+              onVersioningChange={onVersioningChange}
             />
             {blogArticleError && <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>}
           </div>
