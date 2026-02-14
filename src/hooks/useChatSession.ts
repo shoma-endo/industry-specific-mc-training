@@ -48,6 +48,12 @@ interface StreamingParams {
   serviceId?: string; // 追加
 }
 
+interface StreamingResult {
+  ok: boolean;
+  warningMessage?: string;
+  errorMessage?: string;
+}
+
 export const useChatSession = (
   chatService: IChatService,
   getAccessToken: () => Promise<string>
@@ -63,7 +69,7 @@ export const useChatSession = (
       recentMessages,
       systemPrompt,
       serviceId, // 追加
-    }: StreamingParams) => {
+    }: StreamingParams): Promise<StreamingResult> => {
       const { userMessage, assistantMessage } = createStreamingMessagePair(content, model);
 
       setState(prev => ({
@@ -113,7 +119,7 @@ export const useChatSession = (
             };
           });
 
-          return;
+          return { ok: false, warningMessage };
         }
 
         if (!response.ok) {
@@ -199,13 +205,14 @@ export const useChatSession = (
                   }
                 } else if (eventType === 'error') {
                   const data = JSON.parse(dataCombined);
+                  const errorMessage = data.message || 'ストリーミングエラー';
                   setState(prev => ({
                     ...prev,
                     isLoading: false,
-                    error: data.message || 'ストリーミングエラー',
+                    error: errorMessage,
                     warning: null,
                   }));
-                  return;
+                  return { ok: false, errorMessage };
                 } else if (eventType === 'usage' || eventType === 'meta') {
                   try {
                     if (process.env.NODE_ENV === 'development') {
@@ -220,25 +227,29 @@ export const useChatSession = (
                     ...prev,
                     isLoading: false,
                   }));
-                  return;
+                  return { ok: true };
                 }
               } catch (e) {
                 console.warn('Failed to parse SSE event:', eventType, e);
               }
             }
           }
+          return { ok: true };
         } finally {
           if (idleTimeout) clearTimeout(idleTimeout);
           reader.releaseLock();
         }
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'ストリーミングに失敗しました';
         console.error('Streaming error:', error);
         setState(prev => ({
           ...prev,
           isLoading: false,
-          error: error instanceof Error ? error.message : 'ストリーミングに失敗しました',
+          error: errorMessage,
           warning: null,
         }));
+        return { ok: false, errorMessage };
       }
     },
     []
@@ -289,6 +300,56 @@ export const useChatSession = (
       }
     },
     [state.currentSessionId, state.messages, getAccessToken, handleStreamingMessage]
+  );
+
+  const sendCanvasScopedStep7Edit = useCallback(
+    async (instruction: string, selectedText: string, options?: { serviceId?: string }) => {
+      const scopedSystemPrompt = [
+        '以下の選択範囲のみを対象に修正してください。本文全体は出力しないでください。',
+        '【選択範囲】',
+        selectedText.trim(),
+      ].join('\n');
+
+      setState(prev => ({ ...prev, isLoading: true, error: null, warning: null }));
+
+      let handledByStreaming = false;
+
+      try {
+        const accessToken = await getAccessToken();
+        const result = await handleStreamingMessage({
+          content: instruction,
+          model: 'blog_creation_step7_chat',
+          accessToken,
+          currentSessionId: state.currentSessionId,
+          recentMessages: createRequestMessages(state.messages),
+          systemPrompt: scopedSystemPrompt,
+          ...(options?.serviceId ? { serviceId: options.serviceId } : {}),
+        });
+
+        if (!result.ok) {
+          handledByStreaming = true;
+          throw new Error(result.errorMessage || result.warningMessage || '送信に失敗しました');
+        }
+      } catch (error) {
+        if (!handledByStreaming) {
+          const errorMessage =
+            error instanceof ChatError
+              ? error.userMessage
+              : error instanceof Error
+                ? error.message
+                : '送信に失敗しました';
+
+          setState(prev => ({
+            ...prev,
+            isLoading: false,
+            error: errorMessage,
+            warning: null,
+          }));
+        }
+        throw error instanceof Error ? error : new Error('送信に失敗しました');
+      }
+    },
+    [getAccessToken, handleStreamingMessage, state.currentSessionId, state.messages]
   );
 
   const loadSessions = useCallback(async () => {
@@ -479,6 +540,7 @@ export const useChatSession = (
 
   const actions: ChatSessionActions = {
     sendMessage,
+    sendCanvasScopedStep7Edit,
     setError,
     loadSessions,
     loadSession,

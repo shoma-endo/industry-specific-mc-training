@@ -85,9 +85,9 @@ interface InputAreaProps {
   selectedServiceId?: string | null;
   onServiceChange?: (serviceId: string) => void;
   // Step5 バージョン管理トグル
-  step5VersioningEnabled?: boolean;
-  onStep5VersioningChange?: (enabled: boolean) => void;
-  step5JustReEnabled?: boolean;
+  versioningEnabled?: boolean;
+  onVersioningChange?: (enabled: boolean) => void;
+  justReEnabled?: boolean;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -132,9 +132,9 @@ const InputArea: React.FC<InputAreaProps> = ({
   services,
   selectedServiceId,
   onServiceChange,
-  step5VersioningEnabled = true,
-  onStep5VersioningChange,
-  step5JustReEnabled = false,
+  versioningEnabled = true,
+  onVersioningChange,
+  justReEnabled = false,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -164,10 +164,10 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS.blog_creation_step1;
       }
 
-      // Step5 OFF時は専用のプレースホルダーを表示
+      // Step7 OFF時は専用のプレースホルダーを表示
       const currentStep = initialBlogStep ?? 'step1';
-      if (currentStep === VERSIONING_TOGGLE_STEP && !step5VersioningEnabled) {
-        return BLOG_PLACEHOLDERS.blog_creation_step5_chat;
+      if (currentStep === VERSIONING_TOGGLE_STEP && !versioningEnabled) {
+        return BLOG_PLACEHOLDERS.blog_creation_step7_chat;
       }
 
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
@@ -288,15 +288,15 @@ const InputArea: React.FC<InputAreaProps> = ({
         effectiveModel = `blog_creation_${fallbackStep}`;
         onModelChange?.('blog_creation', fallbackStep);
       } else {
-        // Step5 OFF→ON 復帰直後は Step5 に固定（ステップ進行を抑止）
-        if (step5JustReEnabled && currentStep === VERSIONING_TOGGLE_STEP) {
-          effectiveModel = 'blog_creation_step5';
-          onModelChange?.('blog_creation', 'step5');
+        // Step7 OFF→ON 復帰直後は Step7 に固定（ステップ進行を抑止）
+        if (justReEnabled && currentStep === VERSIONING_TOGGLE_STEP) {
+          effectiveModel = 'blog_creation_step7';
+          onModelChange?.('blog_creation', 'step7');
         }
-        // Step5 + OFF: 見出し修正チャット（バージョン管理対象外）
-        else if (currentStep === VERSIONING_TOGGLE_STEP && !step5VersioningEnabled) {
-          effectiveModel = 'blog_creation_step5_chat';
-          // モデル変更は通知しない（step5のまま）
+        // Step7 + OFF: 見出し修正チャット（バージョン管理対象外）
+        else if (currentStep === VERSIONING_TOGGLE_STEP && !versioningEnabled) {
+          effectiveModel = 'blog_creation_step7_chat';
+          // モデル変更は通知しない（step7のまま）
         }
         // 通常のステップ進行ロジック
         else {
@@ -524,8 +524,8 @@ const InputArea: React.FC<InputAreaProps> = ({
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
               onManualStepChange={onManualStepChange}
-              step5VersioningEnabled={step5VersioningEnabled}
-              onStep5VersioningChange={onStep5VersioningChange}
+              versioningEnabled={versioningEnabled}
+              onVersioningChange={onVersioningChange}
             />
             {blogArticleError && <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>}
           </div>

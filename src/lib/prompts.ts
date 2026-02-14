@@ -278,10 +278,10 @@ import { PromptService } from '@/server/services/promptService';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { BlogStepId, isStep7 as isBlogStep7, toTemplateName } from '@/lib/constants';
 
-// Step5 OFF時の見出し単位修正用プロンプト（バージョン管理対象外）
-const BLOG_STEP5_CHAT_PROMPT = `
+// Step7 OFF時の本文見出し修正用プロンプト（バージョン管理対象外）
+const BLOG_STEP7_CHAT_PROMPT = `
 # 役割
-あなたはブログ構成案の修正アシスタントです。
+あなたはブログ本文の見出し修正アシスタントです。
 
 # 目的
 ユーザーが指示した見出しの修正のみを行い、修正結果を簡潔に返します。
@@ -942,9 +942,9 @@ export async function getSystemPrompt(
       }
     }
 
-    // Step5 OFF時の見出し修正チャット用（バージョン管理対象外）
-    if (model === 'blog_creation_step5_chat') {
-      return BLOG_STEP5_CHAT_PROMPT;
+    // Step7 OFF時の見出し修正チャット用（バージョン管理対象外）
+    if (model === 'blog_creation_step7_chat') {
+      return BLOG_STEP7_CHAT_PROMPT;
     }
 
     if (model.startsWith('blog_creation_')) {
