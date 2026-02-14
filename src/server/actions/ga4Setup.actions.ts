@@ -13,10 +13,10 @@ import { toGa4ConnectionStatus } from '@/server/lib/ga4-status';
 import type { Ga4ConnectionStatus } from '@/types/ga4';
 import type { GscCredential } from '@/types/gsc';
 import { isGa4ReauthError } from '@/domain/errors/ga4-error-handlers';
-import { isActualOwner } from '@/authUtils';
 import { GA4_SCOPE } from '@/lib/constants';
 import { ensureValidAccessToken } from '@/server/services/googleTokenService';
 import type { ServerActionResult } from '@/lib/async-handler';
+import { canAccessGa4, canWriteGa4 } from '@/server/lib/ga4-permissions';
 
 const supabaseService = new SupabaseService();
 const gscService = new GscService();
@@ -63,12 +63,15 @@ interface AuthSuccess {
   userId: string;
   ownerUserId: string | null;
   role: import('@/types/user').UserRole | null;
+  viewMode: boolean;
   error?: undefined;
 }
 interface AuthFailure {
   error: string;
   userId?: undefined;
   ownerUserId?: undefined;
+  role?: undefined;
+  viewMode?: undefined;
 }
 type AuthResult = AuthSuccess | AuthFailure;
 
@@ -87,6 +90,7 @@ const getAuthUserId = async (): Promise<AuthResult> => {
     userId: realUserId,
     ownerUserId: isViewModeAsOwner ? null : (authResult.ownerUserId ?? null),
     role: authResult.userDetails?.role ?? null,
+    viewMode: authResult.viewMode ?? false,
   };
 };
 
@@ -104,8 +108,8 @@ const resolveGa4ActionContext = async (): Promise<Ga4ActionContextResult> => {
   if ('error' in authResult) {
     return { success: false, error: authResult.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
   }
-  const { userId, ownerUserId } = authResult;
-  if (ownerUserId) {
+  const { userId, ownerUserId, role, viewMode } = authResult;
+  if (!canAccessGa4({ role, ownerUserId, viewMode })) {
     return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
   }
 
@@ -128,8 +132,8 @@ export async function fetchGa4Status(): Promise<ServerActionResult<Ga4Connection
     if ('error' in authResult) {
       return { success: false, error: authResult.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
-    const { userId, ownerUserId } = authResult;
-    if (ownerUserId) {
+    const { userId, ownerUserId, role, viewMode } = authResult;
+    if (!canAccessGa4({ role, ownerUserId, viewMode })) {
       return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
     }
 
@@ -214,12 +218,9 @@ export async function saveGa4Settings(input: unknown) {
     if ('error' in authResult) {
       return { success: false, error: authResult.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
     }
-    const { userId, ownerUserId, role } = authResult;
-    if (ownerUserId) {
+    const { userId, ownerUserId, role, viewMode } = authResult;
+    if (!canWriteGa4({ role, ownerUserId, viewMode })) {
       return { success: false, error: OWNER_ONLY_ERROR_MESSAGE };
-    }
-    if (isActualOwner(role, ownerUserId)) {
-      return { success: false, error: ERROR_MESSAGES.USER.VIEW_MODE_NOT_ALLOWED };
     }
 
     const parsed = ga4SettingsSchema.safeParse(input);

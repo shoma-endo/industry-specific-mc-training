@@ -3,6 +3,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { getLiffTokensFromRequest } from '@/server/lib/auth-helpers';
 import { ga4ImportService } from '@/server/services/ga4ImportService';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { canWriteGa4 } from '@/server/lib/ga4-permissions';
 
 export async function POST(request: NextRequest) {
   const { accessToken, refreshToken } = getLiffTokensFromRequest(request);
@@ -15,7 +16,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (authResult.viewMode || authResult.ownerUserId) {
+  if (
+    !canWriteGa4({
+      role: authResult.userDetails?.role ?? null,
+      ownerUserId: authResult.ownerUserId,
+      viewMode: authResult.viewMode ?? false,
+    })
+  ) {
     return NextResponse.json(
       { success: false, error: ERROR_MESSAGES.AUTH.OWNER_ACCOUNT_REQUIRED },
       { status: 403 }

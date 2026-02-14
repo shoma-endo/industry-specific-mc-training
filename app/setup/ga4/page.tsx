@@ -28,7 +28,8 @@ export default async function Ga4SetupPage() {
     redirect('/login');
   }
 
-  const credential = await supabaseService.getGscCredentialByUserId(authResult.userId);
+  const targetUserId = authResult.actorUserId ?? authResult.userId;
+  const credential = await supabaseService.getGscCredentialByUserId(targetUserId);
   const initialStatus = toGa4ConnectionStatus(credential);
 
   return <Ga4SetupClient initialStatus={initialStatus} isOauthConfigured={isOauthConfigured} />;
