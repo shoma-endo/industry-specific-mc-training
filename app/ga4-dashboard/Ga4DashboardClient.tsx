@@ -6,6 +6,7 @@ import { ArrowLeft, TrendingUp, AlertTriangle, Settings } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -90,6 +91,8 @@ export default function Ga4DashboardClient({
   const [periodPreset, setPeriodPreset] = useState<PeriodPresetValue>(() =>
     getPeriodPresetFromRange(dateRange)
   );
+  const [customStart, setCustomStart] = useState(dateRange.start ?? '');
+  const [customEnd, setCustomEnd] = useState(dateRange.end ?? '');
 
   // 選択中のパス
   const [selectedNormalizedPath, setSelectedNormalizedPath] = useState<
@@ -122,6 +125,8 @@ export default function Ga4DashboardClient({
     async (value: string) => {
       if (value === 'custom') {
         setPeriodPreset('custom');
+        setCustomStart(dateRange.start ?? '');
+        setCustomEnd(dateRange.end ?? '');
         return;
       }
       setIsLoading(true);
@@ -151,8 +156,40 @@ export default function Ga4DashboardClient({
         setIsLoading(false);
       }
     },
-    []
+    [dateRange.end, dateRange.start]
   );
+
+  const handleApplyCustomRange = useCallback(async () => {
+    if (!customStart || !customEnd) {
+      setError('開始日と終了日を入力してください');
+      return;
+    }
+    if (customStart > customEnd) {
+      setError('開始日は終了日以前の日付を指定してください');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(undefined);
+    try {
+      const nextDateRange = { start: customStart, end: customEnd };
+      const result = await fetchGa4DashboardData(nextDateRange);
+      if (!result.success || !result.data) {
+        setError(result.error ?? 'データの取得に失敗しました');
+        setData(undefined);
+      } else {
+        setData(result.data);
+        setDateRange(nextDateRange);
+        setSelectedNormalizedPath(result.data.initialNormalizedPath);
+        setPeriodPreset('custom');
+      }
+    } catch (err) {
+      console.error('[GA4 Dashboard] Custom period apply failed:', err);
+      setError('データの取得に失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [customEnd, customStart]);
 
   // ソート変更
   const handleSortChange = useCallback(
@@ -310,7 +347,7 @@ export default function Ga4DashboardClient({
       )}
 
       {/* 期間フィルタ */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <span className="text-sm text-gray-600">集計期間:</span>
         <Select
           value={periodPreset}
@@ -328,6 +365,29 @@ export default function Ga4DashboardClient({
             <SelectItem value="custom">カスタム</SelectItem>
           </SelectContent>
         </Select>
+
+        {periodPreset === 'custom' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              type="date"
+              value={customStart}
+              onChange={(event) => setCustomStart(event.target.value)}
+              className="w-[180px]"
+              disabled={isLoading}
+            />
+            <span className="text-sm text-gray-500">〜</span>
+            <Input
+              type="date"
+              value={customEnd}
+              onChange={(event) => setCustomEnd(event.target.value)}
+              className="w-[180px]"
+              disabled={isLoading}
+            />
+            <Button onClick={handleApplyCustomRange} disabled={isLoading}>
+              期間を適用
+            </Button>
+          </div>
+        )}
 
         {dateRange.start && dateRange.end && (
           <span className="text-sm text-gray-600">
