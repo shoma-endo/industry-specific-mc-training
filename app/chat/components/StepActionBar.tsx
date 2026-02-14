@@ -130,7 +130,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
               className="w-fit bg-yellow-100 text-gray-800 border border-yellow-300 shadow-md"
               arrowClassName="bg-yellow-100 fill-yellow-100 border-b border-r border-yellow-300"
             >
-              OFFにすると本文を通常チャットで修正します。<br />ONに戻して送信すると<br />本文がバージョンとして保存されます。
+              OFFにすると本文修正は<br />バージョン保存されません。<br />ONに戻して送信すると<br />本文がバージョンとして保存されます。
             </TooltipContent>
           </Tooltip>
         )}

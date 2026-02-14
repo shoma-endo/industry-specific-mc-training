@@ -1231,7 +1231,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
 
       canvasEditInFlightRef.current = true;
-      setIsCanvasStreaming(true);
 
       try {
         // キャンバスパネルはブログ作成専用のため、常にブログ作成モデルを使用
@@ -1266,8 +1265,23 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           throw new Error('セッションIDが見つかりません');
         }
 
+        const isVersioningOffForTargetStep =
+          targetStep === VERSIONING_TOGGLE_STEP && !effectiveStep5VersioningEnabled;
+        if (isVersioningOffForTargetStep) {
+          await chatSession.actions.sendCanvasScopedStep7Edit(
+            instruction,
+            selectedText,
+            selectedServiceId ? { serviceId: selectedServiceId } : undefined
+          );
+          handleModelChange('blog_creation', targetStep);
+          await chatSession.actions.loadSession(chatSession.state.currentSessionId);
+          setOptimisticMessages([]);
+          return { replacementHtml: '' };
+        }
+
         // アクセストークン取得
         const accessToken = await getAccessToken();
+        setIsCanvasStreaming(true);
 
         // ストリーミングコンテンツをリセット
         setCanvasStreamingContent('');
@@ -1488,8 +1502,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setCanvasStep,
       setFollowLatestByStep,
       setOptimisticMessages,
+      selectedServiceId,
       setCanvasStreamingContent,
       setSelectedVersionByStep,
+      effectiveStep5VersioningEnabled,
     ]
   );
 
@@ -1545,7 +1561,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           step5JustReEnabled: effectiveStep5JustReEnabled,
         }}
       />
-      {canvasPanelOpen && !(latestBlogStep === VERSIONING_TOGGLE_STEP && !effectiveStep5VersioningEnabled) && (
+      {canvasPanelOpen && (
         <CanvasPanel
           onClose={() => {
             setCanvasPanelOpen(false);
