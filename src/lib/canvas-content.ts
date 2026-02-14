@@ -14,7 +14,6 @@ const isBlogStepId = (value: string): value is BlogStepId =>
 const extractBlogStepFromModel = (model?: string): BlogStepId | null => {
   if (!model || !model.startsWith(BLOG_MODEL_PREFIX)) return null;
   const candidate = model.slice(BLOG_MODEL_PREFIX.length);
-  if (candidate === 'step5_chat') return 'step5';
   return isBlogStepId(candidate) ? candidate : null;
 };
 
@@ -22,6 +21,7 @@ const findLatestAssistantBlogStep = (messages: ChatMessage[]): BlogStepId | null
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
     if (!message || message.role !== 'assistant') continue;
+    if (message.model === 'blog_creation_step5_chat') return 'step5';
     const step = extractBlogStepFromModel(message.model);
     if (step) return step;
   }
