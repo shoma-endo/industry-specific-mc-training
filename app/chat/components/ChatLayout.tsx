@@ -268,10 +268,10 @@ interface ChatLayoutCtx {
   onServiceChange: (serviceId: string) => void;
   servicesError: string | null;
   onDismissServicesError: () => void;
-  // Step5 バージョン管理トグル
+  // バージョン管理トグル
   versioningEnabled: boolean;
   onVersioningChange: (enabled: boolean) => void;
-  step5JustReEnabled: boolean;
+  justReEnabled: boolean;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -311,7 +311,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onDismissServicesError,
     versioningEnabled,
     onVersioningChange,
-    step5JustReEnabled,
+    justReEnabled,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
@@ -508,7 +508,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onServiceChange={onServiceChange}
           versioningEnabled={versioningEnabled}
           onVersioningChange={onVersioningChange}
-          step5JustReEnabled={step5JustReEnabled}
+          step5JustReEnabled={justReEnabled}
         />
       </div>
 
@@ -545,10 +545,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
-  // Step5 バージョン管理トグル状態
-  const [step5VersioningEnabled, setStep5VersioningEnabled] = useState(true);
-  const [step5JustReEnabled, setStep5JustReEnabled] = useState(false);
-  const [step5GuardMessageCount, setStep5GuardMessageCount] = useState<number | null>(null);
+  // バージョン管理トグル状態
+  const [versioningEnabled, setVersioningEnabled] = useState(true);
+  const [justReEnabled, setJustReEnabled] = useState(false);
+  const [guardMessageCount, setGuardMessageCount] = useState<number | null>(null);
   const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [isGeneratingTitleMeta, setIsGeneratingTitleMeta] = useState(false);
@@ -1003,27 +1003,27 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // トグル対象ステップのバージョン管理の派生状態（単純な三項演算子のためメモ化不要）
   // 対象ステップ以外では常に ON として扱う
-  const effectiveStep5VersioningEnabled =
-    latestBlogStep === VERSIONING_TOGGLE_STEP ? step5VersioningEnabled : true;
+  const effectiveVersioningEnabled =
+    latestBlogStep === VERSIONING_TOGGLE_STEP ? versioningEnabled : true;
 
   // ガード解除条件をuseMemoでメモ化（messages.slice().some()の再計算を防ぐ）
   const isGuardReleaseConditionMet = useMemo(() => {
-    if (!step5JustReEnabled || step5GuardMessageCount === null) return false;
+    if (!justReEnabled || guardMessageCount === null) return false;
     if (chatSession.state.isLoading || chatSession.state.error !== null) return false;
 
-    const newMessages = chatSession.state.messages.slice(step5GuardMessageCount);
+    const newMessages = chatSession.state.messages.slice(guardMessageCount);
     return newMessages.some(
-      m => m.role === 'assistant' && m.model === 'blog_creation_step7'
+      m => m.role === 'assistant' && m.model === `blog_creation_${VERSIONING_TOGGLE_STEP}`
     );
   }, [
-    step5JustReEnabled,
-    step5GuardMessageCount,
+    justReEnabled,
+    guardMessageCount,
     chatSession.state.isLoading,
     chatSession.state.error,
     chatSession.state.messages,
   ]);
 
-  const effectiveStep5JustReEnabled = step5JustReEnabled && !isGuardReleaseConditionMet;
+  const effectiveJustReEnabled = justReEnabled && !isGuardReleaseConditionMet;
 
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = useCallback(
@@ -1113,18 +1113,18 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   };
 
-  // Step5 バージョン管理トグル変更ハンドラ
-  const handleStep5VersioningChange = useCallback(
+  // バージョン管理トグル変更ハンドラ
+  const handleVersioningChange = useCallback(
     (enabled: boolean) => {
-      setStep5VersioningEnabled(enabled);
+      setVersioningEnabled(enabled);
       if (enabled) {
         // OFF→ON 復帰時: ガードを有効化し、現在のメッセージ数をスナップショット
-        setStep5JustReEnabled(true);
-        setStep5GuardMessageCount(chatSession.state.messages.length);
+        setJustReEnabled(true);
+        setGuardMessageCount(chatSession.state.messages.length);
       } else {
         // ON→OFF: ガードをリセット
-        setStep5JustReEnabled(false);
-        setStep5GuardMessageCount(null);
+        setJustReEnabled(false);
+        setGuardMessageCount(null);
       }
     },
     [chatSession.state.messages.length]
@@ -1266,7 +1266,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         }
 
         const isVersioningOffForTargetStep =
-          targetStep === VERSIONING_TOGGLE_STEP && !effectiveStep5VersioningEnabled;
+          targetStep === VERSIONING_TOGGLE_STEP && !effectiveVersioningEnabled;
         if (isVersioningOffForTargetStep) {
           await chatSession.actions.sendCanvasScopedStep7Edit(
             instruction,
@@ -1505,7 +1505,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       selectedServiceId,
       setCanvasStreamingContent,
       setSelectedVersionByStep,
-      effectiveStep5VersioningEnabled,
+      effectiveVersioningEnabled,
     ]
   );
 
@@ -1556,9 +1556,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onServiceChange: handleServiceChange,
           servicesError,
           onDismissServicesError: dismissServicesError,
-          versioningEnabled: step5VersioningEnabled,
-          onVersioningChange: handleStep5VersioningChange,
-          step5JustReEnabled: effectiveStep5JustReEnabled,
+          versioningEnabled,
+          onVersioningChange: handleVersioningChange,
+          justReEnabled: effectiveJustReEnabled,
         }}
       />
       {canvasPanelOpen && (
