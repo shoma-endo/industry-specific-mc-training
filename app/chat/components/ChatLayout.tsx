@@ -1540,7 +1540,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onServiceChange: handleServiceChange,
           servicesError,
           onDismissServicesError: dismissServicesError,
-          step5VersioningEnabled: effectiveStep5VersioningEnabled,
+          step5VersioningEnabled,
           onStep5VersioningChange: handleStep5VersioningChange,
           step5JustReEnabled: effectiveStep5JustReEnabled,
         }}
