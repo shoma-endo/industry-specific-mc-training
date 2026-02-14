@@ -36,22 +36,19 @@ OFF 時は通常チャットと Canvas 選択編集のどちらでも本文の�
 対象: `app/chat/components/ChatLayout.tsx`
 
 ```typescript
-const [step5VersioningEnabled, setStep5VersioningEnabled] = useState(true);
-const [step5JustReEnabled, setStep5JustReEnabled] = useState(false);
-const [step5GuardMessageCount, setStep5GuardMessageCount] = useState<number | null>(null);
+const [versioningEnabled, setVersioningEnabled] = useState(true);
+const [justReEnabled, setJustReEnabled] = useState(false);
+const [guardMessageCount, setGuardMessageCount] = useState<number | null>(null);
 ```
-
-補足:
-- 変数名は後方互換のため `step5*` のまま運用しているが、実際の対象ステップは `VERSIONING_TOGGLE_STEP = 'step7'`
 
 リセット条件:
 
-| トリガー | `step5VersioningEnabled` | `step5JustReEnabled` |
+| トリガー | `versioningEnabled` | `justReEnabled` |
 |----------|--------------------------|----------------------|
 | Step7 以外へ切り替え | `true` として扱う | `false` |
 | セッション切り替え | `true` として扱う | `false` |
-| OFF -> ON | `true` | `true` + `step5GuardMessageCount` に現時点の `messages.length` を保存 |
-| ON 状態で送信成功（`isLoading=false` + `error=null` + ガード後に Step7 assistant 追加） | 変化なし | `false` + `step5GuardMessageCount` を `null` |
+| OFF -> ON | `true` | `true` + `guardMessageCount` に現時点の `messages.length` を保存 |
+| ON 状態で送信成功（`isLoading=false` + `error=null` + ガード後に Step7 assistant 追加） | 変化なし | `false` + `guardMessageCount` を `null` |
 
 ## 5. モデル定義
 
@@ -85,11 +82,11 @@ const [step5GuardMessageCount, setStep5GuardMessageCount] = useState<number | nu
 OFF->ON 復帰直後の最初の1送信を必ず `blog_creation_step7` に固定し、意図しないステップ進行を抑止する。
 
 解除条件:
-1. `step5JustReEnabled === true`
-2. `step5GuardMessageCount !== null`
+1. `justReEnabled === true`
+2. `guardMessageCount !== null`
 3. `chatSession.state.isLoading === false`
 4. `chatSession.state.error === null`
-5. `messages.slice(step5GuardMessageCount)` に `blog_creation_step7` assistant メッセージが存在
+5. `messages.slice(guardMessageCount)` に `blog_creation_step7` assistant メッセージが存在
 
 ## 7. Canvas 編集時の OFF 挙動
 
@@ -146,7 +143,7 @@ OFF->ON 復帰直後の最初の1送信を必ず `blog_creation_step7` に固定
 
 | リスク | 影響度 | 対策 |
 |--------|--------|------|
-| OFF->ON 復帰時に Step7 以外へ進む | 高 | `step5JustReEnabled` で最初の1送信を `blog_creation_step7` 固定 |
+| OFF->ON 復帰時に Step7 以外へ進む | 高 | `justReEnabled` で最初の1送信を `blog_creation_step7` 固定 |
 | `blog_creation_step7_chat` 登録漏れで送信失敗 | 高 | `constants/prompts/modelHandlers` の3点同時確認 |
 | OFF 時 Canvas 編集で全文が返る | 高 | 選択範囲制約を `systemPrompt` へ固定注入 |
 | Canvas OFF 経路の失敗が成功扱いになる | 高 | `useChatSession.sendCanvasScopedStep7Edit` で失敗を例外伝播 |
