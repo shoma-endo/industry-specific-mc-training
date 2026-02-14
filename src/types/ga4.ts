@@ -10,8 +10,11 @@ export interface Ga4KeyEvent {
   eventName: string;
 }
 
+export type Ga4ConnectionStage = 'unlinked' | 'linked_unselected' | 'configured';
+
 export interface Ga4ConnectionStatus {
   connected: boolean;
+  connectionStage: Ga4ConnectionStage;
   needsReauth?: boolean;
   scopeMissing?: boolean;
   googleAccountEmail?: string | null;

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { SetupDashboardProps } from '@/types/components';
+import type { Ga4ConnectionStage } from '@/types/ga4';
 import { refetchGscStatusWithValidation } from '@/server/actions/gscSetup.actions';
 import { refetchGa4StatusWithValidation } from '@/server/actions/ga4Setup.actions';
 import {
@@ -26,6 +27,12 @@ import {
 } from '@/server/actions/wordpress.actions';
 import { useServerAction } from '@/hooks/useServerAction';
 import { useLiffContext } from '@/components/LiffProvider';
+
+const GA4_STAGE_META: Record<Ga4ConnectionStage, { label: string; className: string }> = {
+  unlinked: { label: '未連携', className: 'bg-gray-100 text-gray-800' },
+  linked_unselected: { label: '連携済み未選択', className: 'bg-amber-100 text-amber-800' },
+  configured: { label: '設定完了', className: 'bg-green-100 text-green-800 hover:bg-green-200' },
+};
 
 export default function SetupDashboard({
   wordpressSettings,
@@ -44,6 +51,9 @@ export default function SetupDashboard({
   const [isLoadingGa4Status, setIsLoadingGa4Status] = useState(false);
   const isStaffUser = Boolean(user?.ownerUserId);
   const isReadOnly = isOwnerViewMode || isStaffUser;
+  const ga4StageMeta = GA4_STAGE_META[ga4Connection.connectionStage];
+  const isGa4Configured = ga4Connection.connectionStage === 'configured';
+  const isGa4LinkedUnselected = ga4Connection.connectionStage === 'linked_unselected';
 
   const { execute: fetchWpStatus, isLoading: isLoadingStatus } =
     useServerAction<WordPressConnectionStatus>();
@@ -385,15 +395,20 @@ export default function SetupDashboard({
                       <AlertTriangle className="text-orange-500" size={20} />
                       <span className="text-orange-700 font-medium">要再認証</span>
                     </>
-                  ) : ga4Connection.connected ? (
+                  ) : isGa4Configured ? (
                     <>
                       <CheckCircle className="text-green-500" size={20} />
-                      <span className="text-green-700 font-medium">接続済み</span>
+                      <span className="text-green-700 font-medium">設定完了</span>
+                    </>
+                  ) : isGa4LinkedUnselected ? (
+                    <>
+                      <AlertCircle className="text-amber-500" size={20} />
+                      <span className="text-amber-700 font-medium">連携済み未選択</span>
                     </>
                   ) : (
                     <>
                       <AlertCircle className="text-orange-500" size={20} />
-                      <span className="text-orange-700 font-medium">未設定</span>
+                      <span className="text-orange-700 font-medium">未連携</span>
                     </>
                   )}
                 </div>
@@ -406,18 +421,14 @@ export default function SetupDashboard({
                   </div>
                 ) : (
                   <Badge
-                    variant={
-                      ga4NeedsReauth ? 'default' : ga4Connection.connected ? 'default' : 'secondary'
-                    }
+                    variant={ga4NeedsReauth ? 'default' : 'secondary'}
                     className={`text-xs ${
                       ga4NeedsReauth
                         ? 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-                        : ga4Connection.connected
-                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                          : 'bg-gray-100 text-gray-800'
+                        : ga4StageMeta.className
                     }`}
                   >
-                    {ga4NeedsReauth ? '要再認証' : ga4Connection.connected ? '接続OK' : '未設定'}
+                    {ga4NeedsReauth ? '要再認証' : ga4StageMeta.label}
                   </Badge>
                 )}
               </div>
@@ -434,7 +445,7 @@ export default function SetupDashboard({
                     アカウント: {ga4Connection.googleAccountEmail ?? '取得中'}
                   </p>
                 </div>
-              ) : ga4Connection.connected ? (
+              ) : isGa4Configured ? (
                 <div className="text-sm text-gray-600 space-y-1">
                   <p>アカウント: {ga4Connection.googleAccountEmail ?? '取得中'}</p>
                   <p>
@@ -445,6 +456,13 @@ export default function SetupDashboard({
                       前段CVイベント数: {ga4Connection.conversionEvents.length}件
                     </p>
                   )}
+                </div>
+              ) : isGa4LinkedUnselected ? (
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>アカウント: {ga4Connection.googleAccountEmail ?? '取得中'}</p>
+                  <p className="text-amber-700">
+                    Googleアカウント連携は完了しています。GA4プロパティを選択して設定を完了してください。
+                  </p>
                 </div>
               ) : (
                 <div className="text-sm text-gray-600 space-y-1">
@@ -470,12 +488,12 @@ export default function SetupDashboard({
                   ) : (
                     <Button
                       asChild
-                      variant={ga4Connection.connected ? 'outline' : 'default'}
-                      className={`w-full ${ga4Connection.connected ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
+                      variant={isGa4Configured ? 'outline' : 'default'}
+                      className={`w-full ${isGa4Configured ? 'border-2 border-gray-400 hover:border-gray-500' : ''}`}
                     >
                       <Link href="/setup/ga4">
                         <Settings size={16} className="mr-2" />
-                        {ga4Connection.connected ? '連携を管理' : '連携を開始'}
+                        {isGa4Configured ? '連携を管理' : '設定を続ける'}
                       </Link>
                     </Button>
                   )}

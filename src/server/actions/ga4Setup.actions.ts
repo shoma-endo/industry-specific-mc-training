@@ -270,7 +270,7 @@ export async function refetchGa4StatusWithValidation(): Promise<
 
     const status = statusResult.data;
 
-    if (status.connected) {
+    if (status.connectionStage !== 'unlinked') {
       const propertiesResult = await fetchGa4Properties();
       if (
         !propertiesResult.success &&

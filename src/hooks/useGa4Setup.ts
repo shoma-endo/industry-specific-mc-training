@@ -85,13 +85,14 @@ export function useGa4Setup(initialStatus: Ga4ConnectionStatus): UseGa4SetupResu
   }, [refreshStatus]);
 
   useEffect(() => {
-    if (!status.scopeMissing) {
-      refetchProperties();
-    } else {
+    if (status.scopeMissing || status.connectionStage === 'unlinked') {
       setProperties([]);
       setKeyEvents([]);
+      return;
     }
-  }, [status.scopeMissing, refetchProperties]);
+
+    refetchProperties();
+  }, [status.connectionStage, status.scopeMissing, refetchProperties]);
 
   return {
     status,
