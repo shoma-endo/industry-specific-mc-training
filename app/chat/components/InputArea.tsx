@@ -50,7 +50,6 @@ interface InputAreaProps {
   blogFlowActive?: boolean;
   blogProgress?: { currentIndex: number; total: number };
   onModelChange?: (model: string, blogStep?: BlogStepId) => void;
-  blogFlowStatus?: string;
   selectedModelExternal?: string;
   initialBlogStep?: BlogStepId;
   nextStepForPlaceholder?: BlogStepId | null;
@@ -101,7 +100,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   blogFlowActive = false,
   blogProgress,
   onModelChange,
-  blogFlowStatus,
   selectedModelExternal,
   initialBlogStep,
   nextStepForPlaceholder,
@@ -180,7 +178,7 @@ const InputArea: React.FC<InputAreaProps> = ({
       }
 
       // フォールバック: 次のステップのプレースホルダーを表示
-      // - waitingActionまたはhasDetectedBlogStep時は次のステップへ
+      // - hasDetectedBlogStep時は次のステップへ
       // - それ以外は現在のステップ
       const currentIdx = BLOG_STEP_IDS.indexOf(currentStep);
       const shouldAdvance = hasDetectedBlogStep; // すでにブログ作成が始まっている場合は次へ
@@ -220,13 +218,6 @@ const InputArea: React.FC<InputAreaProps> = ({
     }
   }, [selectedModelExternal, selectedModel]);
 
-  // 既存チャットルームを開いた際、フロー状態から自動でブログ作成モデルに合わせる（モデル選択に依存しない）
-  useEffect(() => {
-    if (blogFlowStatus && blogFlowStatus !== 'idle' && selectedModel !== 'blog_creation') {
-      setSelectedModel('blog_creation');
-      onModelChange?.('blog_creation', initialBlogStep);
-    }
-  }, [blogFlowStatus, selectedModel, onModelChange, initialBlogStep]);
 
   const handleLoadBlogArticle = useCallback(async () => {
     if (!onLoadBlogArticle || isLoadingBlogArticle) return;
@@ -281,7 +272,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
     const originalMessage = input.trim();
     // ブログ作成モデルの場合の制御：
-    // - アクション待ち（waitingAction）での通常送信は「次のステップへ進む」扱い
+    // - hasDetectedBlogStep時は次のステップへ進む
     let effectiveModel: string = selectedModel;
     if (selectedModel === 'blog_creation') {
       // 通常送信は次ステップへ（初回はstep1）
@@ -309,9 +300,7 @@ const InputArea: React.FC<InputAreaProps> = ({
         }
         // 通常のステップ進行ロジック
         else {
-          const shouldAdvance =
-            blogFlowStatus === 'waitingAction' ||
-            (blogFlowStatus === 'idle' && hasDetectedBlogStep);
+          const shouldAdvance = Boolean(hasDetectedBlogStep);
 
           // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
           const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
@@ -532,7 +521,6 @@ const InputArea: React.FC<InputAreaProps> = ({
               onGenerateTitleMeta={onGenerateTitleMeta}
               isGenerateTitleMetaLoading={isGenerateTitleMetaLoading}
               onNextStepChange={onNextStepChange}
-              flowStatus={blogFlowStatus}
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
               onManualStepChange={onManualStepChange}

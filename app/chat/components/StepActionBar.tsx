@@ -18,7 +18,6 @@ interface StepActionBarProps {
   onGenerateTitleMeta?: (() => void) | undefined;
   isGenerateTitleMetaLoading?: boolean | undefined;
   onNextStepChange?: ((nextStep: BlogStepId | null) => void) | undefined;
-  flowStatus?: string | undefined;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   isLoadBlogArticleLoading?: boolean;
   onManualStepChange?: ((step: BlogStepId) => void) | undefined;
@@ -44,7 +43,6 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onGenerateTitleMeta,
       isGenerateTitleMetaLoading = false,
       onNextStepChange,
-      flowStatus = 'idle',
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
       onManualStepChange,
@@ -67,9 +65,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     }));
 
     // UI制御
-    const isStepReady =
-      flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
-    const isDisabled = disabled || !isStepReady;
+    const isDisabled = disabled || !hasDetectedBlogStep;
     const isStep7 = displayStep === 'step7';
     const isStep1 = displayStep === 'step1';
     const isStep5 = displayStep === VERSIONING_TOGGLE_STEP;

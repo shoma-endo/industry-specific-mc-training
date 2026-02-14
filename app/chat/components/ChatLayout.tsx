@@ -317,7 +317,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
 
   const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
-  const flowStatus: 'idle' | 'running' | 'waitingAction' | 'error' = 'idle';
   const normalizedInitialStep =
     initialStep && BLOG_STEP_IDS.includes(initialStep) ? initialStep : null;
   // 最新メッセージのステップを優先し、なければ初期ステップにフォールバック
@@ -479,7 +478,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           blogFlowActive={blogFlowActive}
           blogProgress={{ currentIndex: displayIndex, total: BLOG_STEP_IDS.length }}
           onModelChange={handleModelChange}
-          blogFlowStatus={flowStatus}
           selectedModelExternal={selectedModel}
           nextStepForPlaceholder={nextStepForPlaceholder}
           onNextStepChange={onNextStepChange}
