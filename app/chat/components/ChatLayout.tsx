@@ -1001,8 +1001,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   }, [latestBlogStep, selectedModel]);
 
-  // Step5 バージョン管理の派生状態（単純な三項演算子のためメモ化不要）
-  // Step5以外では常に ON として扱う
+  // トグル対象ステップのバージョン管理の派生状態（単純な三項演算子のためメモ化不要）
+  // 対象ステップ以外では常に ON として扱う
   const effectiveStep5VersioningEnabled =
     latestBlogStep === VERSIONING_TOGGLE_STEP ? step5VersioningEnabled : true;
 
@@ -1013,7 +1013,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
     const newMessages = chatSession.state.messages.slice(step5GuardMessageCount);
     return newMessages.some(
-      m => m.role === 'assistant' && m.model === 'blog_creation_step5'
+      m => m.role === 'assistant' && m.model === 'blog_creation_step7'
     );
   }, [
     step5JustReEnabled,

@@ -198,8 +198,8 @@ export class ModelHandlerService {
           'lp_draft_creation'
         );
       }
-    } else if (model === 'blog_creation_step5_chat') {
-      // Step5 OFF時の見出し修正チャット（バージョン管理対象外、通常チャット経路）
+    } else if (model === 'blog_creation_step7_chat') {
+      // Step7 OFF時の見出し修正チャット（バージョン管理対象外、通常チャット経路）
       const validMessages = messages.map(msg => ({
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content,
