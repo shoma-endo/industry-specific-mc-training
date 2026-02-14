@@ -75,7 +75,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   blog_creation_step4: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 5000 },
   // Step7 OFF時の本文見出し修正用（バージョン管理対象外、部分応答のためトークン数を抑制）
-  blog_creation_step7_chat: { ...ANTHROPIC_BASE, maxTokens: 2000 },
+  blog_creation_step7_chat: { ...ANTHROPIC_BASE, maxTokens: 3000 },
   blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 20000 },
   blog_title_meta_generation: {
