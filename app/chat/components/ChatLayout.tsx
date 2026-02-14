@@ -876,10 +876,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setIsEditingTitle(false);
     setTitleError(null);
     setIsSavingTitle(false);
-    // Step5 バージョン管理トグルをリセット
-    setStep5VersioningEnabled(true);
-    setStep5JustReEnabled(false);
-    setStep5GuardMessageCount(null);
+    // バージョン管理トグルをリセット
+    setVersioningEnabled(true);
+    setJustReEnabled(false);
+    setGuardMessageCount(null);
     prevSessionIdRef.current = nextSessionId;
   }, [chatSession.state.currentSessionId]);
 
