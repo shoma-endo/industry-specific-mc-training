@@ -1141,14 +1141,27 @@ export class SupabaseService {
       permission_level: payload.permissionLevel ?? null,
       verified: payload.verified ?? null,
       last_synced_at: payload.lastSyncedAt ?? null,
-      ga4_property_id: payload.ga4PropertyId ?? null,
-      ga4_property_name: payload.ga4PropertyName ?? null,
-      ga4_conversion_events: payload.ga4ConversionEvents ?? null,
-      ga4_threshold_engagement_sec: payload.ga4ThresholdEngagementSec ?? null,
-      ga4_threshold_read_rate: payload.ga4ThresholdReadRate ?? null,
-      ga4_last_synced_at: payload.ga4LastSyncedAt ?? null,
       updated_at: new Date().toISOString(),
     };
+
+    if ('ga4PropertyId' in payload) {
+      record.ga4_property_id = payload.ga4PropertyId ?? null;
+    }
+    if ('ga4PropertyName' in payload) {
+      record.ga4_property_name = payload.ga4PropertyName ?? null;
+    }
+    if ('ga4ConversionEvents' in payload) {
+      record.ga4_conversion_events = payload.ga4ConversionEvents ?? null;
+    }
+    if ('ga4ThresholdEngagementSec' in payload) {
+      record.ga4_threshold_engagement_sec = payload.ga4ThresholdEngagementSec ?? null;
+    }
+    if ('ga4ThresholdReadRate' in payload) {
+      record.ga4_threshold_read_rate = payload.ga4ThresholdReadRate ?? null;
+    }
+    if ('ga4LastSyncedAt' in payload) {
+      record.ga4_last_synced_at = payload.ga4LastSyncedAt ?? null;
+    }
 
     const { error } = await this.supabase
       .from('gsc_credentials')
