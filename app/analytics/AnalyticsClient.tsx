@@ -104,7 +104,10 @@ export default function AnalyticsClient({
             </Link>
             <Link
               href="/ga4-dashboard"
-              className={cn(buttonVariants(), 'h-9 inline-flex items-center gap-2')}
+              className={cn(
+                buttonVariants(),
+                'h-9 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700'
+              )}
             >
               <TrendingUp className="w-4 h-4" aria-hidden />
               <span>GA4ダッシュボード</span>
