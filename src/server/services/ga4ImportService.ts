@@ -48,6 +48,8 @@ export class Ga4ImportService {
   static readonly MAX_DURATION_MS = 280_000;
   static readonly MAX_ROWS_PER_REQUEST = 10_000;
   static readonly MAX_TOTAL_ROWS = 50_000;
+  /** 初回同期時に遡る日数（当日含まず） */
+  static readonly INITIAL_SYNC_DAYS = 30;
 
   private readonly supabaseService = new SupabaseService();
   private readonly gscService = new GscService();
@@ -123,7 +125,9 @@ export class Ga4ImportService {
     const lastSyncedAt = credential.ga4LastSyncedAt;
     const lastSyncedDate = lastSyncedAt ? getJstDateISOFromTimestamp(lastSyncedAt) : null;
 
-    const startDate = lastSyncedDate ? addDaysISO(lastSyncedDate, 1) : yesterdayJst;
+    const startDate = lastSyncedDate
+      ? addDaysISO(lastSyncedDate, 1)
+      : addDaysISO(yesterdayJst, -(Ga4ImportService.INITIAL_SYNC_DAYS - 1));
     const endDate = yesterdayJst;
 
     if (startDate > endDate) {
