@@ -142,15 +142,35 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
     await handleAsyncAction(
       async () => {
         const response = await fetch('/api/ga4/sync', { method: 'POST' });
-        const json = (await response.json()) as { success: boolean; error?: string };
+        const json = (await response.json()) as {
+          success: boolean;
+          error?: string;
+          alreadySynced?: boolean;
+          data?: { startDate: string; endDate: string; upserted: number } | null;
+        };
         if (!json.success) {
           throw new Error(json.error || 'GA4同期に失敗しました');
         }
         return json;
       },
       {
-        onSuccess: () => {
-          toast.success('GA4日次同期を開始しました');
+        onSuccess: (result) => {
+          const json = result as {
+            alreadySynced?: boolean;
+            data?: { startDate: string; endDate: string; upserted: number } | null;
+          };
+          if (json.alreadySynced) {
+            toast.info('本日分は同期済みです');
+            return;
+          }
+          const data = json.data;
+          if (data) {
+            toast.success(
+              `GA4データを同期しました（${data.startDate} 〜 ${data.endDate}、${data.upserted}件）`
+            );
+          } else {
+            toast.success('GA4データを同期しました');
+          }
         },
         setLoading: setIsGa4Syncing,
         setMessage: setAlertMessage,
