@@ -17,6 +17,7 @@ interface AnalyticsClientProps {
   total: number;
   totalPages: number;
   currentPage: number;
+  perPage: number;
   prevHref: string;
   nextHref: string;
   prevDisabled: boolean;
@@ -30,6 +31,7 @@ export default function AnalyticsClient({
   total,
   totalPages,
   currentPage,
+  perPage,
   prevHref,
   nextHref,
   prevDisabled,
@@ -93,7 +95,7 @@ export default function AnalyticsClient({
           {/* ページネーション */}
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-gray-600">
-              {total > 0 ? `全${total}件 / ${currentPage}ページ目（${totalPages}ページ）` : ''}
+              {total > 0 ? `全${total}件 / ${currentPage}ページ目（${totalPages}ページ） / 1ページ${perPage}件` : ''}
             </div>
             <div className="flex gap-2">
               <Link

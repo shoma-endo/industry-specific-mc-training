@@ -12,14 +12,14 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const params = await searchParams;
   const pageParam = Array.isArray(params?.page) ? params?.page[0] : params?.page;
   const page = Math.max(1, parseInt(pageParam || '1', 10));
-  const perPage = 100; // 1ページ最大100件（WP RESTの上限）
+  const perPage = 10; // 1ページあたり10件で固定表示
 
   // 並列でデータ取得
   const [analyticsPage, unreadResult] = await Promise.all([
     analyticsContentService.getPage({ page, perPage }),
     getAnnotationIdsWithUnreadSuggestions(),
   ]);
-  const { items, total, totalPages, page: resolvedPage, error } = analyticsPage;
+  const { items, total, totalPages, page: resolvedPage, perPage: resolvedPerPage, error } = analyticsPage;
   const currentPage = resolvedPage ?? page;
   const prevDisabled = currentPage <= 1;
   const nextDisabled = currentPage >= totalPages;
@@ -34,6 +34,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       total={total}
       totalPages={totalPages}
       currentPage={currentPage}
+      perPage={resolvedPerPage}
       prevHref={prevHref}
       nextHref={nextHref}
       prevDisabled={prevDisabled}
