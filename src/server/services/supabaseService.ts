@@ -1328,7 +1328,20 @@ export class SupabaseService {
       });
 
       if (error) {
-        console.error('Error upserting GA4 daily metrics:', error);
+        const chunkIndex = Math.floor(i / chunkSize);
+        const totalChunks = Math.ceil(rows.length / chunkSize);
+        const samplePropertyId = chunk[0]?.propertyId ?? 'unknown';
+        console.error('[SupabaseService] upsertGa4PageMetricsDaily failed', {
+          chunkIndex,
+          totalChunks,
+          chunkSize: chunk.length,
+          totalRows: rows.length,
+          propertyId: samplePropertyId,
+          errorCode: error.code,
+          errorMessage: error.message,
+          errorDetails: error.details,
+          errorHint: error.hint,
+        });
         throw new Error(`GA4日次指標の保存に失敗しました: ${error.message}`);
       }
     }

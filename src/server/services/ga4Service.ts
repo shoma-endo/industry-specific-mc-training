@@ -36,7 +36,8 @@ const GA4_DATA_BASE = 'https://analyticsdata.googleapis.com/v1beta';
 
 export class Ga4Service {
   async listProperties(accessToken: string): Promise<Ga4PropertySummary[]> {
-    const response = await fetch(`${GA4_ADMIN_BASE}/accountSummaries`, {
+    const url = `${GA4_ADMIN_BASE}/accountSummaries`;
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -46,6 +47,11 @@ export class Ga4Service {
 
     if (!response.ok) {
       const text = await response.text();
+      console.error('[ga4Service.listProperties] API error', {
+        status: response.status,
+        url,
+        responseBody: text.slice(0, 500),
+      });
       throw new Error(`GA4プロパティ一覧の取得に失敗しました: ${response.status} ${text}`);
     }
 
@@ -75,7 +81,8 @@ export class Ga4Service {
 
   async listKeyEvents(accessToken: string, propertyId: string): Promise<Ga4KeyEvent[]> {
     const normalizedProperty = normalizePropertyId(propertyId);
-    const response = await fetch(`${GA4_ADMIN_BASE}/${normalizedProperty}/keyEvents`, {
+    const url = `${GA4_ADMIN_BASE}/${normalizedProperty}/keyEvents`;
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -85,6 +92,11 @@ export class Ga4Service {
 
     if (!response.ok) {
       const text = await response.text();
+      console.error('[ga4Service.listKeyEvents] API error', {
+        status: response.status,
+        url,
+        responseBody: text.slice(0, 500),
+      });
       throw new Error(`GA4キーイベント一覧の取得に失敗しました: ${response.status} ${text}`);
     }
 
@@ -105,18 +117,38 @@ export class Ga4Service {
     body: Record<string, unknown>
   ): Promise<Ga4RunReportResponse> {
     const normalizedProperty = normalizePropertyId(propertyId);
-    const response = await fetch(`${GA4_DATA_BASE}/${normalizedProperty}:runReport`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    });
+    const url = `${GA4_DATA_BASE}/${normalizedProperty}:runReport`;
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        redirect: 'error',
+      });
+    } catch (fetchError) {
+      // redirect: 'error' によるリダイレクト検知、またはネットワークエラー
+      console.error('[ga4Service.runReport] fetch failed', {
+        url,
+        error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+      });
+      throw new Error(
+        `GA4レポート取得に失敗しました (fetch error): ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
+      );
+    }
 
     if (!response.ok) {
       const text = await response.text();
+      console.error('[ga4Service.runReport] API error', {
+        status: response.status,
+        url,
+        responseBody: text.slice(0, 500),
+      });
       throw new Error(`GA4レポート取得に失敗しました: ${response.status} ${text}`);
     }
 

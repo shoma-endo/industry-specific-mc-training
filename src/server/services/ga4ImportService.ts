@@ -48,6 +48,8 @@ export class Ga4ImportService {
   static readonly MAX_DURATION_MS = 280_000;
   static readonly MAX_ROWS_PER_REQUEST = 10_000;
   static readonly MAX_TOTAL_ROWS = 50_000;
+  /** 初回同期時に遡る日数（当日含まず） */
+  static readonly INITIAL_SYNC_DAYS = 30;
 
   private readonly supabaseService = new SupabaseService();
   private readonly gscService = new GscService();
@@ -123,7 +125,9 @@ export class Ga4ImportService {
     const lastSyncedAt = credential.ga4LastSyncedAt;
     const lastSyncedDate = lastSyncedAt ? getJstDateISOFromTimestamp(lastSyncedAt) : null;
 
-    const startDate = lastSyncedDate ? addDaysISO(lastSyncedDate, 1) : yesterdayJst;
+    const startDate = lastSyncedDate
+      ? addDaysISO(lastSyncedDate, 1)
+      : addDaysISO(yesterdayJst, -(Ga4ImportService.INITIAL_SYNC_DAYS - 1));
     const endDate = yesterdayJst;
 
     if (startDate > endDate) {
@@ -136,16 +140,41 @@ export class Ga4ImportService {
       : [];
     const eventNames = Array.from(new Set([GA4_EVENT_SCROLL_90, ...conversionEvents]));
 
-    const baseReport = await this.fetchBaseReport(accessToken, propertyId, {
-      startDate,
-      endDate,
-    });
+    let baseReport: ReportFetchResult;
+    try {
+      baseReport = await this.fetchBaseReport(accessToken, propertyId, {
+        startDate,
+        endDate,
+      });
+    } catch (error) {
+      console.error('[ga4ImportService.syncUser] baseReport fetch failed', {
+        userId,
+        propertyId,
+        startDate,
+        endDate,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
 
-    const eventReport = await this.fetchEventReport(accessToken, propertyId, {
-      startDate,
-      endDate,
-      eventNames,
-    });
+    let eventReport: ReportFetchResult;
+    try {
+      eventReport = await this.fetchEventReport(accessToken, propertyId, {
+        startDate,
+        endDate,
+        eventNames,
+      });
+    } catch (error) {
+      console.error('[ga4ImportService.syncUser] eventReport fetch failed', {
+        userId,
+        propertyId,
+        startDate,
+        endDate,
+        eventNames,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
 
     const merged = this.mergeReports(baseReport.rows, eventReport.rows, conversionEvents);
     const importedAt = new Date().toISOString();
@@ -171,6 +200,19 @@ export class Ga4ImportService {
     await this.supabaseService.updateGscCredential(userId, {
       // 次回の startDate を正しく進めるため、同期実行時刻ではなく取り込み済み最終日を保持する
       ga4LastSyncedAt: Ga4ImportService.toUtcMidnightIso(endDate),
+    });
+
+    console.log('[ga4ImportService.syncUser] completed', {
+      userId,
+      propertyId,
+      startDate,
+      endDate,
+      baseRows: baseReport.rows.length,
+      eventRows: eventReport.rows.length,
+      mergedRows: merged.length,
+      upserted: rowsToSave.length,
+      isSampled: baseReport.isSampled || eventReport.isSampled,
+      isPartial: baseReport.isPartial || eventReport.isPartial,
     });
 
     return {
@@ -253,6 +295,7 @@ export class Ga4ImportService {
     let isSampled = false;
     let isPartial = false;
 
+    let pageIndex = 0;
     while (rows.length < Ga4ImportService.MAX_TOTAL_ROWS) {
       const remaining = Ga4ImportService.MAX_TOTAL_ROWS - rows.length;
       const limit = Math.min(Ga4ImportService.MAX_ROWS_PER_REQUEST, remaining);
@@ -264,6 +307,15 @@ export class Ga4ImportService {
       });
 
       const responseRows = Array.isArray(response.rows) ? response.rows : [];
+      console.log('[ga4ImportService.fetchReportWithPagination]', {
+        mode,
+        pageIndex,
+        offset,
+        limit,
+        returnedRows: responseRows.length,
+        totalRowCount: response.rowCount ?? null,
+        accumulatedRows: rows.length,
+      });
       const samplingMetadatas = response.metadata?.samplingMetadatas;
       isSampled ||=
         Boolean(response.metadata?.dataLossFromOtherRow) ||
@@ -314,6 +366,7 @@ export class Ga4ImportService {
         break;
       }
 
+      pageIndex += 1;
       offset += limit;
       if (offset >= Ga4ImportService.MAX_TOTAL_ROWS) {
         isPartial = true;

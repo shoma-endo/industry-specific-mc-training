@@ -40,8 +40,7 @@ export async function POST(request: NextRequest) {
     if (!result.ok && result.reason === 'already_synced') {
       return NextResponse.json({
         success: true,
-        data: null,
-        alreadySynced: true,
+        data: { alreadySynced: true as const },
       });
     }
     if (!result.ok) {
