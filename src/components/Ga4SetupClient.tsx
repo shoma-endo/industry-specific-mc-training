@@ -46,6 +46,10 @@ const GA4_STAGE_META: Record<Ga4ConnectionStage, { label: string; className: str
   configured: { label: '設定完了', className: 'bg-green-100 text-green-800' },
 };
 
+type Ga4ManualSyncData =
+  | { alreadySynced: true }
+  | { startDate: string; endDate: string; upserted: number };
+
 const getGa4EventLabel = (eventName: string): string => {
   return GA4_EVENT_LABELS[eventName] ?? eventName;
 };
@@ -139,14 +143,17 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
   };
 
   const handleGa4ManualSync = async () => {
-    await handleAsyncAction(
+    await handleAsyncAction<Ga4ManualSyncData>(
       async () => {
         const response = await fetch('/api/ga4/sync', { method: 'POST' });
+        if (!response.ok) {
+          const text = await response.text().catch(() => '');
+          throw new Error(text || `GA4同期に失敗しました (HTTP ${response.status})`);
+        }
         const json = (await response.json()) as {
           success: boolean;
           error?: string;
-          alreadySynced?: boolean;
-          data?: { startDate: string; endDate: string; upserted: number } | null;
+          data?: Ga4ManualSyncData;
         };
         if (!json.success) {
           throw new Error(json.error || 'GA4同期に失敗しました');
@@ -155,22 +162,13 @@ export default function Ga4SetupClient({ initialStatus, isOauthConfigured }: Ga4
       },
       {
         onSuccess: (result) => {
-          const json = result as {
-            alreadySynced?: boolean;
-            data?: { startDate: string; endDate: string; upserted: number } | null;
-          };
-          if (json.alreadySynced) {
+          if (!result || 'alreadySynced' in result) {
             toast.info('本日分は同期済みです');
             return;
           }
-          const data = json.data;
-          if (data) {
-            toast.success(
-              `GA4データを同期しました（${data.startDate} 〜 ${data.endDate}、${data.upserted}件）`
-            );
-          } else {
-            toast.success('GA4データを同期しました');
-          }
+          toast.success(
+            `GA4データを同期しました（${result.startDate} 〜 ${result.endDate}、${result.upserted}件）`
+          );
         },
         setLoading: setIsGa4Syncing,
         setMessage: setAlertMessage,
