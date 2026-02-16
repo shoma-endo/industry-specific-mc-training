@@ -105,18 +105,38 @@ export class Ga4Service {
     body: Record<string, unknown>
   ): Promise<Ga4RunReportResponse> {
     const normalizedProperty = normalizePropertyId(propertyId);
-    const response = await fetch(`${GA4_DATA_BASE}/${normalizedProperty}:runReport`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    });
+    const url = `${GA4_DATA_BASE}/${normalizedProperty}:runReport`;
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        redirect: 'error',
+      });
+    } catch (fetchError) {
+      // redirect: 'error' によるリダイレクト検知、またはネットワークエラー
+      console.error('[ga4Service.runReport] fetch failed', {
+        url,
+        error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+      });
+      throw new Error(
+        `GA4レポート取得に失敗しました (fetch error): ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
+      );
+    }
 
     if (!response.ok) {
       const text = await response.text();
+      console.error('[ga4Service.runReport] API error', {
+        status: response.status,
+        url,
+        responseBody: text.slice(0, 500),
+      });
       throw new Error(`GA4レポート取得に失敗しました: ${response.status} ${text}`);
     }
 

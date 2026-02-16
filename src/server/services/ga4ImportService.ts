@@ -136,16 +136,41 @@ export class Ga4ImportService {
       : [];
     const eventNames = Array.from(new Set([GA4_EVENT_SCROLL_90, ...conversionEvents]));
 
-    const baseReport = await this.fetchBaseReport(accessToken, propertyId, {
-      startDate,
-      endDate,
-    });
+    let baseReport: ReportFetchResult;
+    try {
+      baseReport = await this.fetchBaseReport(accessToken, propertyId, {
+        startDate,
+        endDate,
+      });
+    } catch (error) {
+      console.error('[ga4ImportService.syncUser] baseReport fetch failed', {
+        userId,
+        propertyId,
+        startDate,
+        endDate,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
 
-    const eventReport = await this.fetchEventReport(accessToken, propertyId, {
-      startDate,
-      endDate,
-      eventNames,
-    });
+    let eventReport: ReportFetchResult;
+    try {
+      eventReport = await this.fetchEventReport(accessToken, propertyId, {
+        startDate,
+        endDate,
+        eventNames,
+      });
+    } catch (error) {
+      console.error('[ga4ImportService.syncUser] eventReport fetch failed', {
+        userId,
+        propertyId,
+        startDate,
+        endDate,
+        eventNames,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
 
     const merged = this.mergeReports(baseReport.rows, eventReport.rows, conversionEvents);
     const importedAt = new Date().toISOString();
