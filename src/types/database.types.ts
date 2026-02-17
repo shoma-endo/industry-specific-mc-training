@@ -493,12 +493,15 @@ export type Database = {
           is_sampled: boolean;
           normalized_path: string;
           page_path: string;
+          search_clicks: number;
           property_id: string;
           scroll_90_event_count: number;
           sessions: number;
           updated_at: string;
           user_id: string;
           users: number;
+          impressions: number;
+          ctr: number | null;
         };
         Insert: {
           bounce_rate?: number;
@@ -512,12 +515,15 @@ export type Database = {
           is_sampled?: boolean;
           normalized_path?: string;
           page_path: string;
+          search_clicks?: number;
           property_id: string;
           scroll_90_event_count?: number;
           sessions?: number;
           updated_at?: string;
           user_id: string;
           users?: number;
+          impressions?: number;
+          ctr?: number | null;
         };
         Update: {
           bounce_rate?: number;
@@ -531,12 +537,15 @@ export type Database = {
           is_sampled?: boolean;
           normalized_path?: string;
           page_path?: string;
+          search_clicks?: number;
           property_id?: string;
           scroll_90_event_count?: number;
           sessions?: number;
           updated_at?: string;
           user_id?: string;
           users?: number;
+          impressions?: number;
+          ctr?: number | null;
         };
         Relationships: [
           {

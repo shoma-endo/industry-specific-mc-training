@@ -107,6 +107,7 @@ export default function Ga4DashboardClient({
     readRate: true,
     bounceRate: true,
     cvr: true,
+    ctr: true,
   });
 
   // GA4未接続判定
@@ -256,7 +257,7 @@ export default function Ga4DashboardClient({
 
   // タイムシリーズメトリック切替
   const handleToggleMetric = useCallback(
-    (metric: 'readRate' | 'bounceRate' | 'cvr') => {
+    (metric: 'readRate' | 'bounceRate' | 'cvr' | 'ctr') => {
       setVisibleTimeseriesMetrics((prev) => ({
         ...prev,
         [metric]: !prev[metric],

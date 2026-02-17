@@ -14,6 +14,21 @@ const MAX_PER_PAGE = 100;
 
 const supabaseService = new SupabaseService();
 
+// GA4集計用の一時的な型定義
+interface Ga4MetricAggregate {
+  sessions: number;
+  users: number;
+  engagementTimeSec: number;
+  bounceRateWeighted: number;
+  bounceRateSessions: number;
+  cvEventCount: number;
+  scroll90EventCount: number;
+  searchClicks: number;
+  impressions: number;
+  isSampled: boolean;
+  isPartial: boolean;
+}
+
 export class AnalyticsContentService {
   async getPage(params: AnalyticsContentQuery): Promise<AnalyticsContentPage> {
     const page = Number.isFinite(params.page) ? Math.max(1, Math.floor(params.page)) : 1;
@@ -152,7 +167,7 @@ export class AnalyticsContentService {
     const { data, error } = await client
       .from('ga4_page_metrics_daily')
       .select(
-        'normalized_path,sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,is_sampled,is_partial'
+        'normalized_path,sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,search_clicks,impressions,ctr,is_sampled,is_partial'
       )
       .or(orFilter)
       .in('normalized_path', normalizedPaths)
@@ -164,20 +179,7 @@ export class AnalyticsContentService {
       throw new Error(`GA4データの取得に失敗しました: ${error.message}`);
     }
 
-    const summaryMap = new Map<
-      string,
-      {
-        sessions: number;
-        users: number;
-        engagementTimeSec: number;
-        bounceRateWeighted: number;
-        bounceRateSessions: number;
-        cvEventCount: number;
-        scroll90EventCount: number;
-        isSampled: boolean;
-        isPartial: boolean;
-      }
-    >();
+    const summaryMap = new Map<string, Ga4MetricAggregate>();
 
     for (const row of data ?? []) {
       const key = row.normalized_path as string;
@@ -189,6 +191,8 @@ export class AnalyticsContentService {
         bounceRateSessions: 0,
         cvEventCount: 0,
         scroll90EventCount: 0,
+        searchClicks: 0,
+        impressions: 0,
         isSampled: false,
         isPartial: false,
       };
@@ -199,12 +203,16 @@ export class AnalyticsContentService {
       const bounceRate = Number(row.bounce_rate ?? 0);
       const cvEventCount = Number(row.cv_event_count ?? 0);
       const scroll90EventCount = Number(row.scroll_90_event_count ?? 0);
+      const searchClicks = Number(row.search_clicks ?? 0);
+      const impressions = Number(row.impressions ?? 0);
 
       current.sessions += sessions;
       current.users += users;
       current.engagementTimeSec += engagementTimeSec;
       current.cvEventCount += cvEventCount;
       current.scroll90EventCount += scroll90EventCount;
+      current.searchClicks += searchClicks;
+      current.impressions += impressions;
       current.bounceRateWeighted += bounceRate * sessions;
       current.bounceRateSessions += sessions;
       current.isSampled ||= Boolean(row.is_sampled);
@@ -217,6 +225,7 @@ export class AnalyticsContentService {
     for (const [key, agg] of summaryMap.entries()) {
       const bounceRate =
         agg.bounceRateSessions > 0 ? agg.bounceRateWeighted / agg.bounceRateSessions : 0;
+      const ctr = agg.impressions > 0 ? agg.searchClicks / agg.impressions : null;
       results.set(key, {
         normalizedPath: key,
         dateFrom: startDate,
@@ -227,6 +236,9 @@ export class AnalyticsContentService {
         bounceRate,
         cvEventCount: agg.cvEventCount,
         scroll90EventCount: agg.scroll90EventCount,
+        searchClicks: agg.searchClicks,
+        impressions: agg.impressions,
+        ctr,
         isSampled: agg.isSampled,
         isPartial: agg.isPartial,
       });

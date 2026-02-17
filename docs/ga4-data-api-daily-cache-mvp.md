@@ -17,9 +17,9 @@ GA4 Data API の制約（`eventName` ディメンション追加でベース指�
 
 | 項目 | 仕様 |
 |---|---|
-| 表示対象 | 記事ページ別（pagePath を normalized_path に正規化してJOIN） |
+| 表示対象 | 記事ページ別（landingPage を normalized_path に正規化してJOIN） |
 | 取得期間 | 直近30日（デフォルト） |
-| 指標 | 滞在時間（平均）/ 読了率 / 直帰率 / CV数 / CVR |
+| 指標 | 滞在時間（平均）/ 読了率 / 直帰率 / CV数 / CVR / インプレッション数 / 検索クリック数 / 検索CTR |
 | 直帰率 | GA4 定義（bounceRate）を使用 |
 | 読了率 | scroll 90% 到達（`scroll_90`、時間条件なし） |
 | CV定義 | 記事ページ上の前段CVイベント（複数選択可） |
@@ -178,8 +178,8 @@ GA4 Data API の制約（`eventName` ディメンション追加でベース指�
 
 ### 方針（2レポート分離）
 
-- **(A) ベース指標レポート**: `pagePath` × `date` でセッション/ユーザー/滞在/直帰を取得
-- **(B) イベント指標レポート**: `pagePath` × `date` × `eventName` で `eventCount` を取得（CVイベント + `scroll_90`）
+- **(A) ベース指標レポート**: `landingPage` × `date` でセッション/ユーザー/滞在/直帰を取得
+- **(B) イベント指標レポート**: `landingPage` × `date` × `eventName` で `eventCount` を取得（CVイベント + `scroll_90`）
 
 取得後、`date + normalized_path` で統合し、日次行として保存する。
 
@@ -188,24 +188,29 @@ GA4 Data API の制約（`eventName` ディメンション追加でベース指�
 ```ts
 interface GA4BaseReportRequest {
   dateRanges: [{ startDate: string; endDate: string }];
-  dimensions: [{ name: 'pagePath' }, { name: 'date' }];
+  dimensions: [{ name: 'date' }, { name: 'landingPage' }];
   metrics: [
     { name: 'sessions' },
     { name: 'totalUsers' },
     { name: 'userEngagementDuration' },
-    { name: 'bounceRate' }
+    { name: 'bounceRate' },
+    { name: 'organicGoogleSearchClicks' },     // 検索クリック数（CTR分子）
+    { name: 'organicGoogleSearchImpressions' } // 検索インプレッション数（Search Console連携時）
   ];
   limit: 10000;
   offset?: number;
 }
 ```
 
+> **追記（2026-02-16）**: `organicGoogleSearchClicks` / `organicGoogleSearchImpressions` は GA4 プロパティで Search Console 連携が有効な場合のみデータが入ります。連携未設定時は `0` として扱います。`screenPageViews` は行動指標としては有用ですが、検索CTR計算には使用しません。
+> **注意**: Search Console指標は、Search Console専用ディメンションと一部のAnalyticsディメンションのみと互換性があります。本設計で使用する `landingPage` + `date` の組み合わせは、実装前に GA4 Dimensions & Metrics Explorer または Data API の `checkCompatibility` / テストリクエストで必ず確認してください。
+
 ### (B) イベント指標レポート（runReport）
 
 ```ts
 interface GA4EventReportRequest {
   dateRanges: [{ startDate: string; endDate: string }];
-  dimensions: [{ name: 'pagePath' }, { name: 'date' }, { name: 'eventName' }];
+  dimensions: [{ name: 'date' }, { name: 'landingPage' }, { name: 'eventName' }];
   metrics: [{ name: 'eventCount' }];
   // eventName IN (...) のフィルタを適用する想定
   limit: 10000;
@@ -286,7 +291,7 @@ const merged = baseRows.map((base) => {
 | user_id | uuid | ユーザーID（オーナーIDに正規化） |
 | property_id | text | GA4プロパティID |
 | date | date | 日付 |
-| page_path | text | GA4 `pagePath` |
+| page_path | text | GA4 `landingPage` |
 | normalized_path | text (GENERATED) | `normalize_to_path(page_path)` |
 | sessions | int | `sessions` |
 | users | int | `totalUsers` |
@@ -294,6 +299,9 @@ const merged = baseRows.map((base) => {
 | bounce_rate | numeric(5,4) | `bounceRate`（0〜1） |
 | cv_event_count | int | CVイベントの eventCount 合算（**NOT NULL DEFAULT 0**） |
 | scroll_90_event_count | int | `scroll_90` の eventCount（**NOT NULL DEFAULT 0**） |
+| search_clicks | int | `organicGoogleSearchClicks`（検索クリック数）**NOT NULL DEFAULT 0** |
+| impressions | int | `organicGoogleSearchImpressions`（検索インプレッション数）**NOT NULL DEFAULT 0** |
+| ctr | numeric(10,9) | 検索CTR（`search_clicks / impressions`、impressions=0時はNULL） |
 | is_sampled | boolean | サンプリング有無 |
 | is_partial | boolean | 部分取得フラグ |
 | imported_at | timestamptz | インポート日時 |
@@ -349,6 +357,11 @@ async function resolveOwnerUserId(userId: string): Promise<string> {
 | CV数 | `cv_event_count` | eventCount合算 |
 | CVR | `cv_event_count / users * 100` | users=0 の場合 0 |
 | 読了率 | `scroll_90_event_count / users` | users=0 の場合 0 |
+| 検索クリック数 | `search_clicks` | `organicGoogleSearchClicks`（検索クリック数） |
+| インプレッション数 | `impressions` | `organicGoogleSearchImpressions`（Search Console連携時） |
+| 検索CTR | `search_clicks / impressions` | 0-1の比率（表示時に×100）、impressions=0 の場合 NULL |
+
+> **追記（2026-02-16）**: 検索CTR は「検索結果からのクリック率」を表します。分母のインプレッション数は Search Console 連携時にのみ取得可能です。連携未設定時は検索CTRは NULL となります。DB保存時は0-1の比率で保存し、表示時に×100して%表示します（`numeric(10,9)`）。
 
 ---
 
@@ -482,6 +495,9 @@ CREATE TABLE ga4_page_metrics_daily (
   bounce_rate numeric(5,4),
   cv_event_count int NOT NULL DEFAULT 0,
   scroll_90_event_count int NOT NULL DEFAULT 0,
+  search_clicks int NOT NULL DEFAULT 0,
+  impressions int NOT NULL DEFAULT 0,
+  ctr numeric(10,9),
   is_sampled boolean NOT NULL DEFAULT false,
   is_partial boolean NOT NULL DEFAULT false,
   imported_at timestamptz NOT NULL DEFAULT now(),

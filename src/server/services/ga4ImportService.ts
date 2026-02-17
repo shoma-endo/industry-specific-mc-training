@@ -21,6 +21,8 @@ interface Ga4ReportRow {
   engagementTimeSec?: number;
   bounceRate?: number;
   eventCount?: number;
+  searchClicks?: number; // organicGoogleSearchClicks（検索クリック数、CTR分子）
+  impressions?: number; // organicGoogleSearchImpressions（検索インプレッション数、CTR分母）
 }
 
 interface ReportFetchResult {
@@ -179,22 +181,30 @@ export class Ga4ImportService {
     const merged = this.mergeReports(baseReport.rows, eventReport.rows, conversionEvents);
     const importedAt = new Date().toISOString();
 
-    const rowsToSave = merged.map(row => ({
-      userId,
-      propertyId,
-      date: row.date,
-      pagePath: row.pagePath,
-      normalizedPath: row.normalizedPath,
-      sessions: row.sessions,
-      users: row.users,
-      engagementTimeSec: row.engagementTimeSec,
-      bounceRate: row.bounceRate,
-      cvEventCount: row.cvEventCount,
-      scroll90EventCount: row.scroll90EventCount,
-      isSampled: baseReport.isSampled || eventReport.isSampled,
-      isPartial: baseReport.isPartial || eventReport.isPartial,
-      importedAt,
-    }));
+    const rowsToSave = merged.map(row => {
+      // CTR計算: impressionsが0の場合はNULL、それ以外はsearchClicks/impressions（0-1の比率）
+      const ctr = row.impressions > 0 ? row.searchClicks / row.impressions : null;
+
+      return {
+        userId,
+        propertyId,
+        date: row.date,
+        pagePath: row.pagePath,
+        normalizedPath: row.normalizedPath,
+        sessions: row.sessions,
+        users: row.users,
+        engagementTimeSec: row.engagementTimeSec,
+        bounceRate: row.bounceRate,
+        cvEventCount: row.cvEventCount,
+        scroll90EventCount: row.scroll90EventCount,
+        searchClicks: row.searchClicks,
+        impressions: row.impressions,
+        ctr,
+        isSampled: baseReport.isSampled || eventReport.isSampled,
+        isPartial: baseReport.isPartial || eventReport.isPartial,
+        importedAt,
+      };
+    });
 
     await this.supabaseService.upsertGa4PageMetricsDaily(rowsToSave);
     await this.supabaseService.updateGscCredential(userId, {
@@ -255,12 +265,14 @@ export class Ga4ImportService {
     range: { startDate: string; endDate: string }
   ): Promise<ReportFetchResult> {
     return this.fetchReportWithPagination(accessToken, propertyId, 'base', {
-      dimensions: [{ name: 'date' }, { name: 'pagePath' }],
+      dimensions: [{ name: 'date' }, { name: 'landingPage' }],
       metrics: [
         { name: 'sessions' },
         { name: 'totalUsers' },
         { name: 'userEngagementDuration' },
         { name: 'bounceRate' },
+        { name: 'organicGoogleSearchClicks' },    // 検索クリック数（CTR分子）
+        { name: 'organicGoogleSearchImpressions' } // 検索インプレッション数（CTR分母）
       ],
       dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
     });
@@ -272,7 +284,8 @@ export class Ga4ImportService {
     range: { startDate: string; endDate: string; eventNames: string[] }
   ): Promise<ReportFetchResult> {
     return this.fetchReportWithPagination(accessToken, propertyId, 'event', {
-      dimensions: [{ name: 'date' }, { name: 'pagePath' }, { name: 'eventName' }],
+      // ベース指標と結合軸を一致させるため、イベント側も landingPage を使用する
+      dimensions: [{ name: 'date' }, { name: 'landingPage' }, { name: 'eventName' }],
       metrics: [{ name: 'eventCount' }],
       dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
       dimensionFilter: {
@@ -330,8 +343,8 @@ export class Ga4ImportService {
         const dimensions = row.dimensionValues ?? [];
         const metrics = row.metricValues ?? [];
         const date = ga4DateStringToIso(dimensions[0]?.value ?? '');
-        const pagePath = dimensions[1]?.value ?? '';
-        if (!date || !pagePath) {
+        const landingPage = dimensions[1]?.value ?? '';
+        if (!date || !landingPage) {
           continue;
         }
         if (mode === 'event') {
@@ -342,7 +355,7 @@ export class Ga4ImportService {
           const eventCount = Number(metrics[0]?.value ?? 0);
           rows.push({
             date,
-            pagePath,
+            pagePath: landingPage,
             eventName,
             eventCount,
           });
@@ -351,13 +364,17 @@ export class Ga4ImportService {
           const users = Number(metrics[1]?.value ?? 0);
           const engagementTimeSec = Number(metrics[2]?.value ?? 0);
           const bounceRate = Number(metrics[3]?.value ?? 0);
+          const searchClicks = Number(metrics[4]?.value ?? 0);
+          const impressions = Number(metrics[5]?.value ?? 0);
           rows.push({
             date,
-            pagePath,
+            pagePath: landingPage,
             sessions,
             users,
             engagementTimeSec,
             bounceRate,
+            searchClicks,
+            impressions,
           });
         }
       }
@@ -399,6 +416,8 @@ export class Ga4ImportService {
         bounceRate: number;
         cvEventCount: number;
         scroll90EventCount: number;
+        searchClicks: number;
+        impressions: number;
       }
     >();
 
@@ -409,6 +428,8 @@ export class Ga4ImportService {
       const users = row.users ?? 0;
       const engagementTimeSec = row.engagementTimeSec ?? 0;
       const bounceRate = row.bounceRate ?? 0;
+      const searchClicks = row.searchClicks ?? 0;
+      const impressions = row.impressions ?? 0;
 
       const existing = map.get(key);
       if (existing) {
@@ -420,6 +441,8 @@ export class Ga4ImportService {
         existing.sessions = totalSessions;
         existing.users += users;
         existing.engagementTimeSec += engagementTimeSec;
+        existing.searchClicks += searchClicks;
+        existing.impressions += impressions;
       } else {
         map.set(key, {
           date: row.date,
@@ -431,6 +454,8 @@ export class Ga4ImportService {
           bounceRate,
           cvEventCount: 0,
           scroll90EventCount: 0,
+          searchClicks,
+          impressions,
         });
       }
     }

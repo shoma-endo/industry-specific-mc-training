@@ -37,6 +37,9 @@ export interface Ga4PageMetricSummary {
   bounceRate: number; // 0-1
   cvEventCount: number;
   scroll90EventCount: number;
+  searchClicks: number; // organicGoogleSearchClicks（検索クリック数、CTR分子）
+  impressions: number; // organicGoogleSearchImpressions（検索インプレッション数、CTR分母）
+  ctr: number | null; // searchClicks / impressions (0-1の比率、表示時に×100)
   isSampled: boolean;
   isPartial: boolean;
 }
@@ -53,6 +56,9 @@ export interface Ga4DailyMetricRow {
   bounceRate: number;
   cvEventCount: number;
   scroll90EventCount: number;
+  searchClicks: number; // organicGoogleSearchClicks（検索クリック数、CTR分子）
+  impressions: number; // organicGoogleSearchImpressions（検索インプレッション数、CTR分母）
+  ctr: number | null; // searchClicks / impressions (0-1の比率、表示時に×100)
   isSampled: boolean;
   isPartial: boolean;
   importedAt: string;
@@ -67,6 +73,9 @@ export interface Ga4DashboardSummary {
   totalCvEventCount: number;
   cvr: number; // 0-100
   avgReadRate: number; // 0-100
+  totalSearchClicks: number; // 検索クリック数
+  totalImpressions: number; // インプレッション数
+  ctr: number | null; // クリック率
   hasSampledData: boolean;
   hasPartialData: boolean;
 }
@@ -82,6 +91,9 @@ export interface Ga4DashboardRankingItem {
   cvEventCount: number;
   cvr: number; // 0-100
   readRate: number; // 0-100
+  searchClicks: number; // 検索クリック数
+  impressions: number; // インプレッション数
+  ctr: number | null; // クリック率（0-1の比率、表示時に×100）
   isSampled: boolean;
   isPartial: boolean;
 }
@@ -95,6 +107,9 @@ export interface Ga4DashboardTimeseriesPoint {
   cvEventCount: number;
   cvr: number; // 0-100
   readRate: number; // 0-100
+  searchClicks: number; // 検索クリック数
+  impressions: number; // インプレッション数
+  ctr: number | null; // クリック率（0-1の比率、表示時に×100）
   isSampled: boolean;
   isPartial: boolean;
 }

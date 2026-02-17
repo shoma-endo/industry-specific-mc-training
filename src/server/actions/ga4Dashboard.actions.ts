@@ -207,7 +207,7 @@ export async function fetchGa4DashboardSummary(input: unknown): Promise<
     const { data: metrics, error: metricsError } = await client
       .from('ga4_page_metrics_daily')
       .select(
-        'sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,is_sampled,is_partial'
+        'sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,search_clicks,impressions,ctr,is_sampled,is_partial'
       )
       .or(orFilter)
       .gte('date', start)
@@ -229,6 +229,9 @@ export async function fetchGa4DashboardSummary(input: unknown): Promise<
           totalCvEventCount: 0,
           cvr: 0,
           avgReadRate: 0,
+          totalSearchClicks: 0,
+          totalImpressions: 0,
+          ctr: null,
           hasSampledData: false,
           hasPartialData: false,
         },
@@ -243,6 +246,8 @@ export async function fetchGa4DashboardSummary(input: unknown): Promise<
     let bounceRateSessions = 0;
     let totalCvEventCount = 0;
     let totalScroll90EventCount = 0;
+    let totalSearchClicks = 0;
+    let totalImpressions = 0;
     let hasSampledData = false;
     let hasPartialData = false;
 
@@ -253,12 +258,16 @@ export async function fetchGa4DashboardSummary(input: unknown): Promise<
       const bounceRate = Number(row.bounce_rate ?? 0);
       const cvEventCount = Number(row.cv_event_count ?? 0);
       const scroll90EventCount = Number(row.scroll_90_event_count ?? 0);
+      const searchClicks = Number(row.search_clicks ?? 0);
+      const impressions = Number(row.impressions ?? 0);
 
       totalSessions += sessions;
       totalUsers += users;
       totalEngagementTimeSec += engagementTimeSec;
       totalCvEventCount += cvEventCount;
       totalScroll90EventCount += scroll90EventCount;
+      totalSearchClicks += searchClicks;
+      totalImpressions += impressions;
 
       bounceRateWeighted += bounceRate * sessions;
       bounceRateSessions += sessions;
@@ -274,6 +283,7 @@ export async function fetchGa4DashboardSummary(input: unknown): Promise<
     const cvr = totalUsers > 0 ? (totalCvEventCount / totalUsers) * 100 : 0;
     const avgReadRate =
       totalUsers > 0 ? (totalScroll90EventCount / totalUsers) * 100 : 0;
+    const ctr = totalImpressions > 0 ? totalSearchClicks / totalImpressions : null;
 
     return {
       success: true,
@@ -285,6 +295,9 @@ export async function fetchGa4DashboardSummary(input: unknown): Promise<
         totalCvEventCount,
         cvr,
         avgReadRate,
+        totalSearchClicks,
+        totalImpressions,
+        ctr,
         hasSampledData,
         hasPartialData,
       },
@@ -359,7 +372,7 @@ export async function fetchGa4DashboardRanking(input: unknown): Promise<
     const { data: metrics, error: metricsError } = await client
       .from('ga4_page_metrics_daily')
       .select(
-        'normalized_path,sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,is_sampled,is_partial'
+        'normalized_path,sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,search_clicks,impressions,ctr,is_sampled,is_partial'
       )
       .or(orFilter)
       .gte('date', dateRange.start)
@@ -385,6 +398,8 @@ export async function fetchGa4DashboardRanking(input: unknown): Promise<
         bounceRateSessions: number;
         cvEventCount: number;
         scroll90EventCount: number;
+        searchClicks: number;
+        impressions: number;
         isSampled: boolean;
         isPartial: boolean;
       }
@@ -400,6 +415,8 @@ export async function fetchGa4DashboardRanking(input: unknown): Promise<
         bounceRateSessions: 0,
         cvEventCount: 0,
         scroll90EventCount: 0,
+        searchClicks: 0,
+        impressions: 0,
         isSampled: false,
         isPartial: false,
       };
@@ -410,12 +427,16 @@ export async function fetchGa4DashboardRanking(input: unknown): Promise<
       const bounceRate = Number(row.bounce_rate ?? 0);
       const cvEventCount = Number(row.cv_event_count ?? 0);
       const scroll90EventCount = Number(row.scroll_90_event_count ?? 0);
+      const searchClicks = Number(row.search_clicks ?? 0);
+      const impressions = Number(row.impressions ?? 0);
 
       current.sessions += sessions;
       current.users += users;
       current.engagementTimeSec += engagementTimeSec;
       current.cvEventCount += cvEventCount;
       current.scroll90EventCount += scroll90EventCount;
+      current.searchClicks += searchClicks;
+      current.impressions += impressions;
       current.bounceRateWeighted += bounceRate * sessions;
       current.bounceRateSessions += sessions;
       current.isSampled = current.isSampled || Boolean(row.is_sampled);
@@ -437,6 +458,7 @@ export async function fetchGa4DashboardRanking(input: unknown): Promise<
         agg.users > 0 ? (agg.scroll90EventCount / agg.users) * 100 : 0;
       const avgEngagementTimeSec =
         agg.sessions > 0 ? agg.engagementTimeSec / agg.sessions : 0;
+      const ctr = agg.impressions > 0 ? agg.searchClicks / agg.impressions : null;
 
       ranking.push({
         normalizedPath,
@@ -449,6 +471,9 @@ export async function fetchGa4DashboardRanking(input: unknown): Promise<
         cvEventCount: agg.cvEventCount,
         cvr,
         readRate,
+        searchClicks: agg.searchClicks,
+        impressions: agg.impressions,
+        ctr,
         isSampled: agg.isSampled,
         isPartial: agg.isPartial,
       });
@@ -613,7 +638,7 @@ export async function fetchGa4DashboardTimeseries(input: unknown): Promise<
     const { data: metrics, error: metricsError } = await client
       .from('ga4_page_metrics_daily')
       .select(
-        'date,sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,is_sampled,is_partial'
+        'date,sessions,users,engagement_time_sec,bounce_rate,cv_event_count,scroll_90_event_count,search_clicks,impressions,ctr,is_sampled,is_partial'
       )
       .or(orFilter)
       .eq('normalized_path', targetNormalizedPath)
@@ -641,6 +666,8 @@ export async function fetchGa4DashboardTimeseries(input: unknown): Promise<
         bounceRateSessions: number;
         cvEventCount: number;
         scroll90EventCount: number;
+        searchClicks: number;
+        impressions: number;
         isSampled: boolean;
         isPartial: boolean;
       }
@@ -656,6 +683,8 @@ export async function fetchGa4DashboardTimeseries(input: unknown): Promise<
         bounceRateSessions: 0,
         cvEventCount: 0,
         scroll90EventCount: 0,
+        searchClicks: 0,
+        impressions: 0,
         isSampled: false,
         isPartial: false,
       };
@@ -666,12 +695,16 @@ export async function fetchGa4DashboardTimeseries(input: unknown): Promise<
       const bounceRate = Number(row.bounce_rate ?? 0);
       const cvEventCount = Number(row.cv_event_count ?? 0);
       const scroll90EventCount = Number(row.scroll_90_event_count ?? 0);
+      const searchClicks = Number(row.search_clicks ?? 0);
+      const impressions = Number(row.impressions ?? 0);
 
       current.sessions += sessions;
       current.users += users;
       current.engagementTimeSec += engagementTimeSec;
       current.cvEventCount += cvEventCount;
       current.scroll90EventCount += scroll90EventCount;
+      current.searchClicks += searchClicks;
+      current.impressions += impressions;
       current.bounceRateWeighted += bounceRate * sessions;
       current.bounceRateSessions += sessions;
       current.isSampled = current.isSampled || Boolean(row.is_sampled);
@@ -692,6 +725,7 @@ export async function fetchGa4DashboardTimeseries(input: unknown): Promise<
         const cvr = agg.users > 0 ? (agg.cvEventCount / agg.users) * 100 : 0;
         const readRate =
           agg.users > 0 ? (agg.scroll90EventCount / agg.users) * 100 : 0;
+        const ctr = agg.impressions > 0 ? agg.searchClicks / agg.impressions : null;
 
         return {
           date,
@@ -702,6 +736,9 @@ export async function fetchGa4DashboardTimeseries(input: unknown): Promise<
           cvEventCount: agg.cvEventCount,
           cvr,
           readRate,
+          searchClicks: agg.searchClicks,
+          impressions: agg.impressions,
+          ctr,
           isSampled: agg.isSampled,
           isPartial: agg.isPartial,
         };

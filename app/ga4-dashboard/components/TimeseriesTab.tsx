@@ -20,6 +20,7 @@ interface TimeseriesMetric {
   readRate: boolean;
   bounceRate: boolean;
   cvr: boolean;
+  ctr: boolean;
 }
 
 interface Props {
@@ -27,7 +28,7 @@ interface Props {
   isLoading?: boolean;
   selectedNormalizedPath?: string;
   visibleMetrics: TimeseriesMetric;
-  onToggleMetric: (metric: 'readRate' | 'bounceRate' | 'cvr') => void;
+  onToggleMetric: (metric: 'readRate' | 'bounceRate' | 'cvr' | 'ctr') => void;
 }
 
 export function TimeseriesTab({
@@ -43,15 +44,25 @@ export function TimeseriesTab({
   };
 
   const formatNumber = (num: number) => num.toLocaleString();
-  const formatPercent = (num: number) => `${num.toFixed(1)}%`;
+  const formatPercent = (num: number | null) => num === null ? '-' : `${num.toFixed(1)}%`;
 
   // セッション・ユーザー用のYAxisドメイン
   const sessionsDomain = data.length > 0
     ? [0, Math.max(...data.map((d) => d.sessions)) * 1.1]
     : [0, 100];
 
-  // パーセント用のYAxisドメイン
-  const percentDomain = [0, 100];
+  // パーセント用のYAxisドメイン（CTR>100%のケースもクリップしない）
+  const percentValues = data.flatMap((d) => {
+    const values: number[] = [];
+    if (visibleMetrics.readRate) values.push(d.readRate);
+    if (visibleMetrics.bounceRate) values.push(d.bounceRate * 100);
+    if (visibleMetrics.cvr) values.push(d.cvr);
+    if (visibleMetrics.ctr && d.ctr !== null) values.push(d.ctr * 100);
+    return values;
+  });
+  const maxPercentValue = percentValues.length > 0 ? Math.max(...percentValues) : 100;
+  const percentDomainMax = Math.max(100, Math.ceil(maxPercentValue * 1.1 / 10) * 10);
+  const percentDomain = [0, percentDomainMax];
 
   // カスタムTooltip
   const CustomTooltip = ({
@@ -95,6 +106,9 @@ export function TimeseriesTab({
 
           <div className="text-gray-600">読了率:</div>
           <div className="text-right font-medium">{formatPercent(data.readRate)}</div>
+
+          <div className="text-gray-600">CTR:</div>
+          <div className="text-right font-medium">{formatPercent(data.ctr !== null ? data.ctr * 100 : null)}</div>
         </div>
 
         {(data.isSampled || data.isPartial) && (
@@ -168,6 +182,16 @@ export function TimeseriesTab({
           className="text-xs"
         >
           CVR
+        </Button>
+
+        <Button
+          type="button"
+          variant={visibleMetrics.ctr ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => onToggleMetric('ctr')}
+          className="text-xs"
+        >
+          CTR
         </Button>
       </div>
 
@@ -287,6 +311,20 @@ export function TimeseriesTab({
                 />
               )}
 
+              {/* CTR（切替） */}
+              {visibleMetrics.ctr && (
+                <Line
+                  yAxisId="percent"
+                  type="monotone"
+                  dataKey={(d) => d.ctr !== null ? d.ctr * 100 : null}
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  dot={false}
+                  name="CTR(%)"
+                  connectNulls={false}
+                />
+              )}
+
               {/* サンプリング/一部取得の日の参考線 */}
               {data.some((d) => d.isSampled || d.isPartial) && (
                 <ReferenceLine
@@ -296,6 +334,14 @@ export function TimeseriesTab({
                   strokeDasharray="3 3"
                 />
               )}
+
+              {/* 100%基準線（CTRが100%を超える日の視認性向上） */}
+              <ReferenceLine
+                y={100}
+                yAxisId="percent"
+                stroke="#94a3b8"
+                strokeDasharray="3 3"
+              />
             </LineChart>
           </ResponsiveContainer>
         ) : (

@@ -1294,6 +1294,9 @@ export class SupabaseService {
       bounceRate: number;
       cvEventCount: number;
       scroll90EventCount: number;
+      searchClicks: number;
+      impressions: number;
+      ctr: number | null;
       isSampled: boolean;
       isPartial: boolean;
       importedAt: string;
@@ -1316,6 +1319,9 @@ export class SupabaseService {
         bounce_rate: row.bounceRate,
         cv_event_count: row.cvEventCount,
         scroll_90_event_count: row.scroll90EventCount,
+        search_clicks: row.searchClicks,
+        impressions: row.impressions,
+        ctr: row.ctr,
         is_sampled: row.isSampled,
         is_partial: row.isPartial,
         imported_at: row.importedAt,
