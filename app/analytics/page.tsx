@@ -31,7 +31,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const startParam = Array.isArray(params?.start) ? params?.start[0] : params?.start;
   const endParam = Array.isArray(params?.end) ? params?.end[0] : params?.end;
   const page = Math.max(1, parseInt(pageParam || '1', 10));
-  const perPage = 100; // 1ページ最大100件（WP RESTの上限）
+  const perPage = 10; // 1ページあたり10件で固定表示
 
   const todayJst = formatJstDateISO(new Date());
   const defaultEnd = addDaysISO(todayJst, -1);
@@ -53,7 +53,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     analyticsContentService.getPage({ page, perPage, startDate, endDate }),
     getAnnotationIdsWithUnreadSuggestions(),
   ]);
-  const { items, total, totalPages, page: resolvedPage, error, ga4Error } = analyticsPage;
+  const { items, total, totalPages, page: resolvedPage, perPage: resolvedPerPage, error, ga4Error } = analyticsPage;
   const currentPage = resolvedPage ?? page;
   const prevDisabled = currentPage <= 1;
   const nextDisabled = currentPage >= totalPages;
@@ -75,6 +75,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       total={total}
       totalPages={totalPages}
       currentPage={currentPage}
+      perPage={resolvedPerPage}
       prevHref={prevHref}
       nextHref={nextHref}
       prevDisabled={prevDisabled}

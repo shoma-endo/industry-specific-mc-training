@@ -27,6 +27,7 @@ interface DashboardContentProps {
 export function DashboardContent({
   campaigns,
   keywordMetrics,
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars -- 将来的にモックデータ表示の切り替えで使用予定 */
   isMockData, // 将来のモック表示用に受け取りのみ
   errorMessage,
   errorKind = 'unknown',

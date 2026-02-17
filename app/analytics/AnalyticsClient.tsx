@@ -20,6 +20,7 @@ interface AnalyticsClientProps {
   total: number;
   totalPages: number;
   currentPage: number;
+  perPage: number;
   prevHref: string;
   nextHref: string;
   prevDisabled: boolean;
@@ -36,6 +37,7 @@ export default function AnalyticsClient({
   total,
   totalPages,
   currentPage,
+  perPage,
   prevHref,
   nextHref,
   prevDisabled,
@@ -69,6 +71,8 @@ export default function AnalyticsClient({
     params.set('end', rangeEnd);
     router.push(`/analytics?${params.toString()}`);
   };
+  const startItemNumber = total > 0 ? (currentPage - 1) * perPage + 1 : 0;
+  const endItemNumber = total > 0 ? Math.min(currentPage * perPage, total) : 0;
 
   return (
     <div className="w-full px-4 py-8">
@@ -170,7 +174,9 @@ export default function AnalyticsClient({
           {/* ページネーション */}
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-gray-600">
-              {total > 0 ? `全${total}件 / ${currentPage}ページ目（${totalPages}ページ）` : ''}
+              {total > 0
+                ? `全${total}件中 ${startItemNumber}-${endItemNumber}件を表示（${currentPage}/${totalPages}ページ）`
+                : ''}
             </div>
             <div className="flex gap-2">
               <Link

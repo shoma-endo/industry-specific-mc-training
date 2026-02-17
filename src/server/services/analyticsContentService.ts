@@ -48,8 +48,6 @@ export class AnalyticsContentService {
 
     try {
       const { userId } = await this.resolveUser();
-      const from = (page - 1) * perPage;
-      const to = from + perPage - 1;
 
       const client = supabaseService.getClient();
 
@@ -63,20 +61,47 @@ export class AnalyticsContentService {
         throw new Error('アクセス権の確認に失敗しました');
       }
 
-      const { data, error, count } = await client
-        .from('content_annotations')
-        .select('*', { count: 'exact', head: false })
-        .in('user_id', accessibleIds)
-        .order('updated_at', { ascending: false, nullsFirst: false })
-        .range(from, to);
+      const fetchAnnotationsPage = async (targetPage: number) => {
+        const from = (targetPage - 1) * perPage;
+        const to = from + perPage - 1;
+
+        const { data, error, count } = await client
+          .from('content_annotations')
+          .select('*', { count: 'exact', head: false })
+          .in('user_id', accessibleIds)
+          .order('updated_at', { ascending: false, nullsFirst: false })
+          .range(from, to);
+
+        return { data, error, count, from };
+      };
+
+      const firstResult = await fetchAnnotationsPage(page);
+      let { data, error, from } = firstResult;
+      const { count } = firstResult;
 
       if (error) {
         throw new Error(error.message || 'コンテンツ注釈の取得に失敗しました');
       }
 
-      const annotations = (data ?? []) as AnnotationRecord[];
-      const total = count ?? annotations.length;
+      const initialAnnotations = (data ?? []) as AnnotationRecord[];
+      const total = count ?? initialAnnotations.length;
       const totalPages = Math.max(1, Math.ceil(total / perPage));
+      const resolvedPage = Math.min(page, totalPages);
+
+      if (resolvedPage !== page) {
+        // 意図した仕様として、2回目フェッチ時も total/totalPages は初回フェッチの値を保持する
+        // （フェッチ間でデータ変動が起きた場合、件数と取得データに一時的な不整合が生じる可能性はある）
+        const resolvedResult = await fetchAnnotationsPage(resolvedPage);
+        data = resolvedResult.data;
+        error = resolvedResult.error;
+        from = resolvedResult.from;
+
+        if (error) {
+          throw new Error(error.message || 'コンテンツ注釈の取得に失敗しました');
+        }
+      }
+
+      const annotations = (data ?? []) as AnnotationRecord[];
 
       let ga4Error: string | undefined;
       let ga4Summaries: Map<string, Ga4PageMetricSummary>;
@@ -105,7 +130,7 @@ export class AnalyticsContentService {
         items,
         total,
         totalPages,
-        page,
+        page: resolvedPage,
         perPage,
         ga4Error,
       };

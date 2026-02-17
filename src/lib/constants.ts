@@ -77,6 +77,8 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   blog_creation_step3: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step4: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step5: { ...ANTHROPIC_BASE, maxTokens: 5000 },
+  // Step7 OFF時の本文見出し修正用（バージョン管理対象外、部分応答のためトークン数を抑制）
+  blog_creation_step7_chat: { ...ANTHROPIC_BASE, maxTokens: 3000 },
   blog_creation_step6: { ...ANTHROPIC_BASE, maxTokens: 4000 },
   blog_creation_step7: { ...ANTHROPIC_BASE, maxTokens: 20000 },
   blog_title_meta_generation: {
@@ -131,6 +133,9 @@ export const BLOG_STEP_LABELS: Record<BlogStepId, string> = {
   step7: '7. 本文作成',
 };
 
+// Step7 バージョン管理トグル対象ステップ
+export const VERSIONING_TOGGLE_STEP: BlogStepId = 'step7';
+
 // Step7判定（canonicalUrlsの適用/表示で利用）
 export const isStep7 = (stepOrModel: string) =>
   stepOrModel === 'step7' || stepOrModel === 'blog_creation_step7';
@@ -143,6 +148,8 @@ export const BLOG_PLACEHOLDERS: Record<string, string> = {
   blog_creation_step5: '構成案確認内容を入力してください',
   blog_creation_step6: '書き出し案を入力してください',
   blog_creation_step7: '本文作成の要件/トーンを入力してください',
+  blog_creation_step7_chat:
+    '本文の見出し修正指示を入力してください（例: 見出し3を○○に変更）',
 };
 
 // prompts.ts 用のテンプレ名解決
