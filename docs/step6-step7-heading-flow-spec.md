@@ -18,7 +18,7 @@ Step6完了後は従来どおり全文Canvas編集に移行し、Step7で最終�
 ## 3. 用語定義
 
 - 生成対象見出し: Step5で保存された構成案テキストから抽出した `###`（H3）および `####`（H4）行。
-- 見出しレベル: 各生成対象見出しのレベル（H3/H4）。表示順は本文出現順で扱う。
+- 見出しレベル: 各生成対象見出しのレベル（H3/H4）。保存時に H3=3 / H4=4 へ正規化して保持する。
 - セクション確定本文: 各見出しに対して「保存して次へ」で確定した本文。
 - 完成形: Step6時点で全セクション確定本文を結合した全体本文。
 
@@ -29,6 +29,7 @@ Step5の構成案テキストから、以下のルールで見出しを認識す
 - 生成対象:
   - `###`（H3）と `####`（H4）の行を生成対象見出しとして抽出する
   - 生成順はテキスト内の出現順とする
+  - 抽出した見出しの `heading_level` は保存時に H3=3 / H4=4 へ正規化する
 - 非対象:
   - `#`, `##`, `#####`, `######` は生成対象見出しとしては扱わない
 
@@ -176,7 +177,7 @@ Step5の構成案テキストから、以下のルールで見出しを認識す
 | `id` | `uuid` | Yes | 主キー |
 | `session_id` | `uuid` | Yes | `chat_sessions.id` への外部キー |
 | `heading_key` | `text` | Yes | 見出し識別子。`{order_index}:{normalized_heading_text}` 形式で生成 |
-| `heading_level` | `smallint` | Yes | `1..6`（`#`〜`######`） |
+| `heading_level` | `smallint` | Yes | アプリ保存時に H3=3 / H4=4 へ正規化して保持（DB制約は `1..6` を許容） |
 | `heading_text` | `text` | Yes | 見出し本文 |
 | `order_index` | `integer` | Yes | 並び順（0始まり推奨） |
 | `content` | `text` | Yes | 当該見出しの確定本文（最新版1件） |
@@ -189,6 +190,9 @@ Step5の構成案テキストから、以下のルールで見出しを認識す
 - `UNIQUE (session_id, heading_key)`
 - `CHECK (heading_level BETWEEN 1 AND 6)`
 - `CHECK (order_index >= 0)`
+
+補足:
+- `heading_level` は将来拡張余地のため DB 制約を `1..6` とするが、本フローの保存処理では必ず H3/H4（3/4）へ正規化し、3/4 以外は保存しない。
 
 インデックス:
 - `INDEX session_heading_sections_session_order_idx (session_id, order_index)`
