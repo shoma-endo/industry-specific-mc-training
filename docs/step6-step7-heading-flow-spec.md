@@ -176,7 +176,7 @@ Step5の構成案テキストから、以下のルールで見出しを認識す
 |---|---|---|---|
 | `id` | `uuid` | Yes | 主キー |
 | `session_id` | `uuid` | Yes | `chat_sessions.id` への外部キー |
-| `heading_key` | `text` | Yes | 見出し識別子。`{order_index}:{normalized_heading_text}` 形式で生成 |
+| `heading_key` | `text` | Yes | 見出し識別子。`{order_index}:{normalized_heading_text}:{short_hash(original_heading_text)}` 形式で生成 |
 | `heading_level` | `smallint` | Yes | アプリ保存時に H3=3 / H4=4 へ正規化して保持（DB制約は `1..6` を許容） |
 | `heading_text` | `text` | Yes | 見出し本文 |
 | `order_index` | `integer` | Yes | 並び順（0始まり推奨） |
@@ -193,6 +193,7 @@ Step5の構成案テキストから、以下のルールで見出しを認識す
 
 補足:
 - `heading_level` は将来拡張余地のため DB 制約を `1..6` とするが、本フローの保存処理では必ず H3/H4（3/4）へ正規化し、3/4 以外は保存しない。
+- `heading_key` は `normalized_heading_text` が同一化するケースでも、`original_heading_text` 由来の `short_hash` を付与して衝突回避する。
 
 インデックス:
 - `INDEX session_heading_sections_session_order_idx (session_id, order_index)`
