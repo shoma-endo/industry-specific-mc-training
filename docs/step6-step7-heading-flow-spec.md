@@ -243,14 +243,14 @@ RLS（方針）:
 
 1. Step6保存時:
 - `session_heading_sections` を `order_index` 順で連結
-- `version_no` 採番はトランザクション内で行う（`SELECT MAX(version_no)` + 行ロック、またはDB関数で原子的に採番）
+- `version_no` 採番は同一トランザクション内で `COALESCE(MAX(version_no), 0) + 1` を `FOR UPDATE` 付きで実行して決定（競合時はリトライ）
 - 旧最新レコード（`is_latest=true`）を `false` に更新
-- 新しい完成形を `version_no+1` で INSERT（`is_latest=true`）
+- 新しい完成形を採番済み `version_no` で INSERT（`is_latest=true`、`UNIQUE(session_id, version_no)` 前提）
 
 2. Step6完了後の全文Canvas修正時:
-- `version_no` 採番はトランザクション内で行う（同時更新時の重複防止）
+- `version_no` 採番は同一トランザクション内で `COALESCE(MAX(version_no), 0) + 1` を `FOR UPDATE` 付きで実行（同時更新時は競合を検知してリトライ）
 - 旧最新レコード（`is_latest=true`）を `false` に更新
-- 全文修正結果を新しい `version_no+1` として INSERT（`is_latest=true`）
+- 全文修正結果を採番済み `version_no` として INSERT（`is_latest=true`、`UNIQUE(session_id, version_no)` 前提）
 
 3. Step7実行時:
 - 常に `session_combined_contents` の `is_latest=true` を入力として使用
