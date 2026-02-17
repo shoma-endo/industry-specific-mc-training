@@ -161,6 +161,14 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   activeStepId,
   onStepSelect,
   streamingContent = '',
+  headingIndex,
+  totalHeadings,
+  currentHeadingText,
+  onSaveHeadingSection,
+  isSavingHeading,
+  headingInitError,
+  onRetryHeadingInit,
+  isStreaming,
 }) => {
   const [markdownContent, setMarkdownContent] = useState('');
   const [bubble, setBubble] = useState<CanvasBubbleState>({
@@ -1003,8 +1011,25 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <h3 className="text-lg font-semibold text-gray-800">Canvas</h3>
+            <h3 className="text-lg font-semibold text-gray-800">
+              {activeStepId === 'step6' ? '見出し単位生成' : 'Canvas'}
+            </h3>
           </div>
+          {headingIndex !== undefined && totalHeadings !== undefined && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[11px] font-medium text-blue-700">
+              <span>
+                進捗: {headingIndex + 1} / {totalHeadings}
+              </span>
+              {currentHeadingText && (
+                <>
+                  <span className="text-blue-300">|</span>
+                  <span className="truncate max-w-[120px]" title={currentHeadingText}>
+                    {currentHeadingText}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
           {headings.length > 0 && (
             <Button
               variant="ghost"
@@ -1096,6 +1121,44 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             <ClipboardCheck size={14} className="mr-1" />
             コピー
           </Button>
+          {activeStepId === 'step6' && onSaveHeadingSection && (
+            <Button
+              size="sm"
+              onClick={onSaveHeadingSection}
+              disabled={isSavingHeading || isStreaming}
+              className="bg-blue-600 hover:bg-blue-700 text-white transition-colors px-3 py-1 text-xs font-bold shadow-sm"
+            >
+              {isSavingHeading ? (
+                <Loader2 size={14} className="mr-1 animate-spin" />
+              ) : (
+                <ClipboardCheck size={14} className="mr-1" />
+              )}
+              {headingIndex !== undefined &&
+              totalHeadings !== undefined &&
+              headingIndex + 1 === totalHeadings
+                ? '保存して全構成を確認'
+                : '保存して次の見出しへ'}
+            </Button>
+          )}
+          {activeStepId === 'step6' && headingInitError && onRetryHeadingInit && (
+            <div className="mr-2 flex items-center">
+              <span
+                className="text-[10px] text-red-500 mr-2 max-w-[150px] truncate"
+                title={headingInitError}
+              >
+                生成エラー
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onRetryHeadingInit}
+                className="h-8 px-2 text-[10px] border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold"
+              >
+                <RotateCw size={12} className="mr-1" />
+                再試行
+              </Button>
+            </div>
+          )}
           <Button
             variant="ghost"
             size="sm"

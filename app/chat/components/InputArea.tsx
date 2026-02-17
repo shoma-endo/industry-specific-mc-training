@@ -13,7 +13,12 @@ import {
 } from '@/components/ui/select';
 import { Bot, Send, Menu, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId, VERSIONING_TOGGLE_STEP } from '@/lib/constants';
+import {
+  BLOG_PLACEHOLDERS,
+  BLOG_STEP_IDS,
+  BlogStepId,
+  VERSIONING_TOGGLE_STEP,
+} from '@/lib/constants';
 import { useLiffContext } from '@/components/LiffProvider';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import ChatSearch from './search/ChatSearch';
@@ -88,6 +93,10 @@ interface InputAreaProps {
   versioningEnabled?: boolean;
   onVersioningChange?: (enabled: boolean) => void;
   justReEnabled?: boolean;
+  // 見出し単位生成フロー用
+  headingIndex?: number | undefined;
+  totalHeadings?: number | undefined;
+  currentHeadingText?: string | undefined;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -135,6 +144,9 @@ const InputArea: React.FC<InputAreaProps> = ({
   versioningEnabled = true,
   onVersioningChange,
   justReEnabled = false,
+  headingIndex,
+  totalHeadings,
+  currentHeadingText,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -217,7 +229,6 @@ const InputArea: React.FC<InputAreaProps> = ({
       setSelectedModel(selectedModelExternal);
     }
   }, [selectedModelExternal, selectedModel]);
-
 
   const handleLoadBlogArticle = useCallback(async () => {
     if (!onLoadBlogArticle || isLoadingBlogArticle) return;
@@ -526,6 +537,9 @@ const InputArea: React.FC<InputAreaProps> = ({
               onManualStepChange={onManualStepChange}
               versioningEnabled={versioningEnabled}
               onVersioningChange={onVersioningChange}
+              headingIndex={headingIndex}
+              totalHeadings={totalHeadings}
+              currentHeadingText={currentHeadingText}
             />
             {blogArticleError && <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>}
           </div>

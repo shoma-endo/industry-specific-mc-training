@@ -1,6 +1,11 @@
 'use client';
 import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
-import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS, VERSIONING_TOGGLE_STEP } from '@/lib/constants';
+import {
+  BlogStepId,
+  BLOG_STEP_LABELS,
+  BLOG_STEP_IDS,
+  VERSIONING_TOGGLE_STEP,
+} from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -24,6 +29,10 @@ interface StepActionBarProps {
   // トグル対象ステップのバージョン管理トグル
   versioningEnabled?: boolean | undefined;
   onVersioningChange?: ((enabled: boolean) => void) | undefined;
+  // 見出し単位生成フロー用
+  headingIndex?: number | undefined;
+  totalHeadings?: number | undefined;
+  currentHeadingText?: string | undefined;
 }
 
 export interface StepActionBarRef {
@@ -48,6 +57,9 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onManualStepChange,
       versioningEnabled = true,
       onVersioningChange,
+      headingIndex,
+      totalHeadings,
+      currentHeadingText,
     },
     ref
   ) => {
@@ -102,7 +114,16 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
         <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
           <span>
             現在のステップ: {currentLabel}
-            {nextStepLabel ? ` ／ 次の${nextStepLabel}に進むにはメッセージを送信してください` : ''}
+            {headingIndex !== undefined && totalHeadings !== undefined && currentHeadingText && (
+              <span className="ml-2 font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded border border-blue-300 animate-in fade-in slide-in-from-left-2 duration-300">
+                見出し {headingIndex + 1}/{totalHeadings}: 「{currentHeadingText}」
+              </span>
+            )}
+            {nextStepLabel && (displayStep !== 'step6' || headingIndex === undefined) && (
+              <span className="ml-1 opacity-80">
+                ／ 次の{nextStepLabel}に進むにはメッセージを送信してください
+              </span>
+            )}
           </span>
         </div>
         {showStep5Toggle && (
@@ -130,7 +151,13 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
               className="w-fit bg-yellow-100 text-gray-800 border border-yellow-300 shadow-md"
               arrowClassName="bg-yellow-100 fill-yellow-100 border-b border-r border-yellow-300"
             >
-              OFFにすると本文は<br />バージョン保存されません。<br />ONに戻して送信すると<br />本文がバージョンとして保存されます。
+              OFFにすると本文は
+              <br />
+              バージョン保存されません。
+              <br />
+              ONに戻して送信すると
+              <br />
+              本文がバージョンとして保存されます。
             </TooltipContent>
           </Tooltip>
         )}

@@ -47,6 +47,15 @@ export interface CanvasPanelProps {
   activeStepId?: BlogStepId | null;
   onStepSelect?: (stepId: BlogStepId) => void;
   streamingContent?: string;
+  // 見出し単位生成フロー用
+  headingIndex?: number | undefined;
+  totalHeadings?: number | undefined;
+  currentHeadingText?: string | undefined;
+  onSaveHeadingSection?: (() => Promise<void>) | undefined;
+  isSavingHeading?: boolean | undefined;
+  headingInitError?: string | null | undefined;
+  onRetryHeadingInit?: (() => void) | undefined;
+  isStreaming?: boolean | undefined;
 }
 
 export interface CanvasSelectionState {

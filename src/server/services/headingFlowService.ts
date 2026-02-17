@@ -1,0 +1,199 @@
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseService, type SupabaseResult } from './supabaseService';
+import { extractHeadingsFromMarkdown, generateHeadingKey } from '@/lib/heading-extractor';
+import type { Database } from '@/types/database.types';
+import type {
+  DbHeadingSection,
+  DbCombinedContent,
+  DbSessionHeadingSectionInsert,
+  DbSessionCombinedContentInsert,
+} from '@/types/heading-flow';
+
+/**
+ * 型定義の拡張用（supabase:types で更新されるまでの臨時措置）
+ */
+type AugmentedDatabase = Database & {
+  public: Database['public'] & {
+    Tables: Database['public']['Tables'] & {
+      session_heading_sections: {
+        Row: DbHeadingSection;
+        Insert: DbSessionHeadingSectionInsert;
+        Update: Partial<DbHeadingSection>;
+        Relationships: [];
+      };
+      session_combined_contents: {
+        Row: DbCombinedContent;
+        Insert: DbSessionCombinedContentInsert;
+        Update: Partial<DbCombinedContent>;
+        Relationships: [];
+      };
+    };
+  };
+};
+
+export class HeadingFlowService extends SupabaseService {
+  protected override readonly supabase: SupabaseClient<AugmentedDatabase>;
+
+  constructor() {
+    super();
+    this.supabase = this.getClient() as unknown as SupabaseClient<AugmentedDatabase>;
+  }
+
+  /**
+   * Step 5のテキストから見出しを抽出し、session_heading_sections を初期化する。
+   * 仕様: すでに存在する場合は何もしない。
+   */
+  async initializeHeadingSections(
+    sessionId: string,
+    step5Markdown: string
+  ): Promise<SupabaseResult<void>> {
+    // 1. Step 5 から現在の見出し一覧を抽出
+    const currentHeadings = extractHeadingsFromMarkdown(step5Markdown);
+    const currentHeadingKeys = currentHeadings.map(h => generateHeadingKey(h.orderIndex, h.text));
+
+    // 2. 不要な見出し（構成変更で消えたもの）を削除
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let deleteQuery = (this.supabase as any)
+      .from('session_heading_sections')
+      .delete()
+      .eq('session_id', sessionId);
+
+    // 見出しがある場合はそれ以外を削除、ない場合は全削除
+    if (currentHeadingKeys.length > 0) {
+      // PostgREST の in フィルタは "(val1,val2)" 形式の文字列を期待する。
+      // また、値に特殊文字（:等）が含まれる場合はダブルクォートで囲み、内部のクォートは "" でエスケープする必要がある。
+      const quotedKeys = currentHeadingKeys.map(k => `"${k.replace(/"/g, '""')}"`).join(',');
+      deleteQuery = deleteQuery.not('heading_key', 'in', `(${quotedKeys})`);
+    }
+
+    const { error: deleteError } = await deleteQuery;
+    if (deleteError) {
+      return this.failure('古い見出しの整理に失敗しました', { error: deleteError });
+    }
+
+    // 抽出結果が0件なら、削除完了時点で終了
+    if (currentHeadings.length === 0) return this.success(undefined);
+
+    // 3. 現在の見出しを反映 (upsert)
+    const sections: DbSessionHeadingSectionInsert[] = currentHeadings.map(h => ({
+      session_id: sessionId,
+      heading_key: generateHeadingKey(h.orderIndex, h.text),
+      heading_level: h.level,
+      heading_text: h.text,
+      order_index: h.orderIndex,
+      content: '', // 既存の場合は upsert の ignoreDuplicates で維持される
+      is_confirmed: false,
+    }));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: insertError } = await (this.supabase as any)
+      .from('session_heading_sections')
+      .upsert(sections, { onConflict: 'session_id,heading_key', ignoreDuplicates: true });
+
+    if (insertError) {
+      return this.failure('見出しの同期に失敗しました', {
+        error: insertError,
+        context: { sessionId, headingCount: sections.length },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
+  /**
+   * セッションに紐づく全ての見出しセクションを取得する。
+   */
+  async getHeadingSections(sessionId: string): Promise<SupabaseResult<DbHeadingSection[]>> {
+    const { data, error } = await this.supabase
+      .from('session_heading_sections')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('order_index', { ascending: true });
+
+    if (error) return this.failure('見出しセクションの取得に失敗しました', { error });
+    return this.success(data ?? []);
+  }
+
+  /**
+   * 見出しセクションの本文を保存し、確定状態にする。
+   * 保存後、自動的に完成形の再結合を行う。
+   */
+  async saveHeadingSection(
+    sessionId: string,
+    headingKey: string,
+    content: string,
+    userId: string
+  ): Promise<SupabaseResult<void>> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: updateError, count } = await (this.supabase as any)
+      .from('session_heading_sections')
+      .update(
+        {
+          content,
+          is_confirmed: true,
+          updated_at: new Date().toISOString(),
+        },
+        { count: 'exact' }
+      )
+      .eq('session_id', sessionId)
+      .eq('heading_key', headingKey);
+
+    if (updateError) return this.failure('セクションの保存に失敗しました', { error: updateError });
+    if (count === 0) {
+      return this.failure(
+        '保存対象の見出しが見つかりませんでした。構成が更新された可能性があります。'
+      );
+    }
+
+    // 完成形の再結合
+    return await this.combineSections(sessionId, userId);
+  }
+
+  /**
+   * 全セクションを order_index 順に連結し、session_combined_contents に保存する。
+   */
+  async combineSections(sessionId: string, userId: string): Promise<SupabaseResult<void>> {
+    const sectionsResult = await this.getHeadingSections(sessionId);
+    if (!sectionsResult.success) return sectionsResult;
+
+    const sections = sectionsResult.data as DbHeadingSection[];
+    // 見出しレベルに応じたハッシュタグを付与して結合
+    const combinedContent = sections
+      .map(s => {
+        const hashes = '#'.repeat(s.heading_level);
+        return `${hashes} ${s.heading_text}\n\n${s.content}`;
+      })
+      .join('\n\n');
+
+    // 原子性を確保するため RPC (Database Function) を使用
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: rpcError } = await (this.supabase as any).rpc('save_atomic_combined_content', {
+      p_session_id: sessionId,
+      p_content: combinedContent,
+      p_authenticated_user_id: userId,
+    });
+
+    if (rpcError) return this.failure('完成形の保存（RPC）に失敗しました', { error: rpcError });
+
+    return this.success(undefined);
+  }
+
+  /**
+   * 最新の完成形を取得する。
+   */
+  async getLatestCombinedContent(sessionId: string): Promise<SupabaseResult<string | null>> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (this.supabase as any)
+      .from('session_combined_contents')
+      .select('content')
+      .eq('session_id', sessionId)
+      .eq('is_latest', true)
+      .maybeSingle();
+
+    if (error) return this.failure('最新完成形の取得に失敗しました', { error });
+    const content = (data as unknown as DbCombinedContent)?.content ?? null;
+    return this.success(content);
+  }
+}
+
+export const headingFlowService = new HeadingFlowService();

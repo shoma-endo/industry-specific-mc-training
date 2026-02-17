@@ -25,6 +25,8 @@ import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
+import * as headingActions from '@/server/actions/heading-flow.actions';
+import type { SessionHeadingSection } from '@/types/heading-flow';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS, VERSIONING_TOGGLE_STEP } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
@@ -272,6 +274,12 @@ interface ChatLayoutCtx {
   versioningEnabled: boolean;
   onVersioningChange: (enabled: boolean) => void;
   justReEnabled: boolean;
+  // 見出し単位生成フロー用
+  headingIndex?: number | undefined;
+  totalHeadings?: number | undefined;
+  currentHeadingText?: string | undefined;
+  headingInitError?: string | null;
+  onRetryHeadingInit?: () => void;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -312,6 +320,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     versioningEnabled,
     onVersioningChange,
     justReEnabled,
+    headingIndex,
+    totalHeadings,
+    currentHeadingText,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
@@ -447,9 +458,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           />
         )}
 
-        {servicesError && (
-          <WarningAlert message={servicesError} onClose={onDismissServicesError} />
-        )}
+        {servicesError && <WarningAlert message={servicesError} onClose={onDismissServicesError} />}
 
         <MessageArea
           messages={[...chatSession.state.messages, ...optimisticMessages]}
@@ -509,6 +518,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           versioningEnabled={versioningEnabled}
           onVersioningChange={onVersioningChange}
           justReEnabled={justReEnabled}
+          headingIndex={headingIndex}
+          totalHeadings={totalHeadings}
+          currentHeadingText={currentHeadingText}
         />
       </div>
 
@@ -569,6 +581,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const [draftTitle, setDraftTitle] = useState('');
   const [titleError, setTitleError] = useState<string | null>(null);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
+  // 見出し単位生成フロー用
+  const [headingSections, setHeadingSections] = useState<SessionHeadingSection[]>([]);
+  const [isSavingHeading, setIsSavingHeading] = useState(false);
+  const [isHeadingInitInFlight, setIsHeadingInitInFlight] = useState(false);
+  const [hasAttemptedHeadingInit, setHasAttemptedHeadingInit] = useState(false);
+  const [headingInitError, setHeadingInitError] = useState<string | null>(null);
   const latestBlogStep = useMemo(
     () => findLatestAssistantBlogStep(chatSession.state.messages ?? []),
     [chatSession.state.messages]
@@ -804,6 +822,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     ? (selectedVersionByStep[resolvedCanvasStep] ?? null)
     : null;
 
+  // 見出し単位生成フローの派生状態
+  const activeHeadingIndex = useMemo(() => {
+    const index = headingSections.findIndex(s => !s.isConfirmed);
+    return index >= 0 ? index : headingSections.length > 0 ? headingSections.length - 1 : undefined;
+  }, [headingSections]);
+
+  const activeHeading =
+    activeHeadingIndex !== undefined ? headingSections[activeHeadingIndex] : undefined;
+
   const activeCanvasVersion = useMemo(() => {
     if (!resolvedCanvasStep) return null;
     const versions = blogCanvasVersionsByStep[resolvedCanvasStep] ?? [];
@@ -815,7 +842,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     return versions[versions.length - 1];
   }, [resolvedCanvasStep, activeVersionId, blogCanvasVersionsByStep]);
 
-  const canvasContent = activeCanvasVersion?.content ?? '';
+  const canvasContent = useMemo(() => {
+    // 確定済みの場合はDBに保存された確定コンテンツを優先
+    if (resolvedCanvasStep === 'step6' && activeHeading && activeHeading.isConfirmed) {
+      return activeHeading.content;
+    }
+    // 未確定の場合は最新のバージョン（生成中の内容含む）を表示
+    return activeCanvasVersion?.content ?? '';
+  }, [resolvedCanvasStep, activeHeading, activeCanvasVersion]);
 
   const canvasVersionsWithMeta = useMemo(() => {
     return canvasVersionsForStep.map((version, index) => ({
@@ -832,6 +866,76 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       ),
     [blogCanvasVersionsByStep, nextStepForPlaceholder]
   );
+
+  const fetchHeadingSections = useCallback(
+    async (sessionId: string) => {
+      const liffAccessToken = await getAccessToken();
+      const res = await headingActions.getHeadingSections({ sessionId, liffAccessToken });
+      // セッション切り替え時の競合防止: Refを使用して常に「現在」のアクティブセッションと比較
+      if (res.success && res.data && sessionId === chatStateRef.current.currentSessionId) {
+        setHeadingSections(res.data);
+      }
+    },
+    [getAccessToken]
+  );
+
+  const handleSaveHeadingSection = useCallback(async () => {
+    const sessionId = chatSession.state.currentSessionId;
+    if (
+      !sessionId ||
+      activeHeadingIndex === undefined ||
+      !activeHeading ||
+      latestBlogStep !== 'step6' ||
+      resolvedCanvasStep !== 'step6'
+    ) {
+      return;
+    }
+
+    setIsSavingHeading(true);
+    try {
+      const liffAccessToken = await getAccessToken();
+      const res = await headingActions.saveHeadingSection({
+        sessionId,
+        headingKey: activeHeading.headingKey,
+        content: canvasStreamingContent || canvasContent,
+        liffAccessToken,
+      });
+
+      if (res.success) {
+        await fetchHeadingSections(sessionId);
+
+        // 全ての見出しが完了したかチェック
+        const allDone = headingSections.every((s, i) =>
+          i === activeHeadingIndex ? true : s.isConfirmed
+        );
+
+        if (allDone) {
+          // 全見出し完了。Step 7への案内を出す
+          alert(
+            '全見出しの保存が完了しました。全体の構成を確認して本文作成（Step 7）に進んでください。'
+          );
+        }
+      } else {
+        throw new Error(res.error || '保存に失敗しました');
+      }
+    } catch (e) {
+      console.error('Failed to save heading section:', e);
+      alert(e instanceof Error ? e.message : '保存に失敗しました');
+    } finally {
+      setIsSavingHeading(false);
+    }
+  }, [
+    chatSession.state.currentSessionId,
+    activeHeadingIndex,
+    activeHeading,
+    canvasContent,
+    canvasStreamingContent,
+    resolvedCanvasStep,
+    fetchHeadingSections,
+    headingSections,
+    getAccessToken,
+    latestBlogStep,
+  ]);
 
   // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
 
@@ -880,8 +984,89 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setVersioningEnabled(true);
     setJustReEnabled(false);
     setGuardMessageCount(null);
+
+    // 見出しフローのリセットと取得
+    setHeadingSections([]);
+    setHasAttemptedHeadingInit(false);
+    setIsHeadingInitInFlight(false);
+    setHeadingInitError(null);
+    if (nextSessionId) {
+      void fetchHeadingSections(nextSessionId);
+    }
+
     prevSessionIdRef.current = nextSessionId;
-  }, [chatSession.state.currentSessionId]);
+  }, [chatSession.state.currentSessionId, fetchHeadingSections]);
+
+  // Step 6 入場時の初期化
+  useEffect(() => {
+    const sessionId = chatSession.state.currentSessionId;
+    if (
+      !sessionId ||
+      latestBlogStep !== 'step6' ||
+      headingSections.length > 0 ||
+      isHeadingInitInFlight ||
+      hasAttemptedHeadingInit ||
+      chatSession.state.isLoading ||
+      headingInitError
+    ) {
+      return;
+    }
+
+    const initAndFetch = async () => {
+      setIsHeadingInitInFlight(true);
+      try {
+        const step5Msg = [...chatSession.state.messages]
+          .reverse()
+          .find(m => m.model === 'blog_creation_step5');
+
+        if (step5Msg?.content) {
+          const liffAccessToken = await getAccessToken();
+          const res = await headingActions.initializeHeadingSections({
+            sessionId,
+            step5Markdown: step5Msg.content,
+            liffAccessToken,
+          });
+          if (res.success) {
+            await fetchHeadingSections(sessionId);
+            setHeadingInitError(null);
+            setHasAttemptedHeadingInit(true);
+          } else {
+            console.error('Failed to initialize heading sections:', res.error);
+            setHeadingInitError(res.error || '初期化に失敗しました');
+          }
+        } else {
+          // メッセージがなく、かつロードも完了している場合は「試行済み」としてループを止める
+          setHasAttemptedHeadingInit(true);
+        }
+      } catch (e) {
+        console.error('Failed to initialize heading sections:', e);
+        setHeadingInitError('予期せぬエラーが発生しました');
+      } finally {
+        // セッション切り替え時の競合防止: Refを使用して「現在」のアクティブセッションと比較
+        if (sessionId === chatStateRef.current.currentSessionId) {
+          setIsHeadingInitInFlight(false);
+        }
+      }
+    };
+
+    void initAndFetch();
+  }, [
+    chatSession.state.currentSessionId,
+    latestBlogStep,
+    headingSections.length,
+    isHeadingInitInFlight,
+    chatSession.state.messages,
+    chatSession.state.isLoading,
+    fetchHeadingSections,
+    getAccessToken,
+    hasAttemptedHeadingInit,
+    headingInitError,
+  ]);
+
+  const handleRetryHeadingInit = useCallback(() => {
+    setHeadingInitError(null);
+    setHasAttemptedHeadingInit(false);
+  }, []);
 
   useEffect(() => {
     if (!chatSession.state.currentSessionId) {
@@ -1559,6 +1744,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           versioningEnabled,
           onVersioningChange: handleVersioningChange,
           justReEnabled: effectiveJustReEnabled,
+          // 見出し単位生成フロー用
+          headingIndex: activeHeadingIndex,
+          totalHeadings: headingSections.length,
+          currentHeadingText: activeHeading?.headingText,
+          headingInitError,
+          onRetryHeadingInit: handleRetryHeadingInit,
         }}
       />
       {canvasPanelOpen && (
@@ -1576,6 +1767,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           activeStepId={resolvedCanvasStep ?? null}
           onStepSelect={handleCanvasStepSelect}
           streamingContent={canvasStreamingContent}
+          // 見出し単位生成フロー用
+          headingIndex={activeHeadingIndex}
+          totalHeadings={headingSections.length}
+          currentHeadingText={activeHeading?.headingText}
+          onSaveHeadingSection={handleSaveHeadingSection}
+          isSavingHeading={isSavingHeading}
+          headingInitError={headingInitError}
+          onRetryHeadingInit={handleRetryHeadingInit}
+          isStreaming={isCanvasStreaming}
         />
       )}
     </div>
