@@ -1,34 +1,20 @@
 import { BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { MetricsCards } from './metrics-cards';
+import { CampaignsTable } from './campaigns-table';
 import { calculateCampaignSummary } from '@/lib/mock-data/google-ads';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
-import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils';
-import type { GoogleAdsCampaignMetrics, GoogleAdsKeywordMetric } from '@/types/googleAds.types';
+import type { GoogleAdsCampaignMetrics } from '@/types/googleAds.types';
 
 interface DashboardContentProps {
   campaigns: GoogleAdsCampaignMetrics[];
-  keywordMetrics: GoogleAdsKeywordMetric[];
-  isMockData: boolean;
   errorMessage?: string;
   errorKind?: 'not_connected' | 'not_selected' | 'auth_expired' | 'admin_required' | 'unknown';
 }
 
 export function DashboardContent({
   campaigns,
-  keywordMetrics,
-  /* eslint-disable-next-line @typescript-eslint/no-unused-vars -- 将来的にモックデータ表示の切り替えで使用予定 */
-  isMockData,
   errorMessage,
   errorKind = 'unknown',
 }: DashboardContentProps) {
@@ -53,9 +39,7 @@ export function DashboardContent({
             <BarChart3 className="h-8 w-8 text-blue-600" />
             Google Ads パフォーマンス
           </h1>
-          <p className="text-gray-500">
-            連携済みアカウントの広告パフォーマンス概要
-          </p>
+          <p className="text-gray-500">連携済みアカウントの広告パフォーマンス概要</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" disabled>
@@ -70,12 +54,11 @@ export function DashboardContent({
           <AlertDescription className="space-y-2">
             <p>{errorMessage}</p>
             <p className="text-sm">{errorGuidance[errorKind]}</p>
-            <div className="flex flex-wrap gap-2 pt-2">
+            <div className="pt-2">
               <Button asChild variant="outline">
-                <a href="/setup/google-ads">Google Ads 連携設定へ</a>
-              </Button>
-              <Button asChild variant="outline">
-                <a href="/setup">設定に戻る</a>
+                <a href="/setup/google-ads">
+                  {errorKind === 'not_selected' ? 'アカウント選択へ' : 'Google Ads 連携設定へ'}
+                </a>
               </Button>
             </div>
           </AlertDescription>
@@ -92,47 +75,8 @@ export function DashboardContent({
       {/* Metrics Cards */}
       {hasData && <MetricsCards summary={summary} />}
 
-      {/* Campaigns Table (審査用デモでは非表示) */}
-      {/* {hasData && <CampaignsTable campaigns={campaigns} />} */}
-
-      {/* Keyword View Table */}
-      {keywordMetrics.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>keyword_view Sample</CardTitle>
-            <CardDescription>
-              Fields mapped to keyword_view: ad_group_criterion.keyword.text, metrics.clicks,
-              metrics.impressions, metrics.cost_micros (converted), metrics.ctr.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="border rounded-md overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Keyword</TableHead>
-                    <TableHead className="text-right">Clicks</TableHead>
-                    <TableHead className="text-right">Impressions</TableHead>
-                    <TableHead className="text-right">Cost</TableHead>
-                    <TableHead className="text-right">CTR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {keywordMetrics.map((metric) => (
-                    <TableRow key={metric.keywordId}>
-                      <TableCell className="font-medium">{metric.keywordText}</TableCell>
-                      <TableCell className="text-right">{formatNumber(metric.clicks)}</TableCell>
-                      <TableCell className="text-right">{formatNumber(metric.impressions)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(metric.cost)}</TableCell>
-                      <TableCell className="text-right">{formatPercent(metric.ctr)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Campaigns Table */}
+      {hasData && <CampaignsTable campaigns={campaigns} />}
     </div>
   );
 }
