@@ -374,13 +374,18 @@ export async function fetchCampaignMetrics(
       try {
         const newTokens = await googleAdsService.refreshAccessToken(credential.refreshToken);
         googleAccessToken = newTokens.accessToken;
-        await supabaseService.saveGoogleAdsCredential(authResult.userId, {
+        const saveResult = await supabaseService.saveGoogleAdsCredential(authResult.userId, {
           accessToken: newTokens.accessToken,
           refreshToken: credential.refreshToken,
           expiresIn: newTokens.expiresIn,
           googleAccountEmail: credential.googleAccountEmail,
           managerCustomerId: credential.managerCustomerId,
         });
+
+        if (!saveResult.success) {
+          console.error('[fetchCampaignMetrics] Token save failed');
+          return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
+        }
       } catch (e) {
         return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
       }
