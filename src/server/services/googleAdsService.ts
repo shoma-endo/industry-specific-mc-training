@@ -456,35 +456,30 @@ export class GoogleAdsService {
       }
 
       const responseText = await response.text();
-      const lines = responseText.split('\n').filter(line => line.trim());
+      const rows = this.parseSearchStreamResponse(responseText);
       const campaigns: GoogleAdsCampaignMetrics[] = [];
 
-      for (const line of lines) {
+      for (const row of rows) {
         try {
-          const chunk = JSON.parse(line) as { results?: GoogleAdsSearchStreamRow[] };
-          if (!chunk.results) continue;
-
-          for (const row of chunk.results) {
-            if (!row.campaign?.id || !row.campaign?.name) continue;
-            const m = row.metrics ?? {};
-            campaigns.push({
-              campaignId: row.campaign.id,
-              campaignName: row.campaign.name,
-              status: row.campaign.status as 'ENABLED' | 'PAUSED',
-              clicks: Number(m.clicks ?? 0),
-              impressions: Number(m.impressions ?? 0),
-              cost: microsToYen(m.costMicros),
-              ctr: m.ctr ?? 0,
-              cpc: microsToYen(m.averageCpc),
-              qualityScore: null,
-              conversions: m.conversions ?? 0,
-              costPerConversion: m.costPerConversion ? microsToYen(m.costPerConversion) : null,
-              searchImpressionShare: m.searchImpressionShare ?? null,
-              conversionRate: m.conversionsFromInteractionsRate ?? null,
-            });
-          }
+          if (!row.campaign?.id || !row.campaign?.name) continue;
+          const m = row.metrics ?? {};
+          campaigns.push({
+            campaignId: row.campaign.id,
+            campaignName: row.campaign.name,
+            status: row.campaign.status as 'ENABLED' | 'PAUSED',
+            clicks: Number(m.clicks ?? 0),
+            impressions: Number(m.impressions ?? 0),
+            cost: microsToYen(m.costMicros),
+            ctr: m.ctr ?? 0,
+            cpc: microsToYen(m.averageCpc),
+            qualityScore: null,
+            conversions: m.conversions ?? 0,
+            costPerConversion: m.costPerConversion ? microsToYen(m.costPerConversion) : null,
+            searchImpressionShare: m.searchImpressionShare ?? null,
+            conversionRate: m.conversionsFromInteractionsRate ?? null,
+          });
         } catch (e) {
-          console.warn('[GoogleAdsService] Failed to parse campaign metrics line:', e);
+          console.warn('[GoogleAdsService] Failed to parse campaign metrics row:', e);
         }
       }
 
@@ -605,24 +600,17 @@ export class GoogleAdsService {
       }
 
       const responseText = await response.text();
-
-      // searchStream は NDJSON 形式で返却される
-      const lines = responseText.split('\n').filter(line => line.trim());
+      const rows = this.parseSearchStreamResponse(responseText);
       const metrics: GoogleAdsKeywordMetric[] = [];
 
-      for (const line of lines) {
+      for (const row of rows) {
         try {
-          const chunk = JSON.parse(line) as { results?: GoogleAdsSearchStreamRow[] };
-          if (!chunk.results) continue;
-
-          for (const row of chunk.results) {
-            const metric = this.parseKeywordMetricRow(row);
-            if (metric) {
-              metrics.push(metric);
-            }
+          const metric = this.parseKeywordMetricRow(row);
+          if (metric) {
+            metrics.push(metric);
           }
         } catch (parseError) {
-          console.warn('[GoogleAdsService] Failed to parse response line:', parseError);
+          console.warn('[GoogleAdsService] Failed to parse keyword metric row:', parseError);
         }
       }
 
@@ -671,5 +659,44 @@ export class GoogleAdsService {
       clicks: Number(m.clicks ?? 0),
       cost: microsToYen(m.costMicros),
     };
+  }
+
+  /**
+   * searchStream のレスポンスをパースして行データの配列を返す
+   * NDJSON (Newline Delimited JSON) と 通常の JSON Array の両方に対応
+   */
+  private parseSearchStreamResponse(responseText: string): GoogleAdsSearchStreamRow[] {
+    const rows: GoogleAdsSearchStreamRow[] = [];
+
+    // 1. JSON Array としてパースを試みる
+    try {
+      const parsed = JSON.parse(responseText);
+      if (Array.isArray(parsed)) {
+        // [{ results: [...] }, { results: [...] }] の形式
+        for (const chunk of parsed) {
+          if (chunk.results && Array.isArray(chunk.results)) {
+            rows.push(...chunk.results);
+          }
+        }
+        return rows;
+      }
+    } catch {
+      // JSON Array でない場合は NDJSON として処理
+    }
+
+    // 2. NDJSON としてパース
+    const lines = responseText.split('\n').filter(line => line.trim().length > 0);
+    for (const line of lines) {
+      try {
+        const chunk = JSON.parse(line) as { results?: GoogleAdsSearchStreamRow[] };
+        if (chunk.results && Array.isArray(chunk.results)) {
+          rows.push(...chunk.results);
+        }
+      } catch (e) {
+        console.warn('[GoogleAdsService] Failed to parse simple line chunk:', e);
+      }
+    }
+
+    return rows;
   }
 }
