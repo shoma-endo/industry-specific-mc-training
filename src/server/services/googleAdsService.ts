@@ -543,7 +543,7 @@ export class GoogleAdsService {
 
     query += `
       ORDER BY metrics.impressions DESC
-      LIMIT 100
+      LIMIT 1000
     `;
 
     const url = `${GOOGLE_ADS_API_BASE_URL}/customers/${customerId}/googleAds:searchStream`;
