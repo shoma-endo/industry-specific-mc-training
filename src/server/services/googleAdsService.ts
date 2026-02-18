@@ -503,7 +503,7 @@ export class GoogleAdsService {
         ad_group.name,
         metrics.ctr,
         metrics.average_cpc,
-        metrics.historical_quality_score,
+        ad_group_criterion.quality_info.quality_score,
         metrics.conversions,
         metrics.cost_per_conversion,
         metrics.search_impression_share,
@@ -514,6 +514,7 @@ export class GoogleAdsService {
       FROM keyword_view
       WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
         AND ad_group_criterion.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
         AND campaign.status = 'ENABLED'
     `;
 
@@ -638,7 +639,7 @@ export class GoogleAdsService {
       // 主要指標
       ctr: m.ctr ?? 0,
       cpc: microsToYen(m.averageCpc),
-      qualityScore: m.historicalQualityScore ?? null,
+      qualityScore: row.adGroupCriterion?.qualityInfo?.qualityScore ?? null,
       conversions: m.conversions ?? 0,
       costPerConversion: m.costPerConversion ? microsToYen(m.costPerConversion) : null,
       searchImpressionShare: m.searchImpressionShare ?? null,

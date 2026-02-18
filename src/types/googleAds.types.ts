@@ -89,6 +89,9 @@ export interface GoogleAdsSearchStreamRow {
       text?: string;
       matchType?: string;
     };
+    qualityInfo?: {
+      qualityScore?: number;
+    };
   };
   campaign?: {
     id?: string;
@@ -101,7 +104,7 @@ export interface GoogleAdsSearchStreamRow {
   metrics?: {
     ctr?: number;
     averageCpc?: string; // micros (string)
-    historicalQualityScore?: number;
+    // historicalQualityScore?: number; // removed in favor of ad_group_criterion.quality_info.quality_score
     conversions?: number;
     costPerConversion?: string; // micros (string)
     searchImpressionShare?: number;
