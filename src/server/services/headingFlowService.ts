@@ -10,11 +10,15 @@ import type {
 } from '@/types/heading-flow';
 
 /**
- * 型定義の拡張用（supabase:types で更新されるまでの臨時措置）
+ * 型定義の拡張用（supabase:types で更新されるまでの臨時措置）。
+ * & による交差では既存キーが never になるため、Omit で除外してから再定義する。
  */
-type AugmentedDatabase = Database & {
-  public: Database['public'] & {
-    Tables: Database['public']['Tables'] & {
+type AugmentedDatabase = Omit<Database, 'public'> & {
+  public: Omit<Database['public'], 'Tables'> & {
+    Tables: Omit<
+      Database['public']['Tables'],
+      'session_heading_sections' | 'session_combined_contents'
+    > & {
       session_heading_sections: {
         Row: DbHeadingSection;
         Insert: DbSessionHeadingSectionInsert;
