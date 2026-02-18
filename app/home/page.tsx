@@ -6,7 +6,7 @@ import { ArrowRight, BarChart2, CheckCircle2, Lock, Zap } from 'lucide-react';
 export const metadata: Metadata = {
   title: 'GrowMate - AIでマーケティングを自動化',
   description:
-    'Google Search Consoleと連携し、検索データを分析。業界特化の知識を持つAIが、SEOに強いブログ記事や広告コピーを自動生成します。',
+    'Google Search ConsoleやGoogle Analytics 4と連携し、データを分析。業界特化の知識を持つAIが、SEOに強いブログ記事や広告コピーを自動生成します。',
 };
 
 export default function LandingPage() {
@@ -75,7 +75,7 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Google Search Consoleと連携し、検索データを分析。
+              Google Search ConsoleやGoogle Analytics 4と連携し、多角的にデータを分析。
               あなたのビジネスに最適なコンテンツ戦略と記事作成をAIがサポートします。
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -132,10 +132,10 @@ export default function LandingPage() {
                 <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-6">
                   <BarChart2 className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">検索パフォーマンス分析</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">検索・アクセス解析</h3>
                 <p className="text-gray-600 leading-relaxed">
-                  Google Search
-                  Console（読み取り専用アクセス）と連携し、検索クエリ、クリック数、表示回数、掲載順位を自動取得。取得したデータに基づき、AIがコンテンツ改善案を提示します。
+                  Google Search ConsoleやGoogle Analytics 4（読み取り専用）と連携。
+                  表示回数、クリック数、ユーザー行動などのデータを自動取得し、AIが課題の抽出と改善案の提示を同時に行います。
                 </p>
               </div>
 
@@ -161,17 +161,15 @@ export default function LandingPage() {
                 Google OAuth Verification
               </p>
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Google サービス（GSC / Google Ads）連携とデータ取り扱い
+                Google サービス（GSC / GA4 / Google Ads）連携とデータ取り扱い
               </h2>
               <p className="text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Google Search Console の読み取り専用スコープ
+                Google Search Console / Google Analytics 4 の読み取り専用スコープ
                 <code className="mx-2 bg-white/80 px-2 py-1 rounded text-sm">
-                  https://www.googleapis.com/auth/webmasters.readonly
+                  .../auth/webmasters.readonly, .../auth/analytics.readonly
                 </code>
                 および Google Ads API スコープ
-                <code className="mx-2 bg-white/80 px-2 py-1 rounded text-sm">
-                  https://www.googleapis.com/auth/adwords
-                </code>
+                <code className="mx-2 bg-white/80 px-2 py-1 rounded text-sm">.../auth/adwords</code>
                 を使用し、ユーザーが許可したデータのみを分析します。取得データは
                 Supabase（ap-northeast-1）で暗号化保管し、Vercel
                 東京リージョンから安全に配信されます。
@@ -244,7 +242,7 @@ export default function LandingPage() {
                   </li>
                   <li className="flex items-center gap-3 text-gray-700">
                     <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Google Search Console連携</span>
+                    <span>GSC / GA4 連携分析</span>
                   </li>
                   <li className="flex items-center gap-3 text-gray-700">
                     <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
@@ -272,7 +270,8 @@ export default function LandingPage() {
               <h4 className="text-white font-bold text-lg mb-4">GrowMate</h4>
               <p className="text-sm text-gray-400 max-w-sm">
                 株式会社ドリームプランナーが提供する業界特化型マーケティングオートメーション。
-                Google Search Console データと AI を組み合わせ、SEO 改善の意思決定を支援します。
+                Google Search Console / Analytics 4 / Google Ads データと AI
+                を組み合わせ、マーケティング施策の意思決定を支援します。
               </p>
               <div className="mt-4 text-xs text-gray-500 space-y-1">
                 <p>〒716-1551 岡山県加賀郡吉備中央町北702</p>
