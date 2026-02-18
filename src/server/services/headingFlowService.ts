@@ -81,7 +81,7 @@ export class HeadingFlowService extends SupabaseService {
       heading_level: h.level,
       heading_text: h.text,
       order_index: h.orderIndex,
-      content: '', // 既存の場合は upsert の ignoreDuplicates で維持される
+      content: '', // ignoreDuplicates: true により、同一 heading_key が既存の場合は行全体をスキップ（content/is_confirmed は上書きされない）
       is_confirmed: false,
     }));
 

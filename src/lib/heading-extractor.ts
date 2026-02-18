@@ -74,9 +74,9 @@ function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    // 31bit integer hash
+    // int32に切り詰めてオーバーフローを防ぐ
     hash = (hash << 5) - hash + char;
-    hash = hash & hash;
+    hash = hash | 0;
   }
   // Base36に変換し、衝突回避のために絶対値を使用
   return Math.abs(hash).toString(36).slice(0, 4).padStart(4, '0');
