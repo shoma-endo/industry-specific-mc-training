@@ -1,143 +1,8 @@
 import type {
   GoogleAdsCampaignMetrics,
-  GoogleAdsCampaignSummary,
   GoogleAdsKeywordMetric,
+  GoogleAdsCampaignSummary,
 } from '@/types/googleAds.types';
-
-/**
- * 開発環境用のモックキャンペーンデータ
- */
-function createCampaignMetrics(
-  base: Pick<
-    GoogleAdsCampaignMetrics,
-    | 'campaignName'
-    | 'status'
-    | 'clicks'
-    | 'impressions'
-    | 'cost'
-    | 'qualityScore'
-    | 'conversions'
-    | 'searchImpressionShare'
-  >
-): GoogleAdsCampaignMetrics {
-  return {
-    ...base,
-    ctr: base.impressions > 0 ? base.clicks / base.impressions : 0,
-    cpc: base.clicks > 0 ? base.cost / base.clicks : 0,
-    costPerConversion: base.conversions > 0 ? base.cost / base.conversions : null,
-    conversionRate: base.clicks > 0 ? base.conversions / base.clicks : null,
-  };
-}
-
-export const MOCK_CAMPAIGNS: GoogleAdsCampaignMetrics[] = [
-  createCampaignMetrics({
-    campaignName: '整体院 検索キャンペーン',
-    status: 'ENABLED',
-    clicks: 2498,
-    impressions: 46840,
-    cost: 405216,
-    qualityScore: 7,
-    conversions: 83,
-    searchImpressionShare: 0.58,
-  }),
-  createCampaignMetrics({
-    campaignName: 'マッサージ キャンペーン',
-    status: 'ENABLED',
-    clicks: 333,
-    impressions: 4680,
-    cost: 61938,
-    qualityScore: 7,
-    conversions: 15,
-    searchImpressionShare: 0.62,
-  }),
-  createCampaignMetrics({
-    campaignName: 'スポーツ整体キャンペーン',
-    status: 'ENABLED',
-    clicks: 289,
-    impressions: 4260,
-    cost: 65025,
-    qualityScore: 8,
-    conversions: 11,
-    searchImpressionShare: 0.55,
-  }),
-  createCampaignMetrics({
-    campaignName: 'リピーター向けキャンペーン',
-    status: 'ENABLED',
-    clicks: 0,
-    impressions: 0,
-    cost: 0,
-    qualityScore: null,
-    conversions: 0,
-    searchImpressionShare: null,
-  }),
-];
-
-function createKeywordMetric(
-  base: Pick<
-    GoogleAdsKeywordMetric,
-    | 'keywordId'
-    | 'keywordText'
-    | 'matchType'
-    | 'campaignName'
-    | 'adGroupName'
-    | 'clicks'
-    | 'impressions'
-    | 'cost'
-    | 'qualityScore'
-    | 'conversions'
-    | 'searchImpressionShare'
-  >
-): GoogleAdsKeywordMetric {
-  return {
-    ...base,
-    ctr: base.impressions > 0 ? base.clicks / base.impressions : 0,
-    cpc: base.clicks > 0 ? base.cost / base.clicks : 0,
-    costPerConversion: base.conversions > 0 ? base.cost / base.conversions : null,
-    conversionRate: base.clicks > 0 ? base.conversions / base.clicks : null,
-  };
-}
-
-export const MOCK_KEYWORDS: GoogleAdsKeywordMetric[] = [
-  createKeywordMetric({
-    keywordId: '1000001',
-    keywordText: 'google ads api tool',
-    matchType: 'EXACT',
-    campaignName: 'Search Demo Campaign',
-    adGroupName: 'API Tools',
-    qualityScore: 8,
-    conversions: 12,
-    searchImpressionShare: 0.61,
-    impressions: 2840,
-    clicks: 151,
-    cost: 22700,
-  }),
-  createKeywordMetric({
-    keywordId: '1000002',
-    keywordText: 'marketing automation',
-    matchType: 'PHRASE',
-    campaignName: 'Search Demo Campaign',
-    adGroupName: 'Automation',
-    qualityScore: 7,
-    conversions: 9,
-    searchImpressionShare: 0.54,
-    impressions: 2330,
-    clicks: 109,
-    cost: 18312,
-  }),
-  createKeywordMetric({
-    keywordId: '1000003',
-    keywordText: 'keyword analysis dashboard',
-    matchType: 'BROAD',
-    campaignName: 'Search Demo Campaign',
-    adGroupName: 'Analytics',
-    qualityScore: 7,
-    conversions: 6,
-    searchImpressionShare: 0.49,
-    impressions: 2678,
-    clicks: 101,
-    cost: 12187,
-  }),
-];
 
 /**
  * キャンペーンデータからサマリーを計算
@@ -152,7 +17,7 @@ export function calculateCampaignSummary(
 
   // 検索インプレッションシェア（有効キャンペーンの平均）
   const enabledWithShare = campaigns.filter(
-    (c) => c.status === 'ENABLED' && c.searchImpressionShare !== null
+    c => c.status === 'ENABLED' && c.searchImpressionShare !== null
   );
   const avgSearchImpressionShare =
     enabledWithShare.length > 0
@@ -182,6 +47,7 @@ export function aggregateKeywordsToCampaigns(
   const campaignMap = new Map<
     string,
     {
+      campaignId: string;
       clicks: number;
       impressions: number;
       cost: number;
@@ -206,6 +72,7 @@ export function aggregateKeywordsToCampaigns(
       }
     } else {
       campaignMap.set(kw.campaignName, {
+        campaignId: `agg_${kw.campaignName}`, // 集計用のID
         clicks: kw.clicks,
         impressions: kw.impressions,
         cost: kw.cost,
@@ -226,10 +93,12 @@ export function aggregateKeywordsToCampaigns(
 
     const avgSearchImpressionShare =
       data.searchImpressionShares.length > 0
-        ? data.searchImpressionShares.reduce((a, b) => a + b, 0) / data.searchImpressionShares.length
+        ? data.searchImpressionShares.reduce((a, b) => a + b, 0) /
+          data.searchImpressionShares.length
         : null;
 
     campaigns.push({
+      campaignId: data.campaignId,
       campaignName,
       status: 'ENABLED', // keyword_view は ENABLED のみ取得するため
       clicks: data.clicks,

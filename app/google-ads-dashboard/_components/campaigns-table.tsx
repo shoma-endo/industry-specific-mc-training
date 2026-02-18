@@ -37,12 +37,11 @@ export function CampaignsTable({ campaigns }: CampaignsTableProps) {
                 <TableHead className="text-right">CVR</TableHead>
                 <TableHead className="text-right">CPA</TableHead>
                 <TableHead className="text-right">検索IS（インプレッションシェア）</TableHead>
-                <TableHead className="text-right">品質スコア</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {campaigns.map((campaign) => (
-                <TableRow key={campaign.campaignName}>
+              {campaigns.map(campaign => (
+                <TableRow key={campaign.campaignId}>
                   <TableCell className="font-medium">{campaign.campaignName}</TableCell>
                   <TableCell>
                     <span
@@ -55,14 +54,24 @@ export function CampaignsTable({ campaigns }: CampaignsTableProps) {
                       {campaign.status === 'ENABLED' ? '有効' : '一時停止'}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">{formatNumber(campaign.clicks)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">{formatNumber(campaign.impressions)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">{formatPercent(campaign.ctr)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    {formatNumber(campaign.clicks)}
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    {formatNumber(campaign.impressions)}
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    {formatPercent(campaign.ctr)}
+                  </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     {campaign.cpc > 0 ? formatCurrency(campaign.cpc) : '-'}
                   </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">{formatCurrency(campaign.cost)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">{campaign.conversions}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    {formatCurrency(campaign.cost)}
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    {campaign.conversions}
+                  </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     {formatPercent(campaign.conversionRate)}
                   </TableCell>
@@ -71,23 +80,6 @@ export function CampaignsTable({ campaigns }: CampaignsTableProps) {
                   </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     {formatPercent(campaign.searchImpressionShare)}
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    {campaign.qualityScore !== null ? (
-                      <span
-                        className={`font-medium ${
-                          campaign.qualityScore >= 7
-                            ? 'text-green-600'
-                            : campaign.qualityScore >= 5
-                              ? 'text-yellow-600'
-                              : 'text-red-600'
-                        }`}
-                      >
-                        {campaign.qualityScore}/10
-                      </span>
-                    ) : (
-                      '-'
-                    )}
                   </TableCell>
                 </TableRow>
               ))}
