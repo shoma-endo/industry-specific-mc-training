@@ -7,26 +7,26 @@ import { z } from 'zod';
 import type { DbHeadingSection } from '@/types/heading-flow';
 
 const initializeHeadingSchema = z.object({
-  sessionId: z.string(),
+  sessionId: z.string().min(1),
   step5Markdown: z.string(),
-  liffAccessToken: z.string(),
+  liffAccessToken: z.string().min(1),
 });
 
 const saveHeadingSectionSchema = z.object({
-  sessionId: z.string(),
-  headingKey: z.string(),
+  sessionId: z.string().min(1),
+  headingKey: z.string().min(1),
   content: z.string(),
-  liffAccessToken: z.string(),
+  liffAccessToken: z.string().min(1),
 });
 
 const getHeadingSectionsSchema = z.object({
-  sessionId: z.string(),
-  liffAccessToken: z.string(),
+  sessionId: z.string().min(1),
+  liffAccessToken: z.string().min(1),
 });
 
 const getLatestCombinedContentSchema = z.object({
-  sessionId: z.string(),
-  liffAccessToken: z.string(),
+  sessionId: z.string().min(1),
+  liffAccessToken: z.string().min(1),
 });
 
 /**
@@ -41,7 +41,11 @@ async function verifySessionReadAccess(sessionId: string, userId: string) {
  * Step 5確定時に呼び出し、見出しセクションを初期化する。
  */
 export async function initializeHeadingSections(data: z.infer<typeof initializeHeadingSchema>) {
-  const parsed = initializeHeadingSchema.parse(data);
+  const parseResult = initializeHeadingSchema.safeParse(data);
+  if (!parseResult.success) {
+    return { success: false, error: '入力データが不正です' };
+  }
+  const parsed = parseResult.data;
   const auth = await authMiddleware(parsed.liffAccessToken);
 
   if (auth.error || !auth.userId) {
@@ -73,7 +77,11 @@ export async function initializeHeadingSections(data: z.infer<typeof initializeH
  * 全ての見出しセクションを取得する。
  */
 export async function getHeadingSections(data: z.infer<typeof getHeadingSectionsSchema>) {
-  const parsed = getHeadingSectionsSchema.parse(data);
+  const parseResult = getHeadingSectionsSchema.safeParse(data);
+  if (!parseResult.success) {
+    return { success: false, error: '入力データが不正です', data: [] };
+  }
+  const parsed = parseResult.data;
   const auth = await authMiddleware(parsed.liffAccessToken);
 
   if (auth.error || !auth.userId) {
@@ -108,7 +116,11 @@ export async function getHeadingSections(data: z.infer<typeof getHeadingSections
  * 見出しセクションを保存し、完成形を更新する。
  */
 export async function saveHeadingSection(data: z.infer<typeof saveHeadingSectionSchema>) {
-  const parsed = saveHeadingSectionSchema.parse(data);
+  const parseResult = saveHeadingSectionSchema.safeParse(data);
+  if (!parseResult.success) {
+    return { success: false, error: '入力データが不正です' };
+  }
+  const parsed = parseResult.data;
   const auth = await authMiddleware(parsed.liffAccessToken);
 
   if (auth.error || !auth.userId) {
@@ -144,7 +156,11 @@ export async function saveHeadingSection(data: z.infer<typeof saveHeadingSection
 export async function getLatestCombinedContent(
   data: z.infer<typeof getLatestCombinedContentSchema>
 ) {
-  const parsed = getLatestCombinedContentSchema.parse(data);
+  const parseResult = getLatestCombinedContentSchema.safeParse(data);
+  if (!parseResult.success) {
+    return { success: false, error: '入力データが不正です', data: null };
+  }
+  const parsed = parseResult.data;
   const auth = await authMiddleware(parsed.liffAccessToken);
 
   if (auth.error || !auth.userId) {

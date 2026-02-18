@@ -1,44 +1,8 @@
-import { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseService, type SupabaseResult } from './supabaseService';
 import { extractHeadingsFromMarkdown, generateHeadingKey } from '@/lib/heading-extractor';
-import type { Database } from '@/types/database.types';
-import type {
-  DbHeadingSection,
-  DbCombinedContent,
-  DbSessionHeadingSectionInsert,
-  DbSessionCombinedContentInsert,
-} from '@/types/heading-flow';
-
-/**
- * 型定義の拡張用（supabase:types で更新されるまでの臨時措置）
- */
-type AugmentedDatabase = Database & {
-  public: Database['public'] & {
-    Tables: Database['public']['Tables'] & {
-      session_heading_sections: {
-        Row: DbHeadingSection;
-        Insert: DbSessionHeadingSectionInsert;
-        Update: Partial<DbHeadingSection>;
-        Relationships: [];
-      };
-      session_combined_contents: {
-        Row: DbCombinedContent;
-        Insert: DbSessionCombinedContentInsert;
-        Update: Partial<DbCombinedContent>;
-        Relationships: [];
-      };
-    };
-  };
-};
+import type { DbHeadingSection, DbSessionHeadingSectionInsert } from '@/types/heading-flow';
 
 export class HeadingFlowService extends SupabaseService {
-  protected override readonly supabase: SupabaseClient<AugmentedDatabase>;
-
-  constructor() {
-    super();
-    this.supabase = this.getClient() as unknown as SupabaseClient<AugmentedDatabase>;
-  }
-
   /**
    * Step 5のテキストから見出しを抽出し、session_heading_sections を初期化する。
    * 仕様: すでに存在する場合は何もしない。
@@ -52,8 +16,7 @@ export class HeadingFlowService extends SupabaseService {
     const currentHeadingKeys = currentHeadings.map(h => generateHeadingKey(h.orderIndex, h.text));
 
     // 2. 不要な見出し（構成変更で消えたもの）を削除
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let deleteQuery = (this.supabase as any)
+    let deleteQuery = this.supabase
       .from('session_heading_sections')
       .delete()
       .eq('session_id', sessionId);
@@ -81,12 +44,11 @@ export class HeadingFlowService extends SupabaseService {
       heading_level: h.level,
       heading_text: h.text,
       order_index: h.orderIndex,
-      content: '', // 既存の場合は upsert の ignoreDuplicates で維持される
+      content: '', // ignoreDuplicates: true により、同一 heading_key が既存の場合は行全体をスキップ（content/is_confirmed は上書きされない）
       is_confirmed: false,
     }));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertError } = await (this.supabase as any)
+    const { error: insertError } = await this.supabase
       .from('session_heading_sections')
       .upsert(sections, { onConflict: 'session_id,heading_key', ignoreDuplicates: true });
 
@@ -124,8 +86,7 @@ export class HeadingFlowService extends SupabaseService {
     content: string,
     userId: string
   ): Promise<SupabaseResult<void>> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError, count } = await (this.supabase as any)
+    const { error: updateError, count } = await this.supabase
       .from('session_heading_sections')
       .update(
         {
@@ -157,8 +118,9 @@ export class HeadingFlowService extends SupabaseService {
     if (!sectionsResult.success) return sectionsResult;
 
     const sections = sectionsResult.data as DbHeadingSection[];
-    // 見出しレベルに応じたハッシュタグを付与して結合
-    const combinedContent = sections
+    // 確定済みのセクションのみを結合（未確定セクションは空コンテンツのため除外）
+    const confirmedSections = sections.filter(s => s.is_confirmed);
+    const combinedContent = confirmedSections
       .map(s => {
         const hashes = '#'.repeat(s.heading_level);
         return `${hashes} ${s.heading_text}\n\n${s.content}`;
@@ -166,8 +128,7 @@ export class HeadingFlowService extends SupabaseService {
       .join('\n\n');
 
     // 原子性を確保するため RPC (Database Function) を使用
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: rpcError } = await (this.supabase as any).rpc('save_atomic_combined_content', {
+    const { error: rpcError } = await this.supabase.rpc('save_atomic_combined_content', {
       p_session_id: sessionId,
       p_content: combinedContent,
       p_authenticated_user_id: userId,
@@ -182,8 +143,7 @@ export class HeadingFlowService extends SupabaseService {
    * 最新の完成形を取得する。
    */
   async getLatestCombinedContent(sessionId: string): Promise<SupabaseResult<string | null>> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (this.supabase as any)
+    const { data, error } = await this.supabase
       .from('session_combined_contents')
       .select('content')
       .eq('session_id', sessionId)
@@ -191,7 +151,7 @@ export class HeadingFlowService extends SupabaseService {
       .maybeSingle();
 
     if (error) return this.failure('最新完成形の取得に失敗しました', { error });
-    const content = (data as unknown as DbCombinedContent)?.content ?? null;
+    const content = (data as { content: string } | null)?.content ?? null;
     return this.success(content);
   }
 }

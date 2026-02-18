@@ -168,6 +168,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   isSavingHeading,
   headingInitError,
   onRetryHeadingInit,
+  isRetryingHeadingInit,
   isStreaming,
 }) => {
   const [markdownContent, setMarkdownContent] = useState('');
@@ -1152,9 +1153,14 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 size="sm"
                 variant="outline"
                 onClick={onRetryHeadingInit}
-                className="h-8 px-2 text-[10px] border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold"
+                disabled={isRetryingHeadingInit}
+                className="h-8 px-2 text-[10px] border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold disabled:opacity-50"
               >
-                <RotateCw size={12} className="mr-1" />
+                {isRetryingHeadingInit ? (
+                  <Loader2 size={12} className="mr-1 animate-spin" />
+                ) : (
+                  <RotateCw size={12} className="mr-1" />
+                )}
                 再試行
               </Button>
             </div>
