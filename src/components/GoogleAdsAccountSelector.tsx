@@ -125,11 +125,6 @@ export function GoogleAdsAccountSelector({
       {
         onSuccess: data => {
           setClientAccounts(data || []);
-          if (!data || data.length === 0) {
-            setAlertMessage(
-              'このマネージャーアカウント配下に有効なクライアントアカウントが見つかりませんでした。'
-            );
-          }
         },
         setLoading: setIsClientLoading,
         setMessage: setAlertMessage,
@@ -285,12 +280,25 @@ export function GoogleAdsAccountSelector({
             </SelectContent>
           </Select>
 
-          <div className="text-xs text-gray-500 min-h-[20px]">
-            {isClientLoading && 'クライアントアカウントを取得中...'}
+          <div className="text-xs">
+            {isClientLoading && (
+              <span className="text-gray-500 italic">クライアントアカウントを取得中...</span>
+            )}
             {!isClientLoading && clientAccounts.length === 0 && (
-              <span className="text-orange-600">
-                表示可能なクライアントアカウントがありません。
-              </span>
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-md text-blue-800 animate-in fade-in duration-300">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <span className="block w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  分析可能なクライアントアカウントが見つかりません
+                </p>
+                <div className="mt-1 text-xs space-y-1 text-blue-700 leading-relaxed">
+                  <p>
+                    選択したマネージャーアカウント（MCC）の配下に、実際に広告を運用している「クライアントアカウント」が存在するかご確認ください。
+                  </p>
+                  <p className="opacity-80">
+                    ※サブマネージャーアカウント（子MCC）は選択対象外のため表示されません。
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
