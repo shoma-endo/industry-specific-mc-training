@@ -1,4 +1,5 @@
 import { BarChart3 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { MetricsCards } from './metrics-cards';
@@ -56,13 +57,13 @@ export function DashboardContent({
             <p className="text-sm">{errorGuidance[errorKind]}</p>
             <div className="pt-2">
               <Button asChild variant="outline">
-                <a href="/setup/google-ads">
+                <Link href="/setup/google-ads">
                   {errorKind === 'not_selected'
                     ? 'アカウント選択へ'
                     : errorKind === 'admin_required'
                       ? '権限設定を確認する'
                       : 'Google Ads 連携設定へ'}
-                </a>
+                </Link>
               </Button>
             </div>
           </AlertDescription>
