@@ -4,6 +4,7 @@ import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { headingFlowService } from '@/server/services/headingFlowService';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { z } from 'zod';
+import { hasOwnerRole } from '@/authUtils';
 import type { DbHeadingSection } from '@/types/heading-flow';
 
 const initializeHeadingSchema = z.object({
@@ -58,7 +59,7 @@ export async function initializeHeadingSections(data: z.infer<typeof initializeH
   }
 
   // 認可チェック: 書き込み権限（閲覧専用ロール・ビューモードは拒否）
-  if (auth.viewMode || auth.userDetails?.role === 'owner') {
+  if (auth.viewMode || hasOwnerRole(auth.userDetails?.role ?? null)) {
     return { success: false, error: '閲覧モードでは編集できません' };
   }
 
@@ -133,7 +134,7 @@ export async function saveHeadingSection(data: z.infer<typeof saveHeadingSection
   }
 
   // 認可チェック: 書き込み権限（閲覧専用ロール・ビューモードは拒否）
-  if (auth.viewMode || auth.userDetails?.role === 'owner') {
+  if (auth.viewMode || hasOwnerRole(auth.userDetails?.role ?? null)) {
     return { success: false, error: '閲覧モードでは編集できません' };
   }
 
