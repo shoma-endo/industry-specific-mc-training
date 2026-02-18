@@ -1,6 +1,6 @@
 import { DashboardContent } from './_components/dashboard-content';
 import { fetchKeywordMetrics } from '@/server/actions/googleAds.actions';
-import { aggregateKeywordsToCampaigns } from '@/lib/mock-data/google-ads';
+import { aggregateKeywordsToCampaigns } from '@/lib/google-ads-utils';
 import { buildLocalDateRange } from '@/lib/date-utils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { MetricsCards } from './metrics-cards';
 import { CampaignsTable } from './campaigns-table';
-import { calculateCampaignSummary } from '@/lib/mock-data/google-ads';
+import { calculateCampaignSummary } from '@/lib/google-ads-utils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import type { GoogleAdsCampaignMetrics } from '@/types/googleAds.types';
 
