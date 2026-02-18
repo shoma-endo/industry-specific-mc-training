@@ -176,6 +176,9 @@ export function useHeadingFlow({
         if (res.success) {
           const updatedSections = await fetchHeadingSections(sessionId);
 
+          // 取得失敗時（空配列）は完了判定をスキップ
+          if (updatedSections.length === 0) return;
+
           // 全ての見出しが完了したかチェック（返り値を使用してステール回避）
           const allDone = updatedSections.every(s => s.isConfirmed);
 
