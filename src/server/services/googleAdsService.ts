@@ -8,6 +8,8 @@ import type {
   GoogleAdsMatchType,
   GetKeywordMetricsInput,
   GetKeywordMetricsResult,
+  GetCampaignMetricsResult,
+  GoogleAdsCampaignMetrics,
   GoogleAdsSearchStreamRow,
   GoogleAdsApiError,
 } from '@/types/googleAds.types';
@@ -95,7 +97,7 @@ export class GoogleAdsService {
     if (!response.ok) {
       const text = await response.text();
       let errorMessage = `Google Adsアカウント一覧の取得に失敗しました: Status ${response.status}`;
-      
+
       // エラーレスポンスをパースして詳細なエラーメッセージを抽出
       try {
         const errorData = JSON.parse(text) as {
@@ -112,20 +114,21 @@ export class GoogleAdsService {
             }>;
           };
         };
-        
+
         if (errorData.error) {
           // 一般的なエラーメッセージ
           if (errorData.error.message) {
             errorMessage = errorData.error.message;
           }
-          
+
           // Google Ads API固有のエラー詳細を抽出
           if (errorData.error.details && errorData.error.details.length > 0) {
             const adsError = errorData.error.details[0];
             if (adsError && adsError.errors && adsError.errors.length > 0) {
               const firstError = adsError.errors[0];
               if (firstError?.errorCode?.authenticationError === 'NOT_ADS_USER') {
-                errorMessage = '認証したGoogleアカウントがGoogle Adsアカウントと関連付けられていません。Google Adsアカウントにアクセス権限があるGoogleアカウントで再認証してください。';
+                errorMessage =
+                  '認証したGoogleアカウントがGoogle Adsアカウントと関連付けられていません。Google Adsアカウントにアクセス権限があるGoogleアカウントで再認証してください。';
               } else if (firstError?.message) {
                 errorMessage = firstError.message;
               }
@@ -136,13 +139,13 @@ export class GoogleAdsService {
         // JSONパースに失敗した場合は元のエラーメッセージを使用
         console.warn('Failed to parse error response:', parseError);
       }
-      
+
       console.error('Google Ads API エラー:', {
         status: response.status,
         body: text,
         parsedMessage: errorMessage,
       });
-      
+
       throw new Error(errorMessage);
     }
 
@@ -265,9 +268,7 @@ export class GoogleAdsService {
       }
 
       const name =
-        firstResult.customer.descriptiveName ??
-        firstResult.customer.descriptive_name ??
-        null;
+        firstResult.customer.descriptiveName ?? firstResult.customer.descriptive_name ?? null;
       return {
         name: name && name.trim().length > 0 ? name : null,
         isManager: firstResult.customer.manager === true,
@@ -339,13 +340,13 @@ export class GoogleAdsService {
         if (Array.isArray(parsed)) {
           responses = parsed as typeof responses;
         } else if (parsed && typeof parsed === 'object') {
-          responses = [parsed as typeof responses[number]];
+          responses = [parsed as (typeof responses)[number]];
         }
       } catch {
         const lines = text.split('\n').filter(line => line.trim().length > 0);
         for (const line of lines) {
           try {
-            responses.push(JSON.parse(line) as typeof responses[number]);
+            responses.push(JSON.parse(line) as (typeof responses)[number]);
           } catch {
             // 不正な行はスキップ
           }
@@ -374,11 +375,106 @@ export class GoogleAdsService {
 
   /**
    * キャンペーンごとの主要指標を取得する
-   * TODO: Google Ads API実装時に記述
    */
-  async getCampaignMetrics(/* accessToken: string, customerId: string */) {
-    // 実際の実装ではここで searchStream を使用してレポートを取得する
-    return [];
+  async getCampaignMetrics(input: GetKeywordMetricsInput): Promise<GetCampaignMetricsResult> {
+    const { accessToken, customerId, startDate, endDate, campaignIds, loginCustomerId } = input;
+
+    let query = `
+      SELECT
+        campaign.id,
+        campaign.name,
+        campaign.status,
+        metrics.clicks,
+        metrics.impressions,
+        metrics.cost_micros,
+        metrics.ctr,
+        metrics.average_cpc,
+        metrics.conversions,
+        metrics.cost_per_conversion,
+        metrics.search_impression_share,
+        metrics.conversions_from_interactions_rate
+      FROM campaign
+      WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+        AND campaign.status IN ('ENABLED', 'PAUSED')
+    `;
+
+    if (campaignIds && campaignIds.length > 0) {
+      query += ` AND campaign.id IN (${campaignIds.join(', ')})`;
+    }
+
+    query += ` ORDER BY metrics.impressions DESC`;
+
+    const url = `${GOOGLE_ADS_API_BASE_URL}/customers/${customerId}/googleAds:searchStream`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN ?? '',
+    };
+
+    if (loginCustomerId) {
+      headers['login-customer-id'] = loginCustomerId;
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: query.trim() }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        const errorText = await response.text();
+        try {
+          const errorBody = JSON.parse(errorText) as GoogleAdsApiError;
+          errorMessage = errorBody.error?.message ?? errorMessage;
+        } catch {
+          // ignore
+        }
+        return { success: false, error: errorMessage };
+      }
+
+      const responseText = await response.text();
+      const lines = responseText.split('\n').filter(line => line.trim());
+      const campaigns: GoogleAdsCampaignMetrics[] = [];
+
+      for (const line of lines) {
+        try {
+          const chunk = JSON.parse(line) as { results?: GoogleAdsSearchStreamRow[] };
+          if (!chunk.results) continue;
+
+          for (const row of chunk.results) {
+            if (!row.campaign?.id || !row.campaign?.name) continue;
+            const m = row.metrics ?? {};
+            campaigns.push({
+              campaignId: row.campaign.id,
+              campaignName: row.campaign.name,
+              status: row.campaign.status as 'ENABLED' | 'PAUSED',
+              clicks: Number(m.clicks ?? 0),
+              impressions: Number(m.impressions ?? 0),
+              cost: microsToYen(m.costMicros),
+              ctr: m.ctr ?? 0,
+              cpc: microsToYen(m.averageCpc),
+              qualityScore: null,
+              conversions: m.conversions ?? 0,
+              costPerConversion: m.costPerConversion ? microsToYen(m.costPerConversion) : null,
+              searchImpressionShare: m.searchImpressionShare ?? null,
+              conversionRate: m.conversionsFromInteractionsRate ?? null,
+            });
+          }
+        } catch (e) {
+          console.warn('[GoogleAdsService] Failed to parse campaign metrics line:', e);
+        }
+      }
+
+      return { success: true, data: campaigns };
+    } catch (error) {
+      console.error('[GoogleAdsService] getCampaignMetrics error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'キャンペーン指標の取得に失敗しました',
+      };
+    }
   }
 
   /**
@@ -430,7 +526,7 @@ export class GoogleAdsService {
 
     query += `
       ORDER BY metrics.impressions DESC
-      LIMIT 1000
+      LIMIT 100
     `;
 
     const url = `${GOOGLE_ADS_API_BASE_URL}/customers/${customerId}/googleAds:searchStream`;
@@ -489,7 +585,7 @@ export class GoogleAdsService {
       const responseText = await response.text();
 
       // searchStream は NDJSON 形式で返却される
-      const lines = responseText.split('\n').filter((line) => line.trim());
+      const lines = responseText.split('\n').filter(line => line.trim());
       const metrics: GoogleAdsKeywordMetric[] = [];
 
       for (const line of lines) {

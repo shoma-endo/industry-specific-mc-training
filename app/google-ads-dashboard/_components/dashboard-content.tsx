@@ -6,16 +6,22 @@ import { MetricsCards } from './metrics-cards';
 import { CampaignsTable } from './campaigns-table';
 import { calculateCampaignSummary } from '@/lib/google-ads-utils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
-import type { GoogleAdsCampaignMetrics, GoogleAdsErrorKind } from '@/types/googleAds.types';
+import type {
+  GoogleAdsCampaignMetrics,
+  GoogleAdsKeywordMetric,
+  GoogleAdsErrorKind,
+} from '@/types/googleAds.types';
 
 interface DashboardContentProps {
   campaigns: GoogleAdsCampaignMetrics[];
+  keywords: GoogleAdsKeywordMetric[];
   errorMessage?: string;
   errorKind?: GoogleAdsErrorKind;
 }
 
 export function DashboardContent({
   campaigns,
+  keywords,
   errorMessage,
   errorKind = 'unknown',
 }: DashboardContentProps) {
@@ -82,6 +88,17 @@ export function DashboardContent({
 
       {/* Campaigns Table */}
       {hasData && <CampaignsTable campaigns={campaigns} />}
+
+      {/* Keywords Data (debug or info) */}
+      {keywords.length > 0 && (
+        <div className="pt-8">
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">上位キーワードパフォーマンス</h2>
+          <div className="bg-white rounded-lg border p-4 text-sm text-gray-500">
+            上位 {keywords.length} 件のキーワードを表示中。集計値はキャンペーン全件の合計です。
+          </div>
+          {/* Note: Keywords could be shown in a table as well if desired */}
+        </div>
+      )}
     </div>
   );
 }

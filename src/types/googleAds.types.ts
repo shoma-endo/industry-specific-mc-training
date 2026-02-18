@@ -91,7 +91,9 @@ export interface GoogleAdsSearchStreamRow {
     };
   };
   campaign?: {
+    id?: string;
     name?: string;
+    status?: string;
   };
   adGroup?: {
     name?: string;
@@ -133,6 +135,8 @@ export interface GoogleAdsApiError {
  * keyword_view から取得したデータをキャンペーン単位で集計した結果
  */
 export interface GoogleAdsCampaignMetrics {
+  /** キャンペーン ID */
+  campaignId: string;
   /** キャンペーン名 */
   campaignName: string;
   /** ステータス */
@@ -172,6 +176,15 @@ export interface GoogleAdsCampaignSummary {
   avgConversionRate: number;
   avgCostPerConversion: number;
   avgSearchImpressionShare: number | null;
+}
+
+/**
+ * キャンペーン指標取得の結果
+ */
+export interface GetCampaignMetricsResult {
+  success: boolean;
+  data?: GoogleAdsCampaignMetrics[];
+  error?: string;
 }
 
 /**

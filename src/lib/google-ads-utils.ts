@@ -47,6 +47,7 @@ export function aggregateKeywordsToCampaigns(
   const campaignMap = new Map<
     string,
     {
+      campaignId: string;
       clicks: number;
       impressions: number;
       cost: number;
@@ -71,6 +72,7 @@ export function aggregateKeywordsToCampaigns(
       }
     } else {
       campaignMap.set(kw.campaignName, {
+        campaignId: `agg_${kw.campaignName}`, // 集計用のID
         clicks: kw.clicks,
         impressions: kw.impressions,
         cost: kw.cost,
@@ -96,6 +98,7 @@ export function aggregateKeywordsToCampaigns(
         : null;
 
     campaigns.push({
+      campaignId: data.campaignId,
       campaignName,
       status: 'ENABLED', // keyword_view は ENABLED のみ取得するため
       clicks: data.clicks,

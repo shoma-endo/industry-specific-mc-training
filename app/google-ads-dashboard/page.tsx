@@ -1,6 +1,5 @@
 import { DashboardContent } from './_components/dashboard-content';
-import { fetchKeywordMetrics } from '@/server/actions/googleAds.actions';
-import { aggregateKeywordsToCampaigns } from '@/lib/google-ads-utils';
+import { fetchKeywordMetrics, fetchCampaignMetrics } from '@/server/actions/googleAds.actions';
 import type { GoogleAdsErrorKind } from '@/types/googleAds.types';
 import { buildLocalDateRange } from '@/lib/date-utils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
@@ -30,20 +29,27 @@ export default async function GoogleAdsDashboardPage() {
   // 過去30日間の日付範囲を計算（JST基準、今日含む30日間）
   const { startDate, endDate } = buildLocalDateRange(30);
 
-  const result = await fetchKeywordMetrics(startDate, endDate);
+  // キャンペーン指標とキーワード指標を並行して取得
+  const [campaignResult, keywordResult] = await Promise.all([
+    fetchCampaignMetrics(startDate, endDate),
+    fetchKeywordMetrics(startDate, endDate),
+  ]);
 
-  if (!result.success || !result.data) {
-    const errorMessage = result.error ?? ERROR_MESSAGES.GOOGLE_ADS.DASHBOARD_FETCH_FAILED;
+  // いずれかで重大なエラー（認証系など）が発生した場合はエラー表示
+  if (!campaignResult.success) {
+    const errorMessage = campaignResult.error ?? ERROR_MESSAGES.GOOGLE_ADS.DASHBOARD_FETCH_FAILED;
     return (
       <DashboardContent
         campaigns={[]}
+        keywords={[]}
         errorMessage={errorMessage}
         errorKind={resolveErrorKind(errorMessage)}
       />
     );
   }
 
-  const campaigns = aggregateKeywordsToCampaigns(result.data);
+  const campaigns = campaignResult.data ?? [];
+  const keywords = keywordResult.success ? (keywordResult.data ?? []) : [];
 
-  return <DashboardContent campaigns={campaigns} />;
+  return <DashboardContent campaigns={campaigns} keywords={keywords} />;
 }
