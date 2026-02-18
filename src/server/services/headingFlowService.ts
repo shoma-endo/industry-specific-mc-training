@@ -11,10 +11,12 @@ import type {
 
 /**
  * 型定義の拡張用（supabase:types で更新されるまでの臨時措置）。
- * & による交差では既存キーが never になるため、Omit で除外してから再定義する。
+ * Supabase v2.75+ では Schema が `{ PostgrestVersion: "12" }` を満たさないと
+ * テーブル型が never に落ちるため、PostgrestVersion フィールドを明示的に付与する。
  */
 type AugmentedDatabase = Omit<Database, 'public'> & {
   public: Omit<Database['public'], 'Tables'> & {
+    PostgrestVersion: '12';
     Tables: Omit<
       Database['public']['Tables'],
       'session_heading_sections' | 'session_combined_contents'
