@@ -26,7 +26,6 @@ import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
 import { useHeadingFlow } from '@/hooks/useHeadingFlow';
-import { toast } from 'sonner';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS, VERSIONING_TOGGLE_STEP } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
@@ -280,6 +279,7 @@ interface ChatLayoutCtx {
   currentHeadingText?: string | undefined;
   headingInitError?: string | null;
   onRetryHeadingInit?: () => void;
+  isRetryingHeadingInit?: boolean;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
