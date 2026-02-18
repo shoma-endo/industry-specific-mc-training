@@ -32,11 +32,12 @@ type AugmentedDatabase = Database & {
 };
 
 export class HeadingFlowService extends SupabaseService {
-  protected override readonly supabase: SupabaseClient<AugmentedDatabase>;
-
-  constructor() {
-    super();
-    this.supabase = this.getClient() as unknown as SupabaseClient<AugmentedDatabase>;
+  /**
+   * AugmentedDatabase 型へのキャストを一箇所に集約するヘルパー。
+   * DB 型の自動生成が更新されたら、このゲッターと型定義を削除してください。
+   */
+  private get db(): SupabaseClient<AugmentedDatabase> {
+    return this.supabase as unknown as SupabaseClient<AugmentedDatabase>;
   }
 
   /**
@@ -52,8 +53,7 @@ export class HeadingFlowService extends SupabaseService {
     const currentHeadingKeys = currentHeadings.map(h => generateHeadingKey(h.orderIndex, h.text));
 
     // 2. 不要な見出し（構成変更で消えたもの）を削除
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let deleteQuery = (this.supabase as any)
+    let deleteQuery = this.db
       .from('session_heading_sections')
       .delete()
       .eq('session_id', sessionId);
@@ -85,8 +85,7 @@ export class HeadingFlowService extends SupabaseService {
       is_confirmed: false,
     }));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertError } = await (this.supabase as any)
+    const { error: insertError } = await this.db
       .from('session_heading_sections')
       .upsert(sections, { onConflict: 'session_id,heading_key', ignoreDuplicates: true });
 
@@ -104,7 +103,7 @@ export class HeadingFlowService extends SupabaseService {
    * セッションに紐づく全ての見出しセクションを取得する。
    */
   async getHeadingSections(sessionId: string): Promise<SupabaseResult<DbHeadingSection[]>> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.db
       .from('session_heading_sections')
       .select('*')
       .eq('session_id', sessionId)
@@ -124,8 +123,7 @@ export class HeadingFlowService extends SupabaseService {
     content: string,
     userId: string
   ): Promise<SupabaseResult<void>> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError, count } = await (this.supabase as any)
+    const { error: updateError, count } = await this.db
       .from('session_heading_sections')
       .update(
         {
@@ -167,8 +165,7 @@ export class HeadingFlowService extends SupabaseService {
       .join('\n\n');
 
     // 原子性を確保するため RPC (Database Function) を使用
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: rpcError } = await (this.supabase as any).rpc('save_atomic_combined_content', {
+    const { error: rpcError } = await this.db.rpc('save_atomic_combined_content', {
       p_session_id: sessionId,
       p_content: combinedContent,
       p_authenticated_user_id: userId,
@@ -183,8 +180,7 @@ export class HeadingFlowService extends SupabaseService {
    * 最新の完成形を取得する。
    */
   async getLatestCombinedContent(sessionId: string): Promise<SupabaseResult<string | null>> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (this.supabase as any)
+    const { data, error } = await this.db
       .from('session_combined_contents')
       .select('content')
       .eq('session_id', sessionId)
@@ -192,7 +188,7 @@ export class HeadingFlowService extends SupabaseService {
       .maybeSingle();
 
     if (error) return this.failure('最新完成形の取得に失敗しました', { error });
-    const content = (data as unknown as DbCombinedContent)?.content ?? null;
+    const content = (data as { content: string } | null)?.content ?? null;
     return this.success(content);
   }
 }
