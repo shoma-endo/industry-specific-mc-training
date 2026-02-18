@@ -1,3 +1,10 @@
+-- ロールバック手順 (Rollback):
+-- DROP FUNCTION IF EXISTS public.save_atomic_combined_content(text, text, text);
+-- DROP TRIGGER IF EXISTS set_updated_at_session_combined_contents ON public.session_combined_contents;
+-- DROP TRIGGER IF EXISTS set_updated_at_session_heading_sections ON public.session_heading_sections;
+-- DROP TABLE IF EXISTS public.session_combined_contents;
+-- DROP TABLE IF EXISTS public.session_heading_sections;
+
 -- Create session_heading_sections table
 CREATE TABLE IF NOT EXISTS public.session_heading_sections (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -33,6 +40,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_combined_contents_latest ON public.session
 
 -- Index for session_combined_contents
 CREATE INDEX IF NOT EXISTS idx_combined_contents_session_version ON public.session_combined_contents (session_id, version_no DESC);
+
+-- updated_at 自動更新トリガー（update_updated_at_column は既存マイグレーションで定義済み）
+CREATE TRIGGER set_updated_at_session_heading_sections
+    BEFORE UPDATE ON public.session_heading_sections
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER set_updated_at_session_combined_contents
+    BEFORE UPDATE ON public.session_combined_contents
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Enable RLS
 ALTER TABLE public.session_heading_sections ENABLE ROW LEVEL SECURITY;

@@ -868,13 +868,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   );
 
   const fetchHeadingSections = useCallback(
-    async (sessionId: string) => {
+    async (sessionId: string): Promise<SessionHeadingSection[]> => {
       const liffAccessToken = await getAccessToken();
       const res = await headingActions.getHeadingSections({ sessionId, liffAccessToken });
       // セッション切り替え時の競合防止: Refを使用して常に「現在」のアクティブセッションと比較
       if (res.success && res.data && sessionId === chatStateRef.current.currentSessionId) {
         setHeadingSections(res.data);
+        return res.data;
       }
+      return [];
     },
     [getAccessToken]
   );
@@ -902,12 +904,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       });
 
       if (res.success) {
-        await fetchHeadingSections(sessionId);
+        const updatedSections = await fetchHeadingSections(sessionId);
 
-        // 全ての見出しが完了したかチェック
-        const allDone = headingSections.every((s, i) =>
-          i === activeHeadingIndex ? true : s.isConfirmed
-        );
+        // 全ての見出しが完了したかチェック（fetchHeadingSections の返り値を使用してステール回避）
+        const allDone = updatedSections.every(s => s.isConfirmed);
 
         if (allDone) {
           // 全見出し完了。Step 7への案内を出す
@@ -932,7 +932,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     canvasStreamingContent,
     resolvedCanvasStep,
     fetchHeadingSections,
-    headingSections,
     getAccessToken,
     latestBlogStep,
   ]);

@@ -157,8 +157,9 @@ export class HeadingFlowService extends SupabaseService {
     if (!sectionsResult.success) return sectionsResult;
 
     const sections = sectionsResult.data as DbHeadingSection[];
-    // 見出しレベルに応じたハッシュタグを付与して結合
-    const combinedContent = sections
+    // 確定済みのセクションのみを結合（未確定セクションは空コンテンツのため除外）
+    const confirmedSections = sections.filter(s => s.is_confirmed);
+    const combinedContent = confirmedSections
       .map(s => {
         const hashes = '#'.repeat(s.heading_level);
         return `${hashes} ${s.heading_text}\n\n${s.content}`;
