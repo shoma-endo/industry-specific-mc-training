@@ -134,7 +134,8 @@ export function formatLocalDateYMD(date: Date): string {
 }
 
 /**
- * ローカルタイムゾーン基準で「今日から N 日前〜今日」の日付範囲を返す
+ * JST（Asia/Tokyo）基準で「今日から N 日前〜今日」の日付範囲を返す
+ * サーバーのローカルタイムゾーンに依存せず、常に JST で日付を切り出す
  * Google Ads API など YYYY-MM-DD 形式の日付範囲が必要な場合に使用する
  * @param days - 取得する日数（例: 30 → 今日含む過去30日間）
  * @returns { startDate, endDate } - YYYY-MM-DD 形式の開始日と終了日
