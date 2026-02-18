@@ -428,9 +428,30 @@ export class GoogleAdsService {
         try {
           const errorBody = JSON.parse(errorText) as GoogleAdsApiError;
           errorMessage = errorBody.error?.message ?? errorMessage;
+
+          // デバッグ用: エラー詳細をログ出力（エラーコードを含む）
+          const errorDetails = errorBody.error?.details?.[0];
+          const errorCode = errorDetails?.errors?.[0]?.errorCode
+            ? Object.values(errorDetails.errors[0].errorCode)[0]
+            : undefined;
+
+          console.error('[GoogleAdsService] getCampaignMetrics API error:', {
+            status: response.status,
+            message: errorMessage,
+            customerId,
+            campaignIds,
+            errorCode,
+          });
         } catch {
-          // ignore
+          console.error(
+            '[GoogleAdsService] getCampaignMetrics API error (non-JSON response):',
+            response.status,
+            response.statusText
+          );
         }
+
+        console.error('[GoogleAdsService] getCampaignMetrics API error body:', errorText);
+
         return { success: false, error: errorMessage };
       }
 
