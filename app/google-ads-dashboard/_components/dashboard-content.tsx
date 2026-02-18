@@ -5,12 +5,12 @@ import { MetricsCards } from './metrics-cards';
 import { CampaignsTable } from './campaigns-table';
 import { calculateCampaignSummary } from '@/lib/google-ads-utils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
-import type { GoogleAdsCampaignMetrics } from '@/types/googleAds.types';
+import type { GoogleAdsCampaignMetrics, GoogleAdsErrorKind } from '@/types/googleAds.types';
 
 interface DashboardContentProps {
   campaigns: GoogleAdsCampaignMetrics[];
   errorMessage?: string;
-  errorKind?: 'not_connected' | 'not_selected' | 'auth_expired' | 'admin_required' | 'unknown';
+  errorKind?: GoogleAdsErrorKind;
 }
 
 export function DashboardContent({

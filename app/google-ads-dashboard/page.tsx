@@ -1,6 +1,7 @@
 import { DashboardContent } from './_components/dashboard-content';
 import { fetchKeywordMetrics } from '@/server/actions/googleAds.actions';
 import { aggregateKeywordsToCampaigns } from '@/lib/google-ads-utils';
+import type { GoogleAdsErrorKind } from '@/types/googleAds.types';
 import { buildLocalDateRange } from '@/lib/date-utils';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
@@ -10,9 +11,7 @@ export const dynamic = 'force-dynamic';
 /**
  * エラーメッセージからエラー種別を判定する
  */
-function resolveErrorKind(
-  errorMessage: string
-): 'not_connected' | 'not_selected' | 'auth_expired' | 'admin_required' | 'unknown' {
+function resolveErrorKind(errorMessage: string): GoogleAdsErrorKind {
   switch (errorMessage) {
     case ERROR_MESSAGES.GOOGLE_ADS.NOT_CONNECTED:
       return 'not_connected';

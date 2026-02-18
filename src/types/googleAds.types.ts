@@ -173,3 +173,13 @@ export interface GoogleAdsCampaignSummary {
   avgCostPerConversion: number;
   avgSearchImpressionShare: number | null;
 }
+
+/**
+ * Google Ads ダッシュボードのエラー種別
+ */
+export type GoogleAdsErrorKind =
+  | 'not_connected'
+  | 'not_selected'
+  | 'auth_expired'
+  | 'admin_required'
+  | 'unknown';
