@@ -1749,6 +1749,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           currentHeadingText: activeHeading?.headingText,
           headingInitError,
           onRetryHeadingInit: handleRetryHeadingInit,
+          isRetryingHeadingInit: isHeadingInitInFlight,
         }}
       />
       {canvasPanelOpen && (
@@ -1774,6 +1775,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           isSavingHeading={isSavingHeading}
           headingInitError={headingInitError}
           onRetryHeadingInit={handleRetryHeadingInit}
+          isRetryingHeadingInit={isHeadingInitInFlight}
           isStreaming={isCanvasStreaming}
         />
       )}

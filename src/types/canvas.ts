@@ -55,6 +55,7 @@ export interface CanvasPanelProps {
   isSavingHeading?: boolean | undefined;
   headingInitError?: string | null | undefined;
   onRetryHeadingInit?: (() => void) | undefined;
+  isRetryingHeadingInit?: boolean | undefined;
   isStreaming?: boolean | undefined;
 }
 
