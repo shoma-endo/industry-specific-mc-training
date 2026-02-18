@@ -113,6 +113,18 @@ export interface GoogleAdsSearchStreamRow {
     clicks?: string;
     costMicros?: string;
   };
+  customerClient?: {
+    resourceName?: string;
+    clientCustomer?: string;
+    level?: number;
+    timeZone?: string;
+    testAccount?: boolean;
+    manager?: boolean;
+    descriptiveName?: string;
+    descriptive_name?: string; // API response sometimes uses snake_case
+    currencyCode?: string;
+    id?: number;
+  };
 }
 
 /**

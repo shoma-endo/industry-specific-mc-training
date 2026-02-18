@@ -374,6 +374,91 @@ export class GoogleAdsService {
   }
 
   /**
+   * マネージャーアカウント配下のクライアントアカウント一覧を取得する
+   * @param managerCustomerId - マネージャーアカウントID
+   * @param accessToken - OAuth アクセストークン
+   * @returns クライアントアカウント情報の配列
+   */
+  async getClientAccounts(
+    managerCustomerId: string,
+    accessToken: string
+  ): Promise<Array<{ customerId: string; name: string; isManager: boolean }>> {
+    const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    if (!developerToken) {
+      throw new Error(ERROR_MESSAGES.GOOGLE_ADS.DEVELOPER_TOKEN_MISSING);
+    }
+
+    const API_VERSION = 'v22';
+    const url = `https://googleads.googleapis.com/${API_VERSION}/customers/${managerCustomerId}/googleAds:searchStream`;
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'developer-token': developerToken,
+        Authorization: `Bearer ${accessToken}`,
+        'login-customer-id': managerCustomerId,
+      };
+
+      // client_customer が自分自身（マネージャー）でない、かつ ENABLED なアカウントを取得
+      // manager = false でクライアントアカウントのみに絞り込むことも可能だが、
+      // 階層構造がある場合はサブマネージャーも表示した方が良い場合があるため、ここでは manager 属性も取得して返す
+      const query = `
+        SELECT
+          customer_client.client_customer,
+          customer_client.descriptive_name,
+          customer_client.manager,
+          customer_client.id
+        FROM customer_client
+        WHERE customer_client.status = 'ENABLED'
+          AND customer_client.manager = false
+      `;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.warn('Google Ads API エラー (getClientAccounts):', {
+          status: response.status,
+          body: text,
+          managerCustomerId,
+        });
+        throw new Error(`Failed to fetch client accounts: ${response.statusText}`);
+      }
+
+      const responseText = await response.text();
+      const rows = this.parseSearchStreamResponse(responseText);
+
+      const accounts: Array<{ customerId: string; name: string; isManager: boolean }> = [];
+
+      for (const row of rows) {
+        // customerClient がない場合はスキップ
+        const client = row.customerClient;
+        if (!client || !client.id) continue;
+
+        // 自分自身（マネージャー）は除外しても良いが、UI側で制御するために含めるか判断
+        // ここではAPIの挙動通りすべて返す
+        accounts.push({
+          customerId: String(client.id),
+          name: client.descriptiveName ?? client.descriptive_name ?? `Account ${client.id}`,
+          isManager: Boolean(client.manager),
+        });
+      }
+
+      return accounts;
+    } catch (error) {
+      console.error('Failed to fetch client accounts:', {
+        managerCustomerId,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * キャンペーンごとの主要指標を取得する
    */
   async getCampaignMetrics(input: GetKeywordMetricsInput): Promise<GetCampaignMetricsResult> {
