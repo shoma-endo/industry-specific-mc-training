@@ -169,7 +169,6 @@ export function useHeadingFlow({
         !sessionId ||
         activeHeadingIndex === undefined ||
         !activeHeading ||
-        latestBlogStep !== 'step6' ||
         resolvedCanvasStep !== 'step6'
       ) {
         return;
@@ -216,7 +215,6 @@ export function useHeadingFlow({
       resolvedCanvasStep,
       fetchHeadingSections,
       getAccessToken,
-      latestBlogStep,
     ]
   );
 
