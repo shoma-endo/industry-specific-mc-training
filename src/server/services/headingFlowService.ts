@@ -1,51 +1,8 @@
-import { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseService, type SupabaseResult } from './supabaseService';
 import { extractHeadingsFromMarkdown, generateHeadingKey } from '@/lib/heading-extractor';
-import type { Database } from '@/types/database.types';
-import type {
-  DbHeadingSection,
-  DbCombinedContent,
-  DbSessionHeadingSectionInsert,
-  DbSessionCombinedContentInsert,
-} from '@/types/heading-flow';
-
-/**
- * 型定義の拡張用（supabase:types で更新されるまでの臨時措置）。
- * Supabase v2.75+ では Schema が `{ PostgrestVersion: "12" }` を満たさないと
- * テーブル型が never に落ちるため、PostgrestVersion フィールドを明示的に付与する。
- */
-type AugmentedDatabase = Omit<Database, 'public'> & {
-  public: Omit<Database['public'], 'Tables'> & {
-    PostgrestVersion: '12';
-    Tables: Omit<
-      Database['public']['Tables'],
-      'session_heading_sections' | 'session_combined_contents'
-    > & {
-      session_heading_sections: {
-        Row: DbHeadingSection;
-        Insert: DbSessionHeadingSectionInsert;
-        Update: Partial<DbHeadingSection>;
-        Relationships: [];
-      };
-      session_combined_contents: {
-        Row: DbCombinedContent;
-        Insert: DbSessionCombinedContentInsert;
-        Update: Partial<DbCombinedContent>;
-        Relationships: [];
-      };
-    };
-  };
-};
+import type { DbHeadingSection, DbSessionHeadingSectionInsert } from '@/types/heading-flow';
 
 export class HeadingFlowService extends SupabaseService {
-  /**
-   * AugmentedDatabase 型へのキャストを一箇所に集約するヘルパー。
-   * DB 型の自動生成が更新されたら、このゲッターと型定義を削除してください。
-   */
-  private get db(): SupabaseClient<AugmentedDatabase> {
-    return this.supabase as unknown as SupabaseClient<AugmentedDatabase>;
-  }
-
   /**
    * Step 5のテキストから見出しを抽出し、session_heading_sections を初期化する。
    * 仕様: すでに存在する場合は何もしない。
@@ -59,7 +16,7 @@ export class HeadingFlowService extends SupabaseService {
     const currentHeadingKeys = currentHeadings.map(h => generateHeadingKey(h.orderIndex, h.text));
 
     // 2. 不要な見出し（構成変更で消えたもの）を削除
-    let deleteQuery = this.db
+    let deleteQuery = this.supabase
       .from('session_heading_sections')
       .delete()
       .eq('session_id', sessionId);
@@ -91,7 +48,7 @@ export class HeadingFlowService extends SupabaseService {
       is_confirmed: false,
     }));
 
-    const { error: insertError } = await this.db
+    const { error: insertError } = await this.supabase
       .from('session_heading_sections')
       .upsert(sections, { onConflict: 'session_id,heading_key', ignoreDuplicates: true });
 
@@ -109,7 +66,7 @@ export class HeadingFlowService extends SupabaseService {
    * セッションに紐づく全ての見出しセクションを取得する。
    */
   async getHeadingSections(sessionId: string): Promise<SupabaseResult<DbHeadingSection[]>> {
-    const { data, error } = await this.db
+    const { data, error } = await this.supabase
       .from('session_heading_sections')
       .select('*')
       .eq('session_id', sessionId)
@@ -129,7 +86,7 @@ export class HeadingFlowService extends SupabaseService {
     content: string,
     userId: string
   ): Promise<SupabaseResult<void>> {
-    const { error: updateError, count } = await this.db
+    const { error: updateError, count } = await this.supabase
       .from('session_heading_sections')
       .update(
         {
@@ -171,7 +128,7 @@ export class HeadingFlowService extends SupabaseService {
       .join('\n\n');
 
     // 原子性を確保するため RPC (Database Function) を使用
-    const { error: rpcError } = await this.db.rpc('save_atomic_combined_content', {
+    const { error: rpcError } = await this.supabase.rpc('save_atomic_combined_content', {
       p_session_id: sessionId,
       p_content: combinedContent,
       p_authenticated_user_id: userId,
@@ -186,7 +143,7 @@ export class HeadingFlowService extends SupabaseService {
    * 最新の完成形を取得する。
    */
   async getLatestCombinedContent(sessionId: string): Promise<SupabaseResult<string | null>> {
-    const { data, error } = await this.db
+    const { data, error } = await this.supabase
       .from('session_combined_contents')
       .select('content')
       .eq('session_id', sessionId)
