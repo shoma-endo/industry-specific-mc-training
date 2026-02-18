@@ -910,6 +910,14 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      save_atomic_combined_content: {
+        Args: {
+          p_session_id: string;
+          p_content: string;
+          p_authenticated_user_id?: string;
+        };
+        Returns: undefined;
+      };
       accept_employee_invitation: {
         Args: { p_token: string; p_user_id: string };
         Returns: {
