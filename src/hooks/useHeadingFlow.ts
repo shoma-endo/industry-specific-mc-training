@@ -45,6 +45,9 @@ export function useHeadingFlow({
   const [isHeadingInitInFlight, setIsHeadingInitInFlight] = useState(false);
   const [hasAttemptedHeadingInit, setHasAttemptedHeadingInit] = useState(false);
   const [headingInitError, setHeadingInitError] = useState<string | null>(null);
+  // セッション切り替え直後の fetch 完了を待つフラグ。
+  // false の間は初期化 effect が走らないようにブロックする。
+  const [hasFetchCompleted, setHasFetchCompleted] = useState(false);
 
   // セッション切り替え時の競合防止用 ref
   const currentSessionIdRef = useRef(sessionId);
@@ -86,8 +89,15 @@ export function useHeadingFlow({
     setHasAttemptedHeadingInit(false);
     setIsHeadingInitInFlight(false);
     setHeadingInitError(null);
+    setHasFetchCompleted(false);
     if (sessionId) {
-      void fetchHeadingSections(sessionId);
+      void fetchHeadingSections(sessionId).finally(() => {
+        if (sessionId === currentSessionIdRef.current) {
+          setHasFetchCompleted(true);
+        }
+      });
+    } else {
+      setHasFetchCompleted(true);
     }
   }, [sessionId, fetchHeadingSections]);
 
@@ -100,7 +110,8 @@ export function useHeadingFlow({
       isHeadingInitInFlight ||
       hasAttemptedHeadingInit ||
       isSessionLoading ||
-      headingInitError
+      headingInitError ||
+      !hasFetchCompleted
     ) {
       return;
     }
@@ -149,6 +160,7 @@ export function useHeadingFlow({
     getAccessToken,
     hasAttemptedHeadingInit,
     headingInitError,
+    hasFetchCompleted,
   ]);
 
   const handleSaveHeadingSection = useCallback(
@@ -157,7 +169,6 @@ export function useHeadingFlow({
         !sessionId ||
         activeHeadingIndex === undefined ||
         !activeHeading ||
-        latestBlogStep !== 'step6' ||
         resolvedCanvasStep !== 'step6'
       ) {
         return;
@@ -204,7 +215,6 @@ export function useHeadingFlow({
       resolvedCanvasStep,
       fetchHeadingSections,
       getAccessToken,
-      latestBlogStep,
     ]
   );
 
