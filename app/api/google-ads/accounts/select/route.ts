@@ -2,10 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { GoogleAdsService } from '@/server/services/googleAdsService';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
-import {
-  ensureGoogleAdsAuth,
-  refreshGoogleAdsTokenIfNeeded,
-} from '@/server/lib/google-auth';
+import { ensureGoogleAdsAuth, refreshGoogleAdsTokenIfNeeded } from '@/server/lib/google-auth';
 
 /**
  * 選択されたGoogle AdsアカウントIDを保存
@@ -108,8 +105,19 @@ export async function POST(request: NextRequest) {
     const isSelectedManager = managerCandidates.some(
       candidate => candidate.id === customerId && candidate.isManager
     );
-    const managerCustomerId =
-      sortedManagers[0]?.managerId ?? (isSelectedManager ? customerId : null);
+
+    // MCC（マネージャー）アカウント自体を単体で保存することは許可しない
+    if (isSelectedManager) {
+      return NextResponse.json(
+        {
+          error:
+            'マネージャーアカウントを直接選択することはできません。配下のクライアントアカウントを選択してください。',
+        },
+        { status: 400 }
+      );
+    }
+
+    const managerCustomerId = sortedManagers[0]?.managerId ?? null;
 
     // customer_id と manager_customer_id を更新
     const supabaseService = new SupabaseService();
@@ -119,10 +127,7 @@ export async function POST(request: NextRequest) {
       managerCustomerId
     );
     if (!updateResult.success) {
-      return NextResponse.json(
-        { error: updateResult.error.userMessage },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: updateResult.error.userMessage }, { status: 500 });
     }
 
     return NextResponse.json({

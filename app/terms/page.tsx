@@ -26,12 +26,8 @@ export default function TermsPage() {
         </div>
 
         <article className="bg-white shadow-sm rounded-2xl p-8 sm:p-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6 border-b pb-4">
-            利用規約
-          </h1>
-          <p className="text-sm text-gray-500 mb-8">
-            最終更新日: 2026年1月11日
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6 border-b pb-4">利用規約</h1>
+          <p className="text-sm text-gray-500 mb-8">最終更新日: 2026年2月18日</p>
 
           <div className="prose prose-blue max-w-none space-y-8 text-gray-700">
             <section>
@@ -42,24 +38,27 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">2. Google サービスの利用について</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">
+                2. Google サービスの利用について
+              </h2>
               <p>
-                本サービスは、Google Search Console API および Google Ads API を使用して機能を提供します。ユーザーは本サービスを利用することで、以下の事項に同意したものとみなされます：
+                本サービスは、Google Search Console API、Google Analytics API および Google Ads API
+                を使用して機能を提供します。ユーザーは本サービスを利用することで、以下の事項に同意したものとみなされます：
               </p>
               <ul className="list-disc pl-5 space-y-2 mt-2">
                 <li>
-                  <a 
-                    href="https://policies.google.com/terms" 
-                    target="_blank" 
+                  <a
+                    href="https://policies.google.com/terms"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline"
                   >
                     Google 利用規約
                   </a>
                   および
-                  <a 
-                    href="https://policies.google.com/privacy" 
-                    target="_blank" 
+                  <a
+                    href="https://policies.google.com/privacy"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline"
                   >
@@ -68,7 +67,8 @@ export default function TermsPage() {
                   に拘束されること。
                 </li>
                 <li>
-                  本サービスが Google API から取得したデータ（検索パフォーマンスデータ、広告パフォーマンスデータ等）を、ユーザーへのレポート提供およびコンテンツ生成の目的で利用すること。
+                  本サービスが Google API
+                  から取得したデータ（検索パフォーマンスデータ、アクセス解析データ、広告パフォーマンスデータ等）を、ユーザーへのレポート提供およびコンテンツ生成の目的で利用すること。
                 </li>
               </ul>
             </section>
@@ -79,8 +79,12 @@ export default function TermsPage() {
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>法令または公序良俗に違反する行為</li>
                 <li>犯罪行為に関連する行為</li>
-                <li>本サービスの内容等、本サービスに含まれる著作権、商標権ほか知的財産権を侵害する行為</li>
-                <li>当社、ほかのユーザー、またはその他第三者のサーバーまたはネットワークの機能を破壊したり、妨害したりする行為</li>
+                <li>
+                  本サービスの内容等、本サービスに含まれる著作権、商標権ほか知的財産権を侵害する行為
+                </li>
+                <li>
+                  当社、ほかのユーザー、またはその他第三者のサーバーまたはネットワークの機能を破壊したり、妨害したりする行為
+                </li>
                 <li>本サービスによって得られた情報を商業的に利用する行為</li>
                 <li>当社のサービスの運営を妨害するおそれのある行為</li>
                 <li>不正アクセスをし、またはこれを試みる行為</li>
@@ -97,7 +101,8 @@ export default function TermsPage() {
                   AIによって生成されたコンテンツ（ブログ記事、広告コピー等）の正確性や法的適合性について、当社は一切の責任を負いません。生成されたコンテンツはユーザー自身の責任において確認・利用するものとします。
                 </li>
                 <li>
-                  Google APIの仕様変更や制限により、本サービスの一部または全部が利用できなくなった場合でも、当社はそれによりユーザーに生じた損害について一切の責任を負いません。
+                  Google
+                  APIの仕様変更や制限により、本サービスの一部または全部が利用できなくなった場合でも、当社はそれによりユーザーに生じた損害について一切の責任を負いません。
                 </li>
               </ul>
             </section>

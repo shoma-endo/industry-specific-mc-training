@@ -89,9 +89,14 @@ export interface GoogleAdsSearchStreamRow {
       text?: string;
       matchType?: string;
     };
+    qualityInfo?: {
+      qualityScore?: number;
+    };
   };
   campaign?: {
+    id?: string;
     name?: string;
+    status?: string;
   };
   adGroup?: {
     name?: string;
@@ -99,7 +104,7 @@ export interface GoogleAdsSearchStreamRow {
   metrics?: {
     ctr?: number;
     averageCpc?: string; // micros (string)
-    historicalQualityScore?: number;
+    // historicalQualityScore?: number; // removed in favor of ad_group_criterion.quality_info.quality_score
     conversions?: number;
     costPerConversion?: string; // micros (string)
     searchImpressionShare?: number;
@@ -107,6 +112,18 @@ export interface GoogleAdsSearchStreamRow {
     impressions?: string;
     clicks?: string;
     costMicros?: string;
+  };
+  customerClient?: {
+    resourceName?: string;
+    clientCustomer?: string;
+    level?: number;
+    timeZone?: string;
+    testAccount?: boolean;
+    manager?: boolean;
+    descriptiveName?: string;
+    descriptive_name?: string; // API response sometimes uses snake_case
+    currencyCode?: string;
+    id?: number;
   };
 }
 
@@ -133,6 +150,8 @@ export interface GoogleAdsApiError {
  * keyword_view から取得したデータをキャンペーン単位で集計した結果
  */
 export interface GoogleAdsCampaignMetrics {
+  /** キャンペーン ID */
+  campaignId: string;
   /** キャンペーン名 */
   campaignName: string;
   /** ステータス */
@@ -173,3 +192,22 @@ export interface GoogleAdsCampaignSummary {
   avgCostPerConversion: number;
   avgSearchImpressionShare: number | null;
 }
+
+/**
+ * キャンペーン指標取得の結果
+ */
+export interface GetCampaignMetricsResult {
+  success: boolean;
+  data?: GoogleAdsCampaignMetrics[];
+  error?: string;
+}
+
+/**
+ * Google Ads ダッシュボードのエラー種別
+ */
+export type GoogleAdsErrorKind =
+  | 'not_connected'
+  | 'not_selected'
+  | 'auth_expired'
+  | 'admin_required'
+  | 'unknown';
