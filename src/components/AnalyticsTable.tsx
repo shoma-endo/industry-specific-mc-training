@@ -39,7 +39,7 @@ import {
   ChevronsRight,
   X,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ANNOTATION_FIELD_KEYS, type AnnotationFieldKey } from '@/types/annotation';
 import { DeleteChatDialog } from '@/components/DeleteChatDialog';
@@ -51,6 +51,9 @@ interface Props {
   /** フィルターに表示するカテゴリ一覧（未指定時は表示中 items から算出） */
   allCategoryNames?: string[];
   unreadAnnotationIds?: Set<string>;
+  selectedCategoryNames: string[];
+  includeUncategorized: boolean;
+  hasUrlFilterParams: boolean;
 }
 
 interface LaunchPayload {
@@ -97,8 +100,17 @@ const createEmptyForm = (): Record<AnnotationFieldKey, string> =>
     string
   >;
 
-export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotationIds }: Props) {
+export default function AnalyticsTable({
+  items,
+  allCategoryNames,
+  unreadAnnotationIds,
+  selectedCategoryNames,
+  includeUncategorized,
+  hasUrlFilterParams,
+}: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { getAccessToken, isOwnerViewMode } = useLiffContext();
   const isReadOnly = isOwnerViewMode;
   const [pendingRowKey, setPendingRowKey] = React.useState<string | null>(null);
@@ -120,14 +132,21 @@ export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotati
   const [isDeleting, setIsDeleting] = React.useState(false);
   const chatServiceRef = React.useRef<ChatService | null>(null);
 
-  // フィルター状態をlocalStorageから復元（1回のパースで両方の値を取得）
-  const initialFilter = React.useMemo(() => loadCategoryFilterFromStorage(), []);
-  const [categoryFilterNames, setCategoryFilterNames] = React.useState<string[]>(
-    () => initialFilter.selectedCategoryNames
-  );
-  const [includeUncategorized, setIncludeUncategorized] = React.useState<boolean>(
-    () => initialFilter.includeUncategorized
-  );
+  const storedFilter = React.useMemo(() => loadCategoryFilterFromStorage(), []);
+
+  // URL明示時はURL優先。未指定時のみlocalStorageを初期値として復元
+  const [categoryFilterNames, setCategoryFilterNames] = React.useState<string[]>(() => {
+    if (hasUrlFilterParams) {
+      return selectedCategoryNames;
+    }
+    return storedFilter.selectedCategoryNames;
+  });
+  const [isIncludingUncategorized, setIsIncludingUncategorized] = React.useState<boolean>(() => {
+    if (hasUrlFilterParams) {
+      return includeUncategorized;
+    }
+    return storedFilter.includeUncategorized;
+  });
 
   // 操作列の展開状態（初期値は true: 展開）
   const [isOpsExpanded, setIsOpsExpanded] = React.useState<boolean>(() => {
@@ -191,69 +210,100 @@ export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotati
     []
   );
 
+  // URLクエリが明示されている場合のみローカル状態を同期（フラッシュ防止）
+  React.useEffect(() => {
+    if (!hasUrlFilterParams) {
+      return;
+    }
+    setCategoryFilterNames(selectedCategoryNames);
+    setIsIncludingUncategorized(includeUncategorized);
+  }, [selectedCategoryNames, includeUncategorized, hasUrlFilterParams]);
+
+  const pushFilterQuery = React.useCallback(
+    (selectedNames: string[], includeUncat: boolean, options?: { replace?: boolean }) => {
+      const nextQuery = new URLSearchParams(searchParams?.toString() ?? '');
+      const currentPath = pathname ?? '/analytics';
+      nextQuery.set('page', '1');
+      nextQuery.delete('category');
+
+      for (const name of selectedNames) {
+        const trimmed = name.trim();
+        if (trimmed.length > 0) {
+          nextQuery.append('category', trimmed);
+        }
+      }
+
+      if (includeUncat) {
+        nextQuery.set('uncategorized', '1');
+      } else {
+        nextQuery.delete('uncategorized');
+      }
+
+      const next = nextQuery.toString();
+      const href = next.length > 0 ? `${currentPath}?${next}` : currentPath;
+      if (options?.replace) {
+        router.replace(href);
+        return;
+      }
+      router.push(href);
+    },
+    [pathname, router, searchParams]
+  );
+
+  // URL未指定かつlocalStorageに復元対象がある場合は、初回にURLへ同期してサーバー再取得
+  React.useEffect(() => {
+    if (hasUrlFilterParams) {
+      return;
+    }
+    if (storedFilter.selectedCategoryNames.length === 0 && !storedFilter.includeUncategorized) {
+      return;
+    }
+    pushFilterQuery(storedFilter.selectedCategoryNames, storedFilter.includeUncategorized, {
+      replace: true,
+    });
+  }, [hasUrlFilterParams, pushFilterQuery, storedFilter]);
+
   // カテゴリフィルターの変更ハンドラ
   const handleCategoryFilterChange = React.useCallback(
     (selectedNames: string[], includeUncat: boolean) => {
       setCategoryFilterNames(selectedNames);
-      setIncludeUncategorized(includeUncat);
+      setIsIncludingUncategorized(includeUncat);
       saveCategoryFilterToStorage(selectedNames, includeUncat);
+      pushFilterQuery(selectedNames, includeUncat);
     },
-    [saveCategoryFilterToStorage]
+    [pushFilterQuery, saveCategoryFilterToStorage]
   );
-
-  // フィルタリングされたアイテム
-  const filteredItems = React.useMemo(() => {
-    // フィルターが何も選択されていない場合は全件表示
-    if (categoryFilterNames.length === 0 && !includeUncategorized) {
-      return items;
-    }
-
-    // 保存済み選択値（localStorage 復元）も trim して比較し、旧バージョンで保存された前後空白と互換にする
-    const selectedNormalized = new Set(
-      categoryFilterNames.map(n => (typeof n === 'string' ? n.trim() : '')).filter(Boolean)
-    );
-
-    return items.filter(item => {
-      const raw = item.annotation?.wp_category_names ?? [];
-      const itemCategories = raw
-        .map(c => (typeof c === 'string' ? c.trim() : ''))
-        .filter(s => s.length > 0);
-
-      if (itemCategories.length === 0) {
-        return includeUncategorized;
-      }
-
-      return itemCategories.some(cat => selectedNormalized.has(cat));
-    });
-  }, [items, categoryFilterNames, includeUncategorized]);
 
   // フィルタータグの削除ハンドラ
   const removeCategoryFilter = React.useCallback(
     (categoryName: string) => {
       setCategoryFilterNames(prev => {
         const next = prev.filter(name => name !== categoryName);
-        saveCategoryFilterToStorage(next, includeUncategorized);
+        saveCategoryFilterToStorage(next, isIncludingUncategorized);
+        pushFilterQuery(next, isIncludingUncategorized);
         return next;
       });
     },
-    [includeUncategorized, saveCategoryFilterToStorage]
+    [isIncludingUncategorized, pushFilterQuery, saveCategoryFilterToStorage]
   );
 
   // 未分類フィルターの削除ハンドラ
   const removeUncategorizedFilter = React.useCallback(() => {
-    setIncludeUncategorized(false);
+    setIsIncludingUncategorized(false);
     saveCategoryFilterToStorage(categoryFilterNames, false);
-  }, [categoryFilterNames, saveCategoryFilterToStorage]);
+    pushFilterQuery(categoryFilterNames, false);
+  }, [categoryFilterNames, pushFilterQuery, saveCategoryFilterToStorage]);
 
   // 全フィルターをクリア
   const clearAllFilters = React.useCallback(() => {
     setCategoryFilterNames([]);
-    setIncludeUncategorized(false);
+    setIsIncludingUncategorized(false);
     saveCategoryFilterToStorage([], false);
-  }, [saveCategoryFilterToStorage]);
+    pushFilterQuery([], false);
+  }, [pushFilterQuery, saveCategoryFilterToStorage]);
 
   // フィルターが適用中かどうか
-  const hasActiveFilters = categoryFilterNames.length > 0 || includeUncategorized;
+  const hasActiveFilters = categoryFilterNames.length > 0 || isIncludingUncategorized;
 
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
@@ -438,12 +488,12 @@ export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotati
         hideTrigger
         triggerId="analytics-field-config-trigger"
         dialogExtraContent={
-          <CategoryFilter
-            categories={allCategories}
-            selectedCategoryNames={categoryFilterNames}
-            includeUncategorized={includeUncategorized}
-            onFilterChange={handleCategoryFilterChange}
-          />
+            <CategoryFilter
+              categories={allCategories}
+              selectedCategoryNames={categoryFilterNames}
+              includeUncategorized={isIncludingUncategorized}
+              onFilterChange={handleCategoryFilterChange}
+            />
         }
       >
         {({ visibleSet, orderedIds }) => (
@@ -470,7 +520,7 @@ export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotati
                         </button>
                       </span>
                     ))}
-                    {includeUncategorized && (
+                    {isIncludingUncategorized && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-gray-700 bg-gray-200">
                         未分類
                         <button
@@ -546,7 +596,7 @@ export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotati
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredItems.map(item => {
+                  {items.map(item => {
                     const annotation = item.annotation;
                     const wpPostId =
                       annotation?.wp_post_id != null && Number.isFinite(annotation.wp_post_id)
