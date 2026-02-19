@@ -48,10 +48,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     [startDate, endDate] = [endDate, startDate];
   }
 
-  // 並列でデータ取得
-  const [analyticsPage, unreadResult] = await Promise.all([
+  // 並列でデータ取得（一覧・未読・カテゴリ一覧）
+  const [analyticsPage, unreadResult, allCategoryNames] = await Promise.all([
     analyticsContentService.getPage({ page, perPage, startDate, endDate }),
     getAnnotationIdsWithUnreadSuggestions(),
+    analyticsContentService.getAvailableCategoryNames(),
   ]);
   const { items, total, totalPages, page: resolvedPage, perPage: resolvedPerPage, error, ga4Error } = analyticsPage;
   const currentPage = resolvedPage ?? page;
@@ -69,6 +70,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   return (
     <AnalyticsClient
       items={items}
+      allCategoryNames={allCategoryNames}
       unreadAnnotationIds={unreadResult.annotationIds}
       error={error ?? null}
       ga4Error={ga4Error ?? null}

@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 
 interface AnalyticsClientProps {
   items: AnalyticsContentItem[];
+  allCategoryNames: string[];
   unreadAnnotationIds: string[];
   error?: string | null;
   ga4Error?: string | null;
@@ -31,6 +32,7 @@ interface AnalyticsClientProps {
 
 export default function AnalyticsClient({
   items,
+  allCategoryNames,
   unreadAnnotationIds,
   error,
   ga4Error,
@@ -165,6 +167,7 @@ export default function AnalyticsClient({
           {shouldRenderTable ? (
             <AnalyticsTable
               items={items}
+              allCategoryNames={allCategoryNames}
               unreadAnnotationIds={unreadAnnotationSet}
             />
           ) : error ? null : (
