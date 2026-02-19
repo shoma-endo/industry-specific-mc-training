@@ -48,6 +48,8 @@ import { useLiffContext } from '@/components/LiffProvider';
 
 interface Props {
   items: AnalyticsContentItem[];
+  /** フィルターに表示するカテゴリ一覧（未指定時は表示中 items から算出） */
+  allCategoryNames?: string[];
   unreadAnnotationIds?: Set<string>;
 }
 
@@ -95,7 +97,7 @@ const createEmptyForm = (): Record<AnnotationFieldKey, string> =>
     string
   >;
 
-export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
+export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotationIds }: Props) {
   const router = useRouter();
   const { getAccessToken, isOwnerViewMode } = useLiffContext();
   const isReadOnly = isOwnerViewMode;
@@ -156,7 +158,11 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
     chatServiceRef.current.setAccessTokenProvider(getAccessToken);
   }, [getAccessToken]);
 
+  // サーバーから渡された全件ベースのカテゴリ一覧を優先。空配列（取得失敗時）は items 由来にフォールバック
   const allCategories = React.useMemo(() => {
+    if (Array.isArray(allCategoryNames) && allCategoryNames.length > 0) {
+      return allCategoryNames;
+    }
     const names = new Set<string>();
     for (const item of items) {
       const itemCategories = item.annotation?.wp_category_names ?? [];
@@ -167,7 +173,7 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       }
     }
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'ja'));
-  }, [items]);
+  }, [allCategoryNames, items]);
 
   // localStorageにフィルター状態を保存するヘルパー
   const saveCategoryFilterToStorage = React.useCallback(
@@ -202,16 +208,22 @@ export default function AnalyticsTable({ items, unreadAnnotationIds }: Props) {
       return items;
     }
 
-    return items.filter(item => {
-      const itemCategories = item.annotation?.wp_category_names ?? [];
+    // 保存済み選択値（localStorage 復元）も trim して比較し、旧バージョンで保存された前後空白と互換にする
+    const selectedNormalized = new Set(
+      categoryFilterNames.map(n => (typeof n === 'string' ? n.trim() : '')).filter(Boolean)
+    );
 
-      // 未分類の場合
+    return items.filter(item => {
+      const raw = item.annotation?.wp_category_names ?? [];
+      const itemCategories = raw
+        .map(c => (typeof c === 'string' ? c.trim() : ''))
+        .filter(s => s.length > 0);
+
       if (itemCategories.length === 0) {
         return includeUncategorized;
       }
 
-      // いずれかのカテゴリが選択されているか
-      return itemCategories.some(cat => categoryFilterNames.includes(cat));
+      return itemCategories.some(cat => selectedNormalized.has(cat));
     });
   }, [items, categoryFilterNames, includeUncategorized]);
 

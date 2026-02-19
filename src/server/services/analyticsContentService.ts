@@ -10,6 +10,9 @@ import type {
 
 const MAX_PER_PAGE = 100;
 
+/** カテゴリ一覧取得時の1リクエストあたりの件数（ページングで全件走査する） */
+const CATEGORY_NAMES_PAGE_SIZE = 1000;
+
 const supabaseService = new SupabaseService();
 
 export class AnalyticsContentService {
@@ -101,6 +104,62 @@ export class AnalyticsContentService {
         ...baseline,
         error: message,
       };
+    }
+  }
+
+  /**
+   * アクセス可能な全アノテーションから wp_category_names を集約し、
+   * 重複を除いてソートしたカテゴリ名の配列を返す。フィルターUIの選択肢に使用する。
+   */
+  async getAvailableCategoryNames(): Promise<string[]> {
+    try {
+      const { userId } = await this.resolveUser();
+      const client = supabaseService.getClient();
+
+      const { data: accessibleIds, error: accessError } = await client.rpc(
+        'get_accessible_user_ids',
+        { p_user_id: userId }
+      );
+
+      if (accessError || !accessibleIds || !Array.isArray(accessibleIds)) {
+        return [];
+      }
+
+      const names = new Set<string>();
+      let offset = 0;
+      const baseQuery = client
+        .from('content_annotations')
+        .select('wp_category_names')
+        .in('user_id', accessibleIds)
+        .order('id', { ascending: true });
+
+      while (true) {
+        const { data: rows, error } = await baseQuery.range(
+          offset,
+          offset + CATEGORY_NAMES_PAGE_SIZE - 1
+        );
+
+        if (error) {
+          console.error('[AnalyticsContentService] getAvailableCategoryNames failed:', error.message);
+          return [];
+        }
+
+        for (const row of rows ?? []) {
+          const arr = row?.wp_category_names;
+          if (!Array.isArray(arr)) continue;
+          for (const n of arr) {
+            if (typeof n === 'string' && n.trim().length > 0) names.add(n.trim());
+          }
+        }
+
+        if (!rows || rows.length < CATEGORY_NAMES_PAGE_SIZE) break;
+        offset += CATEGORY_NAMES_PAGE_SIZE;
+      }
+
+      return Array.from(names).sort((a, b) => a.localeCompare(b, 'ja'));
+    } catch (err) {
+      console.error('[AnalyticsContentService] getAvailableCategoryNames error:', err);
+      return [];
     }
   }
 

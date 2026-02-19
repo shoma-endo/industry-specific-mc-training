@@ -12,6 +12,7 @@ import type { AnalyticsContentItem } from '@/types/analytics';
 
 interface AnalyticsClientProps {
   items: AnalyticsContentItem[];
+  allCategoryNames: string[];
   unreadAnnotationIds: string[];
   error?: string | null;
   total: number;
@@ -26,6 +27,7 @@ interface AnalyticsClientProps {
 
 export default function AnalyticsClient({
   items,
+  allCategoryNames,
   unreadAnnotationIds,
   error,
   total,
@@ -88,6 +90,7 @@ export default function AnalyticsClient({
           {shouldRenderTable ? (
             <AnalyticsTable
               items={items}
+              allCategoryNames={allCategoryNames}
               unreadAnnotationIds={unreadAnnotationSet}
             />
           ) : error ? null : (
