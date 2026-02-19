@@ -8,6 +8,8 @@ export interface AnalyticsContentItem {
 export interface AnalyticsContentQuery {
   page: number;
   perPage: number;
+  selectedCategoryNames?: string[];
+  includeUncategorized?: boolean;
 }
 
 export interface AnalyticsContentPage {
