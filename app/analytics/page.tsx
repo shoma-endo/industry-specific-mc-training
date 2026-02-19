@@ -14,10 +14,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const page = Math.max(1, parseInt(pageParam || '1', 10));
   const perPage = 10; // 1ページあたり10件で固定表示
 
-  // 並列でデータ取得
-  const [analyticsPage, unreadResult] = await Promise.all([
+  // 並列でデータ取得（一覧・未読・カテゴリ一覧）
+  const [analyticsPage, unreadResult, allCategoryNames] = await Promise.all([
     analyticsContentService.getPage({ page, perPage }),
     getAnnotationIdsWithUnreadSuggestions(),
+    analyticsContentService.getAvailableCategoryNames(),
   ]);
   const { items, total, totalPages, page: resolvedPage, perPage: resolvedPerPage, error } = analyticsPage;
   const currentPage = resolvedPage ?? page;
@@ -29,6 +30,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   return (
     <AnalyticsClient
       items={items}
+      allCategoryNames={allCategoryNames}
       unreadAnnotationIds={unreadResult.annotationIds}
       error={error ?? null}
       total={total}

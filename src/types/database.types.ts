@@ -850,6 +850,10 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: string[];
       };
+      get_available_category_names: {
+        Args: { p_user_id: string };
+        Returns: Array<{ name: string }>;
+      };
       get_database_size: {
         Args: never;
         Returns: {

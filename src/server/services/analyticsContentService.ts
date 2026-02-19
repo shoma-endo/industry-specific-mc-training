@@ -104,6 +104,48 @@ export class AnalyticsContentService {
     }
   }
 
+  /**
+   * アクセス可能な全アノテーションから wp_category_names を集約し、
+   * 重複を除いてソートしたカテゴリ名の配列を返す。フィルターUIの選択肢に使用する。
+   * DB側RPC関数で効率的に集約する（1回のラウンドトリップで完了）。
+   */
+  async getAvailableCategoryNames(): Promise<string[]> {
+    try {
+      const { userId } = await this.resolveUser();
+      const client = supabaseService.getClient();
+
+      // RPC関数でDB側で集約（1回のクエリで完了）
+      const { data: rows, error } = await client.rpc('get_available_category_names', {
+        p_user_id: userId,
+      });
+
+      if (error) {
+        console.error('[AnalyticsContentService] getAvailableCategoryNames failed:', error.message);
+        return [];
+      }
+
+      if (!Array.isArray(rows)) {
+        return [];
+      }
+
+      // RPC関数は既にtrim済み・重複除去済み・ソート済みだが、防御的にSetで再重複除去
+      const names = new Set<string>();
+      for (const row of rows) {
+        const name = row?.name;
+        if (typeof name === 'string') {
+          const trimmed = name.trim();
+          if (trimmed.length > 0) {
+            names.add(trimmed);
+          }
+        }
+      }
+      return Array.from(names).sort((a, b) => a.localeCompare(b, 'ja'));
+    } catch (err) {
+      console.error('[AnalyticsContentService] getAvailableCategoryNames error:', err);
+      return [];
+    }
+  }
+
   private async resolveUser(): Promise<{ userId: string }> {
     const { accessToken: liffAccessToken, refreshToken } = await getLiffTokensFromCookies();
 
