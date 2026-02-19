@@ -1122,7 +1122,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             <ClipboardCheck size={14} className="mr-1" />
             コピー
           </Button>
-          {activeStepId === 'step6' && onSaveHeadingSection && (
+          {activeStepId === 'step6' && onSaveHeadingSection && headingIndex !== undefined && (
             <Button
               size="sm"
               onClick={onSaveHeadingSection}
