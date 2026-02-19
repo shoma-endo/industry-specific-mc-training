@@ -23,6 +23,7 @@ interface UseHeadingFlowReturn {
   headingInitError: string | null;
   activeHeadingIndex: number | undefined;
   activeHeading: SessionHeadingSection | undefined;
+  latestCombinedContent: string | null;
   fetchHeadingSections: (sessionId: string) => Promise<SessionHeadingSection[]>;
   /**
    * 見出しセクションを保存する。
@@ -45,6 +46,7 @@ export function useHeadingFlow({
   const [isHeadingInitInFlight, setIsHeadingInitInFlight] = useState(false);
   const [hasAttemptedHeadingInit, setHasAttemptedHeadingInit] = useState(false);
   const [headingInitError, setHeadingInitError] = useState<string | null>(null);
+  const [latestCombinedContent, setLatestCombinedContent] = useState<string | null>(null);
   // セッション切り替え直後の fetch 完了を待つフラグ。
   // false の間は初期化 effect が走らないようにブロックする。
   const [hasFetchCompleted, setHasFetchCompleted] = useState(false);
@@ -79,6 +81,17 @@ export function useHeadingFlow({
     [getAccessToken]
   );
 
+  const fetchLatestCombinedContent = useCallback(
+    async (sid: string): Promise<void> => {
+      const liffAccessToken = await getAccessToken();
+      const res = await headingActions.getLatestCombinedContent({ sessionId: sid, liffAccessToken });
+      if (res.success && sid === currentSessionIdRef.current) {
+        setLatestCombinedContent(res.data ?? null);
+      }
+    },
+    [getAccessToken]
+  );
+
   // セッション切り替え時にステートをリセットして最新データを取得
   const prevSessionIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -86,20 +99,26 @@ export function useHeadingFlow({
     prevSessionIdRef.current = sessionId;
 
     setHeadingSections([]);
+    setLatestCombinedContent(null);
     setHasAttemptedHeadingInit(false);
     setIsHeadingInitInFlight(false);
     setHeadingInitError(null);
     setHasFetchCompleted(false);
     if (sessionId) {
-      void fetchHeadingSections(sessionId).finally(() => {
+      void (async () => {
+        const sections = await fetchHeadingSections(sessionId);
         if (sessionId === currentSessionIdRef.current) {
           setHasFetchCompleted(true);
+          // 全確定済みの場合は結合コンテンツも取得
+          if (sections.length > 0 && sections.every(s => s.isConfirmed)) {
+            void fetchLatestCombinedContent(sessionId);
+          }
         }
-      });
+      })();
     } else {
       setHasFetchCompleted(true);
     }
-  }, [sessionId, fetchHeadingSections]);
+  }, [sessionId, fetchHeadingSections, fetchLatestCombinedContent]);
 
   // Step 6 入場時の初期化
   useEffect(() => {
@@ -194,6 +213,7 @@ export function useHeadingFlow({
           const allDone = updatedSections.every(s => s.isConfirmed);
 
           if (allDone) {
+            void fetchLatestCombinedContent(sessionId);
             toast.success(
               '全見出しの保存が完了しました。全体の構成を確認して本文作成（Step 7）に進んでください。'
             );
@@ -214,6 +234,7 @@ export function useHeadingFlow({
       activeHeading,
       resolvedCanvasStep,
       fetchHeadingSections,
+      fetchLatestCombinedContent,
       getAccessToken,
     ]
   );
@@ -231,6 +252,7 @@ export function useHeadingFlow({
     headingInitError,
     activeHeadingIndex,
     activeHeading,
+    latestCombinedContent,
     fetchHeadingSections,
     handleSaveHeadingSection,
     handleRetryHeadingInit,

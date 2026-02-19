@@ -827,6 +827,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     headingInitError,
     activeHeadingIndex,
     activeHeading,
+    latestCombinedContent,
     handleSaveHeadingSection: _handleSaveHeadingSection,
     handleRetryHeadingInit,
   } = useHeadingFlow({
@@ -850,13 +851,19 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   }, [resolvedCanvasStep, activeVersionId, blogCanvasVersionsByStep]);
 
   const canvasContent = useMemo(() => {
-    // 確定済みの場合はDBに保存された確定コンテンツを優先
-    if (resolvedCanvasStep === 'step6' && activeHeading && activeHeading.isConfirmed) {
-      return activeHeading.content;
+    if (resolvedCanvasStep === 'step6') {
+      // 全見出し確定済み → session_combined_contents の結合コンテンツを表示
+      if (!activeHeading && headingSections.length > 0) {
+        return latestCombinedContent ?? '';
+      }
+      // 確定済みの場合はDBに保存された確定コンテンツを優先
+      if (activeHeading?.isConfirmed) {
+        return activeHeading.content;
+      }
     }
     // 未確定の場合は最新のバージョン（生成中の内容含む）を表示
     return activeCanvasVersion?.content ?? '';
-  }, [resolvedCanvasStep, activeHeading, activeCanvasVersion]);
+  }, [resolvedCanvasStep, activeHeading, headingSections.length, latestCombinedContent, activeCanvasVersion]);
 
   const canvasVersionsWithMeta = useMemo(() => {
     return canvasVersionsForStep.map((version, index) => ({
