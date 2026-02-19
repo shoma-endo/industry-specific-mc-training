@@ -765,7 +765,7 @@ export class GoogleAdsService {
           message = errorData.error.message;
         }
         if (message) {
-          return { message, errorCode };
+          return errorCode !== undefined ? { message, errorCode } : { message };
         }
       }
     } catch {
