@@ -106,7 +106,9 @@ export function useHeadingFlow({
     setHasFetchCompleted(false);
     if (sessionId) {
       void (async () => {
-        const sections = await fetchHeadingSections(sessionId);
+        const sections = await fetchHeadingSections(sessionId).catch(
+          (): SessionHeadingSection[] => []
+        );
         if (sessionId === currentSessionIdRef.current) {
           setHasFetchCompleted(true);
           // 全確定済みの場合は結合コンテンツも取得
