@@ -255,11 +255,6 @@ export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotati
   // フィルターが適用中かどうか
   const hasActiveFilters = categoryFilterNames.length > 0 || includeUncategorized;
 
-  // 選択中のカテゴリ情報を取得
-  const selectedCategoryInfo = React.useMemo(() => {
-    return categoryFilterNames;
-  }, [categoryFilterNames]);
-
   const handleLaunch = React.useCallback(
     async (payload: LaunchPayload) => {
       if (pendingRowKey) return;
@@ -459,7 +454,7 @@ export default function AnalyticsTable({ items, allCategoryNames, unreadAnnotati
                 {hasActiveFilters && (
                   <>
                     <span className="text-sm text-gray-500">フィルター:</span>
-                    {selectedCategoryInfo.map(cat => (
+                    {categoryFilterNames.map(cat => (
                       <span
                         key={cat}
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-gray-700 bg-gray-100"
