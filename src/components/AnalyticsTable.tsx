@@ -131,6 +131,7 @@ export default function AnalyticsTable({
   const [hasOrphanContent, setHasOrphanContent] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const chatServiceRef = React.useRef<ChatService | null>(null);
+  const didInitialFilterSyncRef = React.useRef(false);
 
   const storedFilter = React.useMemo(() => loadCategoryFilterFromStorage(), []);
 
@@ -252,6 +253,11 @@ export default function AnalyticsTable({
 
   // URL未指定かつlocalStorageに復元対象がある場合は、初回にURLへ同期してサーバー再取得
   React.useEffect(() => {
+    if (didInitialFilterSyncRef.current) {
+      return;
+    }
+    didInitialFilterSyncRef.current = true;
+
     if (hasUrlFilterParams) {
       return;
     }
