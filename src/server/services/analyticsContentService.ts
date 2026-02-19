@@ -10,9 +10,6 @@ import type {
 
 const MAX_PER_PAGE = 100;
 
-/** カテゴリ一覧取得時の1リクエストあたりの件数（ページングで全件走査する） */
-const CATEGORY_NAMES_PAGE_SIZE = 1000;
-
 const supabaseService = new SupabaseService();
 
 export class AnalyticsContentService {
@@ -110,52 +107,38 @@ export class AnalyticsContentService {
   /**
    * アクセス可能な全アノテーションから wp_category_names を集約し、
    * 重複を除いてソートしたカテゴリ名の配列を返す。フィルターUIの選択肢に使用する。
+   * DB側RPC関数で効率的に集約する（1回のラウンドトリップで完了）。
    */
   async getAvailableCategoryNames(): Promise<string[]> {
     try {
       const { userId } = await this.resolveUser();
       const client = supabaseService.getClient();
 
-      const { data: accessibleIds, error: accessError } = await client.rpc(
-        'get_accessible_user_ids',
-        { p_user_id: userId }
-      );
+      // RPC関数でDB側で集約（1回のクエリで完了）
+      const { data: rows, error } = await client.rpc('get_available_category_names', {
+        p_user_id: userId,
+      });
 
-      if (accessError || !accessibleIds || !Array.isArray(accessibleIds)) {
+      if (error) {
+        console.error('[AnalyticsContentService] getAvailableCategoryNames failed:', error.message);
         return [];
       }
 
-      const names = new Set<string>();
-      let offset = 0;
-      const baseQuery = client
-        .from('content_annotations')
-        .select('wp_category_names')
-        .in('user_id', accessibleIds)
-        .order('id', { ascending: true });
-
-      while (true) {
-        const { data: rows, error } = await baseQuery.range(
-          offset,
-          offset + CATEGORY_NAMES_PAGE_SIZE - 1
-        );
-
-        if (error) {
-          console.error('[AnalyticsContentService] getAvailableCategoryNames failed:', error.message);
-          return [];
-        }
-
-        for (const row of rows ?? []) {
-          const arr = row?.wp_category_names;
-          if (!Array.isArray(arr)) continue;
-          for (const n of arr) {
-            if (typeof n === 'string' && n.trim().length > 0) names.add(n.trim());
-          }
-        }
-
-        if (!rows || rows.length < CATEGORY_NAMES_PAGE_SIZE) break;
-        offset += CATEGORY_NAMES_PAGE_SIZE;
+      if (!Array.isArray(rows)) {
+        return [];
       }
 
+      // RPC関数は既にtrim済み・重複除去済み・ソート済みだが、防御的にSetで再重複除去
+      const names = new Set<string>();
+      for (const row of rows) {
+        const name = row?.name;
+        if (typeof name === 'string') {
+          const trimmed = name.trim();
+          if (trimmed.length > 0) {
+            names.add(trimmed);
+          }
+        }
+      }
       return Array.from(names).sort((a, b) => a.localeCompare(b, 'ja'));
     } catch (err) {
       console.error('[AnalyticsContentService] getAvailableCategoryNames error:', err);
