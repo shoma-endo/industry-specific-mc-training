@@ -21,9 +21,9 @@ interface StepActionBarProps {
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   isLoadBlogArticleLoading?: boolean;
   onManualStepChange?: ((step: BlogStepId) => void) | undefined;
-  // トグル対象ステップのバージョン管理トグル
-  versioningEnabled?: boolean | undefined;
-  onVersioningChange?: ((enabled: boolean) => void) | undefined;
+  // Step5 バージョン管理トグル
+  step5VersioningEnabled?: boolean | undefined;
+  onStep5VersioningChange?: ((enabled: boolean) => void) | undefined;
 }
 
 export interface StepActionBarRef {
@@ -46,8 +46,8 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
       onManualStepChange,
-      versioningEnabled = true,
-      onVersioningChange,
+      step5VersioningEnabled = true,
+      onStep5VersioningChange,
     },
     ref
   ) => {
@@ -74,7 +74,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
     const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
-    const showStep5Toggle = isStep5 && typeof onVersioningChange === 'function';
+    const showStep5Toggle = isStep5 && typeof onStep5VersioningChange === 'function';
 
     // ラベル
     const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
@@ -110,13 +110,13 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             <TooltipTrigger asChild>
               <div className="flex items-center gap-2">
                 <Switch
-                  id="step7-versioning-toggle"
-                  checked={versioningEnabled}
-                  onCheckedChange={onVersioningChange}
+                  id="step5-versioning-toggle"
+                  checked={step5VersioningEnabled}
+                  onCheckedChange={onStep5VersioningChange}
                   disabled={isDisabled}
                 />
                 <Label
-                  htmlFor="step7-versioning-toggle"
+                  htmlFor="step5-versioning-toggle"
                   className="text-xs text-gray-700 cursor-pointer"
                 >
                   バージョンで保存
@@ -130,7 +130,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
               className="w-fit bg-yellow-100 text-gray-800 border border-yellow-300 shadow-md"
               arrowClassName="bg-yellow-100 fill-yellow-100 border-b border-r border-yellow-300"
             >
-              OFFにすると本文は<br />バージョン保存されません。<br />ONに戻して送信すると<br />本文がバージョンとして保存されます。
+              OFFにするとCanvasを使わず<br />通常チャットで修正します。<br />ONに戻して送信すると<br />バージョンとして保存されます。
             </TooltipContent>
           </Tooltip>
         )}
