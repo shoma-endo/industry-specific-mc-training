@@ -165,8 +165,7 @@ export default function AnalyticsClient({
                 buttonVariants({ variant: 'outline' }),
                 'h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10'
               )}
-              onClick={
-              }
+              onClick={applyDateRange}
               disabled={!isDateRangeChanged || isApplyingDateRange}
             >
               {isApplyingDateRange && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -176,8 +175,7 @@ export default function AnalyticsClient({
           <p className="mb-4 text-xs text-gray-500">
             指定期間でGA4指標（滞在時間・読了率・直帰率・CV数・CVR）を集計して表示します。
           </p>
-          {shouldRenderTable ? (
-          {!error ? (
+          {shouldRenderTable && !error ? (
             <AnalyticsTable
               items={items}
               allCategoryNames={allCategoryNames}
