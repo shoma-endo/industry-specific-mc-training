@@ -9,6 +9,7 @@ import type {
   AnalyticsContentQuery,
 } from '@/types/analytics';
 import type { Ga4PageMetricSummary } from '@/types/ga4';
+import type { Json } from '@/types/database.types';
 
 const MAX_PER_PAGE = 100;
 
@@ -36,6 +37,8 @@ export class AnalyticsContentService {
     const perPage = Math.max(1, Math.min(MAX_PER_PAGE, perPageRaw));
     const startDate = params.startDate;
     const endDate = params.endDate;
+    const selectedCategoryNames = this.normalizeCategoryNames(params.selectedCategoryNames);
+    const includeUncategorized = params.includeUncategorized === true;
 
     const baseline: AnalyticsContentPage = {
       items: [],
@@ -51,40 +54,67 @@ export class AnalyticsContentService {
 
       const client = supabaseService.getClient();
 
-      // アクセス可能なユーザーIDを取得（オーナー/従業員の相互閲覧対応）
-      const { data: accessibleIds, error: accessError } = await client.rpc(
-        'get_accessible_user_ids',
-        { p_user_id: userId }
-      );
-
-      if (accessError || !accessibleIds) {
-        throw new Error('アクセス権の確認に失敗しました');
-      }
-
       const fetchAnnotationsPage = async (targetPage: number) => {
-        const from = (targetPage - 1) * perPage;
-        const to = from + perPage - 1;
+        const { data, error } = await client.rpc('get_filtered_content_annotations', {
+          p_user_id: userId,
+          p_page: targetPage,
+          p_per_page: perPage,
+          p_selected_category_names: selectedCategoryNames,
+          p_include_uncategorized: includeUncategorized,
+        });
 
-        const { data, error, count } = await client
-          .from('content_annotations')
-          .select('*', { count: 'exact', head: false })
-          .in('user_id', accessibleIds)
-          .order('updated_at', { ascending: false, nullsFirst: false })
-          .range(from, to);
+        const row = data?.[0] as
+          | {
+              items: Json;
+              total_count: number | string | null;
+            }
+          | undefined;
 
-        return { data, error, count, from };
+        if (!row && !error) {
+          console.warn('[AnalyticsContentService] RPC returned empty rows', {
+            targetPage,
+            perPage,
+            selectedCategoryCount: selectedCategoryNames.length,
+            includeUncategorized,
+          });
+        }
+
+        const rawItems = row?.items;
+        if (rawItems !== undefined && !Array.isArray(rawItems)) {
+          console.warn('[AnalyticsContentService] Unexpected items format from RPC', {
+            type: typeof rawItems,
+          });
+        }
+
+        const hasInvalidItem =
+          Array.isArray(rawItems) && rawItems.some(item => !this.isAnnotationRecord(item));
+        if (hasInvalidItem) {
+          console.warn('[AnalyticsContentService] RPC items contain invalid annotation shape');
+        }
+
+        const parsedItems =
+          Array.isArray(rawItems) && rawItems.every(item => this.isAnnotationRecord(item))
+            ? (rawItems as AnnotationRecord[])
+            : [];
+        const totalCount = row?.total_count;
+        const total =
+          typeof totalCount === 'number'
+            ? totalCount
+            : typeof totalCount === 'string'
+              ? Number.parseInt(totalCount, 10) || 0
+              : 0;
+
+        return { data: parsedItems, error, total };
       };
 
       const firstResult = await fetchAnnotationsPage(page);
-      let { data, error, from } = firstResult;
-      const { count } = firstResult;
+      let { data, error, total } = firstResult;
 
       if (error) {
         throw new Error(error.message || 'コンテンツ注釈の取得に失敗しました');
       }
 
-      const initialAnnotations = (data ?? []) as AnnotationRecord[];
-      const total = count ?? initialAnnotations.length;
+      total = Math.max(0, total);
       const totalPages = Math.max(1, Math.ceil(total / perPage));
       const resolvedPage = Math.min(page, totalPages);
 
@@ -94,20 +124,20 @@ export class AnalyticsContentService {
         const resolvedResult = await fetchAnnotationsPage(resolvedPage);
         data = resolvedResult.data;
         error = resolvedResult.error;
-        from = resolvedResult.from;
 
         if (error) {
           throw new Error(error.message || 'コンテンツ注釈の取得に失敗しました');
         }
       }
 
-      const annotations = (data ?? []) as AnnotationRecord[];
+      const annotations = data;
+      const from = (resolvedPage - 1) * perPage;
 
       let ga4Error: string | undefined;
       let ga4Summaries: Map<string, Ga4PageMetricSummary>;
       try {
         ga4Summaries = await this.fetchGa4Summaries(
-          accessibleIds as string[],
+          [userId],
           annotations,
           startDate,
           endDate
@@ -141,6 +171,28 @@ export class AnalyticsContentService {
         error: message,
       };
     }
+  }
+
+  private normalizeCategoryNames(input?: string[]): string[] {
+    if (!Array.isArray(input)) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        input
+          .map(name => (typeof name === 'string' ? name.trim() : ''))
+          .filter(name => name.length > 0)
+      )
+    );
+  }
+
+  private isAnnotationRecord(value: unknown): value is AnnotationRecord {
+    if (typeof value !== 'object' || value === null) {
+      return false;
+    }
+    const record = value as Record<string, unknown>;
+    return typeof record.id === 'string' && record.id.length > 0;
   }
 
   /**

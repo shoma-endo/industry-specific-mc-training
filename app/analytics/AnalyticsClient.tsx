@@ -16,6 +16,9 @@ interface AnalyticsClientProps {
   items: AnalyticsContentItem[];
   allCategoryNames: string[];
   unreadAnnotationIds: string[];
+  selectedCategoryNames: string[];
+  includeUncategorized: boolean;
+  hasUrlFilterParams: boolean;
   error?: string | null;
   ga4Error?: string | null;
   total: number;
@@ -34,6 +37,9 @@ export default function AnalyticsClient({
   items,
   allCategoryNames,
   unreadAnnotationIds,
+  selectedCategoryNames,
+  includeUncategorized,
+  hasUrlFilterParams,
   error,
   ga4Error,
   total,
@@ -71,6 +77,11 @@ export default function AnalyticsClient({
     params.set('page', '1');
     params.set('start', rangeStart);
     params.set('end', rangeEnd);
+    for (const name of selectedCategoryNames) {
+      const trimmed = name.trim();
+      if (trimmed.length > 0) params.append('category', trimmed);
+    }
+    if (includeUncategorized) params.set('uncategorized', '1');
     router.push(`/analytics?${params.toString()}`);
   };
   const startItemNumber = total > 0 ? (currentPage - 1) * perPage + 1 : 0;
@@ -154,7 +165,8 @@ export default function AnalyticsClient({
                 buttonVariants({ variant: 'outline' }),
                 'h-9 inline-flex items-center gap-2 px-3 border-primary text-primary hover:bg-primary/10'
               )}
-              onClick={applyDateRange}
+              onClick={
+              }
               disabled={!isDateRangeChanged || isApplyingDateRange}
             >
               {isApplyingDateRange && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -165,14 +177,16 @@ export default function AnalyticsClient({
             指定期間でGA4指標（滞在時間・読了率・直帰率・CV数・CVR）を集計して表示します。
           </p>
           {shouldRenderTable ? (
+          {!error ? (
             <AnalyticsTable
               items={items}
               allCategoryNames={allCategoryNames}
               unreadAnnotationIds={unreadAnnotationSet}
+              selectedCategoryNames={selectedCategoryNames}
+              includeUncategorized={includeUncategorized}
+              hasUrlFilterParams={hasUrlFilterParams}
             />
-          ) : error ? null : (
-            <div className="text-center py-8 text-gray-500">投稿が見つかりません</div>
-          )}
+          ) : null}
 
           {/* ページネーション */}
           <div className="flex items-center justify-between mt-4">

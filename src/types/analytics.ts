@@ -12,6 +12,8 @@ export interface AnalyticsContentQuery {
   perPage: number;
   startDate: string;
   endDate: string;
+  selectedCategoryNames?: string[];
+  includeUncategorized?: boolean;
 }
 
 export interface AnalyticsContentPage {

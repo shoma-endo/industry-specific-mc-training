@@ -27,11 +27,17 @@ function isValidDate(dateStr: string): boolean {
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const params = await searchParams;
-  const pageParam = Array.isArray(params?.page) ? params?.page[0] : params?.page;
-  const startParam = Array.isArray(params?.start) ? params?.start[0] : params?.start;
-  const endParam = Array.isArray(params?.end) ? params?.end[0] : params?.end;
-  const page = Math.max(1, parseInt(pageParam || '1', 10));
+  const hasUrlFilterParams = params?.category !== undefined || params?.uncategorized !== undefined;
+  const pageParam = Array.isArray(params?.page) ? params.page[0] : params?.page;
+  const pageParsed = Number.parseInt(pageParam ?? '1', 10);
+  const page = Number.isFinite(pageParsed) && pageParsed > 0 ? pageParsed : 1;
   const perPage = 10; // 1ページあたり10件で固定表示
+  const selectedCategoryNames = Array.isArray(params?.category)
+    ? params.category
+    : params?.category
+      ? [params.category]
+      : [];
+  const includeUncategorized = params?.uncategorized === '1';
 
   const todayJst = formatJstDateISO(new Date());
   const defaultEnd = addDaysISO(todayJst, -1);
@@ -50,7 +56,14 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   // 並列でデータ取得（一覧・未読・カテゴリ一覧）
   const [analyticsPage, unreadResult, allCategoryNames] = await Promise.all([
-    analyticsContentService.getPage({ page, perPage, startDate, endDate }),
+    analyticsContentService.getPage({
+      page,
+      perPage,
+      startDate,
+      endDate,
+      selectedCategoryNames,
+      includeUncategorized,
+    }),
     getAnnotationIdsWithUnreadSuggestions(),
     analyticsContentService.getAvailableCategoryNames(),
   ]);
@@ -58,14 +71,22 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const currentPage = resolvedPage ?? page;
   const prevDisabled = currentPage <= 1;
   const nextDisabled = currentPage >= totalPages;
-  const prevParams = new URLSearchParams({ page: String(Math.max(1, currentPage - 1)) });
-  prevParams.set('start', startDate);
-  prevParams.set('end', endDate);
-  const nextParams = new URLSearchParams({ page: String(Math.min(totalPages, currentPage + 1)) });
-  nextParams.set('start', startDate);
-  nextParams.set('end', endDate);
-  const prevHref = `/analytics?${prevParams.toString()}`;
-  const nextHref = `/analytics?${nextParams.toString()}`;
+  const buildPageHref = (targetPage: number) => {
+    const query = new URLSearchParams();
+    query.set('page', String(targetPage));
+    for (const categoryName of selectedCategoryNames) {
+      const trimmed = categoryName.trim();
+      if (trimmed.length > 0) {
+        query.append('category', trimmed);
+      }
+    }
+    if (includeUncategorized) {
+      query.set('uncategorized', '1');
+    }
+    return `/analytics?${query.toString()}`;
+  };
+  const prevHref = buildPageHref(Math.max(1, currentPage - 1));
+  const nextHref = buildPageHref(Math.min(totalPages, currentPage + 1));
 
   return (
     <AnalyticsClient
@@ -84,6 +105,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       nextDisabled={nextDisabled}
       startDate={startDate}
       endDate={endDate}
+      selectedCategoryNames={selectedCategoryNames}
+      includeUncategorized={includeUncategorized}
+      hasUrlFilterParams={hasUrlFilterParams}
     />
   );
 }
