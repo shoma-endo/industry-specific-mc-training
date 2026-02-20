@@ -32,6 +32,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const pageParsed = Number.parseInt(pageParam ?? '1', 10);
   const page = Number.isFinite(pageParsed) && pageParsed > 0 ? pageParsed : 1;
   const perPage = 10; // 1ページあたり10件で固定表示
+  const startParam = Array.isArray(params?.start) ? params.start[0] : params?.start;
+  const endParam = Array.isArray(params?.end) ? params.end[0] : params?.end;
   const selectedCategoryNames = Array.isArray(params?.category)
     ? params.category
     : params?.category
