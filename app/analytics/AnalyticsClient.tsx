@@ -4,11 +4,13 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import AnalyticsTable from '@/components/AnalyticsTable';
-import { Download, Settings, BarChart3 } from 'lucide-react';
+import { Download, Settings, BarChart3, Loader2, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import type { AnalyticsContentItem } from '@/types/analytics';
+import { useRouter } from 'next/navigation';
 
 interface AnalyticsClientProps {
   items: AnalyticsContentItem[];
@@ -18,6 +20,7 @@ interface AnalyticsClientProps {
   includeUncategorized: boolean;
   hasUrlFilterParams: boolean;
   error?: string | null;
+  ga4Error?: string | null;
   total: number;
   totalPages: number;
   currentPage: number;
@@ -26,6 +29,8 @@ interface AnalyticsClientProps {
   nextHref: string;
   prevDisabled: boolean;
   nextDisabled: boolean;
+  startDate: string;
+  endDate: string;
 }
 
 export default function AnalyticsClient({
@@ -36,6 +41,7 @@ export default function AnalyticsClient({
   includeUncategorized,
   hasUrlFilterParams,
   error,
+  ga4Error,
   total,
   totalPages,
   currentPage,
@@ -44,11 +50,35 @@ export default function AnalyticsClient({
   nextHref,
   prevDisabled,
   nextDisabled,
+  startDate,
+  endDate,
 }: AnalyticsClientProps) {
+  const router = useRouter();
   const unreadAnnotationSet = React.useMemo(
     () => new Set(unreadAnnotationIds),
     [unreadAnnotationIds]
   );
+  const shouldRenderTable = items.length > 0;
+  const [rangeStart, setRangeStart] = React.useState(startDate);
+  const [rangeEnd, setRangeEnd] = React.useState(endDate);
+  const [isApplyingDateRange, setIsApplyingDateRange] = React.useState(false);
+  const isDateRangeChanged = rangeStart !== startDate || rangeEnd !== endDate;
+
+  React.useEffect(() => {
+    setRangeStart(startDate);
+    setRangeEnd(endDate);
+    setIsApplyingDateRange(false);
+  }, [startDate, endDate]);
+
+  const applyDateRange = () => {
+    if (!isDateRangeChanged || isApplyingDateRange) return;
+    setIsApplyingDateRange(true);
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('start', rangeStart);
+    params.set('end', rangeEnd);
+    router.push(`/analytics?${params.toString()}`);
+  };
   const startItemNumber = total > 0 ? (currentPage - 1) * perPage + 1 : 0;
   const endItemNumber = total > 0 ? Math.min(currentPage * perPage, total) : 0;
 
@@ -83,6 +113,16 @@ export default function AnalyticsClient({
             >
               <BarChart3 className="w-4 h-4" aria-hidden />
               <span>Google Search Console 日次指標インポート</span>
+            </Link>
+            <Link
+              href="/ga4-dashboard"
+              className={cn(
+                buttonVariants(),
+                'h-9 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700'
+              )}
+            >
+              <TrendingUp className="w-4 h-4" aria-hidden />
+              <span>GA4ダッシュボード</span>
             </Link>
           </div>
         </CardHeader>
