@@ -807,7 +807,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     handleRetryHeadingInit,
   } = useHeadingFlow({
     sessionId: chatSession.state.currentSessionId ?? null,
-    latestBlogStep,
     isSessionLoading: chatSession.state.isLoading,
     step5Content,
     getAccessToken,

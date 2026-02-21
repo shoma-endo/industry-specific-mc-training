@@ -8,7 +8,6 @@ import type { BlogStepId } from '@/lib/constants';
 
 interface UseHeadingFlowParams {
   sessionId: string | null;
-  latestBlogStep: BlogStepId | null;
   isSessionLoading: boolean;
   step5Content: string | null;
   getAccessToken: () => Promise<string>;
@@ -35,7 +34,6 @@ interface UseHeadingFlowReturn {
 
 export function useHeadingFlow({
   sessionId,
-  latestBlogStep,
   isSessionLoading,
   step5Content,
   getAccessToken,
@@ -122,11 +120,11 @@ export function useHeadingFlow({
     }
   }, [sessionId, fetchHeadingSections, fetchLatestCombinedContent]);
 
-  // Step 6 入場時の初期化
+  // Step 6 入場時の初期化（現在表示中のステップが step6 のとき発火）
   useEffect(() => {
     if (
       !sessionId ||
-      latestBlogStep !== 'step6' ||
+      resolvedCanvasStep !== 'step6' ||
       headingSections.length > 0 ||
       isHeadingInitInFlight ||
       hasAttemptedHeadingInit ||
@@ -172,7 +170,7 @@ export function useHeadingFlow({
     void initAndFetch();
   }, [
     sessionId,
-    latestBlogStep,
+    resolvedCanvasStep,
     headingSections.length,
     isHeadingInitInFlight,
     step5Content,
