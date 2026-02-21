@@ -12,7 +12,11 @@ import type { AnalyticsContentItem } from '@/types/analytics';
 
 interface AnalyticsClientProps {
   items: AnalyticsContentItem[];
+  allCategoryNames: string[];
   unreadAnnotationIds: string[];
+  selectedCategoryNames: string[];
+  includeUncategorized: boolean;
+  hasUrlFilterParams: boolean;
   error?: string | null;
   total: number;
   totalPages: number;
@@ -26,7 +30,11 @@ interface AnalyticsClientProps {
 
 export default function AnalyticsClient({
   items,
+  allCategoryNames,
   unreadAnnotationIds,
+  selectedCategoryNames,
+  includeUncategorized,
+  hasUrlFilterParams,
   error,
   total,
   totalPages,
@@ -41,7 +49,6 @@ export default function AnalyticsClient({
     () => new Set(unreadAnnotationIds),
     [unreadAnnotationIds]
   );
-  const shouldRenderTable = items.length > 0;
   const startItemNumber = total > 0 ? (currentPage - 1) * perPage + 1 : 0;
   const endItemNumber = total > 0 ? Math.min(currentPage * perPage, total) : 0;
 
@@ -85,14 +92,16 @@ export default function AnalyticsClient({
               <ErrorAlert error={error} variant="default" />
             </div>
           ) : null}
-          {shouldRenderTable ? (
+          {!error ? (
             <AnalyticsTable
               items={items}
+              allCategoryNames={allCategoryNames}
               unreadAnnotationIds={unreadAnnotationSet}
+              selectedCategoryNames={selectedCategoryNames}
+              includeUncategorized={includeUncategorized}
+              hasUrlFilterParams={hasUrlFilterParams}
             />
-          ) : error ? null : (
-            <div className="text-center py-8 text-gray-500">投稿が見つかりません</div>
-          )}
+          ) : null}
 
           {/* ページネーション */}
           <div className="flex items-center justify-between mt-4">

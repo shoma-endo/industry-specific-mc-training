@@ -13,12 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Bot, Send, Menu, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  BLOG_PLACEHOLDERS,
-  BLOG_STEP_IDS,
-  BlogStepId,
-  VERSIONING_TOGGLE_STEP,
-} from '@/lib/constants';
+import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
 import { useLiffContext } from '@/components/LiffProvider';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import ChatSearch from './search/ChatSearch';
@@ -55,6 +50,7 @@ interface InputAreaProps {
   blogFlowActive?: boolean;
   blogProgress?: { currentIndex: number; total: number };
   onModelChange?: (model: string, blogStep?: BlogStepId) => void;
+  blogFlowStatus?: string;
   selectedModelExternal?: string;
   initialBlogStep?: BlogStepId;
   nextStepForPlaceholder?: BlogStepId | null;
@@ -89,14 +85,6 @@ interface InputAreaProps {
   services?: Service[];
   selectedServiceId?: string | null;
   onServiceChange?: (serviceId: string) => void;
-  // Step5 バージョン管理トグル
-  versioningEnabled?: boolean;
-  onVersioningChange?: (enabled: boolean) => void;
-  justReEnabled?: boolean;
-  // 見出し単位生成フロー用
-  headingIndex?: number | undefined;
-  totalHeadings?: number | undefined;
-  currentHeadingText?: string | undefined;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -109,6 +97,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   blogFlowActive = false,
   blogProgress,
   onModelChange,
+  blogFlowStatus,
   selectedModelExternal,
   initialBlogStep,
   nextStepForPlaceholder,
@@ -141,12 +130,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   services,
   selectedServiceId,
   onServiceChange,
-  versioningEnabled = true,
-  onVersioningChange,
-  justReEnabled = false,
-  headingIndex,
-  totalHeadings,
-  currentHeadingText,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -176,12 +159,6 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS.blog_creation_step1;
       }
 
-      // Step7 OFF時は専用のプレースホルダーを表示
-      const currentStep = initialBlogStep ?? 'step1';
-      if (currentStep === VERSIONING_TOGGLE_STEP && !versioningEnabled) {
-        return BLOG_PLACEHOLDERS.blog_creation_step7_chat;
-      }
-
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
       // ブログ作成進行中（hasDetectedBlogStep === true）の場合のみ適用
       if (nextStepForPlaceholder) {
@@ -190,8 +167,9 @@ const InputArea: React.FC<InputAreaProps> = ({
       }
 
       // フォールバック: 次のステップのプレースホルダーを表示
-      // - hasDetectedBlogStep時は次のステップへ
+      // - waitingActionまたはhasDetectedBlogStep時は次のステップへ
       // - それ以外は現在のステップ
+      const currentStep = initialBlogStep ?? 'step1';
       const currentIdx = BLOG_STEP_IDS.indexOf(currentStep);
       const shouldAdvance = hasDetectedBlogStep; // すでにブログ作成が始まっている場合は次へ
       const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
@@ -230,6 +208,14 @@ const InputArea: React.FC<InputAreaProps> = ({
     }
   }, [selectedModelExternal, selectedModel]);
 
+  // 既存チャットルームを開いた際、フロー状態から自動でブログ作成モデルに合わせる（モデル選択に依存しない）
+  useEffect(() => {
+    if (blogFlowStatus && blogFlowStatus !== 'idle' && selectedModel !== 'blog_creation') {
+      setSelectedModel('blog_creation');
+      onModelChange?.('blog_creation', initialBlogStep);
+    }
+  }, [blogFlowStatus, selectedModel, onModelChange, initialBlogStep]);
+
   const handleLoadBlogArticle = useCallback(async () => {
     if (!onLoadBlogArticle || isLoadingBlogArticle) return;
     setBlogArticleError(null);
@@ -237,7 +223,8 @@ const InputArea: React.FC<InputAreaProps> = ({
     try {
       await onLoadBlogArticle();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'ブログ記事の取得に失敗しました';
+      const message =
+        error instanceof Error ? error.message : 'ブログ記事の取得に失敗しました';
       setBlogArticleError(message);
     } finally {
       setIsLoadingBlogArticle(false);
@@ -283,7 +270,7 @@ const InputArea: React.FC<InputAreaProps> = ({
 
     const originalMessage = input.trim();
     // ブログ作成モデルの場合の制御：
-    // - hasDetectedBlogStep時は次のステップへ進む
+    // - アクション待ち（waitingAction）での通常送信は「次のステップへ進む」扱い
     let effectiveModel: string = selectedModel;
     if (selectedModel === 'blog_creation') {
       // 通常送信は次ステップへ（初回はstep1）
@@ -299,29 +286,18 @@ const InputArea: React.FC<InputAreaProps> = ({
         effectiveModel = `blog_creation_${fallbackStep}`;
         onModelChange?.('blog_creation', fallbackStep);
       } else {
-        // Step7 OFF→ON 復帰直後は Step7 に固定（ステップ進行を抑止）
-        if (justReEnabled && currentStep === VERSIONING_TOGGLE_STEP) {
-          effectiveModel = 'blog_creation_step7';
-          onModelChange?.('blog_creation', 'step7');
-        }
-        // Step7 + OFF: 見出し修正チャット（バージョン管理対象外）
-        else if (currentStep === VERSIONING_TOGGLE_STEP && !versioningEnabled) {
-          effectiveModel = 'blog_creation_step7_chat';
-          // モデル変更は通知しない（step7のまま）
-        }
-        // 通常のステップ進行ロジック
-        else {
-          const shouldAdvance = Boolean(hasDetectedBlogStep);
+        const shouldAdvance =
+          blogFlowStatus === 'waitingAction' ||
+          (blogFlowStatus === 'idle' && hasDetectedBlogStep);
 
-          // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
-          const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
-          // 配列範囲内に収める（最後のステップを超えない）
-          const targetIdx = Math.min(nextIdx, BLOG_STEP_IDS.length - 1);
-          const targetStep = BLOG_STEP_IDS[targetIdx] as BlogStepId;
+        // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
+        const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
+        // 配列範囲内に収める（最後のステップを超えない）
+        const targetIdx = Math.min(nextIdx, BLOG_STEP_IDS.length - 1);
+        const targetStep = BLOG_STEP_IDS[targetIdx] as BlogStepId;
 
-          effectiveModel = `blog_creation_${targetStep}`;
-          onModelChange?.('blog_creation', targetStep);
-        }
+        effectiveModel = `blog_creation_${targetStep}`;
+        onModelChange?.('blog_creation', targetStep);
       }
     }
 
@@ -532,16 +508,14 @@ const InputArea: React.FC<InputAreaProps> = ({
               onGenerateTitleMeta={onGenerateTitleMeta}
               isGenerateTitleMetaLoading={isGenerateTitleMetaLoading}
               onNextStepChange={onNextStepChange}
+              flowStatus={blogFlowStatus}
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
               onManualStepChange={onManualStepChange}
-              versioningEnabled={versioningEnabled}
-              onVersioningChange={onVersioningChange}
-              headingIndex={headingIndex}
-              totalHeadings={totalHeadings}
-              currentHeadingText={currentHeadingText}
             />
-            {blogArticleError && <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>}
+            {blogArticleError && (
+              <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>
+            )}
           </div>
         )}
         <div className="px-3 py-2">
@@ -565,7 +539,10 @@ const InputArea: React.FC<InputAreaProps> = ({
                   <Button
                     type="submit"
                     size="icon"
-                    disabled={isInputDisabled || !input.trim()}
+                    disabled={
+                      isInputDisabled ||
+                      !input.trim()
+                    }
                     className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
                   >
                     <Send size={18} className="text-white" />

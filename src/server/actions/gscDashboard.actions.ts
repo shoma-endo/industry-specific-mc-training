@@ -241,6 +241,134 @@ function computeNextRunAtJst(evaluation: {
   return base.toISOString();
 }
 
+function extractHostName(rawUrl: string): string | null {
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase();
+    return host.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+function doesPropertyCoverUrl(propertyUri: string, canonicalUrl: string): boolean {
+  const targetNormalized = normalizeUrl(canonicalUrl);
+  if (!targetNormalized) {
+    return false;
+  }
+
+  if (propertyUri.startsWith('sc-domain:')) {
+    const targetHost = extractHostName(canonicalUrl);
+    const domain = propertyUri.slice('sc-domain:'.length).toLowerCase().replace(/^www\./, '');
+    if (!targetHost || !domain) {
+      return false;
+    }
+    return targetHost === domain || targetHost.endsWith(`.${domain}`);
+  }
+
+  const propertyNormalized = normalizeUrl(propertyUri);
+  if (!propertyNormalized) {
+    return false;
+  }
+
+  return (
+    targetNormalized === propertyNormalized || targetNormalized.startsWith(`${propertyNormalized}/`)
+  );
+}
+
+async function resolveBestQueryPropertyUri(params: {
+  userId: string;
+  normalizedUrl: string;
+  startIso: string;
+  endIso: string;
+  preferredPropertyUri?: string | null;
+}): Promise<{
+  resolvedPropertyUri: string | null;
+  bestPropertyUri: string | null;
+  preferredInMetrics: boolean;
+}> {
+  const { userId, normalizedUrl, startIso, endIso, preferredPropertyUri } = params;
+
+  interface GscPropertyCandidateRow {
+    property_uri: string | null;
+    row_count: number;
+    total_impressions: number;
+    total_clicks: number;
+  }
+
+  interface RpcErrorLike {
+    message?: string;
+  }
+
+  interface GscPropertyCandidatesRpcClient {
+    rpc: (
+      fn: string,
+      args: Record<string, string>
+    ) => Promise<{ data: unknown; error: RpcErrorLike | null }>;
+  }
+
+  const rpcClient = supabaseService.getClient() as unknown as GscPropertyCandidatesRpcClient;
+  const rpcResult = await rpcClient.rpc('get_gsc_property_candidates', {
+    p_user_id: userId,
+    p_normalized_url: normalizedUrl,
+    p_start_date: startIso,
+    p_end_date: endIso,
+  });
+  const data = Array.isArray(rpcResult?.data) ? (rpcResult.data as GscPropertyCandidateRow[]) : null;
+  const error = rpcResult?.error ?? null;
+
+  if (error) {
+    throw new Error(error.message || 'クエリ指標のプロパティ探索に失敗しました');
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      resolvedPropertyUri: preferredPropertyUri ?? null,
+      bestPropertyUri: null,
+      preferredInMetrics: false,
+    };
+  }
+
+  const propertyUris = new Set<string>(data.map(row => row.property_uri).filter(Boolean) as string[]);
+  const preferredInMetrics = Boolean(preferredPropertyUri && propertyUris.has(preferredPropertyUri));
+  const bestPropertyUri = data.find(row => typeof row.property_uri === 'string')?.property_uri ?? null;
+
+  return {
+    resolvedPropertyUri: preferredInMetrics
+      ? (preferredPropertyUri ?? null)
+      : (bestPropertyUri ?? preferredPropertyUri ?? null),
+    bestPropertyUri,
+    preferredInMetrics,
+  };
+}
+
+async function fetchQueryAnalysisRows(params: {
+  userId: string;
+  propertyUri: string;
+  normalizedUrl: string;
+  startIso: string;
+  endIso: string;
+  compStartIso: string;
+  compEndIso: string;
+}) {
+  const { userId, propertyUri, normalizedUrl, startIso, endIso, compStartIso, compEndIso } = params;
+
+  const { data, error } = await supabaseService.getClient().rpc('get_gsc_query_analysis', {
+    p_user_id: userId,
+    p_property_uri: propertyUri,
+    p_normalized_url: normalizedUrl,
+    p_start_date: startIso,
+    p_end_date: endIso,
+    p_comp_start_date: compStartIso,
+    p_comp_end_date: compEndIso,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
 export async function registerEvaluation(params: {
   contentAnnotationId: string;
   propertyUri: string;
@@ -546,30 +674,66 @@ export async function fetchQueryAnalysis(
 
     const ownerUserId = annotation.user_id;
 
-    // GSC Credential取得（PropertyURIが必要）
+    // GSC Credential取得（既定のPropertyURI）
     const credential = await supabaseService.getGscCredentialByUserId(ownerUserId);
-    if (!credential || !credential.propertyUri) {
+    if (!credential) {
       return { success: false, error: ERROR_MESSAGES.GSC.CREDENTIAL_NOT_FOUND };
     }
-    const propertyUri = credential.propertyUri;
-
     const normalizedUrl = annotation.normalized_url;
+    const preferredPropertyUri = credential.propertyUri ?? null;
 
-    // RPC呼び出しでDB側で集計（パフォーマンス最適化）
-    const { data: rpcData, error: rpcError } = await supabaseService
-      .getClient()
-      .rpc('get_gsc_query_analysis', {
-        p_user_id: ownerUserId,
-        p_property_uri: propertyUri,
-        p_normalized_url: normalizedUrl,
-        p_start_date: startIso,
-        p_end_date: endIso,
-        p_comp_start_date: compStartIso,
-        p_comp_end_date: compEndIso,
+    // 通常パスでは既定プロパティで即時取得し、空結果のときのみ重い候補探索を行う
+    let rpcData: Awaited<ReturnType<typeof fetchQueryAnalysisRows>> = [];
+
+    if (preferredPropertyUri) {
+      rpcData = await fetchQueryAnalysisRows({
+        userId: ownerUserId,
+        propertyUri: preferredPropertyUri,
+        normalizedUrl,
+        startIso,
+        endIso,
+        compStartIso,
+        compEndIso,
       });
+    }
 
-    if (rpcError) {
-      throw new Error(rpcError.message);
+    if (rpcData.length === 0) {
+      const propertyResolution = await resolveBestQueryPropertyUri({
+        userId: ownerUserId,
+        normalizedUrl,
+        startIso,
+        endIso,
+        preferredPropertyUri,
+      });
+      const { resolvedPropertyUri, bestPropertyUri } = propertyResolution;
+
+      if (!resolvedPropertyUri) {
+        return { success: false, error: ERROR_MESSAGES.GSC.QUERY_METRICS_FETCH_FAILED };
+      }
+
+      // 既定プロパティで空だった場合のみ、候補プロパティへ切り替えて再取得
+      const shouldRetryWithResolvedProperty =
+        !preferredPropertyUri ||
+        (resolvedPropertyUri !== preferredPropertyUri && bestPropertyUri === resolvedPropertyUri);
+
+      if (shouldRetryWithResolvedProperty) {
+        rpcData = await fetchQueryAnalysisRows({
+          userId: ownerUserId,
+          propertyUri: resolvedPropertyUri,
+          normalizedUrl,
+          startIso,
+          endIso,
+          compStartIso,
+          compEndIso,
+        });
+        if (preferredPropertyUri && resolvedPropertyUri !== preferredPropertyUri && rpcData.length > 0) {
+          console.warn('[gsc-dashboard] query analysis fallback property applied', {
+            annotationId,
+            fromPropertyUri: preferredPropertyUri,
+            toPropertyUri: resolvedPropertyUri,
+          });
+        }
+      }
     }
 
     // RPC結果をQueryAggregation形式に変換
@@ -667,6 +831,18 @@ export async function runQueryImportForAnnotation(
       return { success: false, error: ERROR_MESSAGES.GSC.ARTICLE_URL_NOT_FOUND };
     }
 
+    const ownerUserId = annotation.user_id;
+    const credential = await supabaseService.getGscCredentialByUserId(ownerUserId);
+    if (!credential?.propertyUri) {
+      return { success: false, error: ERROR_MESSAGES.GSC.CREDENTIAL_NOT_FOUND };
+    }
+    if (!doesPropertyCoverUrl(credential.propertyUri, annotation.canonical_url)) {
+      return {
+        success: false,
+        error: ERROR_MESSAGES.GSC.PROPERTY_URL_MISMATCH,
+      };
+    }
+
     const days = Math.min(180, Math.max(7, options?.days ?? 90));
     const { startIso, endIso } = buildGscDateRange(days);
 
@@ -686,7 +862,6 @@ export async function runQueryImportForAnnotation(
       await supabaseService.cleanupOldGscPageMetrics(annotationId, currentNormalizedUrl);
     }
 
-    const ownerUserId = annotation.user_id;
     const summary = await gscImportService.importPageAndQueryForUrlWithSplit(ownerUserId, {
       startDate: startIso,
       endDate: endIso,

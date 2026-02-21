@@ -943,6 +943,20 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: string[];
       };
+      get_available_category_names: {
+        Args: { p_user_id: string };
+        Returns: Array<{ name: string }>;
+      };
+      get_filtered_content_annotations: {
+        Args: {
+          p_include_uncategorized?: boolean;
+          p_page: number;
+          p_per_page: number;
+          p_selected_category_names?: string[];
+          p_user_id: string;
+        };
+        Returns: Array<{ items: Json; total_count: number }>;
+      };
       get_database_size: {
         Args: never;
         Returns: {

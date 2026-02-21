@@ -9,7 +9,11 @@ import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { toUser } from '@/types/user';
 import { isAdmin } from '@/authUtils';
 import { getKeywordMetricsSchema } from '@/server/schemas/googleAds.schema';
-import type { DisconnectGoogleAdsResult, GoogleAdsKeywordMetric } from '@/types/googleAds.types';
+import type {
+  DisconnectGoogleAdsResult,
+  GoogleAdsKeywordMetric,
+  GetCampaignMetricsResult,
+} from '@/types/googleAds.types';
 
 /** トークン期限切れ判定の閾値（5分） */
 const TOKEN_EXPIRY_THRESHOLD_MS = 5 * 60 * 1000;
@@ -180,7 +184,7 @@ export async function fetchKeywordMetrics(
     });
 
     if (!parseResult.success) {
-      const errors = parseResult.error.issues.map((issue) => issue.message).join(', ');
+      const errors = parseResult.error.issues.map(issue => issue.message).join(', ');
       return {
         success: false,
         error: ERROR_MESSAGES.GOOGLE_ADS.INVALID_INPUT(errors),
@@ -232,7 +236,11 @@ export async function fetchKeywordMetrics(
     const googleAdsService = new GoogleAdsService();
 
     // トークンが期限切れまたは期限間近（5分以内）の場合はリフレッシュ
-    if (!googleAccessToken || !expiresAt || expiresAt.getTime() - now.getTime() < TOKEN_EXPIRY_THRESHOLD_MS) {
+    if (
+      !googleAccessToken ||
+      !expiresAt ||
+      expiresAt.getTime() - now.getTime() < TOKEN_EXPIRY_THRESHOLD_MS
+    ) {
       if (!credential.refreshToken) {
         return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
       }
@@ -290,6 +298,111 @@ export async function fetchKeywordMetrics(
       stack: error instanceof Error ? error.stack : undefined,
     });
     // クライアントには共通メッセージのみ返却（内部情報を露出しない）
+    return {
+      success: false,
+      error: ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,
+    };
+  }
+}
+
+/**
+ * キャンペーン指標を取得する Server Action
+ */
+export async function fetchCampaignMetrics(
+  startDate: string,
+  endDate: string,
+  campaignIds?: string[]
+): Promise<GetCampaignMetricsResult> {
+  try {
+    const parseResult = getKeywordMetricsSchema.safeParse({
+      startDate,
+      endDate,
+      campaignIds,
+    });
+
+    if (!parseResult.success) {
+      const errors = parseResult.error.issues.map(issue => issue.message).join(', ');
+      return {
+        success: false,
+        error: ERROR_MESSAGES.GOOGLE_ADS.INVALID_INPUT(errors),
+      };
+    }
+
+    const { accessToken, refreshToken } = await getLiffTokensFromCookies();
+    if (!accessToken) {
+      return { success: false, error: ERROR_MESSAGES.AUTH.NOT_LOGGED_IN };
+    }
+
+    const authResult = await authMiddleware(accessToken, refreshToken);
+    if (authResult.error || !authResult.userId) {
+      return { success: false, error: ERROR_MESSAGES.AUTH.UNAUTHENTICATED };
+    }
+
+    const supabaseService = new SupabaseService();
+    const userResult = await supabaseService.getUserById(authResult.userId);
+    if (!userResult.success || !userResult.data) {
+      return { success: false, error: ERROR_MESSAGES.USER.USER_INFO_NOT_FOUND };
+    }
+    const user = toUser(userResult.data);
+    if (!isAdmin(user.role)) {
+      return { success: false, error: ERROR_MESSAGES.USER.ADMIN_REQUIRED };
+    }
+
+    const credential = await supabaseService.getGoogleAdsCredential(authResult.userId);
+    if (!credential) {
+      return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.NOT_CONNECTED };
+    }
+    if (!credential.customerId) {
+      return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.ACCOUNT_NOT_SELECTED };
+    }
+
+    let googleAccessToken = credential.accessToken;
+    const expiresAt = credential.accessTokenExpiresAt
+      ? new Date(credential.accessTokenExpiresAt)
+      : null;
+    const now = new Date();
+    const googleAdsService = new GoogleAdsService();
+
+    if (
+      !googleAccessToken ||
+      !expiresAt ||
+      expiresAt.getTime() - now.getTime() < TOKEN_EXPIRY_THRESHOLD_MS
+    ) {
+      if (!credential.refreshToken) {
+        return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
+      }
+      try {
+        const newTokens = await googleAdsService.refreshAccessToken(credential.refreshToken);
+        googleAccessToken = newTokens.accessToken;
+        const saveResult = await supabaseService.saveGoogleAdsCredential(authResult.userId, {
+          accessToken: newTokens.accessToken,
+          refreshToken: credential.refreshToken,
+          expiresIn: newTokens.expiresIn,
+          googleAccountEmail: credential.googleAccountEmail,
+          managerCustomerId: credential.managerCustomerId,
+        });
+
+        if (!saveResult.success) {
+          console.error('[fetchCampaignMetrics] Token save failed');
+          return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
+        }
+      } catch (_) {
+        return { success: false, error: ERROR_MESSAGES.GOOGLE_ADS.AUTH_EXPIRED_OR_REVOKED };
+      }
+    }
+
+    const result = await googleAdsService.getCampaignMetrics({
+      accessToken: googleAccessToken as string,
+      customerId: credential.customerId,
+      startDate: parseResult.data.startDate,
+      endDate: parseResult.data.endDate,
+      ...(parseResult.data.campaignIds && { campaignIds: parseResult.data.campaignIds }),
+      ...(credential.managerCustomerId && { loginCustomerId: credential.managerCustomerId }),
+    });
+
+    return result;
+  } catch (error) {
+    console.error('[fetchCampaignMetrics] Unexpected error:', error);
     return {
       success: false,
       error: ERROR_MESSAGES.GOOGLE_ADS.UNKNOWN_ERROR,

@@ -119,6 +119,39 @@ export function formatDateISO(date: Date): string {
 }
 
 /**
+ * Date オブジェクトを JST（Asia/Tokyo）基準の YYYY-MM-DD 形式に変換する
+ * サーバーのローカルタイムゾーンに依存せず、常に JST で日付を切り出す
+ * @param date - Date オブジェクト
+ * @returns YYYY-MM-DD 形式の日付文字列（JST）
+ */
+export function formatLocalDateYMD(date: Date): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+/**
+ * JST（Asia/Tokyo）基準で「今日から N 日前〜今日」の日付範囲を返す
+ * サーバーのローカルタイムゾーンに依存せず、常に JST で日付を切り出す
+ * Google Ads API など YYYY-MM-DD 形式の日付範囲が必要な場合に使用する
+ * @param days - 取得する日数（例: 30 → 今日含む過去30日間）
+ * @returns { startDate, endDate } - YYYY-MM-DD 形式の開始日と終了日
+ */
+export function buildLocalDateRange(days: number): { startDate: string; endDate: string } {
+  if (!Number.isInteger(days) || days < 1) {
+    throw new Error('days must be a positive integer');
+  }
+  const now = new Date();
+  const endDate = formatLocalDateYMD(now);
+  // UTC ms 演算で days-1 日前を求め、JST で日付を切り出す
+  const startDate = formatLocalDateYMD(new Date(now.getTime() - (days - 1) * 24 * 60 * 60 * 1000));
+  return { startDate, endDate };
+}
+
+/**
  * ISO日付文字列に指定日数を加算する
  * @param isoDate - YYYY-MM-DD 形式の日付文字列
  * @param days - 加算する日数

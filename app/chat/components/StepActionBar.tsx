@@ -1,16 +1,8 @@
 'use client';
 import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
-import {
-  BlogStepId,
-  BLOG_STEP_LABELS,
-  BLOG_STEP_IDS,
-  VERSIONING_TOGGLE_STEP,
-} from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { BookMarked, BookOpen, FilePenLine, Loader2, SkipBack, SkipForward } from 'lucide-react';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface StepActionBarProps {
   step?: BlogStepId | undefined;
@@ -23,16 +15,10 @@ interface StepActionBarProps {
   onGenerateTitleMeta?: (() => void) | undefined;
   isGenerateTitleMetaLoading?: boolean | undefined;
   onNextStepChange?: ((nextStep: BlogStepId | null) => void) | undefined;
+  flowStatus?: string | undefined;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   isLoadBlogArticleLoading?: boolean;
   onManualStepChange?: ((step: BlogStepId) => void) | undefined;
-  // トグル対象ステップのバージョン管理トグル
-  versioningEnabled?: boolean | undefined;
-  onVersioningChange?: ((enabled: boolean) => void) | undefined;
-  // 見出し単位生成フロー用
-  headingIndex?: number | undefined;
-  totalHeadings?: number | undefined;
-  currentHeadingText?: string | undefined;
 }
 
 export interface StepActionBarRef {
@@ -52,14 +38,10 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onGenerateTitleMeta,
       isGenerateTitleMetaLoading = false,
       onNextStepChange,
+      flowStatus = 'idle',
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
       onManualStepChange,
-      versioningEnabled = true,
-      onVersioningChange,
-      headingIndex,
-      totalHeadings,
-      currentHeadingText,
     },
     ref
   ) => {
@@ -77,16 +59,15 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     }));
 
     // UI制御
-    const isDisabled = disabled || !hasDetectedBlogStep;
+    const isStepReady = flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
+    const isDisabled = disabled || !isStepReady;
     const isStep7 = displayStep === 'step7';
     const isStep1 = displayStep === 'step1';
-    const isStep5 = displayStep === VERSIONING_TOGGLE_STEP;
     const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
     const showTitleMetaButton =
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
     const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
-    const showStep5Toggle = isStep5 && typeof onVersioningChange === 'function';
 
     // ラベル
     const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
@@ -126,41 +107,6 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             )}
           </span>
         </div>
-        {showStep5Toggle && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="step7-versioning-toggle"
-                  checked={versioningEnabled}
-                  onCheckedChange={onVersioningChange}
-                  disabled={isDisabled}
-                />
-                <Label
-                  htmlFor="step7-versioning-toggle"
-                  className="text-xs text-gray-700 cursor-pointer"
-                >
-                  バージョンで保存
-                </Label>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              align="start"
-              sideOffset={12}
-              className="w-fit bg-yellow-100 text-gray-800 border border-yellow-300 shadow-md"
-              arrowClassName="bg-yellow-100 fill-yellow-100 border-b border-r border-yellow-300"
-            >
-              OFFにすると本文は
-              <br />
-              バージョン保存されません。
-              <br />
-              ONに戻して送信すると
-              <br />
-              本文がバージョンとして保存されます。
-            </TooltipContent>
-          </Tooltip>
-        )}
         <div className="flex items-center gap-2">
           {showBackButton && (
             <Button

@@ -10,25 +10,54 @@ interface AnalyticsPageProps {
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const params = await searchParams;
-  const pageParam = Array.isArray(params?.page) ? params?.page[0] : params?.page;
-  const page = Math.max(1, parseInt(pageParam || '1', 10));
+  const hasUrlFilterParams = params?.category !== undefined || params?.uncategorized !== undefined;
+  const pageParam = Array.isArray(params?.page) ? params.page[0] : params?.page;
+  const pageParsed = Number.parseInt(pageParam ?? '1', 10);
+  const page = Number.isFinite(pageParsed) && pageParsed > 0 ? pageParsed : 1;
   const perPage = 10; // 1ページあたり10件で固定表示
+  const selectedCategoryNames = Array.isArray(params?.category)
+    ? params.category
+    : params?.category
+      ? [params.category]
+      : [];
+  const includeUncategorized = params?.uncategorized === '1';
 
-  // 並列でデータ取得
-  const [analyticsPage, unreadResult] = await Promise.all([
-    analyticsContentService.getPage({ page, perPage }),
+  // 並列でデータ取得（一覧・未読・カテゴリ一覧）
+  const [analyticsPage, unreadResult, allCategoryNames] = await Promise.all([
+    analyticsContentService.getPage({
+      page,
+      perPage,
+      selectedCategoryNames,
+      includeUncategorized,
+    }),
     getAnnotationIdsWithUnreadSuggestions(),
+    analyticsContentService.getAvailableCategoryNames(),
   ]);
   const { items, total, totalPages, page: resolvedPage, perPage: resolvedPerPage, error } = analyticsPage;
   const currentPage = resolvedPage ?? page;
   const prevDisabled = currentPage <= 1;
   const nextDisabled = currentPage >= totalPages;
-  const prevHref = `/analytics?page=${Math.max(1, currentPage - 1)}`;
-  const nextHref = `/analytics?page=${Math.min(totalPages, currentPage + 1)}`;
+  const buildPageHref = (targetPage: number) => {
+    const query = new URLSearchParams();
+    query.set('page', String(targetPage));
+    for (const categoryName of selectedCategoryNames) {
+      const trimmed = categoryName.trim();
+      if (trimmed.length > 0) {
+        query.append('category', trimmed);
+      }
+    }
+    if (includeUncategorized) {
+      query.set('uncategorized', '1');
+    }
+    return `/analytics?${query.toString()}`;
+  };
+  const prevHref = buildPageHref(Math.max(1, currentPage - 1));
+  const nextHref = buildPageHref(Math.min(totalPages, currentPage + 1));
 
   return (
     <AnalyticsClient
       items={items}
+      allCategoryNames={allCategoryNames}
       unreadAnnotationIds={unreadResult.annotationIds}
       error={error ?? null}
       total={total}
@@ -39,6 +68,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       nextHref={nextHref}
       prevDisabled={prevDisabled}
       nextDisabled={nextDisabled}
+      selectedCategoryNames={selectedCategoryNames}
+      includeUncategorized={includeUncategorized}
+      hasUrlFilterParams={hasUrlFilterParams}
     />
   );
 }

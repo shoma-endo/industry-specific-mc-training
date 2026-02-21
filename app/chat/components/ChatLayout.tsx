@@ -27,7 +27,7 @@ import { getContentAnnotationBySession } from '@/server/actions/wordpress.action
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
 import { useHeadingFlow } from '@/hooks/useHeadingFlow';
 import { Service } from '@/server/schemas/brief.schema';
-import { BlogStepId, BLOG_STEP_IDS, VERSIONING_TOGGLE_STEP } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
 
@@ -269,17 +269,6 @@ interface ChatLayoutCtx {
   onServiceChange: (serviceId: string) => void;
   servicesError: string | null;
   onDismissServicesError: () => void;
-  // バージョン管理トグル
-  versioningEnabled: boolean;
-  onVersioningChange: (enabled: boolean) => void;
-  justReEnabled: boolean;
-  // 見出し単位生成フロー用
-  headingIndex?: number | undefined;
-  totalHeadings?: number | undefined;
-  currentHeadingText?: string | undefined;
-  headingInitError?: string | null;
-  onRetryHeadingInit?: () => void;
-  isRetryingHeadingInit?: boolean;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -317,17 +306,12 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onServiceChange,
     servicesError,
     onDismissServicesError,
-    versioningEnabled,
-    onVersioningChange,
-    justReEnabled,
-    headingIndex,
-    totalHeadings,
-    currentHeadingText,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
 
   const currentStep: BlogStepId = BLOG_STEP_IDS[0] as BlogStepId;
+  const flowStatus: 'idle' | 'running' | 'waitingAction' | 'error' = 'idle';
   const normalizedInitialStep =
     initialStep && BLOG_STEP_IDS.includes(initialStep) ? initialStep : null;
   // 最新メッセージのステップを優先し、なければ初期ステップにフォールバック
@@ -487,6 +471,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           blogFlowActive={blogFlowActive}
           blogProgress={{ currentIndex: displayIndex, total: BLOG_STEP_IDS.length }}
           onModelChange={handleModelChange}
+          blogFlowStatus={flowStatus}
           selectedModelExternal={selectedModel}
           nextStepForPlaceholder={nextStepForPlaceholder}
           onNextStepChange={onNextStepChange}
@@ -515,12 +500,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           services={services}
           selectedServiceId={selectedServiceId}
           onServiceChange={onServiceChange}
-          versioningEnabled={versioningEnabled}
-          onVersioningChange={onVersioningChange}
-          justReEnabled={justReEnabled}
-          headingIndex={headingIndex}
-          totalHeadings={totalHeadings}
-          currentHeadingText={currentHeadingText}
         />
       </div>
 
@@ -557,10 +536,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false);
   const [annotationOpen, setAnnotationOpen] = useState(false);
-  // バージョン管理トグル状態
-  const [versioningEnabled, setVersioningEnabled] = useState(true);
-  const [justReEnabled, setJustReEnabled] = useState(false);
-  const [guardMessageCount, setGuardMessageCount] = useState<number | null>(null);
   const [annotationData, setAnnotationData] = useState<AnnotationRecord | null>(null);
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [isGeneratingTitleMeta, setIsGeneratingTitleMeta] = useState(false);
@@ -929,11 +904,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setIsEditingTitle(false);
     setTitleError(null);
     setIsSavingTitle(false);
-    // バージョン管理トグルをリセット
-    setVersioningEnabled(true);
-    setJustReEnabled(false);
-    setGuardMessageCount(null);
-
     prevSessionIdRef.current = nextSessionId;
   }, [chatSession.state.currentSessionId]);
 
@@ -1055,30 +1025,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   }, [latestBlogStep, selectedModel]);
 
-  // トグル対象ステップのバージョン管理の派生状態（単純な三項演算子のためメモ化不要）
-  // 対象ステップ以外では常に ON として扱う
-  const effectiveVersioningEnabled =
-    latestBlogStep === VERSIONING_TOGGLE_STEP ? versioningEnabled : true;
-
-  // ガード解除条件をuseMemoでメモ化（messages.slice().some()の再計算を防ぐ）
-  const isGuardReleaseConditionMet = useMemo(() => {
-    if (!justReEnabled || guardMessageCount === null) return false;
-    if (chatSession.state.isLoading || chatSession.state.error !== null) return false;
-
-    const newMessages = chatSession.state.messages.slice(guardMessageCount);
-    return newMessages.some(
-      m => m.role === 'assistant' && m.model === `blog_creation_${VERSIONING_TOGGLE_STEP}`
-    );
-  }, [
-    justReEnabled,
-    guardMessageCount,
-    chatSession.state.isLoading,
-    chatSession.state.error,
-    chatSession.state.messages,
-  ]);
-
-  const effectiveJustReEnabled = justReEnabled && !isGuardReleaseConditionMet;
-
   // ✅ メッセージ送信時に初期化を実行
   const handleSendMessage = useCallback(
     async (content: string, model: string) => {
@@ -1166,23 +1112,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setAnnotationLoading(false);
     }
   };
-
-  // バージョン管理トグル変更ハンドラ
-  const handleVersioningChange = useCallback(
-    (enabled: boolean) => {
-      setVersioningEnabled(enabled);
-      if (enabled) {
-        // OFF→ON 復帰時: ガードを有効化し、現在のメッセージ数をスナップショット
-        setJustReEnabled(true);
-        setGuardMessageCount(chatSession.state.messages.length);
-      } else {
-        // ON→OFF: ガードをリセット
-        setJustReEnabled(false);
-        setGuardMessageCount(null);
-      }
-    },
-    [chatSession.state.messages.length]
-  );
 
   const handleGenerateTitleMeta = async () => {
     const sessionId = chatSession.state.currentSessionId;
@@ -1285,6 +1214,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
 
       canvasEditInFlightRef.current = true;
+      setIsCanvasStreaming(true);
 
       try {
         // キャンバスパネルはブログ作成専用のため、常にブログ作成モデルを使用
@@ -1319,23 +1249,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           throw new Error('セッションIDが見つかりません');
         }
 
-        const isVersioningOffForTargetStep =
-          targetStep === VERSIONING_TOGGLE_STEP && !effectiveVersioningEnabled;
-        if (isVersioningOffForTargetStep) {
-          await chatSession.actions.sendCanvasScopedStep7Edit(
-            instruction,
-            selectedText,
-            selectedServiceId ? { serviceId: selectedServiceId } : undefined
-          );
-          handleModelChange('blog_creation', targetStep);
-          await chatSession.actions.loadSession(chatSession.state.currentSessionId);
-          setOptimisticMessages([]);
-          return { replacementHtml: '' };
-        }
-
         // アクセストークン取得
         const accessToken = await getAccessToken();
-        setIsCanvasStreaming(true);
 
         // ストリーミングコンテンツをリセット
         setCanvasStreamingContent('');
@@ -1556,10 +1471,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       setCanvasStep,
       setFollowLatestByStep,
       setOptimisticMessages,
-      selectedServiceId,
       setCanvasStreamingContent,
       setSelectedVersionByStep,
-      effectiveVersioningEnabled,
     ]
   );
 
@@ -1610,16 +1523,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onServiceChange: handleServiceChange,
           servicesError,
           onDismissServicesError: dismissServicesError,
-          versioningEnabled,
-          onVersioningChange: handleVersioningChange,
-          justReEnabled: effectiveJustReEnabled,
-          // 見出し単位生成フロー用
-          headingIndex: activeHeadingIndex,
-          totalHeadings: headingSections.length,
-          currentHeadingText: activeHeading?.headingText,
-          headingInitError,
-          onRetryHeadingInit: handleRetryHeadingInit,
-          isRetryingHeadingInit: isHeadingInitInFlight,
         }}
       />
       {canvasPanelOpen && (

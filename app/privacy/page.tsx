@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 export const metadata: Metadata = {
   title: 'プライバシーポリシー - GrowMate',
   description:
-    'GrowMateのプライバシーポリシー。Google Search Console APIの利用目的とデータ保護方針について説明します。',
+    'GrowMateのプライバシーポリシー。Google Search Console、Google Analytics、Google Ads APIの利用目的とデータ保護方針について説明します。',
 };
 
 export default function PrivacyPolicyPage() {
@@ -30,9 +30,7 @@ export default function PrivacyPolicyPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-6 border-b pb-4">
             プライバシーポリシー
           </h1>
-          <p className="text-sm text-gray-500 mb-8">
-            最終更新日: 2025年11月22日
-          </p>
+          <p className="text-sm text-gray-500 mb-8">最終更新日: 2026年2月18日</p>
 
           <div
             className="bg-gray-100 rounded-2xl p-6 sm:p-8 text-sm text-gray-700 mb-10"
@@ -67,8 +65,8 @@ export default function PrivacyPolicyPage() {
             <section id="overview">
               <h2 className="text-xl font-bold text-gray-900 mb-3">1. はじめに</h2>
               <p>
-                「GrowMate」（以下、「当サービス」といいます）は、ユーザーの個人情報および
-                Google Search
+                「GrowMate」（以下、「当サービス」といいます）は、ユーザーの個人情報および Google
+                Search
                 Console（以下、GSC）から取得するデータの取り扱いにおいて、透明性と安全性を最優先します。本ポリシーでは、取得する情報、利用目的、保管場所、第三者提供、ユーザーが行使できる権利について説明します。
               </p>
             </section>
@@ -85,11 +83,27 @@ export default function PrivacyPolicyPage() {
                   <strong>Googleユーザーデータ:</strong> 以下のスコープで取得する情報。
                   <ul className="list-circle pl-5 mt-1">
                     <li>
-                      GSC: <code className="bg-gray-100 px-2 py-1 rounded text-xs">https://www.googleapis.com/auth/webmasters.readonly</code><br/>
+                      GSC:{' '}
+                      <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                        https://www.googleapis.com/auth/webmasters.readonly
+                      </code>
+                      <br />
                       検索クエリ、クリック数、表示回数、掲載順位等。
                     </li>
                     <li>
-                      Google Ads: <code className="bg-gray-100 px-2 py-1 rounded text-xs">https://www.googleapis.com/auth/adwords</code><br/>
+                      GA4:{' '}
+                      <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                        https://www.googleapis.com/auth/analytics.readonly
+                      </code>
+                      <br />
+                      ウェブサイトのアクセス解析データ（表示回数、ユーザー数、イベント等）。
+                    </li>
+                    <li>
+                      Google Ads:{' '}
+                      <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                        https://www.googleapis.com/auth/adwords
+                      </code>
+                      <br />
                       広告キャンペーン情報、広告グループ、クリック数、コンバージョン数等のパフォーマンス指標。
                     </li>
                   </ul>
@@ -115,7 +129,7 @@ export default function PrivacyPolicyPage() {
                 3. Googleユーザーデータの利用目的と方法
               </h2>
               <p className="mb-2">
-                以下のデータは記載された目的に限定して利用します。GSCデータは読み取り専用で取得し、書き込みや設定変更は行いません。
+                以下のデータは記載された目的に限定して利用します。GSCおよびGA4データは読み取り専用で取得し、書き込みや設定変更は行いません。
                 Google Ads データは分析・改善提案のみに使用し、広告目的での転用は行いません。
               </p>
               <ul className="list-disc pl-5 space-y-1">
@@ -123,10 +137,13 @@ export default function PrivacyPolicyPage() {
                   ユーザーサイトの検索パフォーマンス指標を可視化するため（GSCインサイト画面）。
                 </li>
                 <li>
-                  Google Ads の広告パフォーマンスを分析し、より効果的な広告コピーやキーワード設定の改善案を生成するため。
+                  ウェブサイトのアクセス解析データ（滞在時間、読了率、CV数等）を表示するため（アナリティクス画面）。
                 </li>
-                <li>指標に基づき、AIが改善提案・コンテンツ案を生成するため。
+                <li>
+                  Google Ads
+                  の広告パフォーマンスを分析し、より効果的な広告コピーやキーワード設定の改善案を生成するため。
                 </li>
+                <li>指標に基づき、AIが改善提案・コンテンツ案を生成するため。</li>
                 <li>
                   レポートダウンロードや履歴比較など、ユーザーが要求した範囲の機能を提供するため。
                 </li>
@@ -136,13 +153,36 @@ export default function PrivacyPolicyPage() {
                 モデルの学習データに転用されません。分析処理は Supabase 上で実施し、結果のみを UI
                 とチャットに返します。
               </div>
-              <div className="bg-gray-50 border border-gray-200 p-4 mt-4 text-sm text-gray-800 rounded-lg">
-                <p className="font-semibold">Google User Data Policy (English)</p>
-                <p className="mt-2">
-                  GrowMate uses the Google Ads API to retrieve and display advertising performance
-                  data. We comply with the Google API Services User Data Policy, including the
-                  Limited Use requirements. We do not transfer or sell Google user data to third
-                  parties for purposes unrelated to the core functionality of this service.
+              <div className="bg-gray-100 border border-gray-200 p-4 mt-4 text-sm text-gray-800 rounded-lg">
+                <p className="font-semibold mb-2">
+                  Google API サービスのユーザーデータポリシーへの準拠
+                </p>
+                <p className="mb-4">
+                  本サービスが Google API
+                  から取得した情報の使用および他のアプリへの転送は、限定的使用の要件（Limited Use
+                  requirements）を含む{' '}
+                  <Link
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 underline"
+                  >
+                    Google API サービスのユーザーデータポリシー
+                  </Link>{' '}
+                  に準拠します。
+                </p>
+                <p className="italic text-gray-600">
+                  GrowMate&apos;s use and transfer to any other app of information received from
+                  Google APIs will adhere to{' '}
+                  <Link
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline"
+                  >
+                    Google API Services User Data Policy
+                  </Link>
+                  , including the Limited Use requirements.
                 </p>
               </div>
             </section>
@@ -176,7 +216,9 @@ export default function PrivacyPolicyPage() {
               <ul className="list-disc pl-5 space-y-1">
                 <li>Supabase Inc.（データベース、認証、ストレージ）</li>
                 <li>Vercel Inc.（アプリケーションホスティング）</li>
-                <li>Google LLC（Google Search Console API, Google Ads API）</li>
+                <li>
+                  Google LLC（Google Search Console API, Google Analytics API, Google Ads API）
+                </li>
                 <li>LINEヤフー株式会社（LIFF 認証）</li>
                 <li>Automattic Inc. / WordPress Foundation（WordPress API）</li>
                 <li>

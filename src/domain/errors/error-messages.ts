@@ -63,8 +63,7 @@ export const ERROR_MESSAGES = {
     INVALID_URL: '有効なURLを入力してください',
 
     /** 指定された投稿IDがWordPressで見つからない場合 */
-    POST_ID_NOT_FOUND:
-      '指定された投稿IDがWordPressで見つかりませんでした。URLをご確認ください。',
+    POST_ID_NOT_FOUND: '指定された投稿IDがWordPressで見つかりませんでした。URLをご確認ください。',
 
     /** URLから投稿IDを特定できない場合 */
     POST_ID_CANNOT_BE_RESOLVED:
@@ -74,8 +73,7 @@ export const ERROR_MESSAGES = {
     POST_NOT_FOUND: 'WordPressで該当する投稿が見つかりませんでした。URLをご確認ください。',
 
     /** 重複するcanonical URLエラー */
-    DUPLICATE_CANONICAL:
-      'このWordPress記事URLは別のコンテンツで既に登録されています',
+    DUPLICATE_CANONICAL: 'このWordPress記事URLは別のコンテンツで既に登録されています',
 
     /** 既存アノテーション取得エラー */
     ANNOTATION_FETCH_ERROR: (message: string): string => `既存アノテーション取得エラー: ${message}`,
@@ -330,8 +328,7 @@ export const ERROR_MESSAGES = {
     DETAIL_FETCH_FAILED: '詳細の取得に失敗しました',
 
     /** 必須パラメータが不足している場合 */
-    REQUIRED_PARAMS_MISSING:
-      'contentAnnotationId, propertyUri, baseEvaluationDate は必須です',
+    REQUIRED_PARAMS_MISSING: 'contentAnnotationId, propertyUri, baseEvaluationDate は必須です',
 
     /** 日付形式が不正な場合（YYYY-MM-DD形式） */
     INVALID_DATE_FORMAT_YYYYMMDD: '日付は YYYY-MM-DD 形式で指定してください',
@@ -383,6 +380,10 @@ export const ERROR_MESSAGES = {
 
     /** クエリ指標の取得に失敗した場合 */
     QUERY_METRICS_FETCH_FAILED: 'クエリ指標の取得に失敗しました',
+
+    /** 設定中のGSCプロパティと記事URLが一致しない場合 */
+    PROPERTY_URL_MISMATCH:
+      '現在設定中のGSCプロパティがこの記事URLと一致していません。設定ダッシュボードで対象サイトのプロパティに切り替えてください。',
 
     /** 評価処理に失敗した場合 */
     EVALUATION_PROCESS_FAILED: '評価処理に失敗しました',
@@ -459,7 +460,8 @@ export const ERROR_MESSAGES = {
     NOT_CONNECTED: 'Google Adsが未接続です',
 
     /** アカウントが選択されていない場合 */
-    ACCOUNT_NOT_SELECTED: 'アカウントが選択されていません。設定画面からアカウントを選択してください',
+    ACCOUNT_NOT_SELECTED:
+      'アカウントが選択されていません。設定画面からアカウントを選択してください',
 
     /** Google Ads 認証が期限切れまたは取り消されている場合 */
     AUTH_EXPIRED_OR_REVOKED: 'Google Adsの認証が期限切れまたは取り消されています',
@@ -487,11 +489,14 @@ export const ERROR_MESSAGES = {
       'MCC 配下のアカウントが選択されていません。設定画面で対象アカウントを選択してください。',
 
     /** Google Ads ダッシュボードのデータ取得ガイダンス（認証期限） */
-    DASHBOARD_GUIDANCE_AUTH_EXPIRED:
-      '認証が期限切れまたは取り消されています。再認証してください。',
+    DASHBOARD_GUIDANCE_AUTH_EXPIRED: '認証が期限切れまたは取り消されています。再認証してください。',
 
     /** Google Ads ダッシュボードのデータ取得ガイダンス（汎用） */
     DASHBOARD_GUIDANCE_UNKNOWN: '取得に失敗しました。時間をおいて再試行してください。',
+
+    /** Google Ads ダッシュボードのデータ取得ガイダンス（管理者権限が必要） */
+    DASHBOARD_GUIDANCE_ADMIN_REQUIRED:
+      'Google Ads 連携機能は現在、管理者ユーザーのみ利用可能です。管理者に問い合わせるか、権限設定を確認してください。',
   },
 
   /**
