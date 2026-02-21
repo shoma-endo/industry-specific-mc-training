@@ -19,6 +19,12 @@ interface StepActionBarProps {
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   isLoadBlogArticleLoading?: boolean;
   onManualStepChange?: ((step: BlogStepId) => void) | undefined;
+  /** Step6/Step7 本文生成時: 現在の見出しインデックス（0-based） */
+  headingIndex?: number;
+  /** Step6/Step7 本文生成時: 見出しの総数 */
+  totalHeadings?: number;
+  /** Step6/Step7 本文生成時: 現在の見出しテキスト */
+  currentHeadingText?: string;
 }
 
 export interface StepActionBarRef {
@@ -42,6 +48,9 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
       onManualStepChange,
+      headingIndex,
+      totalHeadings,
+      currentHeadingText,
     },
     ref
   ) => {
