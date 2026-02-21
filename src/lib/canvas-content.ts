@@ -21,7 +21,6 @@ const findLatestAssistantBlogStep = (messages: ChatMessage[]): BlogStepId | null
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
     if (!message || message.role !== 'assistant') continue;
-    if (message.model === 'blog_creation_step5_chat') return 'step5';
     const step = extractBlogStepFromModel(message.model);
     if (step) return step;
   }
