@@ -381,6 +381,10 @@ export const ERROR_MESSAGES = {
     /** クエリ指標の取得に失敗した場合 */
     QUERY_METRICS_FETCH_FAILED: 'クエリ指標の取得に失敗しました',
 
+    /** 設定中のGSCプロパティと記事URLが一致しない場合 */
+    PROPERTY_URL_MISMATCH:
+      '現在設定中のGSCプロパティがこの記事URLと一致していません。設定ダッシュボードで対象サイトのプロパティに切り替えてください。',
+
     /** 評価処理に失敗した場合 */
     EVALUATION_PROCESS_FAILED: '評価処理に失敗しました',
   },

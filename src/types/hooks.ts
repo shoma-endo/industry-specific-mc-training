@@ -67,11 +67,6 @@ export interface ChatSessionActions {
     model: string,
     options?: { systemPrompt?: string; serviceId?: string }
   ) => Promise<void>;
-  sendCanvasScopedStep7Edit: (
-    instruction: string,
-    selectedText: string,
-    options?: { serviceId?: string }
-  ) => Promise<void>;
   setError: (message: string | null) => void;
   loadSessions: () => Promise<void>;
   loadSession: (sessionId: string) => Promise<void>;
