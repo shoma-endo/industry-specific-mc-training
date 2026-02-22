@@ -82,7 +82,10 @@ export function useHeadingFlow({
   const fetchLatestCombinedContent = useCallback(
     async (sid: string): Promise<void> => {
       const liffAccessToken = await getAccessToken();
-      const res = await headingActions.getLatestCombinedContent({ sessionId: sid, liffAccessToken });
+      const res = await headingActions.getLatestCombinedContent({
+        sessionId: sid,
+        liffAccessToken,
+      });
       if (res.success && sid === currentSessionIdRef.current) {
         setLatestCombinedContent(res.data ?? null);
       }
@@ -92,9 +95,11 @@ export function useHeadingFlow({
 
   // セッション切り替え時にステートをリセットして最新データを取得
   const prevSessionIdRef = useRef<string | null>(null);
+  const prevStep5ContentRef = useRef<string | null>(null);
   useEffect(() => {
     if (prevSessionIdRef.current === sessionId) return;
     prevSessionIdRef.current = sessionId;
+    prevStep5ContentRef.current = null; // セッション跨ぎで同一文字列時の再初期化を可能にする
 
     setHeadingSections([]);
     setLatestCombinedContent(null);
@@ -146,9 +151,18 @@ export function useHeadingFlow({
             liffAccessToken,
           });
           if (res.success) {
-            await fetchHeadingSections(sessionId);
-            setHeadingInitError(null);
-            setHasAttemptedHeadingInit(true);
+            const sections = await fetchHeadingSections(sessionId);
+            if (sections.length === 0) {
+              if (sessionId === currentSessionIdRef.current) {
+                setHeadingInitError('見出しの取得に失敗しました。再試行してください。');
+                // hasAttemptedHeadingInit は立てず再試行可能に
+              }
+              // セッション切替中（sid !== currentSessionIdRef）で空配列の場合は
+              // 競合防止の意図的スキップなのでエラーを立てない
+            } else {
+              setHeadingInitError(null);
+              setHasAttemptedHeadingInit(true);
+            }
           } else {
             console.error('Failed to initialize heading sections:', res.error);
             setHeadingInitError(res.error || '初期化に失敗しました');
@@ -171,7 +185,6 @@ export function useHeadingFlow({
   }, [
     sessionId,
     resolvedCanvasStep,
-    headingSections.length,
     isHeadingInitInFlight,
     step5Content,
     isSessionLoading,

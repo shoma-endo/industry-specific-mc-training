@@ -108,6 +108,7 @@ export async function getHeadingSections(data: z.infer<typeof getHeadingSections
     orderIndex: s.order_index,
     content: s.content,
     isConfirmed: s.is_confirmed,
+    updatedAt: s.updated_at,
   }));
 
   return { success: true, data: sections };

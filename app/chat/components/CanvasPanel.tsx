@@ -161,11 +161,13 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   activeStepId,
   onStepSelect,
   streamingContent = '',
+  canvasContentRef,
   headingIndex,
   totalHeadings,
   currentHeadingText,
   onSaveHeadingSection,
   isSavingHeading,
+  isStep6SaveDisabled = false,
   headingInitError,
   onRetryHeadingInit,
   isRetryingHeadingInit,
@@ -658,6 +660,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   // ✅ コンテンツが更新された時の処理
   useEffect(() => {
     const currentContent = streamingContent || content;
+    if (canvasContentRef) {
+      canvasContentRef.current = currentContent;
+    }
     const effectiveStepId =
       activeStepId ?? (stepOptions.length > 0 ? stepOptions[stepOptions.length - 1] : null);
     const shouldOpenLinksInNewTab = effectiveStepId ? isBlogStep7(effectiveStepId) : false;
@@ -678,11 +683,17 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
         editor.commands.setContent(htmlContent);
       }
+    } else if (editor) {
+      // stale 時など content が空のときはエディタを明示的にクリア（前見出し本文の残留を防ぐ）
+      setMarkdownContent('');
+      setHeadings([]);
+      editor.commands.setContent('');
     }
   }, [
     editor,
     content,
     streamingContent,
+    canvasContentRef,
     extractHeadings,
     buildHtmlFromMarkdown,
     activeStepId,
@@ -1126,7 +1137,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             <Button
               size="sm"
               onClick={onSaveHeadingSection}
-              disabled={isSavingHeading || isStreaming}
+              disabled={isSavingHeading || isStreaming || isStep6SaveDisabled}
               className="bg-blue-600 hover:bg-blue-700 text-white transition-colors px-3 py-1 text-xs font-bold shadow-sm"
             >
               {isSavingHeading ? (

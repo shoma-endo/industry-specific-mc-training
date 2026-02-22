@@ -6,6 +6,8 @@ export interface SessionHeadingSection {
   orderIndex: number;
   content: string;
   isConfirmed: boolean;
+  /** 確定時の更新日時（ISO 文字列）。stale 判定に使用 */
+  updatedAt?: string;
 }
 
 export interface SessionCombinedContent {

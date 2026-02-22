@@ -47,12 +47,16 @@ export interface CanvasPanelProps {
   activeStepId?: BlogStepId | null;
   onStepSelect?: (stepId: BlogStepId) => void;
   streamingContent?: string;
+  /** Canvas表示内容を保存時に参照するための ref。CanvasPanel が表示更新時に随時更新する */
+  canvasContentRef?: React.MutableRefObject<string>;
   // 見出し単位生成フロー用
   headingIndex?: number | undefined;
   totalHeadings?: number | undefined;
   currentHeadingText?: string | undefined;
   onSaveHeadingSection?: (() => Promise<void>) | undefined;
   isSavingHeading?: boolean | undefined;
+  /** 見出し遷移直後など、前見出し本文の誤保存を防ぐため保存を無効化 */
+  isStep6SaveDisabled?: boolean | undefined;
   headingInitError?: string | null | undefined;
   onRetryHeadingInit?: (() => void) | undefined;
   isRetryingHeadingInit?: boolean | undefined;

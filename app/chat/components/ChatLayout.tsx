@@ -570,6 +570,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const currentSessionTitle = currentSession?.title ?? '新しいチャット';
   const canvasEditInFlightRef = useRef(false);
   const prevSessionIdRef = useRef<string | null>(null);
+  const canvasContentRef = useRef<string>('');
 
   useEffect(() => {
     const sessionId = chatSession.state.currentSessionId;
@@ -788,9 +789,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // 見出し単位生成フロー用ステート・ロジック（カスタムフックで管理）
   const step5Content = useMemo(
     () =>
-      [...(chatSession.state.messages ?? [])]
-        .reverse()
-        .find(m => m.model === 'blog_creation_step5')?.content ?? null,
+      [...(chatSession.state.messages ?? [])].reverse().find(m => m.model === 'blog_creation_step5')
+        ?.content ?? null,
     [chatSession.state.messages]
   );
 
@@ -824,20 +824,107 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     return versions[versions.length - 1];
   }, [resolvedCanvasStep, activeVersionId, blogCanvasVersionsByStep]);
 
+  // 見出し保存後に activeHeadingIndex が進んでも Canvas は前見出しの本文のまま。
+  // この状態で再保存すると誤保存になるため、新規生成が入るまで内容を空表示・保存無効化する。
+  const prevActiveHeadingIndexRef = useRef<number | undefined>(undefined);
+  const [isStep6ContentStale, setIsStep6ContentStale] = useState(false);
+  const prevStep6SessionIdRef = useRef<string | null>(null);
+  const sessionSwitchPendingHeadingCheckRef = useRef(false);
+  const step6Versions = blogCanvasVersionsByStep.step6 ?? [];
+  const latestStep6Version = step6Versions[step6Versions.length - 1] ?? null;
+  // 直前の確定見出しの updated_at より最新バージョンの createdAt が新しければ「現在見出し向け」と判定
+  const hasContentForCurrentHeading = useMemo(() => {
+    const headingIdx = activeHeadingIndex ?? 0;
+    if (headingIdx === 0) return true;
+    const prevHeading = headingSections[headingIdx - 1];
+    if (!prevHeading?.isConfirmed) return false;
+    const prevUpdatedMs = prevHeading.updatedAt
+      ? new Date(prevHeading.updatedAt).getTime()
+      : 0;
+    const versionCreatedMs = latestStep6Version?.createdAt ?? 0;
+    return versionCreatedMs > prevUpdatedMs;
+  }, [activeHeadingIndex, headingSections, latestStep6Version]);
+  // セッション切り替え時のみ: 2番目以降の見出しで、現在見出し向けドラフトがなさそうな場合のみ stale 扱い
+  useEffect(() => {
+    const currentSessionId = chatSession.state.currentSessionId ?? null;
+    if (prevStep6SessionIdRef.current === currentSessionId) return;
+    prevStep6SessionIdRef.current = currentSessionId;
+    prevActiveHeadingIndexRef.current = undefined;
+    const headingIdx = activeHeadingIndex ?? 0;
+    const isReopenWithLaterHeading =
+      resolvedCanvasStep === 'step6' &&
+      headingIdx > 0 &&
+      !hasContentForCurrentHeading;
+    setIsStep6ContentStale(isReopenWithLaterHeading);
+    // 見出しが未到着なら、到着後の別 effect で stale 判定する
+    sessionSwitchPendingHeadingCheckRef.current = !isReopenWithLaterHeading;
+  }, [
+    chatSession.state.currentSessionId,
+    resolvedCanvasStep,
+    activeHeadingIndex,
+    hasContentForCurrentHeading,
+  ]);
+  useEffect(() => {
+    if (resolvedCanvasStep !== 'step6') return;
+    const prev = prevActiveHeadingIndexRef.current;
+    prevActiveHeadingIndexRef.current = activeHeadingIndex;
+    if (prev !== undefined && activeHeadingIndex !== undefined && activeHeadingIndex > prev) {
+      setIsStep6ContentStale(true);
+      sessionSwitchPendingHeadingCheckRef.current = false;
+    } else if (
+      sessionSwitchPendingHeadingCheckRef.current &&
+      (activeHeadingIndex ?? 0) > 0 &&
+      !hasContentForCurrentHeading
+    ) {
+      // セッション切替直後は activeHeadingIndex 未到着だったケース: 現在見出し向けドラフトがなければ stale
+      setIsStep6ContentStale(true);
+      sessionSwitchPendingHeadingCheckRef.current = false;
+    } else if (activeHeadingIndex === 0) {
+      setIsStep6ContentStale(false);
+      sessionSwitchPendingHeadingCheckRef.current = false;
+    }
+  }, [resolvedCanvasStep, activeHeadingIndex, hasContentForCurrentHeading]);
+  useEffect(() => {
+    if (
+      resolvedCanvasStep === 'step6' &&
+      (activeHeadingIndex ?? 0) > 0 &&
+      hasContentForCurrentHeading
+    ) {
+      setIsStep6ContentStale(false);
+    }
+  }, [resolvedCanvasStep, activeHeadingIndex, hasContentForCurrentHeading]);
+  useEffect(() => {
+    if (resolvedCanvasStep === 'step6' && canvasStreamingContent) {
+      setIsStep6ContentStale(false);
+    }
+  }, [resolvedCanvasStep, canvasStreamingContent]);
+
   const canvasContent = useMemo(() => {
     if (resolvedCanvasStep === 'step6') {
       // 全見出し確定済み → session_combined_contents の結合コンテンツを表示
+      // 取得遅延/失敗時は activeCanvasVersion にフォールバック（空表示を防ぐ）
       if (!activeHeading && headingSections.length > 0) {
-        return latestCombinedContent ?? '';
+        return latestCombinedContent ?? activeCanvasVersion?.content ?? '';
       }
       // 確定済みの場合はDBに保存された確定コンテンツを優先
       if (activeHeading?.isConfirmed) {
         return activeHeading.content;
       }
+      // 見出し遷移直後は前見出し本文を表示しない（誤保存防止）
+      if (isStep6ContentStale) {
+        return '';
+      }
     }
     // 未確定の場合は最新のバージョン（生成中の内容含む）を表示
     return activeCanvasVersion?.content ?? '';
-  }, [resolvedCanvasStep, activeHeading, headingSections.length, latestCombinedContent, activeCanvasVersion]);
+  }, [
+    resolvedCanvasStep,
+    activeHeading,
+    headingSections.length,
+    latestCombinedContent,
+    activeCanvasVersion,
+    isStep6ContentStale,
+  ]);
 
   const canvasVersionsWithMeta = useMemo(() => {
     return canvasVersionsForStep.map((version, index) => ({
@@ -855,10 +942,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     [blogCanvasVersionsByStep, nextStepForPlaceholder]
   );
 
-  // handleSaveHeadingSection はフック側のシグネチャが (content: string) のため、ここでラップする
+  // handleSaveHeadingSection はフック側のシグネチャが (content: string) のため、ここでラップする。
+  // CanvasPanel が contentRef に表示中の内容を随時更新するため、保存時は ref を優先して
+  // ストリーミング完了直後のクリックでも最新編集内容が保存される。
   const handleSaveHeadingSection = useCallback(async () => {
-    await _handleSaveHeadingSection(canvasStreamingContent || canvasContent);
-  }, [_handleSaveHeadingSection, canvasStreamingContent, canvasContent]);
+    if (isStep6ContentStale) return;
+    const contentToSave = canvasContentRef.current || canvasStreamingContent || canvasContent;
+    await _handleSaveHeadingSection(contentToSave);
+  }, [_handleSaveHeadingSection, canvasStreamingContent, canvasContent, isStep6ContentStale]);
 
   // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
 
@@ -1539,12 +1630,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           activeStepId={resolvedCanvasStep ?? null}
           onStepSelect={handleCanvasStepSelect}
           streamingContent={canvasStreamingContent}
+          canvasContentRef={canvasContentRef}
           // 見出し単位生成フロー用
           headingIndex={activeHeadingIndex}
           totalHeadings={headingSections.length}
           currentHeadingText={activeHeading?.headingText}
           onSaveHeadingSection={handleSaveHeadingSection}
           isSavingHeading={isSavingHeading}
+          isStep6SaveDisabled={isStep6ContentStale}
           headingInitError={headingInitError}
           onRetryHeadingInit={handleRetryHeadingInit}
           isRetryingHeadingInit={isHeadingInitInFlight}
