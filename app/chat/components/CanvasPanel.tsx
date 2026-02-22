@@ -1153,9 +1153,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             </Button>
           )}
           {activeStepId === 'step6' && headingInitError && onRetryHeadingInit && (
-            <div className="mr-2 flex items-center">
+            <div className="flex shrink-0 items-center gap-2">
               <span
-                className="text-[10px] text-red-500 mr-2 max-w-[150px] truncate"
+                className="text-[10px] text-red-500 max-w-[120px] truncate sm:max-w-[150px]"
                 title={headingInitError}
               >
                 生成エラー
@@ -1180,7 +1180,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="w-8 h-8 hover:bg-red-100 hover:text-red-600 transition-colors"
+            className="h-8 w-8 shrink-0 hover:bg-red-100 hover:text-red-600 transition-colors"
             title="Canvasを閉じる"
           >
             <X size={16} />
