@@ -835,7 +835,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // 単一ユーザーフローでは問題にならない想定だが、差異による誤判定の可能性を留意すること。
   const hasContentForCurrentHeading = useMemo(() => {
     const headingIdx = activeHeadingIndex ?? 0;
-    if (headingIdx === 0) return true;
+    // 初回見出し: 最新Step6本文 or ストリーミング中本文が存在し空でなければ true（未生成のまま保存させない）
+    if (headingIdx === 0) {
+      const fromVersion = (latestStep6Version?.content?.trim().length ?? 0) > 0;
+      const fromStreaming = (canvasStreamingContent?.trim().length ?? 0) > 0;
+      return fromVersion || fromStreaming;
+    }
     const prevHeading = headingSections[headingIdx - 1];
     if (!prevHeading?.isConfirmed) return false;
     const prevUpdatedMs = prevHeading.updatedAt
@@ -843,7 +848,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       : 0;
     const versionCreatedMs = latestStep6Version?.createdAt ?? 0;
     return versionCreatedMs > prevUpdatedMs;
-  }, [activeHeadingIndex, headingSections, latestStep6Version]);
+  }, [activeHeadingIndex, headingSections, latestStep6Version, canvasStreamingContent]);
 
   // ステール判定を単一の effect に統合
   useEffect(() => {
@@ -875,15 +880,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       return;
     }
 
-    // 見出しが進んだ or セッション切替で後の見出しにいる場合はステール
+    // 見出しが進んだ or 現在見出し向けコンテンツがない場合はステール（初回見出し含む）
     const prev = prevActiveHeadingIndexRef.current;
     const headingAdvanced =
       prev !== undefined &&
       activeHeadingIndex !== undefined &&
       activeHeadingIndex > prev;
-    const laterHeadingWithoutContent =
-      (activeHeadingIndex ?? 0) > 0 && !hasContentForCurrentHeading;
-    setIsStep6ContentStale(headingAdvanced || laterHeadingWithoutContent);
+    setIsStep6ContentStale(headingAdvanced || !hasContentForCurrentHeading);
     prevActiveHeadingIndexRef.current = activeHeadingIndex;
   }, [
     chatSession.state.currentSessionId,

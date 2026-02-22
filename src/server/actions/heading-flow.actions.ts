@@ -15,7 +15,7 @@ const initializeHeadingSchema = z.object({
 const saveHeadingSectionSchema = z.object({
   sessionId: z.string().min(1),
   headingKey: z.string().min(1),
-  content: z.string(),
+  content: z.string().refine(v => v.trim().length > 0, { message: '本文が空です' }),
   liffAccessToken: z.string().min(1),
 });
 
