@@ -95,11 +95,9 @@ export function useHeadingFlow({
 
   // セッション切り替え時にステートをリセットして最新データを取得
   const prevSessionIdRef = useRef<string | null>(null);
-  const prevStep5ContentRef = useRef<string | null>(null);
   useEffect(() => {
     if (prevSessionIdRef.current === sessionId) return;
     prevSessionIdRef.current = sessionId;
-    prevStep5ContentRef.current = null; // セッション跨ぎで同一文字列時の再初期化を可能にする
 
     setHeadingSections([]);
     setLatestCombinedContent(null);
@@ -110,7 +108,10 @@ export function useHeadingFlow({
     if (sessionId) {
       void (async () => {
         const sections = await fetchHeadingSections(sessionId).catch(
-          (): SessionHeadingSection[] => []
+          (err): SessionHeadingSection[] => {
+            console.error('Failed to fetch heading sections on session switch:', err);
+            return [];
+          }
         );
         if (sessionId === currentSessionIdRef.current) {
           setHasFetchCompleted(true);
@@ -127,6 +128,8 @@ export function useHeadingFlow({
 
   // Step 6 入場時の初期化（現在表示中のステップが step6 のとき発火）
   useEffect(() => {
+    // headingSections を依存配列に含めない意図：hasFetchCompleted を介した同期により
+    // セッション切り替え後の fetch 完了後に発火し、その時点の headingSections を使用する。
     if (
       !sessionId ||
       resolvedCanvasStep !== 'step6' ||
@@ -182,6 +185,7 @@ export function useHeadingFlow({
     };
 
     void initAndFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- headingSections は意図的に除外。hasFetchCompleted による同期設計。
   }, [
     sessionId,
     resolvedCanvasStep,
