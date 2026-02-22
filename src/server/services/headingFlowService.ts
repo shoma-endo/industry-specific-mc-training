@@ -106,8 +106,15 @@ export class HeadingFlowService extends SupabaseService {
       );
     }
 
-    // 完成形の再結合
-    return await this.combineSections(sessionId, userId);
+    // 完成形の再結合（失敗時はセクションは保存済みのため、リカバリ可能である旨を伝える）
+    const combineResult = await this.combineSections(sessionId, userId);
+    if (!combineResult.success) {
+      return this.failure(
+        'セクションは保存されましたが、完成形の更新に失敗しました。次の見出しを保存すると自動的に反映されます。',
+        { context: { combineError: combineResult.error } }
+      );
+    }
+    return this.success(undefined);
   }
 
   /**
