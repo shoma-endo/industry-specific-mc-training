@@ -5,11 +5,10 @@ import { headingFlowService } from '@/server/services/headingFlowService';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 import { z } from 'zod';
 import { hasOwnerRole } from '@/authUtils';
-import type { DbHeadingSection } from '@/types/heading-flow';
 
 const initializeHeadingSchema = z.object({
   sessionId: z.string().min(1),
-  step5Markdown: z.string(),
+  step5Markdown: z.string().min(1),
   liffAccessToken: z.string().min(1),
 });
 
@@ -100,7 +99,7 @@ export async function getHeadingSections(data: z.infer<typeof getHeadingSections
   }
 
   // Frontend用の型に変換
-  const sections = (result.data as DbHeadingSection[]).map(s => ({
+  const sections = result.data.map(s => ({
     id: s.id,
     headingKey: s.heading_key,
     headingLevel: s.heading_level,
