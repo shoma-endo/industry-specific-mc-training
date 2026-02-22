@@ -1625,10 +1625,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onStepSelect={handleCanvasStepSelect}
           streamingContent={canvasStreamingContent}
           canvasContentRef={canvasContentRef}
-          // 見出し単位生成フロー用
-          headingIndex={activeHeadingIndex}
+          // 見出し単位生成フロー用（exactOptionalPropertyTypes のため undefined 時は渡さない）
+          {...(activeHeadingIndex !== undefined && { headingIndex: activeHeadingIndex })}
           totalHeadings={headingSections.length}
-          currentHeadingText={activeHeading?.headingText}
+          {...(activeHeading?.headingText !== undefined && {
+            currentHeadingText: activeHeading.headingText,
+          })}
           onSaveHeadingSection={handleSaveHeadingSection}
           isSavingHeading={isSavingHeading}
           isStep6SaveDisabled={isStep6ContentStale}
