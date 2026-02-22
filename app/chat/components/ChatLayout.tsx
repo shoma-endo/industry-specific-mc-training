@@ -830,7 +830,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const prevStep6SessionIdRef = useRef<string | null>(null);
   const step6Versions = blogCanvasVersionsByStep.step6 ?? [];
   const latestStep6Version = step6Versions[step6Versions.length - 1] ?? null;
-  // 直前の確定見出しの updated_at より最新バージョンの createdAt が新しければ「現在見出し向け」と判定
+  // 直前の確定見出しの updated_at より最新バージョンの createdAt が新しければ「現在見出し向け」と判定。
+  // 注意: updated_at はサーバー (ISO8601)、createdAt はフロント (message.timestamp) 由来で時刻ソースが異なる。
+  // 単一ユーザーフローでは問題にならない想定だが、差異による誤判定の可能性を留意すること。
   const hasContentForCurrentHeading = useMemo(() => {
     const headingIdx = activeHeadingIndex ?? 0;
     if (headingIdx === 0) return true;
