@@ -148,7 +148,8 @@ BEGIN
     -- If called by service_role, trust the passed p_authenticated_user_id
     IF auth.role() = 'service_role' THEN
         v_effective_user_id := p_authenticated_user_id;
-    -- If auth.role() is 'authenticated', use auth.uid() (standard JWT auth)
+    -- 将来の拡張用：authenticated に EXECUTE を付与して直接呼び出す場合の対応。
+    -- 現状は service_role のみが呼び出し可能なため、このブランチは到達不能。
     ELSIF auth.role() = 'authenticated' THEN
         v_effective_user_id := auth.uid()::text;
     ELSE
