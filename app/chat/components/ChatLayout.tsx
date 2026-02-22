@@ -798,7 +798,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     headingSections,
     isSavingHeading,
     isHeadingInitInFlight,
-    hasAttemptedHeadingInit: _hasAttemptedHeadingInit, // eslint-disable-line @typescript-eslint/no-unused-vars
     headingInitError,
     activeHeadingIndex,
     activeHeading,
@@ -829,7 +828,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const prevActiveHeadingIndexRef = useRef<number | undefined>(undefined);
   const [isStep6ContentStale, setIsStep6ContentStale] = useState(false);
   const prevStep6SessionIdRef = useRef<string | null>(null);
-  const sessionSwitchPendingHeadingCheckRef = useRef(false);
   const step6Versions = blogCanvasVersionsByStep.step6 ?? [];
   const latestStep6Version = step6Versions[step6Versions.length - 1] ?? null;
   // 直前の確定見出しの updated_at より最新バージョンの createdAt が新しければ「現在見出し向け」と判定
@@ -844,60 +842,54 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     const versionCreatedMs = latestStep6Version?.createdAt ?? 0;
     return versionCreatedMs > prevUpdatedMs;
   }, [activeHeadingIndex, headingSections, latestStep6Version]);
-  // セッション切り替え時のみ: 2番目以降の見出しで、現在見出し向けドラフトがなさそうな場合のみ stale 扱い
+
+  // ステール判定を単一の effect に統合
   useEffect(() => {
     const currentSessionId = chatSession.state.currentSessionId ?? null;
-    if (prevStep6SessionIdRef.current === currentSessionId) return;
-    prevStep6SessionIdRef.current = currentSessionId;
-    prevActiveHeadingIndexRef.current = undefined;
-    const headingIdx = activeHeadingIndex ?? 0;
-    const isReopenWithLaterHeading =
-      resolvedCanvasStep === 'step6' &&
-      headingIdx > 0 &&
-      !hasContentForCurrentHeading;
-    setIsStep6ContentStale(isReopenWithLaterHeading);
-    // 見出しが未到着なら、到着後の別 effect で stale 判定する
-    sessionSwitchPendingHeadingCheckRef.current = !isReopenWithLaterHeading;
+
+    if (resolvedCanvasStep !== 'step6') {
+      setIsStep6ContentStale(false);
+      prevStep6SessionIdRef.current = currentSessionId;
+      return;
+    }
+
+    // セッション切り替え時: ref をリセット
+    if (prevStep6SessionIdRef.current !== currentSessionId) {
+      prevStep6SessionIdRef.current = currentSessionId;
+      prevActiveHeadingIndexRef.current = undefined;
+    }
+
+    // ストリーミング中は常に非ステール
+    if (canvasStreamingContent) {
+      setIsStep6ContentStale(false);
+      prevActiveHeadingIndexRef.current = activeHeadingIndex;
+      return;
+    }
+
+    // 現在見出し向けコンテンツがあれば非ステール
+    if ((activeHeadingIndex ?? 0) > 0 && hasContentForCurrentHeading) {
+      setIsStep6ContentStale(false);
+      prevActiveHeadingIndexRef.current = activeHeadingIndex;
+      return;
+    }
+
+    // 見出しが進んだ or セッション切替で後の見出しにいる場合はステール
+    const prev = prevActiveHeadingIndexRef.current;
+    const headingAdvanced =
+      prev !== undefined &&
+      activeHeadingIndex !== undefined &&
+      activeHeadingIndex > prev;
+    const laterHeadingWithoutContent =
+      (activeHeadingIndex ?? 0) > 0 && !hasContentForCurrentHeading;
+    setIsStep6ContentStale(headingAdvanced || laterHeadingWithoutContent);
+    prevActiveHeadingIndexRef.current = activeHeadingIndex;
   }, [
     chatSession.state.currentSessionId,
     resolvedCanvasStep,
     activeHeadingIndex,
     hasContentForCurrentHeading,
+    canvasStreamingContent,
   ]);
-  useEffect(() => {
-    if (resolvedCanvasStep !== 'step6') return;
-    const prev = prevActiveHeadingIndexRef.current;
-    prevActiveHeadingIndexRef.current = activeHeadingIndex;
-    if (prev !== undefined && activeHeadingIndex !== undefined && activeHeadingIndex > prev) {
-      setIsStep6ContentStale(true);
-      sessionSwitchPendingHeadingCheckRef.current = false;
-    } else if (
-      sessionSwitchPendingHeadingCheckRef.current &&
-      (activeHeadingIndex ?? 0) > 0 &&
-      !hasContentForCurrentHeading
-    ) {
-      // セッション切替直後は activeHeadingIndex 未到着だったケース: 現在見出し向けドラフトがなければ stale
-      setIsStep6ContentStale(true);
-      sessionSwitchPendingHeadingCheckRef.current = false;
-    } else if (activeHeadingIndex === 0) {
-      setIsStep6ContentStale(false);
-      sessionSwitchPendingHeadingCheckRef.current = false;
-    }
-  }, [resolvedCanvasStep, activeHeadingIndex, hasContentForCurrentHeading]);
-  useEffect(() => {
-    if (
-      resolvedCanvasStep === 'step6' &&
-      (activeHeadingIndex ?? 0) > 0 &&
-      hasContentForCurrentHeading
-    ) {
-      setIsStep6ContentStale(false);
-    }
-  }, [resolvedCanvasStep, activeHeadingIndex, hasContentForCurrentHeading]);
-  useEffect(() => {
-    if (resolvedCanvasStep === 'step6' && canvasStreamingContent) {
-      setIsStep6ContentStale(false);
-    }
-  }, [resolvedCanvasStep, canvasStreamingContent]);
 
   const canvasContent = useMemo(() => {
     if (resolvedCanvasStep === 'step6') {
