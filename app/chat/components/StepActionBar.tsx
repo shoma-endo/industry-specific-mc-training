@@ -70,13 +70,19 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     // UI制御
     const isStepReady = flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
     const isDisabled = disabled || !isStepReady;
+    const isStep6 = displayStep === 'step6';
     const isStep7 = displayStep === 'step7';
     const isStep1 = displayStep === 'step1';
     const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
     const showTitleMetaButton =
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
-    const showSkipButton = !isStep7;
+    const showSkipButton = !isStep6 && !isStep7;
     const showBackButton = !isStep1;
+    const isHeadingFlowStep = isStep6 || isStep7;
+    const headingLabel =
+      currentHeadingText && currentHeadingText.trim().length > 0
+        ? currentHeadingText
+        : '（見出し未設定）';
 
     // ラベル
     const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
@@ -104,9 +110,17 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
         <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
           <span>
             現在のステップ: {currentLabel}
-            {headingIndex !== undefined && totalHeadings !== undefined && currentHeadingText && (
+            {isHeadingFlowStep &&
+              headingIndex !== undefined &&
+              totalHeadings !== undefined &&
+              totalHeadings > 0 && (
               <span className="ml-2 font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded border border-blue-300 animate-in fade-in slide-in-from-left-2 duration-300">
-                見出し {headingIndex + 1}/{totalHeadings}: 「{currentHeadingText}」
+                見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
+              </span>
+            )}
+            {isHeadingFlowStep && totalHeadings === 0 && (
+              <span className="ml-2 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                見出しが見つかりません。Step5を見直してください
               </span>
             )}
             {nextStepLabel && (displayStep !== 'step6' || headingIndex === undefined) && (

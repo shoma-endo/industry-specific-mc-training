@@ -57,6 +57,8 @@ export interface CanvasPanelProps {
   isSavingHeading?: boolean;
   /** 見出し遷移直後など、前見出し本文の誤保存を防ぐため保存を無効化 */
   isStep6SaveDisabled?: boolean;
+  /** 見出し保存エラー（保存/再結合失敗）を操作ボタン付近に表示する */
+  headingSaveError?: string | null;
   headingInitError?: string | null;
   onRetryHeadingInit?: () => void;
   isRetryingHeadingInit?: boolean;

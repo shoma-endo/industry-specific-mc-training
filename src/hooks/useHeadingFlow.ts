@@ -20,6 +20,7 @@ interface UseHeadingFlowReturn {
   isHeadingInitInFlight: boolean;
   hasAttemptedHeadingInit: boolean;
   headingInitError: string | null;
+  headingSaveError: string | null;
   activeHeadingIndex: number | undefined;
   activeHeading: SessionHeadingSection | undefined;
   latestCombinedContent: string | null;
@@ -44,6 +45,7 @@ export function useHeadingFlow({
   const [isHeadingInitInFlight, setIsHeadingInitInFlight] = useState(false);
   const [hasAttemptedHeadingInit, setHasAttemptedHeadingInit] = useState(false);
   const [headingInitError, setHeadingInitError] = useState<string | null>(null);
+  const [headingSaveError, setHeadingSaveError] = useState<string | null>(null);
   const [latestCombinedContent, setLatestCombinedContent] = useState<string | null>(null);
   // セッション切り替え直後の fetch 完了を待つフラグ。
   // false の間は初期化 effect が走らないようにブロックする。
@@ -104,6 +106,7 @@ export function useHeadingFlow({
     setHasAttemptedHeadingInit(false);
     setIsHeadingInitInFlight(false);
     setHeadingInitError(null);
+    setHeadingSaveError(null);
     setHasFetchCompleted(false);
     if (sessionId) {
       void (async () => {
@@ -125,6 +128,12 @@ export function useHeadingFlow({
       setHasFetchCompleted(true);
     }
   }, [sessionId, fetchHeadingSections, fetchLatestCombinedContent]);
+
+  useEffect(() => {
+    if (resolvedCanvasStep !== 'step6') {
+      setHeadingSaveError(null);
+    }
+  }, [resolvedCanvasStep]);
 
   // Step 6 入場時の初期化（現在表示中のステップが step6 のとき発火）
   useEffect(() => {
@@ -211,6 +220,7 @@ export function useHeadingFlow({
       }
 
       setIsSavingHeading(true);
+      setHeadingSaveError(null);
       try {
         const liffAccessToken = await getAccessToken();
         const res = await headingActions.saveHeadingSection({
@@ -224,7 +234,12 @@ export function useHeadingFlow({
           const updatedSections = await fetchHeadingSections(sessionId);
 
           // 取得失敗時（空配列）は完了判定をスキップ
-          if (updatedSections.length === 0) return;
+          if (updatedSections.length === 0) {
+            const errorMessage = '保存結果の確認に失敗しました。再試行してください。';
+            setHeadingSaveError(errorMessage);
+            toast.error(errorMessage);
+            return;
+          }
 
           // 全ての見出しが完了したかチェック（返り値を使用してステール回避）
           const allDone = updatedSections.every(s => s.isConfirmed);
@@ -236,11 +251,16 @@ export function useHeadingFlow({
             );
           }
         } else {
-          throw new Error(res.error || '保存に失敗しました');
+          const errorMessage = res.error || '保存に失敗しました。再試行してください。';
+          setHeadingSaveError(errorMessage);
+          toast.error(errorMessage);
+          return;
         }
       } catch (e) {
         console.error('Failed to save heading section:', e);
-        toast.error(e instanceof Error ? e.message : '保存に失敗しました');
+        const errorMessage = e instanceof Error ? e.message : '保存に失敗しました。再試行してください。';
+        setHeadingSaveError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setIsSavingHeading(false);
       }
@@ -258,6 +278,7 @@ export function useHeadingFlow({
 
   const handleRetryHeadingInit = useCallback(() => {
     setHeadingInitError(null);
+    setHeadingSaveError(null);
     setHasAttemptedHeadingInit(false);
   }, []);
 
@@ -267,6 +288,7 @@ export function useHeadingFlow({
     isHeadingInitInFlight,
     hasAttemptedHeadingInit,
     headingInitError,
+    headingSaveError,
     activeHeadingIndex,
     activeHeading,
     latestCombinedContent,

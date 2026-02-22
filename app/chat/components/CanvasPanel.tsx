@@ -168,6 +168,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   onSaveHeadingSection,
   isSavingHeading,
   isStep6SaveDisabled = false,
+  headingSaveError,
   headingInitError,
   onRetryHeadingInit,
   isRetryingHeadingInit,
@@ -1151,6 +1152,14 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 ? '保存して全構成を確認'
                 : '保存して次の見出しへ'}
             </Button>
+          )}
+          {activeStepId === 'step6' && headingSaveError && (
+            <span
+              className="text-[10px] text-red-600 max-w-[180px] truncate"
+              title={headingSaveError}
+            >
+              {headingSaveError}
+            </span>
           )}
           {activeStepId === 'step6' && headingInitError && onRetryHeadingInit && (
             <div className="flex shrink-0 items-center gap-2">

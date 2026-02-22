@@ -13,38 +13,29 @@ export class HeadingFlowService extends SupabaseService {
   ): Promise<SupabaseResult<void>> {
     // 1. Step 5 から現在の見出し一覧を抽出
     const currentHeadings = extractHeadingsFromMarkdown(step5Markdown);
-    const currentHeadingKeys = currentHeadings.map(h => generateHeadingKey(h.orderIndex, h.text));
-
-    // 2. 不要な見出し（構成変更で消えたもの）を削除
-    let deleteQuery = this.supabase
-      .from('session_heading_sections')
-      .delete()
-      .eq('session_id', sessionId);
-
-    // 見出しがある場合はそれ以外を削除、ない場合は全削除
-    if (currentHeadingKeys.length > 0) {
-      // PostgREST の in フィルタは "(val1,val2)" 形式の文字列を期待する。
-      // また、値に特殊文字（:等）が含まれる場合はダブルクォートで囲み、内部のクォートは "" でエスケープする必要がある。
-      const quotedKeys = currentHeadingKeys.map(k => `"${k.replace(/"/g, '""')}"`).join(',');
-      deleteQuery = deleteQuery.not('heading_key', 'in', `(${quotedKeys})`);
-    }
-
-    const { error: deleteError } = await deleteQuery;
-    if (deleteError) {
-      return this.failure('古い見出しの整理に失敗しました', { error: deleteError });
-    }
-
-    // 抽出結果が0件なら、削除完了時点で終了
     if (currentHeadings.length === 0) return this.success(undefined);
 
-    // 3. 現在の見出しを反映 (upsert)
+    // 2. 既存セクションがある場合は正本を優先し、自動再同期しない
+    const { data: existingRows, error: existingRowsError } = await this.supabase
+      .from('session_heading_sections')
+      .select('id')
+      .eq('session_id', sessionId)
+      .limit(1);
+    if (existingRowsError) {
+      return this.failure('既存見出しの確認に失敗しました', { error: existingRowsError });
+    }
+    if ((existingRows ?? []).length > 0) {
+      return this.success(undefined);
+    }
+
+    // 3. 初回のみ現在の見出しを投入
     const sections: DbSessionHeadingSectionInsert[] = currentHeadings.map(h => ({
       session_id: sessionId,
       heading_key: generateHeadingKey(h.orderIndex, h.text),
       heading_level: h.level,
       heading_text: h.text,
       order_index: h.orderIndex,
-      content: '', // ignoreDuplicates: true により、同一 heading_key が既存の場合は行全体をスキップ（content/is_confirmed は上書きされない）
+      content: '',
       is_confirmed: false,
     }));
 

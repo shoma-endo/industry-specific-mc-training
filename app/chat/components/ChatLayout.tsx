@@ -263,6 +263,9 @@ interface ChatLayoutCtx {
   onGenerateTitleMeta: () => void;
   isGenerateTitleMetaLoading: boolean;
   onLoadBlogArticle?: (() => Promise<void>) | null | undefined;
+  headingIndex?: number;
+  totalHeadings: number;
+  currentHeadingText?: string;
   initialStep?: BlogStepId | null;
   services: Service[];
   selectedServiceId: string | null;
@@ -300,6 +303,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onGenerateTitleMeta,
     isGenerateTitleMetaLoading,
     onLoadBlogArticle,
+    headingIndex,
+    totalHeadings,
+    currentHeadingText,
     initialStep,
     services,
     selectedServiceId,
@@ -497,6 +503,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               ? onLoadBlogArticle
               : undefined
           }
+          totalHeadings={totalHeadings}
+          {...(headingIndex !== undefined && { headingIndex })}
+          {...(currentHeadingText !== undefined && { currentHeadingText })}
           services={services}
           selectedServiceId={selectedServiceId}
           onServiceChange={onServiceChange}
@@ -799,6 +808,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     isSavingHeading,
     isHeadingInitInFlight,
     headingInitError,
+    headingSaveError,
     activeHeadingIndex,
     activeHeading,
     latestCombinedContent,
@@ -1604,6 +1614,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onGenerateTitleMeta: handleGenerateTitleMeta,
           isGenerateTitleMetaLoading: isGeneratingTitleMeta,
           onLoadBlogArticle: handleLoadBlogArticle,
+          totalHeadings: headingSections.length,
+          ...(activeHeadingIndex !== undefined && { headingIndex: activeHeadingIndex }),
+          ...(activeHeading?.headingText !== undefined && {
+            currentHeadingText: activeHeading.headingText,
+          }),
           initialStep,
           services,
           selectedServiceId,
@@ -1637,6 +1652,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onSaveHeadingSection={handleSaveHeadingSection}
           isSavingHeading={isSavingHeading}
           isStep6SaveDisabled={isStep6ContentStale}
+          headingSaveError={headingSaveError}
           headingInitError={headingInitError}
           onRetryHeadingInit={handleRetryHeadingInit}
           isRetryingHeadingInit={isHeadingInitInFlight}
