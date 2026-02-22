@@ -117,9 +117,13 @@ export class HeadingFlowService extends SupabaseService {
     const sectionsResult = await this.getHeadingSections(sessionId);
     if (!sectionsResult.success) return sectionsResult;
 
-    const sections = sectionsResult.data as DbHeadingSection[];
+    const sections = sectionsResult.data;
     // 確定済みのセクションのみを結合（未確定セクションは空コンテンツのため除外）
     const confirmedSections = sections.filter(s => s.is_confirmed);
+    if (confirmedSections.length === 0) {
+      return this.success(undefined);
+    }
+
     const combinedContent = confirmedSections
       .map(s => {
         const hashes = '#'.repeat(s.heading_level);
@@ -151,7 +155,7 @@ export class HeadingFlowService extends SupabaseService {
       .maybeSingle();
 
     if (error) return this.failure('最新完成形の取得に失敗しました', { error });
-    const content = (data as { content: string } | null)?.content ?? null;
+    const content = data?.content ?? null;
     return this.success(content);
   }
 }
