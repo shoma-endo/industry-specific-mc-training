@@ -55,6 +55,10 @@ export function extractHeadingsFromMarkdown(markdown: string): ExtractedHeading[
 /**
  * 見出しの識別子（heading_key）を生成する。
  * 形式: {order_index}:{normalized_heading_text}:{short_hash}
+ *
+ * 設計上の注意: 見出しテキストが変わるとキーが変わり、既存DBレコードとの紐付けが切れる。
+ * (session_id, heading_key) の UNIQUE 制約により、step5 を微修正した場合は新規セクション扱いになる。
+ * 将来的にテキスト微修正（誤字等）への耐性が必要な場合は、orderIndex のみをキーにする方式の検討を推奨。
  */
 export function generateHeadingKey(orderIndex: number, headingText: string): string {
   const normalizedText = headingText
