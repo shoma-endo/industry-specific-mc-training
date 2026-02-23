@@ -923,10 +923,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       if (!activeHeading && headingSections.length > 0) {
         return latestCombinedContent ?? activeCanvasVersion?.content ?? '';
       }
-      // 確定済みの場合はDBに保存された確定コンテンツを優先
-      if (activeHeading?.isConfirmed) {
-        return activeHeading.content;
-      }
       // 見出し遷移直後は前見出し本文を表示しない（誤保存防止）
       if (isStep6ContentStale) {
         return '';
