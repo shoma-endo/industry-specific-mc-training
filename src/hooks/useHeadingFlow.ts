@@ -172,20 +172,28 @@ export function useHeadingFlow({
               // セッション切替中（sid !== currentSessionIdRef）で空配列の場合は
               // 競合防止の意図的スキップなのでエラーを立てない
             } else {
-              setHeadingInitError(null);
-              setHasAttemptedHeadingInit(true);
+              if (sessionId === currentSessionIdRef.current) {
+                setHeadingInitError(null);
+                setHasAttemptedHeadingInit(true);
+              }
             }
           } else {
             console.error('Failed to initialize heading sections:', res.error);
-            setHeadingInitError(res.error || '初期化に失敗しました');
+            if (sessionId === currentSessionIdRef.current) {
+              setHeadingInitError(res.error || '初期化に失敗しました');
+            }
           }
         } else {
           // step5 メッセージがない場合は「試行済み」としてループを止める
-          setHasAttemptedHeadingInit(true);
+          if (sessionId === currentSessionIdRef.current) {
+            setHasAttemptedHeadingInit(true);
+          }
         }
       } catch (e) {
         console.error('Failed to initialize heading sections:', e);
-        setHeadingInitError('予期せぬエラーが発生しました');
+        if (sessionId === currentSessionIdRef.current) {
+          setHeadingInitError('予期せぬエラーが発生しました');
+        }
       } finally {
         if (sessionId === currentSessionIdRef.current) {
           setIsHeadingInitInFlight(false);
