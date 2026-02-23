@@ -142,6 +142,31 @@ export class HeadingFlowService extends SupabaseService {
   }
 
   /**
+   * 全文Canvas編集後の完成形を session_combined_contents に保存する。
+   */
+  async saveCombinedContentSnapshot(
+    sessionId: string,
+    content: string,
+    userId: string
+  ): Promise<SupabaseResult<void>> {
+    if (!content.trim()) {
+      return this.failure('完成形本文が空のため保存できません');
+    }
+
+    const { error: rpcError } = await this.supabase.rpc('save_atomic_combined_content', {
+      p_session_id: sessionId,
+      p_content: content,
+      p_authenticated_user_id: userId,
+    });
+
+    if (rpcError) {
+      return this.failure('完成形の保存（RPC）に失敗しました', { error: rpcError });
+    }
+
+    return this.success(undefined);
+  }
+
+  /**
    * 最新の完成形を取得する。
    */
   async getLatestCombinedContent(sessionId: string): Promise<SupabaseResult<string | null>> {

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
+import { headingFlowService } from '@/server/services/headingFlowService';
 import { env } from '@/env';
 import { MODEL_CONFIGS } from '@/lib/constants';
 import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/canvas-content';
@@ -684,6 +685,29 @@ export async function POST(req: NextRequest) {
                 cleanup();
                 controller.close();
                 return;
+              }
+
+              // Step6完了後の全文Canvas修正は session_combined_contents にも新バージョンとして保存する
+              if (targetStep === 'step6') {
+                const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
+                if (!sectionsResult.success) {
+                  throw new Error('見出し状態の確認に失敗しました。再試行してください。');
+                }
+                const sections = sectionsResult.data;
+                const isStep6Completed = sections.length > 0 && sections.every(s => s.is_confirmed);
+                if (isStep6Completed) {
+                  const saveCombinedResult = await headingFlowService.saveCombinedContentSnapshot(
+                    sessionId,
+                    finalMarkdown,
+                    userId!
+                  );
+                  if (!saveCombinedResult.success) {
+                    throw new Error(
+                      saveCombinedResult.error?.userMessage ||
+                        '完成形の保存に失敗しました。再試行してください。'
+                    );
+                  }
+                }
               }
 
               await chatService.continueChat(
