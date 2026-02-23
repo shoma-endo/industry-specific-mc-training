@@ -5,26 +5,28 @@ import { Button } from '@/components/ui/button';
 import { BookMarked, BookOpen, FilePenLine, Loader2, SkipBack, SkipForward } from 'lucide-react';
 
 interface StepActionBarProps {
-  step?: BlogStepId | undefined;
-  className?: string | undefined;
-  disabled?: boolean | undefined;
-  hasDetectedBlogStep?: boolean | undefined;
-  onSaveClick?: (() => void) | undefined;
-  annotationLoading?: boolean | undefined;
-  isSavingHeading?: boolean | undefined;
-  hasStep7Content?: boolean | undefined;
-  onGenerateTitleMeta?: (() => void) | undefined;
-  isGenerateTitleMetaLoading?: boolean | undefined;
-  onNextStepChange?: ((nextStep: BlogStepId | null) => void) | undefined;
-  flowStatus?: string | undefined;
-  onLoadBlogArticle?: (() => Promise<void>) | undefined;
+  step?: BlogStepId;
+  className?: string;
+  disabled?: boolean;
+  hasDetectedBlogStep?: boolean;
+  onSaveClick?: () => void;
+  annotationLoading?: boolean;
+  isSavingHeading?: boolean;
+  hasStep7Content?: boolean;
+  onGenerateTitleMeta?: () => void;
+  isGenerateTitleMetaLoading?: boolean;
+  onNextStepChange?: (nextStep: BlogStepId | null) => void;
+  flowStatus?: string;
+  onLoadBlogArticle?: () => Promise<void>;
   isLoadBlogArticleLoading?: boolean;
-  onManualStepChange?: ((step: BlogStepId) => void) | undefined;
-  onBeforeManualStepChange?:
-    | ((params: { direction: 'forward' | 'backward'; currentStep: BlogStepId; targetStep: BlogStepId }) => boolean)
-    | undefined;
-  isHeadingInitInFlight?: boolean | undefined;
-  hasAttemptedHeadingInit?: boolean | undefined;
+  onManualStepChange?: (step: BlogStepId) => void;
+  onBeforeManualStepChange?: (params: {
+    direction: 'forward' | 'backward';
+    currentStep: BlogStepId;
+    targetStep: BlogStepId;
+  }) => boolean;
+  isHeadingInitInFlight?: boolean;
+  hasAttemptedHeadingInit?: boolean;
   /** Step6/Step7 本文生成時: 現在の見出しインデックス（0-based） */
   headingIndex?: number;
   /** Step6/Step7 本文生成時: 見出しの総数 */
