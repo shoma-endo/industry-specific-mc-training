@@ -516,24 +516,26 @@ const InputArea: React.FC<InputAreaProps> = ({
           <div className="px-3 py-3 border-b border-gray-200 bg-white shadow-sm">
             <StepActionBar
               ref={stepActionBarRef}
-              step={displayStep}
-              hasDetectedBlogStep={hasDetectedBlogStep}
+              {...(displayStep !== undefined && { step: displayStep })}
+              {...(hasDetectedBlogStep !== undefined && { hasDetectedBlogStep })}
               className="flex-wrap gap-3"
               disabled={isStepActionBarDisabled}
-              onSaveClick={onSaveClick}
-              annotationLoading={annotationLoading}
-              isSavingHeading={isSavingHeading}
-              hasStep7Content={hasStep7Content}
-              onGenerateTitleMeta={onGenerateTitleMeta}
-              isGenerateTitleMetaLoading={isGenerateTitleMetaLoading}
-              onNextStepChange={onNextStepChange}
-              flowStatus={blogFlowStatus}
+              {...(onSaveClick !== undefined && { onSaveClick })}
+              {...(annotationLoading !== undefined && { annotationLoading })}
+              {...(isSavingHeading !== undefined && { isSavingHeading })}
+              {...(hasStep7Content !== undefined && { hasStep7Content })}
+              {...(onGenerateTitleMeta !== undefined && { onGenerateTitleMeta })}
+              {...(isGenerateTitleMetaLoading !== undefined && {
+                isGenerateTitleMetaLoading,
+              })}
+              {...(onNextStepChange !== undefined && { onNextStepChange })}
+              {...(blogFlowStatus !== undefined && { flowStatus: blogFlowStatus })}
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
-              onManualStepChange={onManualStepChange}
-              onBeforeManualStepChange={onBeforeManualStepChange}
-              isHeadingInitInFlight={isHeadingInitInFlight}
-              hasAttemptedHeadingInit={hasAttemptedHeadingInit}
+              {...(onManualStepChange !== undefined && { onManualStepChange })}
+              {...(onBeforeManualStepChange !== undefined && { onBeforeManualStepChange })}
+              {...(isHeadingInitInFlight !== undefined && { isHeadingInitInFlight })}
+              {...(hasAttemptedHeadingInit !== undefined && { hasAttemptedHeadingInit })}
               {...(headingIndex !== undefined && { headingIndex })}
               {...(totalHeadings !== undefined && { totalHeadings })}
               {...(currentHeadingText !== undefined && { currentHeadingText })}
