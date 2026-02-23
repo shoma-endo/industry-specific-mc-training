@@ -923,8 +923,14 @@ export async function getSystemPrompt(
     if (model.startsWith('blog_creation_')) {
       const step = model.substring('blog_creation_'.length) as BlogStepId;
       const basePrompt = await generateBlogCreationPromptByStep(liffAccessToken, step, sessionId);
-      if (step !== 'step7' || !sessionId || !authUserId) {
+      if (!isBlogStep7(step)) {
         return basePrompt;
+      }
+
+      if (!sessionId || !authUserId) {
+        throw new Error(
+          'Step7は最新完成形（Step6）の取得が必須です。セッション情報または認証情報が不足しているため実行できません。'
+        );
       }
 
       const latestCombinedResult = await supabaseService.getLatestCombinedContentBySession(
@@ -932,7 +938,9 @@ export async function getSystemPrompt(
         authUserId
       );
       if (!latestCombinedResult.success || !latestCombinedResult.data?.trim()) {
-        return basePrompt;
+        throw new Error(
+          'Step7は最新完成形（Step6）の取得が必須です。最新完成形を取得できないため実行できません。'
+        );
       }
 
       return [

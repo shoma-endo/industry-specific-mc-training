@@ -69,6 +69,7 @@ interface InputAreaProps {
   hasDetectedBlogStep?: boolean;
   onSaveClick?: () => void;
   annotationLoading?: boolean;
+  isSavingHeading?: boolean;
   hasStep7Content?: boolean;
   onGenerateTitleMeta?: () => void;
   isGenerateTitleMetaLoading?: boolean;
@@ -76,6 +77,11 @@ interface InputAreaProps {
   onNextStepChange?: (nextStep: BlogStepId | null) => void;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   onManualStepChange?: (step: BlogStepId) => void;
+  onBeforeManualStepChange?: (params: {
+    direction: 'forward' | 'backward';
+    currentStep: BlogStepId;
+    targetStep: BlogStepId;
+  }) => boolean;
   headingIndex?: number;
   totalHeadings?: number;
   currentHeadingText?: string;
@@ -118,6 +124,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   hasDetectedBlogStep,
   onSaveClick,
   annotationLoading,
+  isSavingHeading,
   hasStep7Content,
   onGenerateTitleMeta,
   isGenerateTitleMetaLoading,
@@ -125,6 +132,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onNextStepChange,
   onLoadBlogArticle,
   onManualStepChange,
+  onBeforeManualStepChange,
   headingIndex,
   totalHeadings,
   currentHeadingText,
@@ -510,6 +518,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               disabled={isStepActionBarDisabled}
               onSaveClick={onSaveClick}
               annotationLoading={annotationLoading}
+              isSavingHeading={isSavingHeading}
               hasStep7Content={hasStep7Content}
               onGenerateTitleMeta={onGenerateTitleMeta}
               isGenerateTitleMetaLoading={isGenerateTitleMetaLoading}
@@ -518,6 +527,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
               onManualStepChange={onManualStepChange}
+              onBeforeManualStepChange={onBeforeManualStepChange}
               {...(headingIndex !== undefined && { headingIndex })}
               {...(totalHeadings !== undefined && { totalHeadings })}
               {...(currentHeadingText !== undefined && { currentHeadingText })}

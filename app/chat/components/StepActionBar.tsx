@@ -11,6 +11,7 @@ interface StepActionBarProps {
   hasDetectedBlogStep?: boolean | undefined;
   onSaveClick?: (() => void) | undefined;
   annotationLoading?: boolean | undefined;
+  isSavingHeading?: boolean | undefined;
   hasStep7Content?: boolean | undefined;
   onGenerateTitleMeta?: (() => void) | undefined;
   isGenerateTitleMetaLoading?: boolean | undefined;
@@ -19,6 +20,9 @@ interface StepActionBarProps {
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   isLoadBlogArticleLoading?: boolean;
   onManualStepChange?: ((step: BlogStepId) => void) | undefined;
+  onBeforeManualStepChange?:
+    | ((params: { direction: 'forward' | 'backward'; currentStep: BlogStepId; targetStep: BlogStepId }) => boolean)
+    | undefined;
   /** Step6/Step7 本文生成時: 現在の見出しインデックス（0-based） */
   headingIndex?: number;
   /** Step6/Step7 本文生成時: 見出しの総数 */
@@ -40,6 +44,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       hasDetectedBlogStep,
       onSaveClick,
       annotationLoading,
+      isSavingHeading = false,
       hasStep7Content,
       onGenerateTitleMeta,
       isGenerateTitleMetaLoading = false,
@@ -48,6 +53,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
       onManualStepChange,
+      onBeforeManualStepChange,
       headingIndex,
       totalHeadings,
       currentHeadingText,
@@ -79,6 +85,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const showSkipButton = !isStep6 && !isStep7;
     const showBackButton = !isStep1;
     const isHeadingFlowStep = isStep6 || isStep7;
+    const isStep6Busy = isStep6 && isSavingHeading;
     const headingLabel =
       currentHeadingText && currentHeadingText.trim().length > 0
         ? currentHeadingText
@@ -100,6 +107,11 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       const targetIndex = direction === 'forward' ? displayIndex + 1 : displayIndex - 1;
       const targetStep = BLOG_STEP_IDS[targetIndex];
       if (!targetStep) {
+        return;
+      }
+      const shouldContinue =
+        onBeforeManualStepChange?.({ direction, currentStep: displayStep, targetStep }) ?? true;
+      if (!shouldContinue) {
         return;
       }
       onManualStepChange(targetStep);
@@ -135,7 +147,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             <Button
               type="button"
               onClick={() => handleManualStepShift('backward')}
-              disabled={isDisabled || !onManualStepChange}
+              disabled={isDisabled || isStep6Busy || !onManualStepChange}
               size="sm"
               className="flex items-center gap-1 bg-slate-600 text-white hover:bg-slate-700 disabled:bg-slate-400"
             >
@@ -177,7 +189,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
         )}
         <Button
           onClick={() => onSaveClick?.()}
-          disabled={isDisabled || !onSaveClick || annotationLoading}
+          disabled={isDisabled || isStep6Busy || !onSaveClick || annotationLoading}
           size="sm"
           className="flex items-center gap-1 bg-black text-white hover:bg-black/90"
         >

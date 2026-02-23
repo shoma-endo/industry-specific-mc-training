@@ -263,6 +263,12 @@ interface ChatLayoutCtx {
   onGenerateTitleMeta: () => void;
   isGenerateTitleMetaLoading: boolean;
   onLoadBlogArticle?: (() => Promise<void>) | null | undefined;
+  onBeforeManualStepChange: (params: {
+    direction: 'forward' | 'backward';
+    currentStep: BlogStepId;
+    targetStep: BlogStepId;
+  }) => boolean;
+  isSavingHeading: boolean;
   headingIndex?: number;
   totalHeadings: number;
   currentHeadingText?: string;
@@ -303,6 +309,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onGenerateTitleMeta,
     isGenerateTitleMetaLoading,
     onLoadBlogArticle,
+    onBeforeManualStepChange,
+    isSavingHeading,
     headingIndex,
     totalHeadings,
     currentHeadingText,
@@ -466,6 +474,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           hasDetectedBlogStep={hasDetectedBlogStep}
           onSaveClick={() => ui.annotation.openWith()}
           annotationLoading={ui.annotation.loading}
+          isSavingHeading={isSavingHeading}
           hasStep7Content={hasStep7Content}
           onGenerateTitleMeta={onGenerateTitleMeta}
           isGenerateTitleMetaLoading={isGenerateTitleMetaLoading}
@@ -503,6 +512,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               ? onLoadBlogArticle
               : undefined
           }
+          onBeforeManualStepChange={onBeforeManualStepChange}
           totalHeadings={totalHeadings}
           {...(headingIndex !== undefined && { headingIndex })}
           {...(currentHeadingText !== undefined && { currentHeadingText })}
@@ -957,6 +967,36 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     const contentToSave = canvasContentRef.current || canvasStreamingContent || canvasContent;
     await _handleSaveHeadingSection(contentToSave);
   }, [_handleSaveHeadingSection, canvasStreamingContent, canvasContent, isStep6ContentStale]);
+
+  const handleBeforeManualStepChange = useCallback(
+    ({
+      direction,
+      currentStep,
+      targetStep: _targetStep,
+    }: {
+      direction: 'forward' | 'backward';
+      currentStep: BlogStepId;
+      targetStep: BlogStepId;
+    }): boolean => {
+      if (direction !== 'backward' || currentStep !== 'step6' || resolvedCanvasStep !== 'step6') {
+        return true;
+      }
+
+      const currentContent = (canvasContentRef.current || canvasStreamingContent || canvasContent).trim();
+      const baselineContent = canvasContent.trim();
+      const hasUnsavedDraft = Boolean(activeHeading && !activeHeading.isConfirmed && currentContent.length > 0);
+      const hasEditedDiff = currentContent !== baselineContent;
+
+      if (!hasUnsavedDraft && !hasEditedDiff) {
+        return true;
+      }
+
+      return window.confirm(
+        '現在の見出しの未保存変更が破棄されます。前の見出しに戻りますか？'
+      );
+    },
+    [resolvedCanvasStep, canvasStreamingContent, canvasContent, activeHeading]
+  );
 
   // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
 
@@ -1614,6 +1654,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onGenerateTitleMeta: handleGenerateTitleMeta,
           isGenerateTitleMetaLoading: isGeneratingTitleMeta,
           onLoadBlogArticle: handleLoadBlogArticle,
+          onBeforeManualStepChange: handleBeforeManualStepChange,
+          isSavingHeading,
           totalHeadings: headingSections.length,
           ...(activeHeadingIndex !== undefined && { headingIndex: activeHeadingIndex }),
           ...(activeHeading?.headingText !== undefined && {
