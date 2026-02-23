@@ -972,7 +972,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     ({
       direction,
       currentStep,
-      targetStep: _targetStep,
     }: {
       direction: 'forward' | 'backward';
       currentStep: BlogStepId;
