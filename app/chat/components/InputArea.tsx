@@ -82,6 +82,8 @@ interface InputAreaProps {
     currentStep: BlogStepId;
     targetStep: BlogStepId;
   }) => boolean;
+  isHeadingInitInFlight?: boolean;
+  hasAttemptedHeadingInit?: boolean;
   headingIndex?: number;
   totalHeadings?: number;
   currentHeadingText?: string;
@@ -133,6 +135,8 @@ const InputArea: React.FC<InputAreaProps> = ({
   onLoadBlogArticle,
   onManualStepChange,
   onBeforeManualStepChange,
+  isHeadingInitInFlight,
+  hasAttemptedHeadingInit,
   headingIndex,
   totalHeadings,
   currentHeadingText,
@@ -528,6 +532,8 @@ const InputArea: React.FC<InputAreaProps> = ({
               isLoadBlogArticleLoading={isLoadingBlogArticle}
               onManualStepChange={onManualStepChange}
               onBeforeManualStepChange={onBeforeManualStepChange}
+              isHeadingInitInFlight={isHeadingInitInFlight}
+              hasAttemptedHeadingInit={hasAttemptedHeadingInit}
               {...(headingIndex !== undefined && { headingIndex })}
               {...(totalHeadings !== undefined && { totalHeadings })}
               {...(currentHeadingText !== undefined && { currentHeadingText })}

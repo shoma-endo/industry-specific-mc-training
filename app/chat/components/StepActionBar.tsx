@@ -23,6 +23,8 @@ interface StepActionBarProps {
   onBeforeManualStepChange?:
     | ((params: { direction: 'forward' | 'backward'; currentStep: BlogStepId; targetStep: BlogStepId }) => boolean)
     | undefined;
+  isHeadingInitInFlight?: boolean | undefined;
+  hasAttemptedHeadingInit?: boolean | undefined;
   /** Step6/Step7 本文生成時: 現在の見出しインデックス（0-based） */
   headingIndex?: number;
   /** Step6/Step7 本文生成時: 見出しの総数 */
@@ -54,6 +56,8 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       isLoadBlogArticleLoading = false,
       onManualStepChange,
       onBeforeManualStepChange,
+      isHeadingInitInFlight = false,
+      hasAttemptedHeadingInit = false,
       headingIndex,
       totalHeadings,
       currentHeadingText,
@@ -130,7 +134,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
                 見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
               </span>
             )}
-            {isStep6 && totalHeadings === 0 && (
+            {isStep6 && totalHeadings === 0 && hasAttemptedHeadingInit && !isHeadingInitInFlight && (
               <span className="ml-2 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
                 見出しが見つかりません。Step5を見直してください
               </span>

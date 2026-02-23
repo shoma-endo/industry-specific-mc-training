@@ -268,6 +268,8 @@ interface ChatLayoutCtx {
     currentStep: BlogStepId;
     targetStep: BlogStepId;
   }) => boolean;
+  isHeadingInitInFlight: boolean;
+  hasAttemptedHeadingInit: boolean;
   isSavingHeading: boolean;
   headingIndex?: number;
   totalHeadings: number;
@@ -310,6 +312,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     isGenerateTitleMetaLoading,
     onLoadBlogArticle,
     onBeforeManualStepChange,
+    isHeadingInitInFlight,
+    hasAttemptedHeadingInit,
     isSavingHeading,
     headingIndex,
     totalHeadings,
@@ -513,6 +517,8 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
               : undefined
           }
           onBeforeManualStepChange={onBeforeManualStepChange}
+          isHeadingInitInFlight={isHeadingInitInFlight}
+          hasAttemptedHeadingInit={hasAttemptedHeadingInit}
           totalHeadings={totalHeadings}
           {...(headingIndex !== undefined && { headingIndex })}
           {...(currentHeadingText !== undefined && { currentHeadingText })}
@@ -817,6 +823,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     headingSections,
     isSavingHeading,
     isHeadingInitInFlight,
+    hasAttemptedHeadingInit,
     headingInitError,
     headingSaveError,
     activeHeadingIndex,
@@ -1650,6 +1657,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           isGenerateTitleMetaLoading: isGeneratingTitleMeta,
           onLoadBlogArticle: handleLoadBlogArticle,
           onBeforeManualStepChange: handleBeforeManualStepChange,
+          isHeadingInitInFlight,
+          hasAttemptedHeadingInit,
           isSavingHeading,
           totalHeadings: headingSections.length,
           ...(activeHeadingIndex !== undefined && { headingIndex: activeHeadingIndex }),
