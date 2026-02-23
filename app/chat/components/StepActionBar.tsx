@@ -130,7 +130,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
                 見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
               </span>
             )}
-            {isHeadingFlowStep && totalHeadings === 0 && (
+            {isStep6 && totalHeadings === 0 && (
               <span className="ml-2 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
                 見出しが見つかりません。Step5を見直してください
               </span>
