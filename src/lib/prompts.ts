@@ -938,9 +938,25 @@ export async function getSystemPrompt(
         authUserId
       );
       if (!latestCombinedResult.success || !latestCombinedResult.data?.trim()) {
-        throw new Error(
-          'Step7は最新完成形（Step6）の取得が必須です。最新完成形を取得できないため実行できません。'
+        const legacyStep6Result = await supabaseService.getLatestAccessibleAssistantMessageBySessionAndModel(
+          sessionId,
+          authUserId,
+          'blog_creation_step6'
         );
+        if (!legacyStep6Result.success || !legacyStep6Result.data?.content?.trim()) {
+          throw new Error(
+            'Step7は最新完成形（Step6）の取得が必須です。最新完成形を取得できないため実行できません。'
+          );
+        }
+
+        return [
+          basePrompt,
+          '',
+          '## Step6最新完成形（必須入力）',
+          '以下の本文を入力の正本として使用してください。内容を反映したうえで最終本文を作成してください。',
+          '※ 移行前セッションのため、session_combined_contents の代わりに Step6 の最新本文を使用しています。',
+          legacyStep6Result.data.content,
+        ].join('\n');
       }
 
       return [

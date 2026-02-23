@@ -721,6 +721,50 @@ export class SupabaseService {
   }
 
   /**
+   * セッション内でアクセス可能なユーザー範囲から、指定モデルの最新assistantメッセージを取得する。
+   * オーナー/スタッフ共有アクセスに対応。
+   */
+  async getLatestAccessibleAssistantMessageBySessionAndModel(
+    sessionId: string,
+    userId: string,
+    model: string
+  ): Promise<SupabaseResult<DbChatMessage | null>> {
+    const { data: accessibleIds, error: accessError } = await this.supabase.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return this.failure('アクセス権の確認に失敗しました', {
+        error: accessError,
+        developerMessage: 'Failed to get accessible user IDs',
+        context: { sessionId, userId, model },
+      });
+    }
+
+    const { data, error } = await this.supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('session_id', sessionId)
+      .in('user_id', accessibleIds)
+      .eq('model', model)
+      .eq('role', 'assistant')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return this.failure('チャットメッセージの取得に失敗しました', {
+        error,
+        developerMessage: 'Failed to get latest accessible assistant message by model',
+        context: { sessionId, userId, model },
+      });
+    }
+
+    return this.success(data ?? null);
+  }
+
+  /**
    * 指定したユーザーのメッセージ数を、時間範囲でカウント
    * role は 'user' のみを対象（送信回数としてカウントするため）
    */
