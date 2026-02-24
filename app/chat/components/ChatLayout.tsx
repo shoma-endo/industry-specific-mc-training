@@ -901,7 +901,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
 
     // 現在見出し向けコンテンツがあれば非ステール
-    if ((activeHeadingIndex ?? 0) > 0 && hasContentForCurrentHeading) {
+    if (hasContentForCurrentHeading) {
       setIsStep6ContentStale(false);
       prevActiveHeadingIndexRef.current = activeHeadingIndex;
       return;
