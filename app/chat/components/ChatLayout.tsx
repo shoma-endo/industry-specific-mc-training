@@ -26,6 +26,7 @@ import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
 import { useHeadingFlow } from '@/hooks/useHeadingFlow';
+import { stripLeadingHeadingLine } from '@/lib/heading-extractor';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import type { AnnotationRecord } from '@/types/annotation';
@@ -963,11 +964,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // handleSaveHeadingSection はフック側のシグネチャが (content: string) のため、ここでラップする。
   // CanvasPanel が contentRef に表示中の内容を随時更新するため、保存時は ref を優先して
   // ストリーミング完了直後のクリックでも最新編集内容が保存される。
+  // 見出し+本文で表示されている場合、保存時は見出し行を除去して本文のみを渡す（combineSections で二重化防止）
   const handleSaveHeadingSection = useCallback(async () => {
     if (isStep6ContentStale) return;
-    const contentToSave = canvasContentRef.current || canvasStreamingContent || canvasContent;
+    const rawContent = canvasContentRef.current || canvasStreamingContent || canvasContent;
+    const contentToSave =
+      activeHeading && rawContent
+        ? stripLeadingHeadingLine(rawContent, activeHeading.headingText)
+        : rawContent;
     await _handleSaveHeadingSection(contentToSave);
-  }, [_handleSaveHeadingSection, canvasStreamingContent, canvasContent, isStep6ContentStale]);
+  }, [_handleSaveHeadingSection, canvasStreamingContent, canvasContent, isStep6ContentStale, activeHeading]);
 
   const handleBeforeManualStepChange = useCallback(
     ({

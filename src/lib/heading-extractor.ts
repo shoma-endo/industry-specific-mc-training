@@ -71,6 +71,58 @@ export function generateHeadingKey(orderIndex: number, headingText: string): str
   return `${orderIndex}:${normalizedText}:${hash}`;
 }
 
+/** 句読点・記号（文末でよく付くもの） */
+const TRAILING_PUNCTUATION = /[。、．，．・!?！？\s]*$/;
+
+/**
+ * 見出し比較用の正規化（余分な空白・全角半角揺れ・句読点に耐性を持たせる）
+ */
+function normalizeHeadingForComparison(s: string): string {
+  return s
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(TRAILING_PUNCTUATION, '')
+    .normalize('NFKC');
+}
+
+/**
+ * 正規化後の見出し同士が「実質一致」とみなせるか。
+ * 完全一致、LLM の句読点追加（line が expected + 句読点で始まる）のみ許容する。
+ * expected が line の prefix となる短い前方一致は許容しない（例: 「導入」と「導入手順」の誤除去を防ぐ）。
+ */
+function headingsMatchAfterNormalization(lineNorm: string, expectedNorm: string): boolean {
+  if (lineNorm === expectedNorm) return true;
+  if (lineNorm.startsWith(expectedNorm)) {
+    const suffix = lineNorm.slice(expectedNorm.length).trim();
+    return suffix.length === 0 || /^[。、．，．・!?！？：:-]+$/.test(suffix);
+  }
+  return false;
+}
+
+/**
+ * Step6保存時用: 先頭の見出し行を除去する。
+ * combineSections が heading_text を自動付与するため、content には本文のみを保存する。
+ * 先頭行が markdown 見出し (# で始まる) かつ headingText と実質一致する場合に除去。
+ * LLM の句読点追加・語尾変更・軽微な言い換えにも耐性を持つ。
+ */
+export function stripLeadingHeadingLine(content: string, headingText: string): string {
+  const trimmed = content.trim();
+  if (!trimmed || !headingText) return content;
+
+  const firstLine = trimmed.split('\n')[0]?.trim() ?? '';
+  const match = firstLine.match(/^#+\s+(.+)$/);
+  if (!match) return content;
+
+  const lineHeadingText = (match[1] ?? '').trim();
+  const a = normalizeHeadingForComparison(lineHeadingText);
+  const b = normalizeHeadingForComparison(headingText);
+  if (!headingsMatchAfterNormalization(a, b)) return content;
+
+  // 見出し直後の改行のみ除去。本文先頭のインデント（コードブロック・ネスト箇条書き等）は保持する
+  const rest = trimmed.slice(firstLine.length).replace(/^[\r\n]+/, '');
+  return rest;
+}
+
 /**
  * 文字列から短いハッシュ（4文字のBase36）を生成する。
  */

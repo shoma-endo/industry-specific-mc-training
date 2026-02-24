@@ -754,6 +754,97 @@ const generateLpDraftPrompt = cache(
 );
 
 /**
+ * Step6見出し単位生成用の最小プロンプト（DBテンプレート不使用）
+ * 事業者情報とコンテンツ変数のみで構成し、見出し構成の混在による混乱を防ぐ
+ */
+async function generateStep6HeadingUnitPrompt(
+  liffAccessToken: string,
+  sessionId: string,
+  activeSection: { heading_text: string; heading_level?: number }
+): Promise<string> {
+  try {
+    const [auth, businessInfo] = await Promise.all([
+      authMiddleware(liffAccessToken),
+      getCachedBrief(liffAccessToken),
+    ]);
+    const userId = auth.error ? undefined : auth.userId;
+    const contentAnnotation = userId
+      ? sessionId
+        ? await PromptService.getContentAnnotationBySession(userId, sessionId)
+        : await PromptService.getLatestContentAnnotationByUserId(userId)
+      : null;
+    const contentVars = PromptService.buildContentVariables(contentAnnotation ?? null);
+
+    const lines: string[] = [
+      '# 役割',
+      'ブログ記事の見出し本文を書く専門家です。指定された1見出し分の本文のみを出力します。',
+      '',
+      '# コンテキスト',
+      '事業者・サービス、キーワード、ターゲットに沿って一貫性のある本文を書いてください。',
+    ];
+
+    if (businessInfo) {
+      const profile = businessInfo.profile;
+      const service = businessInfo.services?.[0];
+      lines.push('', '## 事業者情報', `- 会社・サービス: ${profile?.company ?? ''} / ${service?.name ?? ''}`);
+      if (businessInfo.persona) {
+        lines.push(`- ターゲット: ${businessInfo.persona}`);
+      }
+    }
+
+    if (
+      contentVars.contentMainKw ||
+    contentVars.contentKw ||
+    contentVars.contentGoal ||
+    contentVars.contentPersona ||
+    contentVars.contentNeeds ||
+      contentVars.contentPrep
+    ) {
+      lines.push('', '## キーワード・記事方針');
+      if (contentVars.contentMainKw) lines.push(`- メインKW: ${contentVars.contentMainKw}`);
+      if (contentVars.contentKw) lines.push(`- KW: ${contentVars.contentKw}`);
+      if (contentVars.contentGoal) lines.push(`- ユーザーゴール: ${contentVars.contentGoal}`);
+      if (contentVars.contentPersona) lines.push(`- デモグラ・ペルソナ: ${contentVars.contentPersona}`);
+      if (contentVars.contentNeeds) lines.push(`- ニーズ: ${contentVars.contentNeeds}`);
+      if (contentVars.contentPrep) lines.push(`- PREP構成（参考）: ${contentVars.contentPrep}`);
+    }
+
+    const contextBlock = lines.filter(Boolean).join('\n');
+
+    const headingLevel = activeSection.heading_level ?? 3;
+    const hashes = '#'.repeat(headingLevel);
+
+    const headingConstraintBlock = [
+      '',
+      '---',
+      '',
+      '## 【最重要】見出し単位生成モード',
+      '',
+      `**対象見出し（これのみ出力）**: 「${activeSection.heading_text}」`,
+      '',
+      '**絶対ルール**:',
+      '- ユーザーへの確認・質問は不要です。上記の対象見出しの「見出し行＋本文」を即座に出力してください。',
+      '- 「どの見出しを書くか」等の確認メッセージは絶対に出力しないでください。',
+      '- 【主な修正内容】「追加 -」「変更 -」「削除 -」などの修正分析・変更箇所の説明は絶対に出力しないでください。見出し＋本文のみを出力してください。',
+      `- 出力は「見出し行＋本文」の形式にしてください。1行目に ${hashes} レベルで見出し行を書き、2行目を空行、3行目以降に本文を書いてください。`,
+      '- 他の見出し、全体構成、前後のセクション、タイトル、リード文などは絶対に出力しないでください。',
+      '',
+      '出力形式の例:',
+      '```',
+      `${hashes} ${activeSection.heading_text}`,
+      '',
+      '（ここに本文。200〜400字程度を目安）',
+      '```',
+    ].join('\n');
+
+    return contextBlock + headingConstraintBlock;
+  } catch (error) {
+    console.error('Step6見出し単位プロンプト生成エラー:', error);
+    return SYSTEM_PROMPT;
+  }
+}
+
+/**
  * ブログ作成用プロンプト生成（キャッシュ付き）
  * DBテンプレート + canonicalUrls 変数埋め込み
  */
@@ -923,43 +1014,24 @@ export async function getSystemPrompt(
 
     if (model.startsWith('blog_creation_')) {
       const step = model.substring('blog_creation_'.length) as BlogStepId;
-      const basePrompt = await generateBlogCreationPromptByStep(liffAccessToken, step, sessionId);
       if (!isBlogStep7(step)) {
-        // Step6見出し単位生成: session_heading_sections が存在する場合は、対象見出しの本文のみ出力するよう指示を付加
-        // 認可: Service Role で RLS をバイパスするため、セッションへの読み取り権限を事前確認する
+        // Step6見出し単位生成: 該当時は basePrompt をスキップし、最小プロンプトのみ生成（DBテンプレート取得などの重い処理を回避）
         if (step === 'step6' && sessionId && authUserId) {
           const sessionRes = await supabaseService.getChatSessionById(sessionId, authUserId);
-          if (!sessionRes.success || !sessionRes.data) {
-            return basePrompt;
-          }
-          const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
-          if (sectionsResult.success && Array.isArray(sectionsResult.data)) {
-            const activeSection = sectionsResult.data.find(s => !s.is_confirmed);
-            if (activeSection) {
-              return [
-                basePrompt,
-                '',
-                '---',
-                '',
-                '## 【重要】見出し単位生成モード',
-                '',
-                `現在の対象見出し: 「${activeSection.heading_text}」`,
-                '',
-                '**出力制約（厳守）**:',
-                '- 対象見出しの直下に書かれる本文のみを出力してください。見出し行（`###` や `####`）は出力しないでください。',
-                '- 保存時に見出し行は自動付与されるため、出力に含めると二重化します。',
-                '- 他の見出し、全体構成、前後のセクション、タイトル、リード文などは絶対に出力しないでください。',
-                '',
-                '出力形式の例（本文のみ、見出し行なし）:',
-                '```',
-                '（ここに本文のみ。200〜400字程度を目安）',
-                '```',
-              ].join('\n');
+          if (sessionRes.success && sessionRes.data) {
+            const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
+            if (sectionsResult.success && Array.isArray(sectionsResult.data)) {
+              const activeSection = sectionsResult.data.find(s => !s.is_confirmed);
+              if (activeSection) {
+                return generateStep6HeadingUnitPrompt(liffAccessToken, sessionId, activeSection);
+              }
             }
           }
         }
-        return basePrompt;
+        return await generateBlogCreationPromptByStep(liffAccessToken, step, sessionId);
       }
+
+      const basePrompt = await generateBlogCreationPromptByStep(liffAccessToken, step, sessionId);
 
       if (!sessionId || !authUserId) {
         throw new Error(
