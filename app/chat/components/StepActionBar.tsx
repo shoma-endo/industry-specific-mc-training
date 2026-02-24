@@ -138,7 +138,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             )}
             {isStep6 && totalHeadings === 0 && hasAttemptedHeadingInit && !isHeadingInitInFlight && (
               <span className="ml-2 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                見出しが見つかりません。Step5を見直してください
+                見出しが見つかりません。ステップ5を見直してください
               </span>
             )}
             {nextStepLabel && (displayStep !== 'step6' || headingIndex === undefined) && (

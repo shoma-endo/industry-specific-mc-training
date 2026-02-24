@@ -252,7 +252,7 @@ export function useHeadingFlow({
           if (allDone) {
             void fetchLatestCombinedContent(sessionId);
             toast.success(
-              '全見出しの保存が完了しました。全体の構成を確認して本文作成（Step 7）に進んでください。'
+              '全見出しの保存が完了しました。全体の構成を確認して本文作成（ステップ7）に進んでください。'
             );
           }
           return true;

@@ -1044,6 +1044,25 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             <h3 className="text-lg font-semibold text-gray-800">
               {activeStepId === 'step6' ? '見出し単位生成' : 'Canvas'}
             </h3>
+            {activeStepId === 'step6' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center justify-center w-5 h-5 text-gray-500 hover:text-gray-700 cursor-help transition-colors">
+                      <Info size={16} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px] text-xs space-y-2">
+                    <p>
+                      見出しは ステップ5 の構成案から <code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">###</code>（H3）と <code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">####</code>（H4）を抽出して使用します。
+                    </p>
+                    <p>
+                      ステップ6 開始後に ステップ5 を再保存しても、見出しは自動更新されません。構成を変えたい場合は ステップ6 データの初期化が必要です。
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           {activeStepId === 'step6' &&
             headingIndex !== undefined &&
