@@ -162,18 +162,10 @@ export function useHeadingFlow({
             liffAccessToken,
           });
           if (res.success) {
-            const sections = await fetchHeadingSections(sessionId);
-            if (sections.length === 0) {
-              // 見出しが存在しない場合は正常系として扱う（StepActionBar で適切な案内を表示）
-              if (sessionId === currentSessionIdRef.current) {
-                setHeadingInitError(null);
-                setHasAttemptedHeadingInit(true);
-              }
-            } else {
-              if (sessionId === currentSessionIdRef.current) {
-                setHeadingInitError(null);
-                setHasAttemptedHeadingInit(true);
-              }
+            await fetchHeadingSections(sessionId);
+            if (sessionId === currentSessionIdRef.current) {
+              setHeadingInitError(null);
+              setHasAttemptedHeadingInit(true);
             }
           } else {
             console.error('Failed to initialize heading sections:', res.error);
