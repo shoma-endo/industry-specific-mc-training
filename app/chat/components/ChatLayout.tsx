@@ -907,13 +907,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       return;
     }
 
-    // 見出しが進んだ or 現在見出し向けコンテンツがない場合はステール（初回見出し含む）
-    const prev = prevActiveHeadingIndexRef.current;
-    const headingAdvanced =
-      prev !== undefined &&
-      activeHeadingIndex !== undefined &&
-      activeHeadingIndex > prev;
-    setIsStep6ContentStale(headingAdvanced || !hasContentForCurrentHeading);
+    // hasContentForCurrentHeading の場合は上で return 済みのため、ここでは常にステール
+    setIsStep6ContentStale(true);
     prevActiveHeadingIndexRef.current = activeHeadingIndex;
   }, [
     chatSession.state.currentSessionId,
