@@ -24,7 +24,6 @@ interface UseHeadingFlowReturn {
   activeHeadingIndex: number | undefined;
   activeHeading: SessionHeadingSection | undefined;
   latestCombinedContent: string | null;
-  fetchHeadingSections: (sessionId: string) => Promise<SessionHeadingSection[]>;
   /**
    * 見出しセクションを保存する。
    * @param content 保存するコンテンツ（canvasStreamingContent || canvasContent）
@@ -300,7 +299,6 @@ export function useHeadingFlow({
     activeHeadingIndex,
     activeHeading,
     latestCombinedContent,
-    fetchHeadingSections,
     handleSaveHeadingSection,
     handleRetryHeadingInit,
   };
