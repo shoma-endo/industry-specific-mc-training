@@ -27,8 +27,9 @@ interface UseHeadingFlowReturn {
   /**
    * 見出しセクションを保存する。
    * @param content 保存するコンテンツ（canvasStreamingContent || canvasContent）
+   * @param overrideHeadingKey 指定時はその見出しを保存（再編集用）。未指定時は activeHeading を保存
    */
-  handleSaveHeadingSection: (content: string) => Promise<void>;
+  handleSaveHeadingSection: (content: string, overrideHeadingKey?: string) => Promise<boolean>;
   handleRetryHeadingInit: () => void;
 }
 
@@ -210,14 +211,17 @@ export function useHeadingFlow({
   ]);
 
   const handleSaveHeadingSection = useCallback(
-    async (content: string) => {
+    async (content: string, overrideHeadingKey?: string): Promise<boolean> => {
+      const headingKey = overrideHeadingKey ?? activeHeading?.headingKey;
       if (
         !sessionId ||
-        activeHeadingIndex === undefined ||
-        !activeHeading ||
+        !headingKey ||
         resolvedCanvasStep !== 'step6'
       ) {
-        return;
+        return false;
+      }
+      if (!overrideHeadingKey && (activeHeadingIndex === undefined || !activeHeading)) {
+        return false;
       }
 
       setIsSavingHeading(true);
@@ -226,7 +230,7 @@ export function useHeadingFlow({
         const liffAccessToken = await getAccessToken();
         const res = await headingActions.saveHeadingSection({
           sessionId,
-          headingKey: activeHeading.headingKey,
+          headingKey,
           content,
           liffAccessToken,
         });
@@ -239,7 +243,7 @@ export function useHeadingFlow({
             const errorMessage = '保存結果の確認に失敗しました。再試行してください。';
             setHeadingSaveError(errorMessage);
             toast.error(errorMessage);
-            return;
+            return false;
           }
 
           // 全ての見出しが完了したかチェック（返り値を使用してステール回避）
@@ -251,17 +255,19 @@ export function useHeadingFlow({
               '全見出しの保存が完了しました。全体の構成を確認して本文作成（Step 7）に進んでください。'
             );
           }
+          return true;
         } else {
           const errorMessage = res.error || '保存に失敗しました。再試行してください。';
           setHeadingSaveError(errorMessage);
           toast.error(errorMessage);
-          return;
+          return false;
         }
       } catch (e) {
         console.error('Failed to save heading section:', e);
         const errorMessage = e instanceof Error ? e.message : '保存に失敗しました。再試行してください。';
         setHeadingSaveError(errorMessage);
         toast.error(errorMessage);
+        return false;
       } finally {
         setIsSavingHeading(false);
       }

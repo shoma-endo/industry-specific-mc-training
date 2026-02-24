@@ -17,6 +17,8 @@ import { Highlight } from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { createLowlight, common } from 'lowlight';
 import {
+  ChevronLeft,
+  ChevronRight,
   X,
   ClipboardCheck,
   List,
@@ -164,6 +166,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   streamingContent = '',
   canvasContentRef,
   headingIndex,
+  activeHeadingIndex: activeHeadingIndexForFlow,
   totalHeadings,
   currentHeadingText,
   onSaveHeadingSection,
@@ -176,6 +179,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   onRetryHeadingInit,
   isRetryingHeadingInit,
   isStreaming,
+  onPrevHeading,
+  onNextHeading,
+  canGoPrevHeading,
+  canGoNextHeading,
 }) => {
   const [markdownContent, setMarkdownContent] = useState('');
   const [bubble, setBubble] = useState<CanvasBubbleState>({
@@ -1147,8 +1154,41 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               コピー
             </Button>
           )}
+          {activeStepId === 'step6' && totalHeadings !== undefined && totalHeadings > 1 && (
+            <>
+              {canGoPrevHeading && onPrevHeading && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onPrevHeading}
+                  disabled={isSavingHeading || isStreaming}
+                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                  title="前の見出しに戻る"
+                >
+                  <ChevronLeft size={14} />
+                  戻る
+                </Button>
+              )}
+              {canGoNextHeading && onNextHeading && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onNextHeading}
+                  disabled={isSavingHeading || isStreaming}
+                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                  title="次の見出しに進む"
+                >
+                  進む
+                  <ChevronRight size={14} />
+                </Button>
+              )}
+            </>
+          )}
           {activeStepId === 'step6' &&
             headingIndex !== undefined &&
+            headingIndex === activeHeadingIndexForFlow &&
             onStartHeadingGeneration &&
             isStep6SaveDisabled && (
             <Button
@@ -1180,11 +1220,13 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               ) : (
                 <ClipboardCheck size={14} className="mr-1" />
               )}
-              {headingIndex !== undefined &&
+              {headingIndex === activeHeadingIndexForFlow &&
               totalHeadings !== undefined &&
               headingIndex + 1 === totalHeadings
                 ? '保存して全構成を確認'
-                : '保存して次の見出しへ'}
+                : headingIndex === activeHeadingIndexForFlow
+                  ? '保存して次の見出しへ'
+                  : '保存'}
             </Button>
           )}
           {activeStepId === 'step6' && headingSaveError && (
