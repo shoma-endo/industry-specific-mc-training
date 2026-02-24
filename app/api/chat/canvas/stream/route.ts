@@ -688,25 +688,46 @@ export async function POST(req: NextRequest) {
               }
 
               // Step6完了後の全文Canvas修正は session_combined_contents にも新バージョンとして保存する
+              // 副次処理のため、失敗してもチャット履歴保存は継続する
               if (targetStep === 'step6') {
-                const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
-                if (!sectionsResult.success) {
-                  throw new Error('見出し状態の確認に失敗しました。再試行してください。');
-                }
-                const sections = sectionsResult.data;
-                const isStep6Completed = sections.length > 0 && sections.every(s => s.is_confirmed);
-                if (isStep6Completed) {
-                  const saveCombinedResult = await headingFlowService.saveCombinedContentSnapshot(
-                    sessionId,
-                    finalMarkdown,
-                    userId!
-                  );
-                  if (!saveCombinedResult.success) {
-                    throw new Error(
-                      saveCombinedResult.error?.userMessage ||
-                        '完成形の保存に失敗しました。再試行してください。'
-                    );
+                try {
+                  const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
+                  if (!sectionsResult.success) {
+                    console.warn('[Canvas Stream] Failed to check heading sections:', {
+                      sessionId,
+                      error: sectionsResult.error,
+                    });
+                  } else {
+                    const sections = sectionsResult.data;
+                    if (!Array.isArray(sections)) {
+                      console.warn('[Canvas Stream] Invalid heading sections payload:', {
+                        sessionId,
+                        sections,
+                      });
+                    }
+                    const isStep6Completed =
+                      Array.isArray(sections) &&
+                      sections.length > 0 &&
+                      sections.every(s => s.is_confirmed);
+                    if (isStep6Completed) {
+                      const saveCombinedResult = await headingFlowService.saveCombinedContentSnapshot(
+                        sessionId,
+                        finalMarkdown,
+                        userId!
+                      );
+                      if (!saveCombinedResult.success) {
+                        console.warn('[Canvas Stream] Failed to save combined content snapshot:', {
+                          sessionId,
+                          error: saveCombinedResult.error,
+                        });
+                      }
+                    }
                   }
+                } catch (step6SideEffectError) {
+                  console.error('[Canvas Stream] Step6 side effect failed:', {
+                    sessionId,
+                    error: step6SideEffectError,
+                  });
                 }
               }
 
