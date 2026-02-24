@@ -495,38 +495,38 @@ export async function fetchGa4DashboardRanking(input: unknown): Promise<
       }
     });
 
-    // タイトルとannotationIdをcontent_annotationsから取得
-    const normalizedPaths = ranking.slice(0, limit).map((r) => r.normalizedPath);
+    // limitを適用
+    const limitedRanking = ranking.slice(0, limit);
 
-    if (normalizedPaths.length > 0) {
+    // タイトルとannotationIdをcontent_annotationsから取得
+    if (limitedRanking.length > 0) {
       const { data: annotations } = await client
         .from('content_annotations')
-        .select('id,canonical_url')
+        .select('id,canonical_url,wp_post_title')
         .in('user_id', accessibleIds)
         .not('canonical_url', 'is', null);
 
       if (annotations) {
-        const pathToAnnotation = new Map<string, { id: string }>();
+        const pathToAnnotation = new Map<string, { id: string; title: string | null }>();
         for (const ann of annotations) {
           if (ann.canonical_url) {
             const normalized = normalizeToPath(ann.canonical_url);
             pathToAnnotation.set(normalized, {
               id: ann.id,
+              title: ann.wp_post_title,
             });
           }
         }
 
-        for (const item of ranking) {
+        for (const item of limitedRanking) {
           const ann = pathToAnnotation.get(item.normalizedPath);
           if (ann) {
             item.annotationId = ann.id;
+            item.title = ann.title;
           }
         }
       }
     }
-
-    // limitを適用
-    const limitedRanking = ranking.slice(0, limit);
 
     return { success: true, data: limitedRanking };
   } catch (error) {
