@@ -1457,6 +1457,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const markdownDecoder = createFullMarkdownDecoder();
 
         // ✅ ストリーミングAPI呼び出し（必要に応じてWeb検索を利用）
+        const isStep6HeadingUnit =
+          targetStep === 'step6' &&
+          activeHeadingIndex !== undefined &&
+          headingSections.length > 0;
+
         const response = await fetch('/api/chat/canvas/stream', {
           method: 'POST',
           headers: {
@@ -1470,6 +1475,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             canvasContent: payload.canvasContent,
             targetStep,
             enableWebSearch: shouldEnableWebSearch,
+            ...(isStep6HeadingUnit && { isStep6HeadingUnit: true }),
             webSearchConfig: {
               maxUses: 3,
             },
@@ -1608,11 +1614,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       }
     },
     [
+      activeHeadingIndex,
       annotationOpen,
       chatSession.actions,
       chatSession.state.currentSessionId,
       getAccessToken,
       handleModelChange,
+      headingSections,
       isOwnerViewMode,
       latestBlogStep,
       resolvedCanvasStep,

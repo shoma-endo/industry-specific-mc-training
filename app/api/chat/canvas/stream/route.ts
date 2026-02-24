@@ -26,6 +26,8 @@ interface CanvasStreamRequest {
   targetStep: string;
   enableWebSearch?: boolean;
   freeFormUserPrompt?: string;
+  /** Step6見出し単位生成中の場合 true。1見出し分のみ編集するようプロンプトを制約する */
+  isStep6HeadingUnit?: boolean;
   webSearchConfig?: {
     maxUses?: number;
     allowedDomains?: string[];
@@ -118,6 +120,7 @@ export async function POST(req: NextRequest) {
       targetStep,
       enableWebSearch = false,
       freeFormUserPrompt,
+      isStep6HeadingUnit = false,
       webSearchConfig = {},
     }: CanvasStreamRequest = await req.json();
     const normalizedFreeFormPrompt =
@@ -204,8 +207,27 @@ export async function POST(req: NextRequest) {
 
     const { maxTokens, temperature, actualModel } = modelConfig;
 
+    // Step6見出し単位モード時の前置制約（全文生成を防ぎ、1見出し分のみ編集させる）
+    const step6HeadingUnitPrefix =
+      targetStep === 'step6' && isStep6HeadingUnit
+        ? [
+            '## 【重要】見出し単位編集モード',
+            '',
+            '表示されているのは**1見出し分の本文のみ**です。他セクション・タイトル・リード文は存在しません。',
+            '',
+            '**出力制約（厳守）**:',
+            '- full_markdown には、この1見出し分の本文のみを返してください。',
+            '- 見出し行（`###` や `####`）は自動付与されるため出力に含めないでください（二重化防止）。',
+            '- 他の見出し・セクション・タイトル・リード文を生成・追加しないでください。',
+            '',
+            '---',
+            '',
+          ]
+        : [];
+
     // システムプロンプト（Claude 4ベストプラクティス準拠）
     const systemPrompt = [
+      ...step6HeadingUnitPrefix,
       '# Canvas編集専用モード',
       '',
       '## あなたの役割',
