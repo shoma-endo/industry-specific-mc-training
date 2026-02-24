@@ -164,12 +164,11 @@ export function useHeadingFlow({
           if (res.success) {
             const sections = await fetchHeadingSections(sessionId);
             if (sections.length === 0) {
+              // 見出しが存在しない場合は正常系として扱う（StepActionBar で適切な案内を表示）
               if (sessionId === currentSessionIdRef.current) {
-                setHeadingInitError('見出しの取得に失敗しました。再試行してください。');
-                // hasAttemptedHeadingInit は立てず再試行可能に
+                setHeadingInitError(null);
+                setHasAttemptedHeadingInit(true);
               }
-              // セッション切替中（sid !== currentSessionIdRef）で空配列の場合は
-              // 競合防止の意図的スキップなのでエラーを立てない
             } else {
               if (sessionId === currentSessionIdRef.current) {
                 setHeadingInitError(null);
