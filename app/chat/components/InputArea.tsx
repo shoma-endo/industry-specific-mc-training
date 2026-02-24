@@ -177,6 +177,11 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS.blog_creation_step1;
       }
 
+      // 見出し単位生成中（step6）は現在ステップのプレースホルダーを表示（次ステップでなく）
+      if (initialBlogStep === 'step6') {
+        return BLOG_PLACEHOLDERS.blog_creation_step6;
+      }
+
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
       // ブログ作成進行中（hasDetectedBlogStep === true）の場合のみ適用
       if (nextStepForPlaceholder) {

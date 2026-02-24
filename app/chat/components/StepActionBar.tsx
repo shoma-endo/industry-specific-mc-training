@@ -90,7 +90,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
     const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
-    const isHeadingFlowStep = isStep6 || isStep7;
+    const isHeadingFlowStep = isStep6;
     const isStep6Busy = isStep6 && (isSavingHeading || isHeadingInitInFlight);
     const headingLabel =
       currentHeadingText && currentHeadingText.trim().length > 0

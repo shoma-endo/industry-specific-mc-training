@@ -1028,7 +1028,9 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               {activeStepId === 'step6' ? '見出し単位生成' : 'Canvas'}
             </h3>
           </div>
-          {headingIndex !== undefined && totalHeadings !== undefined && (
+          {activeStepId === 'step6' &&
+            headingIndex !== undefined &&
+            totalHeadings !== undefined && (
             <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[11px] font-medium text-blue-700">
               <span>
                 進捗: {headingIndex + 1} / {totalHeadings}
