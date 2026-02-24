@@ -225,6 +225,12 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
 
+  // Step6見出し単位生成中はバージョン管理UIを非表示（仕様: 見出し単位はバージョン管理しない）
+  const isStep6HeadingFlow =
+    activeStepId === 'step6' &&
+    headingIndex !== undefined &&
+    (totalHeadings ?? 0) > 0;
+
   const hasStepOptions = stepOptions.length > 0;
 
   // ✅ リサイザー機能のためのstate
@@ -1066,7 +1072,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {orderedVersions.length > 0 && (
+          {orderedVersions.length > 0 && !isStep6HeadingFlow && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1106,7 +1112,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </SelectContent>
             </Select>
           )}
-          {orderedVersions.length > 0 && (
+          {orderedVersions.length > 0 && !isStep6HeadingFlow && (
             <Select
               value={activeVersionId ?? orderedVersions[orderedVersions.length - 1]?.id ?? ''}
               onValueChange={value => onVersionSelect?.(value)}

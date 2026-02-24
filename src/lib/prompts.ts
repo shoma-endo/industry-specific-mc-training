@@ -278,6 +278,7 @@ import { PromptService } from '@/server/services/promptService';
 import { SupabaseService } from '@/server/services/supabaseService';
 import { BlogStepId, isStep7 as isBlogStep7, toTemplateName } from '@/lib/constants';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
+import { headingFlowService } from '@/server/services/headingFlowService';
 
 const supabaseService = new SupabaseService();
 
@@ -924,6 +925,39 @@ export async function getSystemPrompt(
       const step = model.substring('blog_creation_'.length) as BlogStepId;
       const basePrompt = await generateBlogCreationPromptByStep(liffAccessToken, step, sessionId);
       if (!isBlogStep7(step)) {
+        // Step6見出し単位生成: session_heading_sections が存在する場合は、対象見出しの本文のみ出力するよう指示を付加
+        // 認可: Service Role で RLS をバイパスするため、セッションへの読み取り権限を事前確認する
+        if (step === 'step6' && sessionId && authUserId) {
+          const sessionRes = await supabaseService.getChatSessionById(sessionId, authUserId);
+          if (!sessionRes.success || !sessionRes.data) {
+            return basePrompt;
+          }
+          const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
+          if (sectionsResult.success && Array.isArray(sectionsResult.data)) {
+            const activeSection = sectionsResult.data.find(s => !s.is_confirmed);
+            if (activeSection) {
+              return [
+                basePrompt,
+                '',
+                '---',
+                '',
+                '## 【重要】見出し単位生成モード',
+                '',
+                `現在の対象見出し: 「${activeSection.heading_text}」`,
+                '',
+                '**出力制約（厳守）**:',
+                '- 対象見出しの直下に書かれる本文のみを出力してください。見出し行（`###` や `####`）は出力しないでください。',
+                '- 保存時に見出し行は自動付与されるため、出力に含めると二重化します。',
+                '- 他の見出し、全体構成、前後のセクション、タイトル、リード文などは絶対に出力しないでください。',
+                '',
+                '出力形式の例（本文のみ、見出し行なし）:',
+                '```',
+                '（ここに本文のみ。200〜400字程度を目安）',
+                '```',
+              ].join('\n');
+            }
+          }
+        }
         return basePrompt;
       }
 
