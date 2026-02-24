@@ -269,6 +269,7 @@ interface ChatLayoutCtx {
     currentStep: BlogStepId;
     targetStep: BlogStepId;
   }) => boolean;
+  onManualStepChange?: (targetStep: BlogStepId) => void;
   isHeadingInitInFlight: boolean;
   hasAttemptedHeadingInit: boolean;
   isSavingHeading: boolean;
@@ -313,6 +314,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     isGenerateTitleMetaLoading,
     onLoadBlogArticle,
     onBeforeManualStepChange,
+    onManualStepChange: ctxOnManualStepChange,
     isHeadingInitInFlight,
     hasAttemptedHeadingInit,
     isSavingHeading,
@@ -356,9 +358,13 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
       setManualBlogStep(null);
     }
   }, [manualBlogStep, detectedStep]);
-  const handleManualStepChange = useCallback((targetStep: BlogStepId) => {
-    setManualBlogStep(targetStep);
-  }, []);
+  const handleManualStepChange = useCallback(
+    (targetStep: BlogStepId) => {
+      setManualBlogStep(targetStep);
+      ctxOnManualStepChange?.(targetStep);
+    },
+    [ctxOnManualStepChange]
+  );
 
   const [isErrorDismissed, setIsErrorDismissed] = useState(false);
   const [isWarningDismissed, setIsWarningDismissed] = useState(false);
@@ -991,6 +997,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     },
     [resolvedCanvasStep, canvasStreamingContent, canvasContent, activeHeading]
   );
+
+  // スキップ/バック時に resolvedCanvasStep を同期（見出しフロー・Canvas コンテンツの表示に必要）
+  const handleManualStepChangeForCanvas = useCallback((targetStep: BlogStepId) => {
+    setCanvasStep(targetStep);
+    if (targetStep === 'step6') {
+      setCanvasPanelOpen(true);
+    }
+  }, []);
 
   // 履歴ベースのモデル自動検出は削除（InputArea 側でフロー状態から自動選択）
 
@@ -1649,6 +1663,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           isGenerateTitleMetaLoading: isGeneratingTitleMeta,
           onLoadBlogArticle: handleLoadBlogArticle,
           onBeforeManualStepChange: handleBeforeManualStepChange,
+          onManualStepChange: handleManualStepChangeForCanvas,
           isHeadingInitInFlight,
           hasAttemptedHeadingInit,
           isSavingHeading,
