@@ -88,10 +88,10 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
     const showTitleMetaButton =
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
-    const showSkipButton = !isStep6 && !isStep7;
+    const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
     const isHeadingFlowStep = isStep6 || isStep7;
-    const isStep6Busy = isStep6 && isSavingHeading;
+    const isStep6Busy = isStep6 && (isSavingHeading || isHeadingInitInFlight);
     const headingLabel =
       currentHeadingText && currentHeadingText.trim().length > 0
         ? currentHeadingText
@@ -165,7 +165,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             <Button
               type="button"
               onClick={() => handleManualStepShift('forward')}
-              disabled={isDisabled || !onManualStepChange}
+              disabled={isDisabled || isStep6Busy || !onManualStepChange}
               size="sm"
               className="flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-emerald-300"
             >
