@@ -183,6 +183,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   onNextHeading,
   canGoPrevHeading,
   canGoNextHeading,
+  hideOutline = false,
 }) => {
   const [markdownContent, setMarkdownContent] = useState('');
   const [bubble, setBubble] = useState<CanvasBubbleState>({
@@ -1061,7 +1062,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               )}
             </div>
           )}
-          {headings.length > 0 && (
+          {headings.length > 0 && !hideOutline && (
             <Button
               variant="ghost"
               size="sm"
@@ -1274,7 +1275,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
       </div>
 
       {/* ✅ アウトラインパネル - ヘッダー下の適切な位置に配置 */}
-      {outlineVisible && headings.length > 0 && (
+      {outlineVisible && headings.length > 0 && !hideOutline && (
         <div className="sticky top-32 z-30 border-b bg-white ml-2 max-h-48 overflow-y-auto shadow-sm">
           <div className="p-3">
             <h4 className="text-sm font-medium text-gray-600 mb-2">アウトライン</h4>

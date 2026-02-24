@@ -1865,6 +1865,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           canGoNextHeading={
             viewingHeadingIndex !== null && viewingHeadingIndex < maxViewableIndex
           }
+          hideOutline={
+            resolvedCanvasStep === 'step6' &&
+            viewingHeadingIndex !== null &&
+            totalHeadings > 0
+          }
           onSaveHeadingSection={handleSaveHeadingSection}
           onStartHeadingGeneration={handleStartHeadingGeneration}
           isChatLoading={chatSession.state.isLoading}

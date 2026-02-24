@@ -77,6 +77,8 @@ export interface CanvasPanelProps {
   canGoPrevHeading?: boolean;
   /** 次の見出しへ進めるか */
   canGoNextHeading?: boolean;
+  /** true のときアウトラインを非表示（見出し単位編集時のみ） */
+  hideOutline?: boolean;
 }
 
 export interface CanvasSelectionState {
