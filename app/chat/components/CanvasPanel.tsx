@@ -1123,17 +1123,19 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </SelectContent>
             </Select>
           )}
-          <Button
-            ref={markdownBtnRef}
-            size="sm"
-            variant="default"
-            onClick={handleCopyMarkdown}
-            className="bg-green-600 hover:bg-green-700 transition-colors px-3 py-1 text-xs"
-            title="マークダウンとしてコピー"
-          >
-            <ClipboardCheck size={14} className="mr-1" />
-            コピー
-          </Button>
+          {activeStepId !== 'step6' && (
+            <Button
+              ref={markdownBtnRef}
+              size="sm"
+              variant="default"
+              onClick={handleCopyMarkdown}
+              className="bg-green-600 hover:bg-green-700 transition-colors px-3 py-1 text-xs"
+              title="マークダウンとしてコピー"
+            >
+              <ClipboardCheck size={14} className="mr-1" />
+              コピー
+            </Button>
+          )}
           {activeStepId === 'step6' && onSaveHeadingSection && headingIndex !== undefined && (
             <Button
               size="sm"
