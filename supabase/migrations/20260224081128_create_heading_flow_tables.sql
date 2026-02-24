@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.session_heading_sections (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id text NOT NULL REFERENCES public.chat_sessions(id) ON DELETE CASCADE,
     heading_key text NOT NULL,
-    heading_level smallint NOT NULL CHECK (heading_level BETWEEN 1 AND 6),
+    heading_level smallint NOT NULL CHECK (heading_level IN (3, 4)),
     heading_text text NOT NULL,
     order_index integer NOT NULL CHECK (order_index >= 0),
     content text NOT NULL DEFAULT '',
@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.session_heading_sections (
 
 -- Index for session_heading_sections
 CREATE INDEX IF NOT EXISTS idx_heading_sections_session_order ON public.session_heading_sections (session_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id_for_heading_rls ON public.chat_sessions (user_id);
 
 -- Create session_combined_contents table
 CREATE TABLE IF NOT EXISTS public.session_combined_contents (
@@ -55,12 +56,12 @@ ALTER TABLE public.session_heading_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.session_combined_contents ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-DO $$
+DO $policies$
 BEGIN
     -- session_heading_sections policies
     DROP POLICY IF EXISTS "Users can access their own session headings" ON public.session_heading_sections;
     
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'session_heading_sections' AND policyname = 'Users can view their own session headings') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'session_heading_sections' AND policyname = 'Users can view their own session headings') THEN
         CREATE POLICY "Users can view their own session headings" ON public.session_heading_sections
             FOR SELECT
             TO authenticated
@@ -72,7 +73,7 @@ BEGIN
             );
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'session_heading_sections' AND policyname = 'Users can modify their own session headings') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'session_heading_sections' AND policyname = 'Users can modify their own session headings') THEN
         CREATE POLICY "Users can modify their own session headings" ON public.session_heading_sections
             FOR ALL
             TO authenticated
@@ -95,7 +96,7 @@ BEGIN
     -- session_combined_contents policies
     DROP POLICY IF EXISTS "Users can access their own combined contents" ON public.session_combined_contents;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'session_combined_contents' AND policyname = 'Users can view their own combined contents') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'session_combined_contents' AND policyname = 'Users can view their own combined contents') THEN
         CREATE POLICY "Users can view their own combined contents" ON public.session_combined_contents
             FOR SELECT
             TO authenticated
@@ -107,7 +108,7 @@ BEGIN
             );
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'session_combined_contents' AND policyname = 'Users can modify their own combined contents') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'session_combined_contents' AND policyname = 'Users can modify their own combined contents') THEN
         CREATE POLICY "Users can modify their own combined contents" ON public.session_combined_contents
             FOR ALL
             TO authenticated
@@ -126,7 +127,8 @@ BEGIN
                 AND (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role != 'owner'))
             );
     END IF;
-END $$;
+END
+$policies$;
 
 -- Create a function to atomically update combined content
 CREATE OR REPLACE FUNCTION public.save_atomic_combined_content(
@@ -137,21 +139,18 @@ CREATE OR REPLACE FUNCTION public.save_atomic_combined_content(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $save_atomic_combined_content$
 DECLARE
     v_max_version integer;
     v_user_id text;
     v_effective_user_id text;
+    v_effective_user_uuid uuid;
 BEGIN
     -- 1. Determine effective user ID and Validate Context
     -- SECURITY DEFINER runs as owner, so we check the calling role via auth.role()
     -- If called by service_role, trust the passed p_authenticated_user_id
     IF auth.role() = 'service_role' THEN
         v_effective_user_id := p_authenticated_user_id;
-    -- 将来の拡張用：authenticated に EXECUTE を付与して直接呼び出す場合の対応。
-    -- 現状は service_role のみが呼び出し可能なため、このブランチは到達不能。
-    ELSIF auth.role() = 'authenticated' THEN
-        v_effective_user_id := auth.uid()::text;
     ELSE
         RAISE EXCEPTION 'Execution denied: invalid authentication context';
     END IF;
@@ -160,6 +159,13 @@ BEGIN
         RAISE EXCEPTION 'User context is missing';
     END IF;
 
+    BEGIN
+        v_effective_user_uuid := v_effective_user_id::uuid;
+    EXCEPTION
+        WHEN invalid_text_representation THEN
+            RAISE EXCEPTION 'Invalid authenticated user id format';
+    END;
+
     -- 2. Security check and Concurrency Control (Row Locking)
     -- chat_sessions の該当行を FOR UPDATE でロックし、同一セッションでの同時保存をシリアライズ化する
     SELECT user_id INTO v_user_id 
@@ -167,7 +173,11 @@ BEGIN
     WHERE id = p_session_id
     FOR UPDATE;
 
-    IF v_user_id IS NULL OR NOT (v_user_id = ANY(public.get_accessible_user_ids(v_effective_user_id::uuid))) THEN
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Session not found: %', p_session_id;
+    END IF;
+
+    IF NOT (v_user_id = ANY(public.get_accessible_user_ids(v_effective_user_uuid))) THEN
         RAISE EXCEPTION 'Unauthorized session access';
     END IF;
 
@@ -178,7 +188,7 @@ BEGIN
 
     -- 4. Unset existing latest
     UPDATE public.session_combined_contents
-    SET is_latest = false, updated_at = now()
+    SET is_latest = false
     WHERE session_id = p_session_id AND is_latest = true;
 
     -- 5. Insert new latest version
@@ -194,10 +204,4 @@ BEGIN
         true
     );
 END;
-$$;
-
--- Revoke all privileges and grant only to service_role for maximum security
-REVOKE ALL ON FUNCTION public.save_atomic_combined_content(text, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.save_atomic_combined_content(text, text, text) FROM authenticated;
-REVOKE ALL ON FUNCTION public.save_atomic_combined_content(text, text, text) FROM anon;
-GRANT EXECUTE ON FUNCTION public.save_atomic_combined_content(text, text, text) TO service_role;
+$save_atomic_combined_content$;

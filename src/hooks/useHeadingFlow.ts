@@ -46,6 +46,7 @@ export function useHeadingFlow({
   const [headingInitError, setHeadingInitError] = useState<string | null>(null);
   const [headingSaveError, setHeadingSaveError] = useState<string | null>(null);
   const [latestCombinedContent, setLatestCombinedContent] = useState<string | null>(null);
+  const [hasExistingHeadingSections, setHasExistingHeadingSections] = useState(false);
   // セッション切り替え直後の fetch 完了を待つフラグ。
   // false の間は初期化 effect が走らないようにブロックする。
   const [hasFetchCompleted, setHasFetchCompleted] = useState(false);
@@ -73,6 +74,7 @@ export function useHeadingFlow({
       // セッション切り替え時の競合防止
       if (res.success && res.data && sid === currentSessionIdRef.current) {
         setHeadingSections(res.data);
+        setHasExistingHeadingSections(res.data.length > 0);
         return res.data;
       }
       return [];
@@ -101,6 +103,7 @@ export function useHeadingFlow({
     prevSessionIdRef.current = sessionId;
 
     setHeadingSections([]);
+    setHasExistingHeadingSections(false);
     setLatestCombinedContent(null);
     setHasAttemptedHeadingInit(false);
     setIsHeadingInitInFlight(false);
@@ -136,12 +139,12 @@ export function useHeadingFlow({
 
   // Step 6 入場時の初期化（現在表示中のステップが step6 のとき発火）
   useEffect(() => {
-    // headingSections を依存配列に含めない意図：hasFetchCompleted を介した同期により
-    // セッション切り替え後の fetch 完了後に発火し、その時点の headingSections を使用する。
+    // hasExistingHeadingSections / hasFetchCompleted を介して、
+    // セッション切り替え後の fetch 完了と初期化判定を同期する。
     if (
       !sessionId ||
       resolvedCanvasStep !== 'step6' ||
-      headingSections.length > 0 ||
+      hasExistingHeadingSections ||
       isHeadingInitInFlight ||
       hasAttemptedHeadingInit ||
       isSessionLoading ||
@@ -192,10 +195,10 @@ export function useHeadingFlow({
     };
 
     void initAndFetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- headingSections は意図的に除外。hasFetchCompleted による同期設計。
   }, [
     sessionId,
     resolvedCanvasStep,
+    hasExistingHeadingSections,
     isHeadingInitInFlight,
     step5Content,
     isSessionLoading,
