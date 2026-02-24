@@ -24,6 +24,7 @@ import {
   Info,
   SearchCheck,
   PenLine,
+  Play,
   RotateCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -166,6 +167,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   totalHeadings,
   currentHeadingText,
   onSaveHeadingSection,
+  onStartHeadingGeneration,
+  isChatLoading = false,
   isSavingHeading,
   isStep6SaveDisabled = false,
   headingSaveError,
@@ -1138,11 +1141,32 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               コピー
             </Button>
           )}
-          {activeStepId === 'step6' && onSaveHeadingSection && headingIndex !== undefined && (
+          {activeStepId === 'step6' &&
+            headingIndex !== undefined &&
+            onStartHeadingGeneration &&
+            isStep6SaveDisabled && (
+            <Button
+              size="sm"
+              onClick={onStartHeadingGeneration}
+              disabled={isStreaming || isChatLoading}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white transition-colors px-3 py-1 text-xs font-bold shadow-sm"
+            >
+              {(isStreaming || isChatLoading) ? (
+                <Loader2 size={14} className="mr-1 animate-spin" />
+              ) : (
+                <Play size={14} className="mr-1" />
+              )}
+              {headingIndex === 0 ? '1件目の生成をスタート' : 'この見出しを生成'}
+            </Button>
+          )}
+          {activeStepId === 'step6' &&
+            onSaveHeadingSection &&
+            headingIndex !== undefined &&
+            !isStep6SaveDisabled && (
             <Button
               size="sm"
               onClick={onSaveHeadingSection}
-              disabled={isSavingHeading || isStreaming || isStep6SaveDisabled}
+              disabled={isSavingHeading || isStreaming}
               className="bg-blue-600 hover:bg-blue-700 text-white transition-colors px-3 py-1 text-xs font-bold shadow-sm"
             >
               {isSavingHeading ? (

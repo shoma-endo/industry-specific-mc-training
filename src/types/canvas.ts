@@ -54,6 +54,10 @@ export interface CanvasPanelProps {
   totalHeadings?: number;
   currentHeadingText?: string;
   onSaveHeadingSection?: () => Promise<void>;
+  /** 見出しの本文生成を開始する（チャット送信の代わりにボタンで起動） */
+  onStartHeadingGeneration?: () => void;
+  /** チャット送信中（見出し生成リクエスト中）は true。連打防止のためボタン無効化に使用 */
+  isChatLoading?: boolean;
   isSavingHeading?: boolean;
   /** 見出し遷移直後など、前見出し本文の誤保存を防ぐため保存を無効化 */
   isStep6SaveDisabled?: boolean;

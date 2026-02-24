@@ -1183,6 +1183,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     [chatSession.actions, selectedServiceId]
   );
 
+  // ✅ 見出し単位生成: スタート/この見出しを生成ボタンでチャット送信の代わりに生成開始
+  const handleStartHeadingGeneration = useCallback(() => {
+    setSelectedModel('blog_creation');
+    void handleSendMessage('この見出しの本文を書いてください', 'blog_creation_step6');
+  }, [handleSendMessage]);
+
   // ✅ Canvasボタンクリック時にCanvasPanelを表示する関数
   const handleShowCanvas = useCallback(
     (message: ChatMessage) => {
@@ -1703,6 +1709,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             currentHeadingText: activeHeading.headingText,
           })}
           onSaveHeadingSection={handleSaveHeadingSection}
+          onStartHeadingGeneration={handleStartHeadingGeneration}
+          isChatLoading={chatSession.state.isLoading}
           isSavingHeading={isSavingHeading}
           isStep6SaveDisabled={isStep6ContentStale}
           headingSaveError={headingSaveError}
