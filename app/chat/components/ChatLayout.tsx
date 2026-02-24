@@ -1004,10 +1004,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
       const currentContent = (canvasContentRef.current || canvasStreamingContent || canvasContent).trim();
       const baselineContent = canvasContent.trim();
-      const hasUnsavedDraft = Boolean(activeHeading && !activeHeading.isConfirmed && currentContent.length > 0);
       const hasEditedDiff = currentContent !== baselineContent;
-
-      if (!hasUnsavedDraft && !hasEditedDiff) {
+      // ユーザーが実際に編集した場合のみ確認（未確定でも編集なしなら確認不要）
+      if (!hasEditedDiff) {
         return true;
       }
 
@@ -1015,7 +1014,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         '現在の見出しの未保存変更が破棄されます。前の見出しに戻りますか？'
       );
     },
-    [resolvedCanvasStep, canvasStreamingContent, canvasContent, activeHeading]
+    [resolvedCanvasStep, canvasStreamingContent, canvasContent]
   );
 
   // スキップ/バック時に resolvedCanvasStep を同期（見出しフロー・Canvas コンテンツの表示に必要）
