@@ -632,6 +632,50 @@ export class SupabaseService {
     return this.success(undefined);
   }
 
+  /** オーナー/スタッフのアクセス権を考慮して last_message_at を更新 */
+  async updateSessionLastMessageAt(
+    sessionId: string,
+    userId: string,
+    lastMessageAt: string
+  ): Promise<SupabaseResult<void>> {
+    const { data: accessibleIds, error: accessError } = await this.supabase.rpc(
+      'get_accessible_user_ids',
+      { p_user_id: userId }
+    );
+
+    if (accessError || !accessibleIds) {
+      return this.failure('アクセス権の確認に失敗しました', {
+        error: accessError,
+        developerMessage: 'Failed to get accessible user IDs',
+        context: { sessionId, userId },
+      });
+    }
+
+    const { data, error } = await this.supabase
+      .from('chat_sessions')
+      .update({ last_message_at: lastMessageAt })
+      .eq('id', sessionId)
+      .in('user_id', accessibleIds)
+      .select('id');
+
+    if (error) {
+      return this.failure('チャットセッションの更新に失敗しました', {
+        error,
+        developerMessage: 'Failed to update last_message_at',
+        context: { sessionId, userId },
+      });
+    }
+
+    if (!data || data.length === 0) {
+      return this.failure('セッションが見つからないか、更新権限がありません', {
+        developerMessage: 'No rows updated',
+        context: { sessionId, userId },
+      });
+    }
+
+    return this.success(undefined);
+  }
+
   async createChatMessage(message: DbChatMessage): Promise<SupabaseResult<string>> {
     const { data, error } = await this.supabase
       .from('chat_messages')

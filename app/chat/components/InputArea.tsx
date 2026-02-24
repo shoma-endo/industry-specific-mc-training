@@ -77,6 +77,10 @@ interface InputAreaProps {
   onNextStepChange?: (nextStep: BlogStepId | null) => void;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   onManualStepChange?: (step: BlogStepId) => void;
+  /** Step5で入力内容をそのまま構成案として保存（AI経由なし） */
+  onSaveManualStep5?: (
+    content: string
+  ) => Promise<{ success: true } | { success: false; error: string }>;
   onBeforeManualStepChange?: (params: {
     direction: 'forward' | 'backward';
     currentStep: BlogStepId;
@@ -134,6 +138,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onNextStepChange,
   onLoadBlogArticle,
   onManualStepChange,
+  onSaveManualStep5,
   onBeforeManualStepChange,
   isHeadingInitInFlight,
   hasAttemptedHeadingInit,
@@ -160,6 +165,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   const effectiveDraftTitle = draftSessionTitle ?? currentSessionTitle ?? '';
   const [isLoadingBlogArticle, setIsLoadingBlogArticle] = useState(false);
   const [blogArticleError, setBlogArticleError] = useState<string | null>(null);
+  const [isSavingManualStep5, setIsSavingManualStep5] = useState(false);
 
   const isModelSelected = Boolean(selectedModel);
   const isInputDisabled = disabled || !isModelSelected || isReadOnly;
@@ -567,7 +573,43 @@ const InputArea: React.FC<InputAreaProps> = ({
                   )}
                   rows={1}
                 />
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
+                  {(initialBlogStep === 'step5' ||
+                      displayStep === 'step5' ||
+                      nextStepForPlaceholder === 'step5') &&
+                    onSaveManualStep5 &&
+                    currentSessionId &&
+                    input.trim() &&
+                    !isReadOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isSavingManualStep5 || isInputDisabled}
+                        className="text-xs shrink-0"
+                        onClick={async () => {
+                          const content = input.trim();
+                          if (!content || !onSaveManualStep5) return;
+                          setIsSavingManualStep5(true);
+                          try {
+                            const result = await onSaveManualStep5(content);
+                            if (result.success) {
+                              setInput('');
+                            } else {
+                              setBlogArticleError(result.error ?? '保存に失敗しました');
+                            }
+                          } finally {
+                            setIsSavingManualStep5(false);
+                          }
+                        }}
+                      >
+                        {isSavingManualStep5 ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          'この内容で保存'
+                        )}
+                      </Button>
+                    )}
                   <Button
                     type="submit"
                     size="icon"

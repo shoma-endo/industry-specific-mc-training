@@ -24,7 +24,10 @@ import type { CanvasSelectionEditPayload, CanvasSelectionEditResult } from '@/ty
 import AnnotationPanel from './AnnotationPanel';
 import type { StepActionBarRef } from './StepActionBar';
 import { getContentAnnotationBySession } from '@/server/actions/wordpress.actions';
-import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
+import {
+  getLatestBlogStep7MessageBySession,
+  saveManualStep5Content,
+} from '@/server/actions/chat.actions';
 import { useHeadingFlow } from '@/hooks/useHeadingFlow';
 import { stripLeadingHeadingLine } from '@/lib/heading-extractor';
 import { Service } from '@/server/schemas/brief.schema';
@@ -271,6 +274,9 @@ interface ChatLayoutCtx {
     targetStep: BlogStepId;
   }) => boolean;
   onManualStepChange?: (targetStep: BlogStepId) => void;
+  onSaveManualStep5?: (
+    content: string
+  ) => Promise<{ success: true } | { success: false; error: string }>;
   isHeadingInitInFlight: boolean;
   hasAttemptedHeadingInit: boolean;
   isSavingHeading: boolean;
@@ -316,6 +322,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onLoadBlogArticle,
     onBeforeManualStepChange,
     onManualStepChange: ctxOnManualStepChange,
+    onSaveManualStep5: ctxOnSaveManualStep5,
     isHeadingInitInFlight,
     hasAttemptedHeadingInit,
     isSavingHeading,
@@ -503,6 +510,9 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           nextStepForPlaceholder={nextStepForPlaceholder}
           onNextStepChange={onNextStepChange}
           onManualStepChange={handleManualStepChange}
+          {...(ctxOnSaveManualStep5 !== undefined && {
+            onSaveManualStep5: ctxOnSaveManualStep5,
+          })}
           isEditingTitle={isEditingSessionTitle}
           draftSessionTitle={draftSessionTitle}
           sessionTitleError={sessionTitleError}
@@ -823,7 +833,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // 見出し単位生成フロー用ステート・ロジック（カスタムフックで管理）
   const step5Content = useMemo(
     () =>
-      [...(chatSession.state.messages ?? [])].reverse().find(m => m.model === 'blog_creation_step5')
+      [...(chatSession.state.messages ?? [])]
+        .reverse()
+        .find(m =>
+          m.model === 'blog_creation_step5' || m.model === 'blog_creation_step5_manual'
+        )
         ?.content ?? null,
     [chatSession.state.messages]
   );
@@ -1187,6 +1201,24 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       await chatSession.actions.sendMessage(content, model, options);
     },
     [chatSession.actions, selectedServiceId]
+  );
+
+  // ✅ Step5: 入力内容をそのまま構成案として保存（AI経由なし）
+  const handleSaveManualStep5 = useCallback(
+    async (content: string) => {
+      const sessionId = chatSession.state.currentSessionId;
+      if (!sessionId) return { success: false as const, error: 'セッションがありません' };
+
+      const token = await getAccessToken();
+      if (!token) return { success: false as const, error: '認証できませんでした' };
+
+      const result = await saveManualStep5Content(sessionId, content, token);
+      if (result.success && chatSession.actions.loadSession) {
+        await chatSession.actions.loadSession(sessionId);
+      }
+      return result;
+    },
+    [chatSession.state.currentSessionId, chatSession.actions, getAccessToken]
   );
 
   // ✅ 見出し単位生成: スタート/この見出しを生成ボタンでチャット送信の代わりに生成開始
@@ -1684,6 +1716,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onLoadBlogArticle: handleLoadBlogArticle,
           onBeforeManualStepChange: handleBeforeManualStepChange,
           onManualStepChange: handleManualStepChangeForCanvas,
+          onSaveManualStep5: handleSaveManualStep5,
           isHeadingInitInFlight,
           hasAttemptedHeadingInit,
           isSavingHeading,
