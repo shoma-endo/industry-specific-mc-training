@@ -852,7 +852,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // 見出し保存後に activeHeadingIndex が進んでも Canvas は前見出しの本文のまま。
   // この状態で再保存すると誤保存になるため、新規生成が入るまで内容を空表示・保存無効化する。
-  const prevActiveHeadingIndexRef = useRef<number | undefined>(undefined);
   const [isStep6ContentStale, setIsStep6ContentStale] = useState(false);
   const prevStep6SessionIdRef = useRef<string | null>(null);
   const step6Versions = blogCanvasVersionsByStep.step6 ?? [];
@@ -890,26 +889,22 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     // セッション切り替え時: ref をリセット
     if (prevStep6SessionIdRef.current !== currentSessionId) {
       prevStep6SessionIdRef.current = currentSessionId;
-      prevActiveHeadingIndexRef.current = undefined;
     }
 
     // ストリーミング中は常に非ステール
     if (canvasStreamingContent) {
       setIsStep6ContentStale(false);
-      prevActiveHeadingIndexRef.current = activeHeadingIndex;
       return;
     }
 
     // 現在見出し向けコンテンツがあれば非ステール
     if (hasContentForCurrentHeading) {
       setIsStep6ContentStale(false);
-      prevActiveHeadingIndexRef.current = activeHeadingIndex;
       return;
     }
 
     // hasContentForCurrentHeading の場合は上で return 済みのため、ここでは常にステール
     setIsStep6ContentStale(true);
-    prevActiveHeadingIndexRef.current = activeHeadingIndex;
   }, [
     chatSession.state.currentSessionId,
     resolvedCanvasStep,
