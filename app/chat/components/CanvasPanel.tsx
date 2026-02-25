@@ -233,7 +233,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
 
-  // Step6見出し単位生成中はバージョン管理UIを非表示（仕様: 見出し単位はバージョン管理しない）
+  // Step6見出し単位編集時はバージョン管理UIを非表示。完成形表示時は表示する（仕様: 見出し単位のみバージョン管理しない）
   const isStep6HeadingFlow =
     activeStepId === 'step6' &&
     headingIndex !== undefined &&
@@ -1174,7 +1174,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {orderedVersions.length > 0 && !isStep6HeadingFlow && (
+          {orderedVersions.length > 0 && !(isStep6HeadingFlow && hideOutline) && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1190,7 +1190,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </Tooltip>
             </TooltipProvider>
           )}
-          {hasStepOptions && !isStep6HeadingFlow && (
+          {hasStepOptions && !(isStep6HeadingFlow && hideOutline) && (
             <Select
               value={activeStepId ?? stepOptions[stepOptions.length - 1] ?? ''}
               onValueChange={value => onStepSelect?.(value as BlogStepId)}
@@ -1214,7 +1214,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </SelectContent>
             </Select>
           )}
-          {orderedVersions.length > 0 && !isStep6HeadingFlow && (
+          {orderedVersions.length > 0 && !(isStep6HeadingFlow && hideOutline) && (
             <Select
               value={activeVersionId ?? orderedVersions[orderedVersions.length - 1]?.id ?? ''}
               onValueChange={value => onVersionSelect?.(value)}
