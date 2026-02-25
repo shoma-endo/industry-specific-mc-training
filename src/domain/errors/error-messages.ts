@@ -8,6 +8,9 @@
  * - 拡張性を確保
  */
 
+/** URL形式不正（WordPress・バリデーション共通） */
+const INVALID_URL = '有効なURLを入力してください';
+
 export const ERROR_MESSAGES = {
   /**
    * WordPress関連のエラーメッセージ
@@ -60,7 +63,7 @@ export const ERROR_MESSAGES = {
     WORDPRESS_COM_SITE_ID_REQUIRED: 'WordPress.com連携にはサイトIDが必要です',
 
     /** 有効なURLを入力してください */
-    INVALID_URL: '有効なURLを入力してください',
+    INVALID_URL,
 
     /** 指定された投稿IDがWordPressで見つからない場合 */
     POST_ID_NOT_FOUND: '指定された投稿IDがWordPressで見つかりませんでした。URLをご確認ください。',
@@ -145,6 +148,57 @@ export const ERROR_MESSAGES = {
 
     /** View Mode中のオーナーとスタッフが操作できない場合（本人のオーナーアカウントのみ許可） */
     OWNER_ACCOUNT_REQUIRED: 'この操作は本人のオーナーアカウントでのみ実行できます',
+  },
+
+  /**
+   * バリデーション用エラーメッセージ（サーバー・クライアント共通）
+   * lib/validators/common.ts および各種フォームで使用
+   */
+  VALIDATION: {
+    /** タイトル未入力 */
+    TITLE_REQUIRED: 'タイトルを入力してください',
+
+    /** タイトル文字数超過 */
+    TITLE_MAX_LENGTH: (max: number) => `タイトルは${max}文字以内で入力してください`,
+
+    /** URL形式不正 */
+    INVALID_URL,
+
+    /** メールアドレス形式不正 */
+    INVALID_EMAIL: '有効なメールアドレスを入力してください',
+
+    /** 日付形式（YYYY-MM-DD）不正 */
+    DATE_FORMAT_INVALID: '日付は YYYY-MM-DD 形式で指定してください',
+
+    /** 無効な日付 */
+    DATE_INVALID: '無効な日付です',
+
+    /** 日付範囲未入力 */
+    DATE_RANGE_REQUIRED: '開始日と終了日を入力してください',
+
+    /** 日付範囲の順序不正 */
+    DATE_RANGE_ORDER_INVALID: '開始日は終了日以前の日付を指定してください',
+
+    /** サービス名必須 */
+    SERVICE_NAME_REQUIRED: 'サービス名は必須です',
+
+    /** サービス数不足 */
+    SERVICE_MIN_COUNT: '最低1つのサービスが必要です',
+
+    /** カスタマーID形式（10桁数字） */
+    CUSTOMER_ID_FORMAT: 'カスタマー ID は 10桁の数字で指定してください',
+
+    /** キャンペーンID形式（数値のみ） */
+    CAMPAIGN_ID_FORMAT: 'キャンペーン ID は数値のみで指定してください',
+
+    /** GA4プロパティID必須 */
+    GA4_PROPERTY_ID_REQUIRED: 'GA4プロパティIDは必須です',
+
+    /** イベント名必須 */
+    GA4_EVENT_NAME_REQUIRED: 'イベント名は必須です',
+
+    /** 変換イベント数上限（前段CVイベントのラベル付きで表示されるため簡潔に） */
+    GA4_CONVERSION_EVENTS_MAX: (max: number) => `${max}件以内で選択してください`,
   },
 
   /**

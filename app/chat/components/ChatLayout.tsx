@@ -32,6 +32,7 @@ import { useHeadingFlow } from '@/hooks/useHeadingFlow';
 import { stripLeadingHeadingLine } from '@/lib/heading-extractor';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
+import { validateTitle as validateTitleFromCommon } from '@/lib/validators/common';
 import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
 
@@ -1217,16 +1218,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   }, [currentSession]);
 
-  const validateTitle = useCallback((value: string): string | null => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return 'タイトルを入力してください';
-    }
-    if (trimmed.length > 60) {
-      return 'タイトルは60文字以内で入力してください';
-    }
-    return null;
-  }, []);
+  const validateTitle = validateTitleFromCommon;
 
   const handleTitleEditConfirm = useCallback(async () => {
     const sessionId = chatSession.state.currentSessionId;

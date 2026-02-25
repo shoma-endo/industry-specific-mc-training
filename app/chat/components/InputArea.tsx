@@ -14,6 +14,7 @@ import {
 import { Bot, Send, Menu, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BLOG_PLACEHOLDERS, BLOG_STEP_IDS, BlogStepId } from '@/lib/constants';
+import { TITLE_MAX_LENGTH } from '@/lib/validators/common';
 import { useLiffContext } from '@/components/LiffProvider';
 import StepActionBar, { StepActionBarRef } from './StepActionBar';
 import ChatSearch from './search/ChatSearch';
@@ -367,7 +368,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                         className="h-8 w-[160px] md:w-[240px] text-sm"
                         placeholder="チャットタイトルを入力"
                         autoFocus
-                        maxLength={60}
+                        maxLength={TITLE_MAX_LENGTH}
                         disabled={isSavingSessionTitle || isReadOnly}
                         aria-label="チャットタイトルを入力"
                         aria-invalid={sessionTitleError ? true : false}
