@@ -264,11 +264,12 @@ export class Ga4ImportService {
     propertyId: string,
     range: { startDate: string; endDate: string }
   ): Promise<ReportFetchResult> {
+    // landingPage はセッションスコープ、totalUsers はユーザースコープのため互換性なし。
+    // API 制約により landingPage 単位で totalUsers を取得できないため、CVR 分母には sessions を使用。
     return this.fetchReportWithPagination(accessToken, propertyId, 'base', {
       dimensions: [{ name: 'date' }, { name: 'landingPage' }],
       metrics: [
         { name: 'sessions' },
-        { name: 'totalUsers' },
         { name: 'userEngagementDuration' },
         { name: 'bounceRate' },
         { name: 'organicGoogleSearchClicks' },    // 検索クリック数（CTR分子）
@@ -361,11 +362,12 @@ export class Ga4ImportService {
           });
         } else {
           const sessions = Number(metrics[0]?.value ?? 0);
-          const users = Number(metrics[1]?.value ?? 0);
-          const engagementTimeSec = Number(metrics[2]?.value ?? 0);
-          const bounceRate = Number(metrics[3]?.value ?? 0);
-          const searchClicks = Number(metrics[4]?.value ?? 0);
-          const impressions = Number(metrics[5]?.value ?? 0);
+          // totalUsers は landingPage と非互換のため、CVR 分母に sessions を充てる
+          const users = sessions;
+          const engagementTimeSec = Number(metrics[1]?.value ?? 0);
+          const bounceRate = Number(metrics[2]?.value ?? 0);
+          const searchClicks = Number(metrics[3]?.value ?? 0);
+          const impressions = Number(metrics[4]?.value ?? 0);
           rows.push({
             date,
             pagePath: landingPage,
