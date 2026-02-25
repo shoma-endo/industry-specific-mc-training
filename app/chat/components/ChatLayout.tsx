@@ -973,9 +973,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const canvasContent = useMemo(() => {
     if (resolvedCanvasStep === 'step6') {
-      // 全見出し確定済み → session_combined_contents の結合コンテンツを表示（バージョン管理あり）
+      // 全見出し確定済み かつ 完成形表示モード（viewingHeadingIndex === null）→ 結合コンテンツを表示
+      // 「戻る」で特定見出しを表示中（viewingHeadingIndex !== null）の場合は見出し単位コンテンツを返す
       // 取得遅延/失敗時は activeCanvasVersion にフォールバック（空表示を防ぐ）
-      if (!activeHeading && headingSections.length > 0) {
+      if (!activeHeading && headingSections.length > 0 && viewingHeadingIndex === null) {
         return selectedCombinedContent ?? activeCanvasVersion?.content ?? '';
       }
       // 見出し遷移直後は前見出し本文を表示しない（誤保存防止）。表示中がアクティブでなければ stale を無視
@@ -1008,11 +1009,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     activeHeadingIndex,
   ]);
 
-  // 完成形表示モード（全見出し確定済みで結合コンテンツを表示中）
+  // 完成形表示モード（全見出し確定済み かつ viewingHeadingIndex === null で結合コンテンツを表示中）
+  // 「戻る」で特定見出しを表示中（viewingHeadingIndex !== null）の場合は false
   const isCombinedFormView =
     resolvedCanvasStep === 'step6' &&
     !activeHeading &&
-    headingSections.length > 0;
+    headingSections.length > 0 &&
+    viewingHeadingIndex === null;
   // 完成形かつバージョン取得完了時のみ combined 由来に切り替え（過渡期のブリンク防止）
   const isCombinedFormViewWithVersions =
     isCombinedFormView && combinedContentVersions.length > 0;
