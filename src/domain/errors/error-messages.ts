@@ -193,6 +193,9 @@ export const ERROR_MESSAGES = {
 
     /** イベント名必須 */
     GA4_EVENT_NAME_REQUIRED: 'イベント名は必須です',
+
+    /** 変換イベント数上限（前段CVイベントのラベル付きで表示されるため簡潔に） */
+    GA4_CONVERSION_EVENTS_MAX: (max: number) => `${max}件以内で選択してください`,
   },
 
   /**

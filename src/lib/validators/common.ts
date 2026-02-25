@@ -68,7 +68,8 @@ export const dateStringSchema = z
     { message: V.DATE_INVALID }
   );
 
-/** 日付範囲検証用 refine（startDate <= endDate）。startDate/endDate を持つ任意のオブジェクトで利用可能 */
+/** 日付範囲検証用 refine（startDate <= endDate）。startDate/endDate を持つ任意のオブジェクトで利用可能。
+ * 前提: startDate / endDate は YYYY-MM-DD 形式の有効な日付文字列であること（dateStringSchema 等で事前検証済み）。 */
 export const dateRangeRefinement = {
   refine: <T extends { startDate: string; endDate: string }>(data: T) => {
     const start = new Date(data.startDate);
@@ -110,9 +111,13 @@ export const ga4PropertyIdSchema = z
   .string()
   .min(1, { message: V.GA4_PROPERTY_ID_REQUIRED });
 
+const GA4_CONVERSION_EVENTS_MAX = 50;
+
 export const ga4ConversionEventsSchema = z
   .array(z.string().min(1, { message: V.GA4_EVENT_NAME_REQUIRED }))
-  .max(50)
+  .max(GA4_CONVERSION_EVENTS_MAX, {
+    message: V.GA4_CONVERSION_EVENTS_MAX(GA4_CONVERSION_EVENTS_MAX),
+  })
   .optional();
 
 // --- クライアント向けヘルパー（safeParse の薄いラッパー） ---
@@ -127,7 +132,7 @@ export function validateTitle(value: string): string | null {
 export function validateOptionalUrl(value: string): string | null {
   const trimmed = value.trim();
   if (trimmed.length === 0) return null;
-  const result = z.string().url().safeParse(trimmed);
+  const result = urlSchema.safeParse(trimmed);
   return result.success ? null : V.INVALID_URL;
 }
 
