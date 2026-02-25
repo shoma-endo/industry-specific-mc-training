@@ -1096,84 +1096,6 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               <List size={16} />
             </Button>
           )}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {orderedVersions.length > 0 && !isStep6HeadingFlow && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-5 h-5 text-gray-500 hover:text-gray-700 cursor-help transition-colors">
-                    <Info size={16} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-[280px] text-xs">
-                  <p>
-                    過去のステップから改善指示を出して修正した場合、そのステップから進むことになります
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {hasStepOptions && (
-            <Select
-              value={activeStepId ?? stepOptions[stepOptions.length - 1] ?? ''}
-              onValueChange={value => onStepSelect?.(value as BlogStepId)}
-              disabled={!onStepSelect}
-            >
-              <SelectTrigger
-                size="sm"
-                className="min-w-[180px] max-w-[260px] text-xs font-semibold [&_[data-slot=select-value]]:sr-only"
-              >
-                <SelectValue placeholder="ステップ選択" />
-                <span className="flex-1 text-left truncate">
-                  {activeStepId ? BLOG_STEP_LABELS[activeStepId] : 'ステップ'}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                {stepOptions.map(stepId => (
-                  <SelectItem key={stepId} value={stepId} className="text-xs">
-                    {BLOG_STEP_LABELS[stepId]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {orderedVersions.length > 0 && !isStep6HeadingFlow && (
-            <Select
-              value={activeVersionId ?? orderedVersions[orderedVersions.length - 1]?.id ?? ''}
-              onValueChange={value => onVersionSelect?.(value)}
-              disabled={!onVersionSelect}
-            >
-              <SelectTrigger
-                size="sm"
-                className="w-[84px] text-xs font-semibold [&_[data-slot=select-value]]:sr-only"
-              >
-                <SelectValue placeholder="バージョン選択" />
-                <span className="flex-1 text-left truncate">{versionTriggerLabel}</span>
-              </SelectTrigger>
-              <SelectContent>
-                {orderedVersions.map(option => (
-                  <SelectItem key={option.id} value={option.id} className="text-xs">
-                    {`バージョン${option.versionNumber}${option.isLatest ? ' - 最新' : ''}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {activeStepId !== 'step6' && (
-            <Button
-              ref={markdownBtnRef}
-              size="sm"
-              variant="default"
-              onClick={handleCopyMarkdown}
-              className="bg-green-600 hover:bg-green-700 transition-colors px-3 py-1 text-xs"
-              title="マークダウンとしてコピー"
-            >
-              <ClipboardCheck size={14} className="mr-1" />
-              コピー
-            </Button>
-          )}
           {activeStepId === 'step6' && totalHeadings !== undefined && totalHeadings > 1 && (
             <>
               {canGoPrevHeading && onPrevHeading && (
@@ -1247,6 +1169,84 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 : headingIndex === activeHeadingIndexForFlow
                   ? '保存して次の見出しへ'
                   : '保存'}
+            </Button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {orderedVersions.length > 0 && !isStep6HeadingFlow && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center justify-center w-5 h-5 text-gray-500 hover:text-gray-700 cursor-help transition-colors">
+                    <Info size={16} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs">
+                  <p>
+                    過去のステップから改善指示を出して修正した場合、そのステップから進むことになります
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {hasStepOptions && !isStep6HeadingFlow && (
+            <Select
+              value={activeStepId ?? stepOptions[stepOptions.length - 1] ?? ''}
+              onValueChange={value => onStepSelect?.(value as BlogStepId)}
+              disabled={!onStepSelect}
+            >
+              <SelectTrigger
+                size="sm"
+                className="min-w-[180px] max-w-[260px] text-xs font-semibold [&_[data-slot=select-value]]:sr-only"
+              >
+                <SelectValue placeholder="ステップ選択" />
+                <span className="flex-1 text-left truncate">
+                  {activeStepId ? BLOG_STEP_LABELS[activeStepId] : 'ステップ'}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {stepOptions.map(stepId => (
+                  <SelectItem key={stepId} value={stepId} className="text-xs">
+                    {BLOG_STEP_LABELS[stepId]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {orderedVersions.length > 0 && !isStep6HeadingFlow && (
+            <Select
+              value={activeVersionId ?? orderedVersions[orderedVersions.length - 1]?.id ?? ''}
+              onValueChange={value => onVersionSelect?.(value)}
+              disabled={!onVersionSelect}
+            >
+              <SelectTrigger
+                size="sm"
+                className="w-[84px] text-xs font-semibold [&_[data-slot=select-value]]:sr-only"
+              >
+                <SelectValue placeholder="バージョン選択" />
+                <span className="flex-1 text-left truncate">{versionTriggerLabel}</span>
+              </SelectTrigger>
+              <SelectContent>
+                {orderedVersions.map(option => (
+                  <SelectItem key={option.id} value={option.id} className="text-xs">
+                    {`バージョン${option.versionNumber}${option.isLatest ? ' - 最新' : ''}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {activeStepId !== 'step6' && (
+            <Button
+              ref={markdownBtnRef}
+              size="sm"
+              variant="default"
+              onClick={handleCopyMarkdown}
+              className="bg-green-600 hover:bg-green-700 transition-colors px-3 py-1 text-xs"
+              title="マークダウンとしてコピー"
+            >
+              <ClipboardCheck size={14} className="mr-1" />
+              コピー
             </Button>
           )}
           {activeStepId === 'step6' && headingSaveError && (
