@@ -916,7 +916,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   }, [currentSession]);
 
-  const validateTitle = useCallback(validateTitleFromCommon, []);
+  const validateTitle = validateTitleFromCommon;
 
   const handleTitleEditConfirm = useCallback(async () => {
     const sessionId = chatSession.state.currentSessionId;

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   ga4ConversionEventsSchema,
   ga4PropertyIdSchema,
-} from '@/lib/validators/common';
+} from '@/server/schemas/common.validators';
 
 export { ga4ConversionEventsSchema, ga4PropertyIdSchema };
 

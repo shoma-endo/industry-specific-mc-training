@@ -19,13 +19,16 @@ export const TITLE_MAX_LENGTH = 60;
 
 // --- オプショナルURL・メール（空文字→undefined、値あり時のみ形式チェック） ---
 
+const urlSchema = z.string().url();
+const emailSchema = z.string().email();
+
 export const optionalUrl = z
   .string()
   .optional()
   .refine(
     val => {
       if (!val || val === '') return true;
-      return z.string().url().safeParse(val).success;
+      return urlSchema.safeParse(val).success;
     },
     { message: V.INVALID_URL }
   )
@@ -37,7 +40,7 @@ export const optionalEmail = z
   .refine(
     val => {
       if (!val || val === '') return true;
-      return z.string().email().safeParse(val).success;
+      return emailSchema.safeParse(val).success;
     },
     { message: V.INVALID_EMAIL }
   )
@@ -65,9 +68,9 @@ export const dateStringSchema = z
     { message: V.DATE_INVALID }
   );
 
-/** 日付範囲検証用 refine（startDate <= endDate） */
+/** 日付範囲検証用 refine（startDate <= endDate）。startDate/endDate を持つ任意のオブジェクトで利用可能 */
 export const dateRangeRefinement = {
-  refine: (data: { startDate: string; endDate: string }) => {
+  refine: <T extends { startDate: string; endDate: string }>(data: T) => {
     const start = new Date(data.startDate);
     const end = new Date(data.endDate);
     return start <= end;

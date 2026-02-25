@@ -84,7 +84,12 @@ export function useAnnotationForm({
         setCanonicalUrlError(urlError);
         return { success: false, normalizedCanonicalUrl: null };
       }
-      normalizedUrl = new URL(trimmed).toString();
+      try {
+        normalizedUrl = new URL(trimmed).toString();
+      } catch {
+        setCanonicalUrlError(ERROR_MESSAGES.VALIDATION.INVALID_URL);
+        return { success: false, normalizedCanonicalUrl: null };
+      }
     }
 
     setCanonicalUrlError('');

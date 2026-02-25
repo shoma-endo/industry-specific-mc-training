@@ -4,7 +4,7 @@ import {
   customerIdSchema,
   dateRangeRefinement,
   dateStringSchema,
-} from '@/lib/validators/common';
+} from '@/server/schemas/common.validators';
 
 /**
  * キーワード指標取得の入力スキーマ

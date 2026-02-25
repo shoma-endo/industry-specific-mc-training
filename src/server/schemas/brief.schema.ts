@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
-import { optionalEmail, optionalUrl } from '@/lib/validators/common';
+import { optionalEmail, optionalUrl } from '@/server/schemas/common.validators';
 
-const V = ERROR_MESSAGES.VALIDATION;
+const validationMessages = ERROR_MESSAGES.VALIDATION;
 
 export const paymentEnum = z.enum([
   '現金',
@@ -17,7 +17,7 @@ export const paymentEnum = z.enum([
 
 export const serviceSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().min(1, { message: V.SERVICE_NAME_REQUIRED }),
+  name: z.string().min(1, { message: validationMessages.SERVICE_NAME_REQUIRED }),
   strength: z.string().optional(),
   when: z.string().optional(),
   where: z.string().optional(),
@@ -50,7 +50,7 @@ export const profileSchema = z.object({
 export const briefInputSchema = z.object({
   profile: profileSchema,
   persona: z.string().optional(),
-  services: z.array(serviceSchema).min(1, { message: V.SERVICE_MIN_COUNT }),
+  services: z.array(serviceSchema).min(1, { message: validationMessages.SERVICE_MIN_COUNT }),
 });
 
 export type Service = z.infer<typeof serviceSchema>;
