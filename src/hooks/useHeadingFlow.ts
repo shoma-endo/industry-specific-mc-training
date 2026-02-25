@@ -14,6 +14,14 @@ interface UseHeadingFlowParams {
   resolvedCanvasStep: BlogStepId | null;
 }
 
+/** 完成形の1バージョン（session_combined_contents 由来） */
+export interface CombinedContentVersion {
+  id: string;
+  versionNo: number;
+  content: string;
+  isLatest: boolean;
+}
+
 interface UseHeadingFlowReturn {
   headingSections: SessionHeadingSection[];
   isSavingHeading: boolean;
@@ -24,6 +32,13 @@ interface UseHeadingFlowReturn {
   activeHeadingIndex: number | undefined;
   activeHeading: SessionHeadingSection | undefined;
   latestCombinedContent: string | null;
+  /** 完成形の全バージョン一覧（version_no 降順）。バージョン管理UI用 */
+  combinedContentVersions: CombinedContentVersion[];
+  /** 選択中のバージョンID。null は最新を表示 */
+  selectedCombinedVersionId: string | null;
+  /** 選択バージョンに応じた完成形コンテンツ。完成形表示時に使用 */
+  selectedCombinedContent: string | null;
+  handleCombinedVersionSelect: (versionId: string) => void;
   /**
    * 見出しセクションを保存する。
    * @param content 保存するコンテンツ（canvasStreamingContent || canvasContent）
@@ -47,6 +62,10 @@ export function useHeadingFlow({
   const [headingInitError, setHeadingInitError] = useState<string | null>(null);
   const [headingSaveError, setHeadingSaveError] = useState<string | null>(null);
   const [latestCombinedContent, setLatestCombinedContent] = useState<string | null>(null);
+  const [combinedContentVersions, setCombinedContentVersions] = useState<
+    Array<{ id: string; versionNo: number; content: string; isLatest: boolean }>
+  >([]);
+  const [selectedCombinedVersionId, setSelectedCombinedVersionId] = useState<string | null>(null);
   const [hasExistingHeadingSections, setHasExistingHeadingSections] = useState(false);
   // セッション切り替え直後の fetch 完了を待つフラグ。
   // false の間は初期化 effect が走らないようにブロックする。
@@ -97,6 +116,20 @@ export function useHeadingFlow({
     [getAccessToken]
   );
 
+  const fetchCombinedContentVersions = useCallback(
+    async (sid: string): Promise<void> => {
+      const liffAccessToken = await getAccessToken();
+      const res = await headingActions.getCombinedContentVersions({
+        sessionId: sid,
+        liffAccessToken,
+      });
+      if (res.success && sid === currentSessionIdRef.current) {
+        setCombinedContentVersions(res.data);
+      }
+    },
+    [getAccessToken]
+  );
+
   // セッション切り替え時にステートをリセットして最新データを取得
   const prevSessionIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -106,6 +139,8 @@ export function useHeadingFlow({
     setHeadingSections([]);
     setHasExistingHeadingSections(false);
     setLatestCombinedContent(null);
+    setCombinedContentVersions([]);
+    setSelectedCombinedVersionId(null);
     setHasAttemptedHeadingInit(false);
     setIsHeadingInitInFlight(false);
     setHeadingInitError(null);
@@ -121,16 +156,17 @@ export function useHeadingFlow({
         );
         if (sessionId === currentSessionIdRef.current) {
           setHasFetchCompleted(true);
-          // 全確定済みの場合は結合コンテンツも取得
+          // 全確定済みの場合は結合コンテンツ（最新＋バージョン一覧）を取得
           if (sections.length > 0 && sections.every(s => s.isConfirmed)) {
             void fetchLatestCombinedContent(sessionId);
+            void fetchCombinedContentVersions(sessionId);
           }
         }
       })();
     } else {
       setHasFetchCompleted(true);
     }
-  }, [sessionId, fetchHeadingSections, fetchLatestCombinedContent]);
+  }, [sessionId, fetchHeadingSections, fetchLatestCombinedContent, fetchCombinedContentVersions]);
 
   useEffect(() => {
     if (resolvedCanvasStep !== 'step6') {
@@ -251,6 +287,7 @@ export function useHeadingFlow({
 
           if (allDone) {
             void fetchLatestCombinedContent(sessionId);
+            void fetchCombinedContentVersions(sessionId);
             toast.success(
               '全見出しの保存が完了しました。全体の構成を確認して本文作成（ステップ7）に進んでください。'
             );
@@ -279,6 +316,7 @@ export function useHeadingFlow({
       resolvedCanvasStep,
       fetchHeadingSections,
       fetchLatestCombinedContent,
+      fetchCombinedContentVersions,
       getAccessToken,
     ]
   );
@@ -287,6 +325,18 @@ export function useHeadingFlow({
     setHeadingInitError(null);
     setHeadingSaveError(null);
     setHasAttemptedHeadingInit(false);
+  }, []);
+
+  const selectedCombinedContent = useMemo(() => {
+    if (selectedCombinedVersionId) {
+      const v = combinedContentVersions.find(c => c.id === selectedCombinedVersionId);
+      if (v) return v.content;
+    }
+    return latestCombinedContent;
+  }, [combinedContentVersions, selectedCombinedVersionId, latestCombinedContent]);
+
+  const handleCombinedVersionSelect = useCallback((versionId: string) => {
+    setSelectedCombinedVersionId(versionId);
   }, []);
 
   return {
@@ -299,6 +349,10 @@ export function useHeadingFlow({
     activeHeadingIndex,
     activeHeading,
     latestCombinedContent,
+    combinedContentVersions,
+    selectedCombinedVersionId,
+    selectedCombinedContent,
+    handleCombinedVersionSelect,
     handleSaveHeadingSection,
     handleRetryHeadingInit,
   };

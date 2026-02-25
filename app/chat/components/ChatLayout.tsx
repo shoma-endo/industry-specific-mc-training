@@ -852,7 +852,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     headingSaveError,
     activeHeadingIndex,
     activeHeading,
-    latestCombinedContent,
+    combinedContentVersions,
+    selectedCombinedVersionId,
+    selectedCombinedContent,
+    handleCombinedVersionSelect,
     handleSaveHeadingSection: _handleSaveHeadingSection,
     handleRetryHeadingInit,
   } = useHeadingFlow({
@@ -970,10 +973,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const canvasContent = useMemo(() => {
     if (resolvedCanvasStep === 'step6') {
-      // 全見出し確定済み → session_combined_contents の結合コンテンツを表示
+      // 全見出し確定済み → session_combined_contents の結合コンテンツを表示（バージョン管理あり）
       // 取得遅延/失敗時は activeCanvasVersion にフォールバック（空表示を防ぐ）
       if (!activeHeading && headingSections.length > 0) {
-        return latestCombinedContent ?? activeCanvasVersion?.content ?? '';
+        return selectedCombinedContent ?? activeCanvasVersion?.content ?? '';
       }
       // 見出し遷移直後は前見出し本文を表示しない（誤保存防止）。表示中がアクティブでなければ stale を無視
       if (
@@ -998,20 +1001,46 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     resolvedCanvasStep,
     activeHeading,
     headingSections,
-    latestCombinedContent,
+    selectedCombinedContent,
     activeCanvasVersion,
     isStep6ContentStale,
     viewingHeadingIndex,
     activeHeadingIndex,
   ]);
 
+  // 完成形表示モード（全見出し確定済みで結合コンテンツを表示中）
+  const isCombinedFormView =
+    resolvedCanvasStep === 'step6' &&
+    !activeHeading &&
+    headingSections.length > 0;
+  // 完成形かつバージョン取得完了時のみ combined 由来に切り替え（過渡期のブリンク防止）
+  const isCombinedFormViewWithVersions =
+    isCombinedFormView && combinedContentVersions.length > 0;
+
   const canvasVersionsWithMeta = useMemo(() => {
+    if (isCombinedFormViewWithVersions) {
+      return combinedContentVersions.map(v => ({
+        id: v.id,
+        content: v.content,
+        versionNumber: v.versionNo,
+        isLatest: v.isLatest,
+      }));
+    }
+    if (isCombinedFormView) {
+      // 完成形だがバージョン未取得 → 空（過渡期はバージョンUI非表示でミスマッチ防止）
+      return [];
+    }
     return canvasVersionsForStep.map((version, index) => ({
       ...version,
       versionNumber: index + 1,
       isLatest: index === canvasVersionsForStep.length - 1,
     }));
-  }, [canvasVersionsForStep]);
+  }, [
+    isCombinedFormViewWithVersions,
+    isCombinedFormView,
+    combinedContentVersions,
+    canvasVersionsForStep,
+  ]);
 
   const canvasStepOptions = useMemo(
     () =>
@@ -1832,8 +1861,18 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           isVisible={canvasPanelOpen}
           {...(isOwnerViewMode ? {} : { onSelectionEdit: handleCanvasSelectionEdit })}
           versions={canvasVersionsWithMeta}
-          activeVersionId={activeCanvasVersion?.id ?? null}
-          onVersionSelect={handleCanvasVersionSelect}
+          activeVersionId={
+            isCombinedFormViewWithVersions
+              ? selectedCombinedVersionId ??
+                combinedContentVersions.find(v => v.isLatest)?.id ??
+                null
+              : activeCanvasVersion?.id ?? null
+          }
+          onVersionSelect={
+            isCombinedFormViewWithVersions
+              ? handleCombinedVersionSelect
+              : handleCanvasVersionSelect
+          }
           stepOptions={canvasStepOptions}
           activeStepId={resolvedCanvasStep ?? null}
           onStepSelect={handleCanvasStepSelect}

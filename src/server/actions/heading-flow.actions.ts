@@ -29,6 +29,11 @@ const getLatestCombinedContentSchema = z.object({
   liffAccessToken: z.string().min(1),
 });
 
+const getCombinedContentVersionsSchema = z.object({
+  sessionId: z.string().min(1),
+  liffAccessToken: z.string().min(1),
+});
+
 /**
  * セッションへの読み取り権限を確認する。
  */
@@ -183,4 +188,45 @@ export async function getLatestCombinedContent(
   }
 
   return { success: true, data: result.data };
+}
+
+/**
+ * 完成形の全バージョン一覧を取得する（バージョン管理UI用）。
+ */
+export async function getCombinedContentVersions(
+  data: z.infer<typeof getCombinedContentVersionsSchema>
+) {
+  const parseResult = getCombinedContentVersionsSchema.safeParse(data);
+  if (!parseResult.success) {
+    return { success: false, error: '入力データが不正です', data: [] };
+  }
+  const parsed = parseResult.data;
+  const auth = await authMiddleware(parsed.liffAccessToken);
+
+  if (auth.error || !auth.userId) {
+    return {
+      success: false,
+      error: auth.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED,
+      data: [],
+    };
+  }
+
+  if (!(await verifySessionReadAccess(parsed.sessionId, auth.userId))) {
+    return { success: false, error: 'セッションへのアクセス権がありません', data: [] };
+  }
+
+  const result = await headingFlowService.getCombinedContentVersions(parsed.sessionId);
+  if (!result.success) {
+    return { success: false, error: result.error.userMessage, data: [] };
+  }
+
+  return {
+    success: true,
+    data: result.data.map(v => ({
+      id: v.id,
+      versionNo: v.version_no,
+      content: v.content,
+      isLatest: v.is_latest,
+    })),
+  };
 }

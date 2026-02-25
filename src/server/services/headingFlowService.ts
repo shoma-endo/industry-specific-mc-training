@@ -181,6 +181,25 @@ export class HeadingFlowService extends SupabaseService {
     const content = data?.content ?? null;
     return this.success(content);
   }
+
+  /**
+   * 完成形の全バージョン一覧を取得する（version_no 降順）。
+   * バージョン管理UI用。
+   */
+  async getCombinedContentVersions(
+    sessionId: string
+  ): Promise<SupabaseResult<Array<{ id: string; version_no: number; content: string; is_latest: boolean }>>> {
+    const { data, error } = await this.supabase
+      .from('session_combined_contents')
+      .select('id, version_no, content, is_latest')
+      .eq('session_id', sessionId)
+      .order('version_no', { ascending: false });
+
+    if (error) {
+      return this.failure('完成形バージョン一覧の取得に失敗しました', { error });
+    }
+    return this.success(data ?? []);
+  }
 }
 
 export const headingFlowService = new HeadingFlowService();
