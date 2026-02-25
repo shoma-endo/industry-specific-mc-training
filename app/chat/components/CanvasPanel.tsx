@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BLOG_STEP_LABELS, isStep7 as isBlogStep7 } from '@/lib/constants';
+import { isStep6HeadingUnitMode } from '@/lib/heading-extractor';
 import type { BlogStepId } from '@/lib/constants';
 import type {
   CanvasSelectionEditPayload,
@@ -234,10 +235,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
 
   // Step6見出し単位編集時はバージョン管理UIを非表示。完成形表示時は表示する（仕様: 見出し単位のみバージョン管理しない）
-  const isStep6HeadingFlow =
-    activeStepId === 'step6' &&
-    headingIndex !== undefined &&
-    (totalHeadings ?? 0) > 0;
+  const isStep6HeadingFlow = isStep6HeadingUnitMode(
+    activeStepId,
+    (totalHeadings ?? 0) > 0,
+    headingIndex !== undefined
+  );
 
   const hasStepOptions = stepOptions.length > 0;
 

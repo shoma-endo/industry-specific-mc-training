@@ -3,11 +3,12 @@
 import React, { useEffect, useRef } from 'react';
 import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Bot } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, normalizeForHeadingMatch } from '@/lib/utils';
 import BlogPreviewTile from './common/BlogPreviewTile';
 import { BLOG_STEP_LABELS } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
 import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/canvas-content';
+import { MARKDOWN_HEADING_REGEX } from '@/lib/heading-extractor';
 import type { SessionHeadingSection } from '@/types/heading-flow';
 
 interface BlogPreviewMeta {
@@ -39,12 +40,6 @@ interface MessageAreaProps {
 }
 
 // 末尾句読点・全角コロン等を除去して照合用に正規化
-const normalizeForHeadingMatch = (text: string): string =>
-  text
-    .trim()
-    .replace(/[：:。、，,！!？?・…\s]+$/, '')
-    .trim();
-
 const getStep6HeadingLabel = (
   message: ChatMessage,
   sections: SessionHeadingSection[],
@@ -53,7 +48,7 @@ const getStep6HeadingLabel = (
   if (!sections.length) return null;
   const normalized = normalizeCanvasContent(message.content ?? '').trim();
   for (const line of normalized.split('\n')) {
-    const match = line.trim().match(/^#+\s+(.+)$/);
+    const match = line.trim().match(MARKDOWN_HEADING_REGEX);
     if (match?.[1]) {
       const headingText = normalizeForHeadingMatch(match[1]);
       const matched = sections.filter(

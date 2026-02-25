@@ -1,6 +1,22 @@
 /**
  * Extract H3 and H4 headings from markdown text.
  */
+
+/** 任意レベルの markdown 見出し行にマッチ（例: `### 見出し` → capture group 1 が見出しテキスト） */
+export const MARKDOWN_HEADING_REGEX = /^#+\s+(.+)$/;
+
+/**
+ * Step6 見出し単位モードかどうかを判定する。
+ * 特定の見出しを表示中（完成形ではない）場合に true を返す。
+ */
+export function isStep6HeadingUnitMode(
+  step: string | null | undefined,
+  hasHeadings: boolean,
+  isViewingSpecificHeading: boolean
+): boolean {
+  return step === 'step6' && hasHeadings && isViewingSpecificHeading;
+}
+
 export interface ExtractedHeading {
   text: string;
   level: 3 | 4;
@@ -110,7 +126,7 @@ export function stripLeadingHeadingLine(content: string, headingText: string): s
   if (!trimmed || !headingText) return content;
 
   const firstLine = trimmed.split('\n')[0]?.trim() ?? '';
-  const match = firstLine.match(/^#+\s+(.+)$/);
+  const match = firstLine.match(MARKDOWN_HEADING_REGEX);
   if (!match) return content;
 
   const lineHeadingText = (match[1] ?? '').trim();

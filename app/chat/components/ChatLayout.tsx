@@ -9,7 +9,7 @@ import { ChatMessage } from '@/domain/interfaces/IChatService';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, AlertTriangle, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { cn } from '@/lib/utils';
+import { cn, normalizeForHeadingMatch } from '@/lib/utils';
 import {
   extractBlogStepFromModel,
   findLatestAssistantBlogStep,
@@ -30,7 +30,7 @@ import {
 } from '@/server/actions/chat.actions';
 import { useHeadingFlow } from '@/hooks/useHeadingFlow';
 import type { SessionHeadingSection } from '@/types/heading-flow';
-import { stripLeadingHeadingLine } from '@/lib/heading-extractor';
+import { stripLeadingHeadingLine, MARKDOWN_HEADING_REGEX, isStep6HeadingUnitMode } from '@/lib/heading-extractor';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
 import { validateTitle as validateTitleFromCommon } from '@/lib/validators/common';
@@ -40,11 +40,6 @@ import { ViewModeBanner } from '@/components/ViewModeBanner';
 const FULL_MARKDOWN_PREFIX = '"full_markdown":"';
 
 /** 見出しテキストの末尾句読点・空白を除去して正規化（タイル→Canvas ナビに使用） */
-const normalizeForHeadingMatch = (text: string): string =>
-  text
-    .trim()
-    .replace(/[：:。、，,！!？?・…\s]+$/, '')
-    .trim();
 const TITLE_META_SYSTEM_PROMPT =
   '本文を元にタイトル（全角32文字以内で狙うキーワードはなるべく左よせ）、説明文（全角80文字程度）を３パターン作成してください';
 
@@ -1422,7 +1417,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const step6MsgIndex = rawStep6MsgIndex >= 0 ? rawStep6MsgIndex : step6Messages.length;
         let targetIdx: number | null = null;
         for (const line of normalizedContent.split('\n')) {
-          const match = line.trim().match(/^#+\s+(.+)$/);
+          const match = line.trim().match(MARKDOWN_HEADING_REGEX);
           if (match?.[1]) {
             const headingText = normalizeForHeadingMatch(match[1]);
             const matched = headingSections.filter(
@@ -1700,10 +1695,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
         // ✅ ストリーミングAPI呼び出し（必要に応じてWeb検索を利用）
         // 見出し単位 = 未確定の見出し編集中 OR 確定済み見出しの再編集（戻るで遷移）。完成形表示時は false
-        const isStep6HeadingUnit =
-          targetStep === 'step6' &&
-          headingSections.length > 0 &&
-          (viewingHeadingIndex !== null || activeHeadingIndex !== undefined);
+        const isStep6HeadingUnit = isStep6HeadingUnitMode(
+          targetStep,
+          headingSections.length > 0,
+          viewingHeadingIndex !== null || activeHeadingIndex !== undefined
+        );
 
         const response = await fetch('/api/chat/canvas/stream', {
           method: 'POST',
