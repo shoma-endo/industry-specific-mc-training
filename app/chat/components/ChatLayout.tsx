@@ -27,6 +27,7 @@ import { getContentAnnotationBySession } from '@/server/actions/wordpress.action
 import { getLatestBlogStep7MessageBySession } from '@/server/actions/chat.actions';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
+import { validateTitle as validateTitleFromCommon } from '@/lib/validators/common';
 import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
 
@@ -915,16 +916,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }
   }, [currentSession]);
 
-  const validateTitle = useCallback((value: string): string | null => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return 'タイトルを入力してください';
-    }
-    if (trimmed.length > 60) {
-      return 'タイトルは60文字以内で入力してください';
-    }
-    return null;
-  }, []);
+  const validateTitle = useCallback(validateTitleFromCommon, []);
 
   const handleTitleEditConfirm = useCallback(async () => {
     const sessionId = chatSession.state.currentSessionId;

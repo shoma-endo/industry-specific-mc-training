@@ -1,0 +1,142 @@
+/**
+ * バリデーション共通プリミティブ（サーバー・クライアント共用）
+ *
+ * 純粋性制約: このファイルの依存は以下に限定する
+ * - zod
+ * - ERROR_MESSAGES（文字列定数のみ）
+ * - 標準ライブラリ
+ *
+ * Supabase・環境変数・Node.js 固有モジュールは使用禁止。
+ */
+
+import { z } from 'zod';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+
+const V = ERROR_MESSAGES.VALIDATION;
+
+// --- 定数（クライアント・サーバーで共有） ---
+export const TITLE_MAX_LENGTH = 60;
+
+// --- オプショナルURL・メール（空文字→undefined、値あり時のみ形式チェック） ---
+
+export const optionalUrl = z
+  .string()
+  .optional()
+  .refine(
+    val => {
+      if (!val || val === '') return true;
+      return z.string().url().safeParse(val).success;
+    },
+    { message: V.INVALID_URL }
+  )
+  .transform(val => (val === '' ? undefined : val));
+
+export const optionalEmail = z
+  .string()
+  .optional()
+  .refine(
+    val => {
+      if (!val || val === '') return true;
+      return z.string().email().safeParse(val).success;
+    },
+    { message: V.INVALID_EMAIL }
+  )
+  .transform(val => (val === '' ? undefined : val));
+
+// --- 日付（YYYY-MM-DD 形式 + 実在チェック） ---
+
+export const dateStringSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: V.DATE_FORMAT_INVALID })
+  .refine(
+    value => {
+      const parts = value.split('-').map(Number);
+      const y = parts[0];
+      const m = parts[1];
+      const d = parts[2];
+      if (y === undefined || m === undefined || d === undefined) return false;
+      const date = new Date(y, m - 1, d);
+      return (
+        date.getFullYear() === y &&
+        date.getMonth() === m - 1 &&
+        date.getDate() === d
+      );
+    },
+    { message: V.DATE_INVALID }
+  );
+
+/** 日付範囲検証用 refine（startDate <= endDate） */
+export const dateRangeRefinement = {
+  refine: (data: { startDate: string; endDate: string }) => {
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+    return start <= end;
+  },
+  message: V.DATE_RANGE_ORDER_INVALID,
+};
+
+/** 日付範囲スキーマ（startDate, endDate 必須 + 順序チェック） */
+export const dateRangeSchema = z
+  .object({
+    startDate: dateStringSchema,
+    endDate: dateStringSchema,
+  })
+  .refine(dateRangeRefinement.refine, { message: dateRangeRefinement.message });
+
+// --- タイトル（チャットセッション等） ---
+
+export const titleSchema = z
+  .string()
+  .trim()
+  .min(1, { message: V.TITLE_REQUIRED })
+  .max(TITLE_MAX_LENGTH, { message: V.TITLE_MAX_LENGTH(TITLE_MAX_LENGTH) });
+
+// --- Google Ads 用 ---
+
+export const customerIdSchema = z.string().regex(/^\d{10}$/, {
+  message: V.CUSTOMER_ID_FORMAT,
+});
+
+export const campaignIdSchema = z.string().regex(/^\d+$/, {
+  message: V.CAMPAIGN_ID_FORMAT,
+});
+
+// --- GA4 用 ---
+
+export const ga4PropertyIdSchema = z
+  .string()
+  .min(1, { message: V.GA4_PROPERTY_ID_REQUIRED });
+
+export const ga4ConversionEventsSchema = z
+  .array(z.string().min(1, { message: V.GA4_EVENT_NAME_REQUIRED }))
+  .max(50)
+  .optional();
+
+// --- クライアント向けヘルパー（safeParse の薄いラッパー） ---
+
+/** タイトル検証。エラー時はメッセージを、成功時は null を返す */
+export function validateTitle(value: string): string | null {
+  const result = titleSchema.safeParse(value);
+  return result.success ? null : (result.error.issues[0]?.message ?? null);
+}
+
+/** URL検証（空文字はOK、値あり時のみ形式チェック）。エラー時はメッセージを返す */
+export function validateOptionalUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  const result = z.string().url().safeParse(trimmed);
+  return result.success ? null : V.INVALID_URL;
+}
+
+/**
+ * 日付範囲検証（startDate, endDate を YYYY-MM-DD で受け取る）。
+ * エラー時はメッセージを、成功時は null を返す。
+ */
+export function validateDateRange(start: string, end: string): string | null {
+  if (!start?.trim() || !end?.trim()) return V.DATE_RANGE_REQUIRED;
+  const result = dateRangeSchema.safeParse({
+    startDate: start.trim(),
+    endDate: end.trim(),
+  });
+  return result.success ? null : (result.error.issues[0]?.message ?? null);
+}

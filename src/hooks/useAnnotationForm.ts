@@ -11,6 +11,7 @@ import {
   type UseAnnotationFormResult,
 } from '@/types/annotation';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { validateOptionalUrl } from '@/lib/validators/common';
 
 const EMPTY_FORM_ENTRIES = ANNOTATION_FIELD_KEYS.map(key => [key, ''] as const);
 const EMPTY_FORM = Object.fromEntries(EMPTY_FORM_ENTRIES) as AnnotationFormState;
@@ -78,13 +79,12 @@ export function useAnnotationForm({
     let normalizedUrl: string | null = null;
 
     if (trimmed.length > 0) {
-      try {
-        const parsed = new URL(trimmed);
-        normalizedUrl = parsed.toString();
-      } catch {
-        setCanonicalUrlError('有効なURLを入力してください');
+      const urlError = validateOptionalUrl(trimmed);
+      if (urlError) {
+        setCanonicalUrlError(urlError);
         return { success: false, normalizedCanonicalUrl: null };
       }
+      normalizedUrl = new URL(trimmed).toString();
     }
 
     setCanonicalUrlError('');
