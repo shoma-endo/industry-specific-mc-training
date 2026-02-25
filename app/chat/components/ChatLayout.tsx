@@ -1115,10 +1115,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   const handleNextHeading = useCallback(() => {
     const current = viewingHeadingIndex ?? totalHeadings;
-    if (current >= maxViewableIndex) return;
+    const allConfirmed = activeHeadingIndex === undefined && headingSections.length > 0;
+    // 全確定済みでない場合は maxViewableIndex で止める
+    if (!allConfirmed && current >= maxViewableIndex) return;
     if (!handleBeforeHeadingChange()) return;
-    setViewingHeadingIndex(current + 1);
-  }, [viewingHeadingIndex, totalHeadings, maxViewableIndex, handleBeforeHeadingChange]);
+    // 全確定済みかつ最後の見出し → 完成形へ遷移
+    if (allConfirmed && current >= totalHeadings - 1) {
+      setViewingHeadingIndex(null);
+    } else {
+      setViewingHeadingIndex(current + 1);
+    }
+  }, [viewingHeadingIndex, totalHeadings, maxViewableIndex, handleBeforeHeadingChange, activeHeadingIndex, headingSections.length]);
 
   const handleBeforeManualStepChange = useCallback(
     ({
@@ -1901,7 +1908,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             (viewingHeadingIndex === null && totalHeadings > 1)
           }
           canGoNextHeading={
-            viewingHeadingIndex !== null && viewingHeadingIndex < maxViewableIndex
+            viewingHeadingIndex !== null &&
+            (viewingHeadingIndex < maxViewableIndex ||
+              // 全確定済みの場合は最後の見出しからも完成形へ進める
+              (activeHeadingIndex === undefined && headingSections.length > 0))
           }
           hideOutline={
             resolvedCanvasStep === 'step6' &&

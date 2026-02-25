@@ -1109,34 +1109,50 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           )}
           {activeStepId === 'step6' && totalHeadings !== undefined && totalHeadings > 1 && (
             <>
-              {canGoPrevHeading && onPrevHeading && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={onPrevHeading}
-                  disabled={isSavingHeading || isStreaming}
-                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                  title="前の見出しに戻る"
-                >
-                  <ChevronLeft size={14} />
-                  戻る
-                </Button>
-              )}
-              {canGoNextHeading && onNextHeading && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={onNextHeading}
-                  disabled={isSavingHeading || isStreaming}
-                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                  title="次の見出しに進む"
-                >
-                  進む
-                  <ChevronRight size={14} />
-                </Button>
-              )}
+              {canGoPrevHeading && onPrevHeading && (() => {
+                // 完成形から見出しに戻る場合のみ文言を変える
+                const fromCombinedForm =
+                  activeHeadingIndexForFlow === undefined && headingIndex === undefined;
+                const label = fromCombinedForm ? '見出しを確認' : '戻る';
+                const title = fromCombinedForm ? '見出し一覧に戻る' : '前の見出しに戻る';
+                return (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={onPrevHeading}
+                    disabled={isSavingHeading || isStreaming}
+                    className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                    title={title}
+                  >
+                    <ChevronLeft size={14} />
+                    {label}
+                  </Button>
+                );
+              })()}
+              {canGoNextHeading && onNextHeading && (() => {
+                // 全確定済みの最後の見出しから完成形へ進む場合のみ文言を変える
+                const isAtLastConfirmedHeading =
+                  activeHeadingIndexForFlow === undefined &&
+                  headingIndex !== undefined &&
+                  headingIndex === (totalHeadings ?? 0) - 1;
+                const label = isAtLastConfirmedHeading ? '完成形を確認' : '進む';
+                const title = isAtLastConfirmedHeading ? '完成形を確認する' : '次の見出しに進む';
+                return (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={onNextHeading}
+                    disabled={isSavingHeading || isStreaming}
+                    className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                    title={title}
+                  >
+                    {label}
+                    <ChevronRight size={14} />
+                  </Button>
+                );
+              })()}
             </>
           )}
           {activeStepId === 'step6' &&
