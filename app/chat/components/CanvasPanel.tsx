@@ -1056,12 +1056,14 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                       <Info size={16} />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-[280px] text-xs space-y-2">
+                  <TooltipContent className="max-w-[270px] text-xs space-y-2">
+                    <p>ステップ5 の構成案から以下を抽出します。</p>
+                    <ul className="list-disc pl-3 space-y-0.5">
+                      <li><code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">###</code>　中見出し</li>
+                      <li><code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">####</code>　小見出し</li>
+                    </ul>
                     <p>
-                      見出しは ステップ5 の構成案から <code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">###</code>（H3）と <code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">####</code>（H4）を抽出して使用します。
-                    </p>
-                    <p>
-                      ステップ6 開始後に ステップ5 を再保存しても、見出しは自動更新されません。構成を変えたい場合は ステップ6 データの初期化が必要です。
+                      ステップ6 開始後にステップ5を再保存しても、見出しは自動更新されません。
                     </p>
                   </TooltipContent>
                 </Tooltip>
