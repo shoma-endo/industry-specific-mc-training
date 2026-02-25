@@ -206,11 +206,14 @@ export class Ga4ImportService {
       };
     });
 
-    await this.supabaseService.upsertGa4PageMetricsDaily(rowsToSave);
-    await this.supabaseService.updateGscCredential(userId, {
-      // 次回の startDate を正しく進めるため、同期実行時刻ではなく取り込み済み最終日を保持する
-      ga4LastSyncedAt: Ga4ImportService.toUtcMidnightIso(endDate),
-    });
+    // 0件時はカーソルを進めず、次回同一範囲を再取得して取りこぼしを防ぐ
+    if (rowsToSave.length > 0) {
+      await this.supabaseService.upsertGa4PageMetricsDaily(rowsToSave);
+      await this.supabaseService.updateGscCredential(userId, {
+        // 次回の startDate を正しく進めるため、同期実行時刻ではなく取り込み済み最終日を保持する
+        ga4LastSyncedAt: Ga4ImportService.toUtcMidnightIso(endDate),
+      });
+    }
 
     console.log('[ga4ImportService.syncUser] completed', {
       userId,
@@ -221,6 +224,7 @@ export class Ga4ImportService {
       eventRows: eventReport.rows.length,
       mergedRows: merged.length,
       upserted: rowsToSave.length,
+      cursorAdvanced: rowsToSave.length > 0,
       isSampled: baseReport.isSampled || eventReport.isSampled,
       isPartial: baseReport.isPartial || eventReport.isPartial,
     });
@@ -264,15 +268,15 @@ export class Ga4ImportService {
     propertyId: string,
     range: { startDate: string; endDate: string }
   ): Promise<ReportFetchResult> {
+    // landingPage はセッションスコープ、totalUsers はユーザースコープのため互換性なし。
+    // organicGoogleSearchClicks/Impressions は Search Console 専用で landingPage と非互換（landingPagePlusQueryString 等のみ対応）。
+    // API 制約により landingPage 単位で totalUsers/検索指標を取得できないため、CVR 分母は sessions、検索CTR は 0/NULL。
     return this.fetchReportWithPagination(accessToken, propertyId, 'base', {
       dimensions: [{ name: 'date' }, { name: 'landingPage' }],
       metrics: [
         { name: 'sessions' },
-        { name: 'totalUsers' },
         { name: 'userEngagementDuration' },
         { name: 'bounceRate' },
-        { name: 'organicGoogleSearchClicks' },    // 検索クリック数（CTR分子）
-        { name: 'organicGoogleSearchImpressions' } // 検索インプレッション数（CTR分母）
       ],
       dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
     });
@@ -361,11 +365,10 @@ export class Ga4ImportService {
           });
         } else {
           const sessions = Number(metrics[0]?.value ?? 0);
-          const users = Number(metrics[1]?.value ?? 0);
-          const engagementTimeSec = Number(metrics[2]?.value ?? 0);
-          const bounceRate = Number(metrics[3]?.value ?? 0);
-          const searchClicks = Number(metrics[4]?.value ?? 0);
-          const impressions = Number(metrics[5]?.value ?? 0);
+          // totalUsers は landingPage と非互換のため、CVR 分母に sessions を充てる
+          const users = sessions;
+          const engagementTimeSec = Number(metrics[1]?.value ?? 0);
+          const bounceRate = Number(metrics[2]?.value ?? 0);
           rows.push({
             date,
             pagePath: landingPage,
@@ -373,8 +376,9 @@ export class Ga4ImportService {
             users,
             engagementTimeSec,
             bounceRate,
-            searchClicks,
-            impressions,
+            // organicGoogleSearchClicks/Impressions は landingPage と非互換のため取得不可
+            searchClicks: 0,
+            impressions: 0,
           });
         }
       }

@@ -606,9 +606,6 @@ export default function AnalyticsTable({
                             ['main_kw', 'kw'].includes(id) ? 'min-w-[180px]' : ''
                           } ${
                             [
-                              'ga4_search_clicks',
-                              'ga4_impressions',
-                              'ga4_ctr',
                               'ga4_avg_engagement_time',
                               'ga4_read_rate',
                               'ga4_bounce_rate',
@@ -849,24 +846,6 @@ export default function AnalyticsTable({
                                     className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right"
                                   >
                                     {annotation?.impressions ?? '—'}
-                                  </td>
-                                );
-                              case 'ga4_search_clicks':
-                                return (
-                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                    {ga4Summary ? ga4Summary.searchClicks.toLocaleString() : '—'}
-                                  </td>
-                                );
-                              case 'ga4_impressions':
-                                return (
-                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                    {ga4Summary ? ga4Summary.impressions.toLocaleString() : '—'}
-                                  </td>
-                                );
-                              case 'ga4_ctr':
-                                return (
-                                  <td key={id} className="px-6 py-4 text-sm text-gray-900">
-                                    {ga4Summary ? (ga4Summary.ctr === null ? '—' : formatPercent(ga4Summary.ctr)) : '—'}
                                   </td>
                                 );
                               case 'ga4_avg_engagement_time':

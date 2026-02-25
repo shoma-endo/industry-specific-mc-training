@@ -24,7 +24,7 @@ GA4 Data API の制約（`eventName` ディメンション追加でベース指�
 | 読了率 | scroll 90% 到達（`scroll_90`、時間条件なし） |
 | CV定義 | 記事ページ上の前段CVイベント（複数選択可） |
 | CV数 | 選択イベントの `eventCount` 合算（回数ベース） |
-| CVR | `cv_event_count / users`（分母は users=totalUsers） |
+| CVR | `cv_event_count / sessions`（landingPage と totalUsers が非互換のため、分母は sessions） |
 | CV未設定時 | `cv_event_count=0` で保存 + UIバナーで設定を促す |
 | Phase 1 での scroll_90 | 取得・保存する（UIは非表示） |
 | URL正規化 | クエリ全削除 + フラグメント全削除 + 小文字化 |
@@ -178,7 +178,7 @@ GA4 Data API の制約（`eventName` ディメンション追加でベース指�
 
 ### 方針（2レポート分離）
 
-- **(A) ベース指標レポート**: `landingPage` × `date` でセッション/ユーザー/滞在/直帰を取得
+- **(A) ベース指標レポート**: `landingPage` × `date` でセッション/滞在/直帰を取得（totalUsers は landingPage と非互換のため取得不可、CVR 分母は sessions を使用）
 - **(B) イベント指標レポート**: `landingPage` × `date` × `eventName` で `eventCount` を取得（CVイベント + `scroll_90`）
 
 取得後、`date + normalized_path` で統合し、日次行として保存する。
@@ -191,19 +191,17 @@ interface GA4BaseReportRequest {
   dimensions: [{ name: 'date' }, { name: 'landingPage' }];
   metrics: [
     { name: 'sessions' },
-    { name: 'totalUsers' },
     { name: 'userEngagementDuration' },
-    { name: 'bounceRate' },
-    { name: 'organicGoogleSearchClicks' },     // 検索クリック数（CTR分子）
-    { name: 'organicGoogleSearchImpressions' } // 検索インプレッション数（Search Console連携時）
+    { name: 'bounceRate' }
   ];
   limit: 10000;
   offset?: number;
 }
 ```
 
-> **追記（2026-02-16）**: `organicGoogleSearchClicks` / `organicGoogleSearchImpressions` は GA4 プロパティで Search Console 連携が有効な場合のみデータが入ります。連携未設定時は `0` として扱います。`screenPageViews` は行動指標としては有用ですが、検索CTR計算には使用しません。
-> **注意**: Search Console指標は、Search Console専用ディメンションと一部のAnalyticsディメンションのみと互換性があります。本設計で使用する `landingPage` + `date` の組み合わせは、実装前に GA4 Dimensions & Metrics Explorer または Data API の `checkCompatibility` / テストリクエストで必ず確認してください。
+> **追記（2026-02-25）**: `totalUsers` は `landingPage` と dimensions/metrics 互換性がなく API エラーとなる。スコープが異なる（totalUsers=ユーザースコープ、landingPage=セッションスコープ）ため。CVR 分母には `sessions` を充てる実装に変更済み。
+> **追記（2026-02-25）**: `organicGoogleSearchClicks` / `organicGoogleSearchImpressions` は Search Console 専用 dimensions（`landingPagePlusQueryString` 等）のみと互換。`landingPage` とは非互換のためベースレポートから除外。検索クリック数・インプレッション数・検索CTR は現状 `0` / `NULL` で保存。将来は別レポート取得＋正規化でマージする拡張を検討。
+> **追記（2026-02-25）**: 同期間の取得結果が0件（`mergedRows=0`）の場合は `ga4_last_synced_at` を更新しない。遅延反映データの取りこぼしを防ぐため、次回同期で同期間を再試行する。
 
 ### (B) イベント指標レポート（runReport）
 
@@ -294,7 +292,7 @@ const merged = baseRows.map((base) => {
 | page_path | text | GA4 `landingPage` |
 | normalized_path | text (GENERATED) | `normalize_to_path(page_path)` |
 | sessions | int | `sessions` |
-| users | int | `totalUsers` |
+| users | int | `sessions`（API 互換性のため totalUsers は取得不可、sessions を格納） |
 | engagement_time_sec | int | `userEngagementDuration`（秒・合計） |
 | bounce_rate | numeric(5,4) | `bounceRate`（0〜1） |
 | cv_event_count | int | CVイベントの eventCount 合算（**NOT NULL DEFAULT 0**） |
@@ -355,13 +353,14 @@ async function resolveOwnerUserId(userId: string): Promise<string> {
 | 滞在時間（平均） | `engagement_time_sec / sessions` | sessions=0 の場合 0 |
 | 直帰率 | `bounce_rate * 100` | 表示は% |
 | CV数 | `cv_event_count` | eventCount合算 |
-| CVR | `cv_event_count / users * 100` | users=0 の場合 0 |
-| 読了率 | `scroll_90_event_count / users` | users=0 の場合 0 |
+| CVR | `cv_event_count / sessions * 100` | sessions=0 の場合 0 |
+| 読了率 | `scroll_90_event_count / sessions * 100` | sessions=0 の場合 0 |
 | 検索クリック数 | `search_clicks` | `organicGoogleSearchClicks`（検索クリック数） |
 | インプレッション数 | `impressions` | `organicGoogleSearchImpressions`（Search Console連携時） |
 | 検索CTR | `search_clicks / impressions` | 0-1の比率（表示時に×100）、impressions=0 の場合 NULL |
 
 > **追記（2026-02-16）**: 検索CTR は「検索結果からのクリック率」を表します。分母のインプレッション数は Search Console 連携時にのみ取得可能です。連携未設定時は検索CTRは NULL となります。DB保存時は0-1の比率で保存し、表示時に×100して%表示します（`numeric(10,9)`）。
+> **追記（2026-02-25）**: `users` 列には sessions が格納されるため、CVR・読了率の分母は実質セッション数。表示ラベルは「ユーザー数」のままでも、計算上はセッション基準。
 
 ---
 
