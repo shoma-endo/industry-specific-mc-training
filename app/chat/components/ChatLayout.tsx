@@ -1839,8 +1839,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           hasAttemptedHeadingInit,
           isSavingHeading,
           totalHeadings: headingSections.length,
-          headingIndex:
-            viewingHeadingIndex ?? activeHeadingIndex ?? (totalHeadings > 0 ? totalHeadings - 1 : 0),
+          ...(viewingHeadingIndex !== null && {
+            headingIndex:
+              viewingHeadingIndex ?? activeHeadingIndex ?? (totalHeadings > 0 ? totalHeadings - 1 : 0),
+          }),
           ...(displayHeadingSection?.headingText && {
             currentHeadingText: displayHeadingSection.headingText,
           }),
@@ -1879,9 +1881,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           streamingContent={canvasStreamingContent}
           canvasContentRef={canvasContentRef}
           // 見出し単位生成フロー用（exactOptionalPropertyTypes のため undefined 時は渡さない）
-          headingIndex={
-            viewingHeadingIndex ?? activeHeadingIndex ?? (totalHeadings > 0 ? totalHeadings - 1 : 0)
-          }
+          // 完成形表示（viewingHeadingIndex === null）の場合は渡さず、CanvasPanel 側で完成形バッジを表示する
+          {...(viewingHeadingIndex !== null && {
+            headingIndex:
+              viewingHeadingIndex ?? activeHeadingIndex ?? (totalHeadings > 0 ? totalHeadings - 1 : 0),
+          })}
           {...(activeHeadingIndex !== undefined && { activeHeadingIndex })}
           totalHeadings={headingSections.length}
           {...(displayHeadingSection?.headingText && {

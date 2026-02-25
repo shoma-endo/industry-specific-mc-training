@@ -1042,7 +1042,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <h3 className="text-lg font-semibold text-gray-800">
-              {activeStepId === 'step6' ? '見出し単位生成' : 'Canvas'}
+              {activeStepId === 'step6'
+                ? headingIndex === undefined && (totalHeadings ?? 0) > 0
+                  ? '完成形'
+                  : '見出し単位生成'
+                : 'Canvas'}
             </h3>
             {activeStepId === 'step6' && (
               <TooltipProvider>
@@ -1079,6 +1083,13 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   </span>
                 </>
               )}
+            </div>
+          )}
+          {activeStepId === 'step6' &&
+            headingIndex === undefined &&
+            (totalHeadings ?? 0) > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
+              <span>全見出し結合を表示中</span>
             </div>
           )}
           {headings.length > 0 && !hideOutline && (
