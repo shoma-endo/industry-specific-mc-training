@@ -1,11 +1,10 @@
 import { z } from 'zod';
+import {
+  ga4ConversionEventsSchema,
+  ga4PropertyIdSchema,
+} from '@/lib/validators/common';
 
-export const ga4PropertyIdSchema = z.string().min(1, { error: 'GA4プロパティIDは必須です' });
-
-export const ga4ConversionEventsSchema = z
-  .array(z.string().min(1, { error: 'イベント名は必須です' }))
-  .max(50)
-  .optional();
+export { ga4ConversionEventsSchema, ga4PropertyIdSchema };
 
 export const ga4ThresholdEngagementSchema = z
   .number()

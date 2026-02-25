@@ -29,6 +29,7 @@ import { SummaryCards } from './components/SummaryCards';
 import { RankingTab } from './components/RankingTab';
 import { TimeseriesTab } from './components/TimeseriesTab';
 import { addDaysISO, formatJstDateISO } from '@/lib/date-utils';
+import { validateDateRange } from '@/lib/validators/common';
 
 interface DateRange {
   start?: string | null;
@@ -160,12 +161,9 @@ export default function Ga4DashboardClient({
   );
 
   const handleApplyCustomRange = useCallback(async () => {
-    if (!customStart || !customEnd) {
-      setError('開始日と終了日を入力してください');
-      return;
-    }
-    if (customStart > customEnd) {
-      setError('開始日は終了日以前の日付を指定してください');
+    const dateError = validateDateRange(customStart, customEnd);
+    if (dateError) {
+      setError(dateError);
       return;
     }
 
