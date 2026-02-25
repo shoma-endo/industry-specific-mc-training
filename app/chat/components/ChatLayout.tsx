@@ -1699,10 +1699,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const markdownDecoder = createFullMarkdownDecoder();
 
         // ✅ ストリーミングAPI呼び出し（必要に応じてWeb検索を利用）
+        // 見出し単位 = 未確定の見出し編集中 OR 確定済み見出しの再編集（戻るで遷移）。完成形表示時は false
         const isStep6HeadingUnit =
           targetStep === 'step6' &&
-          activeHeadingIndex !== undefined &&
-          headingSections.length > 0;
+          headingSections.length > 0 &&
+          (viewingHeadingIndex !== null || activeHeadingIndex !== undefined);
 
         const response = await fetch('/api/chat/canvas/stream', {
           method: 'POST',
@@ -1876,6 +1877,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       latestBlogStep,
       refetchCombinedContentVersions,
       resolvedCanvasStep,
+      viewingHeadingIndex,
       setAnnotationData,
       setAnnotationOpen,
       setCanvasPanelOpen,
