@@ -29,6 +29,7 @@ import {
   saveManualStep5Content,
 } from '@/server/actions/chat.actions';
 import { useHeadingFlow } from '@/hooks/useHeadingFlow';
+import type { SessionHeadingSection } from '@/types/heading-flow';
 import { stripLeadingHeadingLine } from '@/lib/heading-extractor';
 import { Service } from '@/server/schemas/brief.schema';
 import { BlogStepId, BLOG_STEP_IDS } from '@/lib/constants';
@@ -37,6 +38,13 @@ import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
 
 const FULL_MARKDOWN_PREFIX = '"full_markdown":"';
+
+/** 見出しテキストの末尾句読点・空白を除去して正規化（タイル→Canvas ナビに使用） */
+const normalizeForHeadingMatch = (text: string): string =>
+  text
+    .trim()
+    .replace(/[：:。、，,！!？?・…\s]+$/, '')
+    .trim();
 const TITLE_META_SYSTEM_PROMPT =
   '本文を元にタイトル（全角32文字以内で狙うキーワードはなるべく左よせ）、説明文（全角80文字程度）を３パターン作成してください';
 
@@ -284,6 +292,7 @@ interface ChatLayoutCtx {
   headingIndex?: number;
   totalHeadings: number;
   currentHeadingText?: string;
+  headingSections: SessionHeadingSection[];
   initialStep?: BlogStepId | null;
   services: Service[];
   selectedServiceId: string | null;
@@ -330,6 +339,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     headingIndex,
     totalHeadings,
     currentHeadingText,
+    headingSections,
     initialStep,
     services,
     selectedServiceId,
@@ -483,6 +493,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           isLoading={chatSession.state.isLoading || isCanvasStreaming}
           blogFlowActive={blogFlowActive}
           onOpenCanvas={message => ui.canvas.show(message)}
+          headingSections={headingSections}
         />
 
         <InputArea
@@ -615,6 +626,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   const canvasEditInFlightRef = useRef(false);
   const prevSessionIdRef = useRef<string | null>(null);
   const canvasContentRef = useRef<string>('');
+  /** タイルクリック時に指定した見出しインデックスを effect より優先するための ref */
+  const pendingStep6ViewingIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     const sessionId = chatSession.state.currentSessionId;
@@ -888,6 +901,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       return;
     }
     const activeIdx = activeHeadingIndex ?? totalHeadings;
+    // タイルクリックで指定した見出しインデックスを優先する（effect のデフォルト上書きを防止）
+    const pending = pendingStep6ViewingIndexRef.current;
+    if (pending !== null) {
+      pendingStep6ViewingIndexRef.current = null;
+      setViewingHeadingIndex(Math.min(Math.max(pending, 0), Math.max(0, totalHeadings - 1)));
+      return;
+    }
     setViewingHeadingIndex(prev => {
       if (activeIdx >= totalHeadings) return null;
       if (prev === null) return activeIdx;
@@ -1110,6 +1130,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     const current = viewingHeadingIndex ?? totalHeadings;
     if (current <= 0) return;
     if (!handleBeforeHeadingChange()) return;
+    pendingStep6ViewingIndexRef.current = null;
     setViewingHeadingIndex(current - 1);
   }, [viewingHeadingIndex, totalHeadings, handleBeforeHeadingChange]);
 
@@ -1119,6 +1140,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     // 全確定済みでない場合は maxViewableIndex で止める
     if (!allConfirmed && current >= maxViewableIndex) return;
     if (!handleBeforeHeadingChange()) return;
+    pendingStep6ViewingIndexRef.current = null;
     // 全確定済みかつ最後の見出し → 完成形へ遷移
     if (allConfirmed && current >= totalHeadings - 1) {
       setViewingHeadingIndex(null);
@@ -1386,13 +1408,66 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         return next;
       });
 
+      // step6 タイルクリック時は該当見出しのインデックスを設定
+      if (detectedStep === 'step6' && headingSections.length > 0) {
+        const normalizedContent = normalizeCanvasContent(message.content ?? '').trim();
+        // step6 アシスタントメッセージ中の順序（重複見出し解決に使用）
+        const step6Messages = (chatSession.state.messages ?? []).filter(
+          m => m.role === 'assistant' && extractBlogStepFromModel(m.model) === 'step6'
+        );
+        // 楽観的メッセージは chatSession.state.messages に存在しないため -1 になりうる。
+        // その場合は「確定メッセージ数」を使い、最後尾の見出しに最も近いものを選ぶ
+        const rawStep6MsgIndex = step6Messages.findIndex(m => m.id === message.id);
+        const step6MsgIndex = rawStep6MsgIndex >= 0 ? rawStep6MsgIndex : step6Messages.length;
+        let targetIdx: number | null = null;
+        for (const line of normalizedContent.split('\n')) {
+          const match = line.trim().match(/^#+\s+(.+)$/);
+          if (match?.[1]) {
+            const headingText = normalizeForHeadingMatch(match[1]);
+            const matched = headingSections.filter(
+              s => normalizeForHeadingMatch(s.headingText) === headingText
+            );
+            if (matched.length === 1) {
+              targetIdx = matched[0]!.orderIndex;
+              break;
+            }
+            if (matched.length > 1) {
+              const best = matched.reduce((prev, curr) =>
+                Math.abs(curr.orderIndex - step6MsgIndex) <
+                Math.abs(prev.orderIndex - step6MsgIndex)
+                  ? curr
+                  : prev
+              );
+              targetIdx = best.orderIndex;
+              break;
+            }
+          }
+        }
+        if (targetIdx !== null) {
+          // step6 以外から遷移する場合のみ ref を設定（effect が resolvedCanvasStep 変化で再走するため）
+          // すでに step6 表示中は effect が走らないので direct setState のみで十分。stale ref を残さない
+          if (resolvedCanvasStep !== 'step6') {
+            pendingStep6ViewingIndexRef.current = targetIdx;
+          }
+          setViewingHeadingIndex(targetIdx);
+        }
+      }
+
       if (annotationOpen) {
         setAnnotationOpen(false);
         setAnnotationData(null);
       }
       setCanvasPanelOpen(true);
     },
-    [annotationOpen, blogCanvasVersionsByStep, latestBlogStep, setCanvasStreamingContent]
+    [
+      annotationOpen,
+      blogCanvasVersionsByStep,
+      chatSession.state.messages,
+      headingSections,
+      latestBlogStep,
+      resolvedCanvasStep,
+      setCanvasStreamingContent,
+    ]
   );
 
   // ✅ 保存ボタンクリック時にAnnotationPanelを表示する関数
@@ -1848,6 +1923,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           isHeadingInitInFlight,
           hasAttemptedHeadingInit,
           isSavingHeading,
+          headingSections,
           totalHeadings: headingSections.length,
           ...(viewingHeadingIndex !== null && {
             headingIndex:
