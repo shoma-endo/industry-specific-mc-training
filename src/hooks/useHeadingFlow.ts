@@ -77,6 +77,9 @@ export function useHeadingFlow({
     currentSessionIdRef.current = sessionId;
   }, [sessionId]);
 
+  // step5Content が null のまま init した場合、後から content が入ったら再試行を許可する
+  const didInitWithStep5ContentRef = useRef(false);
+
   const activeHeadingIndex = useMemo(() => {
     if (headingSections.length === 0) return undefined;
     const index = headingSections.findIndex(s => !s.isConfirmed);
@@ -142,6 +145,7 @@ export function useHeadingFlow({
     setCombinedContentVersions([]);
     setSelectedCombinedVersionId(null);
     setHasAttemptedHeadingInit(false);
+    didInitWithStep5ContentRef.current = false;
     setIsHeadingInitInFlight(false);
     setHeadingInitError(null);
     setHeadingSaveError(null);
@@ -195,6 +199,7 @@ export function useHeadingFlow({
       setIsHeadingInitInFlight(true);
       try {
         if (step5Content) {
+          didInitWithStep5ContentRef.current = true;
           const liffAccessToken = await getAccessToken();
           const res = await headingActions.initializeHeadingSections({
             sessionId,
@@ -244,6 +249,30 @@ export function useHeadingFlow({
     hasAttemptedHeadingInit,
     headingInitError,
     hasFetchCompleted,
+  ]);
+
+  // step5Content が null のまま init をスキップした後、loadSession 等で content が遅れて
+  // 取得された場合に再試行を許可する（保存直後すぐスキップしたときの競合対策）
+  useEffect(() => {
+    if (
+      resolvedCanvasStep !== 'step6' ||
+      !sessionId ||
+      hasExistingHeadingSections ||
+      !step5Content ||
+      !hasAttemptedHeadingInit ||
+      headingSections.length > 0 ||
+      didInitWithStep5ContentRef.current
+    ) {
+      return;
+    }
+    setHasAttemptedHeadingInit(false);
+  }, [
+    resolvedCanvasStep,
+    sessionId,
+    hasExistingHeadingSections,
+    step5Content,
+    hasAttemptedHeadingInit,
+    headingSections.length,
   ]);
 
   const handleSaveHeadingSection = useCallback(
