@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
+import { optionalEmail, optionalUrl } from '@/lib/validators/common';
+
+const validationMessages = ERROR_MESSAGES.VALIDATION;
 
 export const paymentEnum = z.enum([
   '現金',
@@ -11,46 +15,9 @@ export const paymentEnum = z.enum([
   '分割払い',
 ]);
 
-// 早期リターンを使用したカスタムバリデーター
-const createOptionalUrlValidator = () =>
-  z
-    .string()
-    .optional()
-    .refine(
-      val => {
-        if (!val || val === '') return true;
-        return z.string().url().safeParse(val).success;
-      },
-      {
-        message: '有効なURLを入力してください',
-      }
-    )
-    .transform(val => {
-      if (val === '') return undefined;
-      return val;
-    });
-
-const createOptionalEmailValidator = () =>
-  z
-    .string()
-    .optional()
-    .refine(
-      val => {
-        if (!val || val === '') return true;
-        return z.string().email().safeParse(val).success;
-      },
-      {
-        message: '有効なメールアドレスを入力してください',
-      }
-    )
-    .transform(val => {
-      if (val === '') return undefined;
-      return val;
-    });
-
 export const serviceSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().min(1, 'サービス名は必須です'),
+  name: z.string().min(1, { message: validationMessages.SERVICE_NAME_REQUIRED }),
   strength: z.string().optional(),
   when: z.string().optional(),
   where: z.string().optional(),
@@ -74,16 +41,16 @@ export const profileSchema = z.object({
   license: z.string().optional(),
   qualification: z.string().optional(),
   capital: z.string().optional(),
-  email: createOptionalEmailValidator(),
+  email: optionalEmail,
   payments: z.array(paymentEnum).optional(),
-  benchmarkUrl: createOptionalUrlValidator(),
+  benchmarkUrl: optionalUrl,
   competitorCopy: z.string().optional(),
 });
 
 export const briefInputSchema = z.object({
   profile: profileSchema,
   persona: z.string().optional(),
-  services: z.array(serviceSchema).min(1, '最低1つのサービスが必要です'),
+  services: z.array(serviceSchema).min(1, { message: validationMessages.SERVICE_MIN_COUNT }),
 });
 
 export type Service = z.infer<typeof serviceSchema>;
