@@ -206,11 +206,14 @@ export class Ga4ImportService {
       };
     });
 
-    await this.supabaseService.upsertGa4PageMetricsDaily(rowsToSave);
-    await this.supabaseService.updateGscCredential(userId, {
-      // 次回の startDate を正しく進めるため、同期実行時刻ではなく取り込み済み最終日を保持する
-      ga4LastSyncedAt: Ga4ImportService.toUtcMidnightIso(endDate),
-    });
+    // 0件時はカーソルを進めず、次回同一範囲を再取得して取りこぼしを防ぐ
+    if (rowsToSave.length > 0) {
+      await this.supabaseService.upsertGa4PageMetricsDaily(rowsToSave);
+      await this.supabaseService.updateGscCredential(userId, {
+        // 次回の startDate を正しく進めるため、同期実行時刻ではなく取り込み済み最終日を保持する
+        ga4LastSyncedAt: Ga4ImportService.toUtcMidnightIso(endDate),
+      });
+    }
 
     console.log('[ga4ImportService.syncUser] completed', {
       userId,
@@ -221,6 +224,7 @@ export class Ga4ImportService {
       eventRows: eventReport.rows.length,
       mergedRows: merged.length,
       upserted: rowsToSave.length,
+      cursorAdvanced: rowsToSave.length > 0,
       isSampled: baseReport.isSampled || eventReport.isSampled,
       isPartial: baseReport.isPartial || eventReport.isPartial,
     });
