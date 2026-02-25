@@ -201,6 +201,7 @@ interface GA4BaseReportRequest {
 
 > **追記（2026-02-25）**: `totalUsers` は `landingPage` と dimensions/metrics 互換性がなく API エラーとなる。スコープが異なる（totalUsers=ユーザースコープ、landingPage=セッションスコープ）ため。CVR 分母には `sessions` を充てる実装に変更済み。
 > **追記（2026-02-25）**: `organicGoogleSearchClicks` / `organicGoogleSearchImpressions` は Search Console 専用 dimensions（`landingPagePlusQueryString` 等）のみと互換。`landingPage` とは非互換のためベースレポートから除外。検索クリック数・インプレッション数・検索CTR は現状 `0` / `NULL` で保存。将来は別レポート取得＋正規化でマージする拡張を検討。
+> **追記（2026-02-25）**: 同期間の取得結果が0件（`mergedRows=0`）の場合は `ga4_last_synced_at` を更新しない。遅延反映データの取りこぼしを防ぐため、次回同期で同期間を再試行する。
 
 ### (B) イベント指標レポート（runReport）
 
