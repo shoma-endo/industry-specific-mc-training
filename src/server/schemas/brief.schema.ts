@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
-import { optionalEmail, optionalUrl } from '@/server/schemas/common.validators';
+import { optionalEmail, optionalUrl } from '@/lib/validators/common';
 
 const validationMessages = ERROR_MESSAGES.VALIDATION;
 
