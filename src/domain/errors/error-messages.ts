@@ -8,6 +8,9 @@
  * - 拡張性を確保
  */
 
+/** URL形式不正（WordPress・バリデーション共通） */
+const INVALID_URL = '有効なURLを入力してください';
+
 export const ERROR_MESSAGES = {
   /**
    * WordPress関連のエラーメッセージ
@@ -60,7 +63,7 @@ export const ERROR_MESSAGES = {
     WORDPRESS_COM_SITE_ID_REQUIRED: 'WordPress.com連携にはサイトIDが必要です',
 
     /** 有効なURLを入力してください */
-    INVALID_URL: '有効なURLを入力してください',
+    INVALID_URL,
 
     /** 指定された投稿IDがWordPressで見つからない場合 */
     POST_ID_NOT_FOUND: '指定された投稿IDがWordPressで見つかりませんでした。URLをご確認ください。',
@@ -159,7 +162,7 @@ export const ERROR_MESSAGES = {
     TITLE_MAX_LENGTH: (max: number) => `タイトルは${max}文字以内で入力してください`,
 
     /** URL形式不正 */
-    INVALID_URL: '有効なURLを入力してください',
+    INVALID_URL,
 
     /** メールアドレス形式不正 */
     INVALID_EMAIL: '有効なメールアドレスを入力してください',
