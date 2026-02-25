@@ -192,17 +192,15 @@ interface GA4BaseReportRequest {
   metrics: [
     { name: 'sessions' },
     { name: 'userEngagementDuration' },
-    { name: 'bounceRate' },
-    { name: 'organicGoogleSearchClicks' },     // 検索クリック数（CTR分子）
-    { name: 'organicGoogleSearchImpressions' } // 検索インプレッション数（Search Console連携時）
+    { name: 'bounceRate' }
   ];
   limit: 10000;
   offset?: number;
 }
 ```
 
-> **追記（2026-02-16）**: `organicGoogleSearchClicks` / `organicGoogleSearchImpressions` は GA4 プロパティで Search Console 連携が有効な場合のみデータが入ります。連携未設定時は `0` として扱います。`screenPageViews` は行動指標としては有用ですが、検索CTR計算には使用しません。
 > **追記（2026-02-25）**: `totalUsers` は `landingPage` と dimensions/metrics 互換性がなく API エラーとなる。スコープが異なる（totalUsers=ユーザースコープ、landingPage=セッションスコープ）ため。CVR 分母には `sessions` を充てる実装に変更済み。
+> **追記（2026-02-25）**: `organicGoogleSearchClicks` / `organicGoogleSearchImpressions` は Search Console 専用 dimensions（`landingPagePlusQueryString` 等）のみと互換。`landingPage` とは非互換のためベースレポートから除外。検索クリック数・インプレッション数・検索CTR は現状 `0` / `NULL` で保存。将来は別レポート取得＋正規化でマージする拡張を検討。
 
 ### (B) イベント指標レポート（runReport）
 

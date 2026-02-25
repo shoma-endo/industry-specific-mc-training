@@ -63,21 +63,6 @@ export function SummaryCards({ summary, isLoading }: Props) {
       value: formatPercent(summary.avgReadRate),
       color: 'cyan',
     },
-    {
-      label: 'インプレッション数',
-      value: formatNumber(summary.totalImpressions),
-      color: 'indigo',
-    },
-    {
-      label: '検索クリック数',
-      value: formatNumber(summary.totalSearchClicks),
-      color: 'sky',
-    },
-    {
-      label: 'CTR',
-      value: formatPercent(summary.ctr !== null ? summary.ctr * 100 : null),
-      color: 'amber',
-    },
   ] as const;
 
   return (
@@ -95,9 +80,6 @@ export function SummaryCards({ summary, isLoading }: Props) {
           fuchsia: 'bg-fuchsia-50 border-fuchsia-200',
           rose: 'bg-rose-50 border-rose-200',
           cyan: 'bg-cyan-50 border-cyan-200',
-          indigo: 'bg-indigo-50 border-indigo-200',
-          sky: 'bg-sky-50 border-sky-200',
-          amber: 'bg-amber-50 border-amber-200',
         };
 
         return (

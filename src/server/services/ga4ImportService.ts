@@ -265,15 +265,14 @@ export class Ga4ImportService {
     range: { startDate: string; endDate: string }
   ): Promise<ReportFetchResult> {
     // landingPage はセッションスコープ、totalUsers はユーザースコープのため互換性なし。
-    // API 制約により landingPage 単位で totalUsers を取得できないため、CVR 分母には sessions を使用。
+    // organicGoogleSearchClicks/Impressions は Search Console 専用で landingPage と非互換（landingPagePlusQueryString 等のみ対応）。
+    // API 制約により landingPage 単位で totalUsers/検索指標を取得できないため、CVR 分母は sessions、検索CTR は 0/NULL。
     return this.fetchReportWithPagination(accessToken, propertyId, 'base', {
       dimensions: [{ name: 'date' }, { name: 'landingPage' }],
       metrics: [
         { name: 'sessions' },
         { name: 'userEngagementDuration' },
         { name: 'bounceRate' },
-        { name: 'organicGoogleSearchClicks' },    // 検索クリック数（CTR分子）
-        { name: 'organicGoogleSearchImpressions' } // 検索インプレッション数（CTR分母）
       ],
       dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
     });
@@ -366,8 +365,6 @@ export class Ga4ImportService {
           const users = sessions;
           const engagementTimeSec = Number(metrics[1]?.value ?? 0);
           const bounceRate = Number(metrics[2]?.value ?? 0);
-          const searchClicks = Number(metrics[3]?.value ?? 0);
-          const impressions = Number(metrics[4]?.value ?? 0);
           rows.push({
             date,
             pagePath: landingPage,
@@ -375,8 +372,9 @@ export class Ga4ImportService {
             users,
             engagementTimeSec,
             bounceRate,
-            searchClicks,
-            impressions,
+            // organicGoogleSearchClicks/Impressions は landingPage と非互換のため取得不可
+            searchClicks: 0,
+            impressions: 0,
           });
         }
       }
