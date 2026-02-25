@@ -39,6 +39,8 @@ interface UseHeadingFlowReturn {
   /** 選択バージョンに応じた完成形コンテンツ。完成形表示時に使用 */
   selectedCombinedContent: string | null;
   handleCombinedVersionSelect: (versionId: string) => void;
+  /** 完成形のバージョン一覧と最新を再取得（Canvas編集完了後など） */
+  refetchCombinedContentVersions: () => void;
   /**
    * 見出しセクションを保存する。
    * @param content 保存するコンテンツ（canvasStreamingContent || canvasContent）
@@ -368,6 +370,14 @@ export function useHeadingFlow({
     setSelectedCombinedVersionId(versionId);
   }, []);
 
+  /** 完成形のバージョン一覧と最新を再取得（Canvas編集完了後など） */
+  const refetchCombinedContentVersions = useCallback(() => {
+    if (sessionId && headingSections.length > 0 && headingSections.every(s => s.isConfirmed)) {
+      void fetchLatestCombinedContent(sessionId);
+      void fetchCombinedContentVersions(sessionId);
+    }
+  }, [sessionId, headingSections, fetchLatestCombinedContent, fetchCombinedContentVersions]);
+
   return {
     headingSections,
     isSavingHeading,
@@ -382,6 +392,7 @@ export function useHeadingFlow({
     selectedCombinedVersionId,
     selectedCombinedContent,
     handleCombinedVersionSelect,
+    refetchCombinedContentVersions,
     handleSaveHeadingSection,
     handleRetryHeadingInit,
   };

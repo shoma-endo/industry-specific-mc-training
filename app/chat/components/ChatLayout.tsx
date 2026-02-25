@@ -869,6 +869,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     selectedCombinedVersionId,
     selectedCombinedContent,
     handleCombinedVersionSelect,
+    refetchCombinedContentVersions,
     handleSaveHeadingSection: _handleSaveHeadingSection,
     handleRetryHeadingInit,
   } = useHeadingFlow({
@@ -1837,6 +1838,15 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         // セッションを再読み込みして最新メッセージを取得
         await chatSession.actions.loadSession(chatSession.state.currentSessionId);
 
+        // Step6 完成形の Canvas 編集時は session_combined_contents に新バージョンが保存されているため再取得
+        if (
+          targetStep === 'step6' &&
+          headingSections.length > 0 &&
+          headingSections.every(s => s.isConfirmed)
+        ) {
+          refetchCombinedContentVersions();
+        }
+
         // 楽観的更新をクリア（実際のメッセージで置き換え）
         setOptimisticMessages([]);
 
@@ -1864,6 +1874,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       headingSections,
       isOwnerViewMode,
       latestBlogStep,
+      refetchCombinedContentVersions,
       resolvedCanvasStep,
       setAnnotationData,
       setAnnotationOpen,
