@@ -464,6 +464,12 @@ erDiagram
         text property_display_name
         text permission_level
         boolean verified
+        text ga4_property_id
+        text ga4_property_name
+        text[] ga4_conversion_events
+        integer ga4_threshold_engagement_sec
+        numeric ga4_threshold_read_rate
+        timestamptz ga4_last_synced_at
         timestamptz last_synced_at
         timestamptz created_at
         timestamptz updated_at
@@ -557,8 +563,10 @@ erDiagram
     ga4_page_metrics_daily {
         uuid id PK
         uuid user_id FK
+        text property_id
         date date
         text page_path
+        text normalized_path
         integer sessions
         integer users
         integer engagement_time_sec
@@ -575,27 +583,33 @@ erDiagram
         timestamptz updated_at
     }
 
-    heading_flow_sessions {
+    session_heading_sections {
         uuid id PK
-        uuid user_id FK
-        text status
-        jsonb metadata
+        text session_id FK
+        text heading_key
+        smallint heading_level
+        text heading_text
+        integer order_index
+        text content
+        boolean is_confirmed
         timestamptz created_at
         timestamptz updated_at
     }
 
-    heading_flow_stages {
+    session_combined_contents {
         uuid id PK
-        uuid session_id FK
-        text stage_key
-        text status
-        jsonb result_data
+        text session_id FK
+        integer version_no
+        text content
+        boolean is_latest
         timestamptz created_at
         timestamptz updated_at
     }
 
     users ||--o{ chat_sessions : owns
     chat_sessions ||--o{ chat_messages : contains
+    chat_sessions ||--o{ session_heading_sections : "has headings"
+    chat_sessions ||--o{ session_combined_contents : "has versions"
     users ||--|| briefs : "stores one brief"
     users ||--o{ content_annotations : annotates
     users ||--o| wordpress_settings : configures
@@ -605,8 +619,6 @@ erDiagram
     users ||--o{ gsc_query_metrics : owns
     users ||--o{ gsc_article_evaluation_history : owns
     users ||--o{ ga4_page_metrics_daily : owns
-    users ||--o{ heading_flow_sessions : owns
-    heading_flow_sessions ||--o{ heading_flow_stages : "contains stages"
     users ||--o{ prompt_templates : creates
     users ||--o{ prompt_versions : creates
     prompt_templates ||--o{ prompt_versions : "has versions"
