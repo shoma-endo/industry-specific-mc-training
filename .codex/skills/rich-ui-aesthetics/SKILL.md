@@ -26,7 +26,7 @@ metadata:
   - アクセント: `text-indigo-600` / `bg-indigo-600`
 - **グラデーション**: 微妙なトーン変化の変化を付ける。
   ```html
-  <div class="bg-linear-to-br from-indigo-500/10 to-purple-500/5">...</div>
+  <div class="bg-gradient-to-br from-indigo-500/10 to-purple-500/5">...</div>
   ```
 
 ### 2.2 Glassmorphism (半透明効果)
