@@ -107,6 +107,7 @@ graph TB
     AdminUI["Admin Dashboards"]
     GscSetup["GSC Setup Dashboard"]
     GscDashboard["GSC Analytics Dashboard"]
+    Ga4Dashboard["GA4 Analytics Dashboard"]
   end
 
   subgraph Server["Next.js Route Handlers & Server Actions"]
@@ -117,6 +118,7 @@ graph TB
     AdminAPI["/api/admin/*"]
     SubscriptionAPI["/api/refresh, /api/user/*"]
     GscAPI["/api/gsc/*"]
+    Ga4API["/api/ga4/*"]
     GscCron["/api/cron/gsc-evaluate"]
     ServerActions["server/actions/*"]
   end
@@ -144,6 +146,7 @@ graph TB
     Stripe["Stripe Subscriptions"]
     WordPress["WordPress REST API"]
     GSC["Google Search Console API"]
+    GA4["Google Analytics 4 API"]
   end
 
   LIFFProvider --> AuthMiddleware
@@ -155,6 +158,7 @@ graph TB
   AdminUI --> ServerActions
   GscSetup --> GscAPI
   GscDashboard --> GscAPI
+  Ga4Dashboard --> Ga4API
 
   ServerActions --> UsersTable
   ServerActions --> BriefsTable
@@ -178,6 +182,7 @@ graph TB
   SubscriptionAPI --> Stripe
   WordPressAPI --> WordPress
   GscAPI --> GSC
+  Ga4API --> GA4
   GscCron --> GSC
 ```
 
@@ -291,7 +296,7 @@ sequenceDiagram
 
 ### フロントエンド
 
-- **フレームワーク**: Next.js 15.5.9 (App Router), React 19.2.3, TypeScript 5.9.3
+- **フレームワーク**: Next.js 15.5.12 (App Router), React 19.2.3, TypeScript 5.9.3
 - **スタイリング**: Tailwind CSS v4, Radix UI, shadcn/ui, lucide-react, tw-animate-css
 - **テーマ**: next-themes 0.4.6 (ダークモード対応)
 - **エディタ**: TipTap 3.7.2 + lowlight 3.3.0 (シンタックスハイライト)
@@ -326,6 +331,7 @@ sequenceDiagram
 
 - **WordPress REST API**: 投稿取得・同期
 - **Google Search Console API**: 検索パフォーマンスデータ取得・記事評価
+- **Google Analytics 4 API**: アナリティクスデータ取得
 - **Google Ads API**: 広告パフォーマンスデータ取得（MCCアカウント対応）
 
 ### 開発ツール
@@ -458,6 +464,12 @@ erDiagram
         text property_display_name
         text permission_level
         boolean verified
+        text ga4_property_id
+        text ga4_property_name
+        text[] ga4_conversion_events
+        integer ga4_threshold_engagement_sec
+        numeric ga4_threshold_read_rate
+        timestamptz ga4_last_synced_at
         timestamptz last_synced_at
         timestamptz created_at
         timestamptz updated_at
@@ -548,8 +560,56 @@ erDiagram
         timestamptz updated_at
     }
 
+    ga4_page_metrics_daily {
+        uuid id PK
+        uuid user_id FK
+        text property_id
+        date date
+        text page_path
+        text normalized_path
+        integer sessions
+        integer users
+        integer engagement_time_sec
+        numeric bounce_rate
+        integer cv_event_count
+        integer scroll_90_event_count
+        integer search_clicks
+        integer impressions
+        numeric ctr
+        boolean is_sampled
+        boolean is_partial
+        timestamptz imported_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    session_heading_sections {
+        uuid id PK
+        text session_id FK
+        text heading_key
+        smallint heading_level
+        text heading_text
+        integer order_index
+        text content
+        boolean is_confirmed
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    session_combined_contents {
+        uuid id PK
+        text session_id FK
+        integer version_no
+        text content
+        boolean is_latest
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     users ||--o{ chat_sessions : owns
     chat_sessions ||--o{ chat_messages : contains
+    chat_sessions ||--o{ session_heading_sections : "has headings"
+    chat_sessions ||--o{ session_combined_contents : "has versions"
     users ||--|| briefs : "stores one brief"
     users ||--o{ content_annotations : annotates
     users ||--o| wordpress_settings : configures
@@ -558,6 +618,7 @@ erDiagram
     users ||--o{ gsc_page_metrics : owns
     users ||--o{ gsc_query_metrics : owns
     users ||--o{ gsc_article_evaluation_history : owns
+    users ||--o{ ga4_page_metrics_daily : owns
     users ||--o{ prompt_templates : creates
     users ||--o{ prompt_versions : creates
     prompt_templates ||--o{ prompt_versions : "has versions"
@@ -572,32 +633,32 @@ erDiagram
 
 `src/env.ts` で厳格にバリデーションされる環境変数に加え、Route Handler で直接参照する `CRON_SECRET` を含みます。`.env.local` を手動で用意してください。
 
-| 種別   | 変数名                               | 必須                               | 用途                                                                                   |
-| ------ | ------------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------- |
-| Server | `SUPABASE_SERVICE_ROLE`              | ✅                                 | サーバーサイド特権操作用 Service Role キー                                             |
-| Server | `STRIPE_ENABLED`                     | 任意                               | Stripe 機能の有効化フラグ（`true` / `false`）                                          |
-| Server | `STRIPE_SECRET_KEY`                  | ✅（Stripe 無効でもダミー値必須）  | Stripe API 呼び出し用シークレット                                                      |
-| Server | `STRIPE_PRICE_ID`                    | ✅（Stripe 無効でもダミー値必須）  | サブスクリプションで使用する Price ID                                                  |
-| Server | `OPENAI_API_KEY`                     | ✅                                 | Fine-tuned モデル利用時の OpenAI キー                                                  |
-| Server | `ANTHROPIC_API_KEY`                  | ✅                                 | Claude ストリーミング用 API キー                                                       |
-| Server | `LINE_CHANNEL_ID`                    | ✅                                 | LINE Login 用チャネル ID                                                               |
-| Server | `LINE_CHANNEL_SECRET`                | ✅                                 | LINE Login 用チャネルシークレット                                                      |
-| Server | `GOOGLE_OAUTH_CLIENT_ID`             | 任意（GSC/GA4 連携利用時は必須）   | Google Search Console / GA4 OAuth 用クライアント ID                                    |
-| Server | `GOOGLE_OAUTH_CLIENT_SECRET`         | 任意（GSC/GA4 連携利用時は必須）   | Google Search Console / GA4 OAuth 用クライアントシークレット                           |
-| Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC/GA4 連携利用時は必須）   | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など）          |
-| Server | `GOOGLE_ADS_REDIRECT_URI`            | 任意（Google Ads 連携利用時は必須）| Google Ads OAuth のリダイレクト先（`https://<host>/api/google-ads/oauth/callback` など）|
-| Server | `GOOGLE_ADS_DEVELOPER_TOKEN`         | 任意（Google Ads 連携利用時は必須）| Google Ads API 開発者トークン（MCCアカウントの管理者が発行）                           |
-| Server | `WORDPRESS_COM_CLIENT_ID`            | 任意（WordPress 連携利用時は必須） | WordPress.com OAuth 用クライアント ID                                                  |
-| Server | `WORDPRESS_COM_CLIENT_SECRET`        | 任意（WordPress 連携利用時は必須） | WordPress.com OAuth 用クライアントシークレット                                         |
-| Server | `WORDPRESS_COM_REDIRECT_URI`         | 任意（WordPress 連携利用時は必須） | WordPress OAuth のリダイレクト先（`https://<host>/api/wordpress/oauth/callback` など） |
-| Server | `COOKIE_SECRET`                      | 任意                               | WordPress / Google Search Console / Google Ads OAuth のセキュアな Cookie 管理用シークレット|
-| Server | `CRON_SECRET`                         | 任意（GSC評価バッチ利用時は必須）  | `/api/cron/gsc-evaluate` の Bearer 認証用シークレット                                  |
-| Client | `NEXT_PUBLIC_LIFF_ID`                | ✅                                 | LIFF アプリ ID                                                                         |
-| Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID`        | ✅                                 | LIFF Channel ID                                                                        |
-| Client | `NEXT_PUBLIC_SUPABASE_URL`           | ✅                                 | Supabase プロジェクト URL                                                              |
-| Client | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | ✅                                 | Supabase anon キー                                                                     |
-| Client | `NEXT_PUBLIC_SITE_URL`               | ✅                                 | サイトの公開 URL                                                                       |
-| Client | `NEXT_PUBLIC_STRIPE_ENABLED`         | 任意                               | クライアント側での Stripe 有効化フラグ（未設定時は `STRIPE_ENABLED` を継承）           |
+| 種別   | 変数名                               | 必須                                | 用途                                                                                        |
+| ------ | ------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| Server | `SUPABASE_SERVICE_ROLE`              | ✅                                  | サーバーサイド特権操作用 Service Role キー                                                  |
+| Server | `STRIPE_ENABLED`                     | 任意                                | Stripe 機能の有効化フラグ（`true` / `false`）                                               |
+| Server | `STRIPE_SECRET_KEY`                  | ✅（Stripe 無効でもダミー値必須）   | Stripe API 呼び出し用シークレット                                                           |
+| Server | `STRIPE_PRICE_ID`                    | ✅（Stripe 無効でもダミー値必須）   | サブスクリプションで使用する Price ID                                                       |
+| Server | `OPENAI_API_KEY`                     | ✅                                  | Fine-tuned モデル利用時の OpenAI キー                                                       |
+| Server | `ANTHROPIC_API_KEY`                  | ✅                                  | Claude ストリーミング用 API キー                                                            |
+| Server | `LINE_CHANNEL_ID`                    | ✅                                  | LINE Login 用チャネル ID                                                                    |
+| Server | `LINE_CHANNEL_SECRET`                | ✅                                  | LINE Login 用チャネルシークレット                                                           |
+| Server | `GOOGLE_OAUTH_CLIENT_ID`             | 任意（GSC/GA4 連携利用時は必須）    | Google Search Console / GA4 OAuth 用クライアント ID                                         |
+| Server | `GOOGLE_OAUTH_CLIENT_SECRET`         | 任意（GSC/GA4 連携利用時は必須）    | Google Search Console / GA4 OAuth 用クライアントシークレット                                |
+| Server | `GOOGLE_SEARCH_CONSOLE_REDIRECT_URI` | 任意（GSC/GA4 連携利用時は必須）    | Google OAuth のリダイレクト先（`https://<host>/api/gsc/oauth/callback` など）               |
+| Server | `GOOGLE_ADS_REDIRECT_URI`            | 任意（Google Ads 連携利用時は必須） | Google Ads OAuth のリダイレクト先（`https://<host>/api/google-ads/oauth/callback` など）    |
+| Server | `GOOGLE_ADS_DEVELOPER_TOKEN`         | 任意（Google Ads 連携利用時は必須） | Google Ads API 開発者トークン（MCCアカウントの管理者が発行）                                |
+| Server | `WORDPRESS_COM_CLIENT_ID`            | 任意（WordPress 連携利用時は必須）  | WordPress.com OAuth 用クライアント ID                                                       |
+| Server | `WORDPRESS_COM_CLIENT_SECRET`        | 任意（WordPress 連携利用時は必須）  | WordPress.com OAuth 用クライアントシークレット                                              |
+| Server | `WORDPRESS_COM_REDIRECT_URI`         | 任意（WordPress 連携利用時は必須）  | WordPress OAuth のリダイレクト先（`https://<host>/api/wordpress/oauth/callback` など）      |
+| Server | `COOKIE_SECRET`                      | 任意                                | WordPress / Google Search Console / Google Ads OAuth のセキュアな Cookie 管理用シークレット |
+| Server | `CRON_SECRET`                        | 任意（GSC評価バッチ利用時は必須）   | `/api/cron/gsc-evaluate` の Bearer 認証用シークレット                                       |
+| Client | `NEXT_PUBLIC_LIFF_ID`                | ✅                                  | LIFF アプリ ID                                                                              |
+| Client | `NEXT_PUBLIC_LIFF_CHANNEL_ID`        | ✅                                  | LIFF Channel ID                                                                             |
+| Client | `NEXT_PUBLIC_SUPABASE_URL`           | ✅                                  | Supabase プロジェクト URL                                                                   |
+| Client | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | ✅                                  | Supabase anon キー                                                                          |
+| Client | `NEXT_PUBLIC_SITE_URL`               | ✅                                  | サイトの公開 URL                                                                            |
+| Client | `NEXT_PUBLIC_STRIPE_ENABLED`         | 任意                                | クライアント側での Stripe 有効化フラグ（未設定時は `STRIPE_ENABLED` を継承）                |
 
 ## 🚀 セットアップ手順
 
@@ -1225,40 +1286,44 @@ GSC 連携機能を変更した場合は、以下の手順で動作確認を行�
 
 ## 🔧 主な API エンドポイント
 
-| エンドポイント                     | メソッド | 概要                                                                         | 認証                           |
-| ---------------------------------- | -------- | ---------------------------------------------------------------------------- | ------------------------------ |
-| `/api/chat/anthropic/stream`       | POST     | Claude とのチャット SSE ストリーム                                           | `Authorization: Bearer <LIFF>` |
-| `/api/chat/canvas/stream`          | POST     | Canvas 編集リクエスト（選択範囲差し替え）                                    | `Authorization: Bearer <LIFF>` |
-| `/api/chat/canvas/load-wordpress`  | POST     | WordPress記事をCanvasに読み込み                                              | `Authorization: Bearer <LIFF>` |
-| `/api/refresh`                     | POST     | LINE リフレッシュトークンからアクセストークン再発行                          | Cookie (`line_refresh_token`)  |
-| `/api/user/current`                | GET      | ログインユーザーのプロファイル・ロール情報                                   | Cookie (`line_access_token`)   |
-| `/api/auth/check-role`             | GET      | ロールのサーバー検証                                                         | Cookie                         |
-| `/api/auth/clear-cache`            | POST     | Edge キャッシュクリア通知                                                    | 任意                           |
-| `/api/auth/line-oauth-init`        | GET      | LINE OAuth state生成エンドポイント                                           | Cookie                         |
-| `/api/line/callback`               | GET      | LINE OAuth コールバック                                                      | 公開（state チェックあり）     |
-| `/api/wordpress/settings`          | GET/POST | WordPress 設定の取得・保存（server action と共有）                           | Cookie                         |
-| `/api/wordpress/status`            | GET      | WordPress 接続状況の確認                                                     | Cookie                         |
-| `/api/wordpress/posts`             | GET      | WordPress 投稿一覧の取得                                                     | Cookie + WP 認証               |
-| `/api/wordpress/test-connection`   | POST     | WordPress 接続テスト                                                         | Cookie                         |
-| `/api/wordpress/oauth/start`       | GET      | WordPress.com OAuth リダイレクト開始                                         | 公開（環境変数必須）           |
-| `/api/wordpress/oauth/callback`    | GET      | WordPress.com OAuth コールバック                                             | Cookie                         |
-| `/api/admin/prompts`               | GET      | プロンプトテンプレート一覧（管理者専用）                                     | Cookie + admin ロール          |
-| `/api/admin/prompts/[id]`          | POST     | テンプレート更新・バージョン生成                                             | Cookie + admin ロール          |
-| `/api/gsc/status`                  | GET      | GSC連携状態確認                                                              | Cookie                         |
-| `/api/gsc/oauth/start`             | GET      | GSC OAuth リダイレクト開始                                                   | 公開（環境変数必須）           |
-| `/api/gsc/oauth/callback`          | GET      | GSC OAuth コールバック                                                       | Cookie                         |
-| `/api/gsc/disconnect`              | POST     | GSC連携解除                                                                  | Cookie                         |
-| `/api/gsc/properties`              | GET      | GSCプロパティ一覧取得                                                        | Cookie                         |
-| `/api/gsc/property`                | POST     | GSCプロパティ選択                                                            | Cookie                         |
-| `/api/gsc/dashboard`               | GET      | GSCダッシュボードデータ取得                                                  | Cookie                         |
-| `/api/gsc/import`                  | POST     | GSCデータインポート                                                          | Cookie                         |
-| `/api/gsc/evaluate`                | POST     | GSC記事評価の手動実行                                                        | Cookie                         |
-| `/api/gsc/evaluations`             | GET      | GSC評価履歴取得                                                              | Cookie                         |
-| `/api/cron/gsc-evaluate`           | POST     | GSC記事評価の定期実行（外部スケジューラ経由で Bearer 認証）                  | Authorization ヘッダー         |
-| `/api/google-ads/oauth/start`     | GET      | Google Ads OAuth リダイレクト開始                                            | 公開（環境変数必須）           |
-| `/api/google-ads/oauth/callback`  | GET      | Google Ads OAuth コールバック                                                | Cookie                         |
-| `/api/google-ads/accounts`        | GET      | Google Adsアカウント一覧取得                                                 | Cookie + admin ロール          |
-| `/api/google-ads/accounts/select` | POST     | Google Adsアカウント選択保存                                                 | Cookie + admin ロール          |
+| エンドポイント                    | メソッド | 概要                                                        | 認証                           |
+| --------------------------------- | -------- | ----------------------------------------------------------- | ------------------------------ |
+| `/api/chat/anthropic/stream`      | POST     | Claude とのチャット SSE ストリーム                          | `Authorization: Bearer <LIFF>` |
+| `/api/chat/canvas/stream`         | POST     | Canvas 編集リクエスト（選択範囲差し替え）                   | `Authorization: Bearer <LIFF>` |
+| `/api/chat/canvas/load-wordpress` | POST     | WordPress記事をCanvasに読み込み                             | `Authorization: Bearer <LIFF>` |
+| `/api/refresh`                    | POST     | LINE リフレッシュトークンからアクセストークン再発行         | Cookie (`line_refresh_token`)  |
+| `/api/user/current`               | GET      | ログインユーザーのプロファイル・ロール情報                  | Cookie (`line_access_token`)   |
+| `/api/auth/check-role`            | GET      | ロールのサーバー検証                                        | Cookie                         |
+| `/api/auth/clear-cache`           | POST     | Edge キャッシュクリア通知                                   | 任意                           |
+| `/api/auth/line-oauth-init`       | GET      | LINE OAuth state生成エンドポイント                          | Cookie                         |
+| `/api/line/callback`              | GET      | LINE OAuth コールバック                                     | 公開（state チェックあり）     |
+| `/api/wordpress/settings`         | GET/POST | WordPress 設定の取得・保存（server action と共有）          | Cookie                         |
+| `/api/wordpress/status`           | GET      | WordPress 接続状況の確認                                    | Cookie                         |
+| `/api/wordpress/posts`            | GET      | WordPress 投稿一覧の取得                                    | Cookie + WP 認証               |
+| `/api/wordpress/test-connection`  | POST     | WordPress 接続テスト                                        | Cookie                         |
+| `/api/wordpress/oauth/start`      | GET      | WordPress.com OAuth リダイレクト開始                        | 公開（環境変数必須）           |
+| `/api/wordpress/oauth/callback`   | GET      | WordPress.com OAuth コールバック                            | Cookie                         |
+| `/api/admin/prompts`              | GET      | プロンプトテンプレート一覧（管理者専用）                    | Cookie + admin ロール          |
+| `/api/admin/prompts/[id]`         | POST     | テンプレート更新・バージョン生成                            | Cookie + admin ロール          |
+| `/api/gsc/status`                 | GET      | GSC連携状態確認                                             | Cookie                         |
+| `/api/gsc/oauth/start`            | GET      | GSC OAuth リダイレクト開始                                  | 公開（環境変数必須）           |
+| `/api/gsc/oauth/callback`         | GET      | GSC OAuth コールバック                                      | Cookie                         |
+| `/api/gsc/disconnect`             | POST     | GSC連携解除                                                 | Cookie                         |
+| `/api/gsc/properties`             | GET      | GSCプロパティ一覧取得                                       | Cookie                         |
+| `/api/gsc/property`               | POST     | GSCプロパティ選択                                           | Cookie                         |
+| `/api/gsc/dashboard`              | GET      | GSCダッシュボードデータ取得                                 | Cookie                         |
+| `/api/gsc/import`                 | POST     | GSCデータインポート                                         | Cookie                         |
+| `/api/gsc/evaluate`               | POST     | GSC記事評価の手動実行                                       | Cookie                         |
+| `/api/gsc/evaluations`            | GET      | GSC評価履歴取得                                             | Cookie                         |
+| `/api/ga4/status`                 | GET      | GA4連携状態確認                                             | Cookie                         |
+| `/api/ga4/properties`             | GET      | GA4プロパティ一覧取得                                       | Cookie                         |
+| `/api/ga4/property`               | POST     | GA4プロパティ選択                                           | Cookie                         |
+| `/api/ga4/dashboard`              | GET      | GA4ダッシュボードデータ取得                                 | Cookie                         |
+| `/api/cron/gsc-evaluate`          | POST     | GSC記事評価の定期実行（外部スケジューラ経由で Bearer 認証） | Authorization ヘッダー         |
+| `/api/google-ads/oauth/start`     | GET      | Google Ads OAuth リダイレクト開始                           | 公開（環境変数必須）           |
+| `/api/google-ads/oauth/callback`  | GET      | Google Ads OAuth コールバック                               | Cookie                         |
+| `/api/google-ads/accounts`        | GET      | Google Adsアカウント一覧取得                                | Cookie + admin ロール          |
+| `/api/google-ads/accounts/select` | POST     | Google Adsアカウント選択保存                                | Cookie + admin ロール          |
 
 ### GSC 評価バッチ（外部スケジューラからの実行）
 
