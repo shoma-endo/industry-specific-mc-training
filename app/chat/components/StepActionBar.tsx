@@ -5,20 +5,34 @@ import { Button } from '@/components/ui/button';
 import { BookMarked, BookOpen, FilePenLine, Loader2, SkipBack, SkipForward } from 'lucide-react';
 
 interface StepActionBarProps {
-  step?: BlogStepId | undefined;
-  className?: string | undefined;
-  disabled?: boolean | undefined;
-  hasDetectedBlogStep?: boolean | undefined;
-  onSaveClick?: (() => void) | undefined;
-  annotationLoading?: boolean | undefined;
-  hasStep7Content?: boolean | undefined;
-  onGenerateTitleMeta?: (() => void) | undefined;
-  isGenerateTitleMetaLoading?: boolean | undefined;
-  onNextStepChange?: ((nextStep: BlogStepId | null) => void) | undefined;
-  flowStatus?: string | undefined;
-  onLoadBlogArticle?: (() => Promise<void>) | undefined;
+  step?: BlogStepId;
+  className?: string;
+  disabled?: boolean;
+  hasDetectedBlogStep?: boolean;
+  onSaveClick?: () => void;
+  annotationLoading?: boolean;
+  isSavingHeading?: boolean;
+  hasStep7Content?: boolean;
+  onGenerateTitleMeta?: () => void;
+  isGenerateTitleMetaLoading?: boolean;
+  onNextStepChange?: (nextStep: BlogStepId | null) => void;
+  flowStatus?: string;
+  onLoadBlogArticle?: () => Promise<void>;
   isLoadBlogArticleLoading?: boolean;
-  onManualStepChange?: ((step: BlogStepId) => void) | undefined;
+  onManualStepChange?: (step: BlogStepId) => void;
+  onBeforeManualStepChange?: (params: {
+    direction: 'forward' | 'backward';
+    currentStep: BlogStepId;
+    targetStep: BlogStepId;
+  }) => boolean;
+  isHeadingInitInFlight?: boolean;
+  hasAttemptedHeadingInit?: boolean;
+  /** Step6/Step7 本文生成時: 現在の見出しインデックス（0-based） */
+  headingIndex?: number;
+  /** Step6/Step7 本文生成時: 見出しの総数 */
+  totalHeadings?: number;
+  /** Step6/Step7 本文生成時: 現在の見出しテキスト */
+  currentHeadingText?: string;
 }
 
 export interface StepActionBarRef {
@@ -34,6 +48,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       hasDetectedBlogStep,
       onSaveClick,
       annotationLoading,
+      isSavingHeading = false,
       hasStep7Content,
       onGenerateTitleMeta,
       isGenerateTitleMetaLoading = false,
@@ -42,6 +57,12 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onLoadBlogArticle,
       isLoadBlogArticleLoading = false,
       onManualStepChange,
+      onBeforeManualStepChange,
+      isHeadingInitInFlight = false,
+      hasAttemptedHeadingInit = false,
+      headingIndex,
+      totalHeadings,
+      currentHeadingText,
     },
     ref
   ) => {
@@ -61,6 +82,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     // UI制御
     const isStepReady = flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
     const isDisabled = disabled || !isStepReady;
+    const isStep6 = displayStep === 'step6';
     const isStep7 = displayStep === 'step7';
     const isStep1 = displayStep === 'step1';
     const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
@@ -68,6 +90,12 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
     const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
+    const isHeadingFlowStep = isStep6;
+    const isStep6Busy = isStep6 && (isSavingHeading || isHeadingInitInFlight);
+    const headingLabel =
+      currentHeadingText && currentHeadingText.trim().length > 0
+        ? currentHeadingText
+        : '（見出し未設定）';
 
     // ラベル
     const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
@@ -87,6 +115,11 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       if (!targetStep) {
         return;
       }
+      const shouldContinue =
+        onBeforeManualStepChange?.({ direction, currentStep: displayStep, targetStep }) ?? true;
+      if (!shouldContinue) {
+        return;
+      }
       onManualStepChange(targetStep);
     };
 
@@ -95,7 +128,24 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
         <div className="text-xs px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700">
           <span>
             現在のステップ: {currentLabel}
-            {nextStepLabel ? ` ／ 次の${nextStepLabel}に進むにはメッセージを送信してください` : ''}
+            {isHeadingFlowStep &&
+              headingIndex !== undefined &&
+              totalHeadings !== undefined &&
+              totalHeadings > 0 && (
+              <span className="ml-2 font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded border border-blue-300 animate-in fade-in slide-in-from-left-2 duration-300">
+                見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
+              </span>
+            )}
+            {isStep6 && totalHeadings === 0 && hasAttemptedHeadingInit && !isHeadingInitInFlight && (
+              <span className="ml-2 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                見出しが見つかりません。ステップ5を見直してください
+              </span>
+            )}
+            {nextStepLabel && (displayStep !== 'step6' || headingIndex === undefined) && (
+              <span className="ml-1 opacity-80">
+                ／ 次の{nextStepLabel}に進むにはメッセージを送信してください
+              </span>
+            )}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -103,7 +153,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             <Button
               type="button"
               onClick={() => handleManualStepShift('backward')}
-              disabled={isDisabled || !onManualStepChange}
+              disabled={isDisabled || isStep6Busy || !onManualStepChange}
               size="sm"
               className="flex items-center gap-1 bg-slate-600 text-white hover:bg-slate-700 disabled:bg-slate-400"
             >
@@ -115,7 +165,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             <Button
               type="button"
               onClick={() => handleManualStepShift('forward')}
-              disabled={isDisabled || !onManualStepChange}
+              disabled={isDisabled || isStep6Busy || !onManualStepChange}
               size="sm"
               className="flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-emerald-300"
             >
@@ -145,7 +195,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
         )}
         <Button
           onClick={() => onSaveClick?.()}
-          disabled={isDisabled || !onSaveClick || annotationLoading}
+          disabled={isDisabled || isStep6Busy || !onSaveClick || annotationLoading}
           size="sm"
           className="flex items-center gap-1 bg-black text-white hover:bg-black/90"
         >
