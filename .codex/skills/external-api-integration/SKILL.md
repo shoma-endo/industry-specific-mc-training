@@ -72,6 +72,15 @@ export class ExampleService {
       throw ChatError.fromApiError(error, { service: 'example' });
     }
   }
+
+  private transform(data: any) {
+    // 外部 API のレスポンスを内部型に変換
+    return {
+      id: data.id,
+      title: data.name,
+      value: data.count,
+    };
+  }
 }
 ```
 
