@@ -519,7 +519,7 @@ erDiagram
         numeric last_seen_position
         text status
         timestamptz created_at
-        updated_at updated_at
+        timestamptz updated_at
     }
 
     gsc_article_evaluation_history {
