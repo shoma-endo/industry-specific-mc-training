@@ -554,27 +554,23 @@ erDiagram
         timestamptz updated_at
     }
 
-    ga4_daily_metrics {
-        uuid id PK
-        uuid user_id FK
-        date date
-        integer active_users
-        integer total_users
-        integer sessions
-        numeric engagement_rate
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
     ga4_page_metrics_daily {
         uuid id PK
         uuid user_id FK
         date date
         text page_path
-        integer screen_page_views
-        integer active_users
         integer sessions
+        integer users
+        integer engagement_time_sec
+        numeric bounce_rate
+        integer cv_event_count
+        integer scroll_90_event_count
         integer search_clicks
+        integer impressions
+        numeric ctr
+        boolean is_sampled
+        boolean is_partial
+        timestamptz imported_at
         timestamptz created_at
         timestamptz updated_at
     }
@@ -608,7 +604,6 @@ erDiagram
     users ||--o{ gsc_page_metrics : owns
     users ||--o{ gsc_query_metrics : owns
     users ||--o{ gsc_article_evaluation_history : owns
-    users ||--o{ ga4_daily_metrics : owns
     users ||--o{ ga4_page_metrics_daily : owns
     users ||--o{ heading_flow_sessions : owns
     heading_flow_sessions ||--o{ heading_flow_stages : "contains stages"
