@@ -24,7 +24,7 @@ metadata:
 - **カラーパレット**: ブラウザ標準の原色を避け、洗練された HSL カラーを使用する。
   - 背景: `bg-slate-50` (Light) / `bg-slate-950` (Dark)
   - アクセント: `text-indigo-600` / `bg-indigo-600`
-- **グラデーション**: 微妙なトーン変化の変化を付ける。
+- **グラデーション**: 微妙なトーン変化を付ける。
   ```html
   <div class="bg-gradient-to-br from-indigo-500/10 to-purple-500/5">...</div>
   ```
