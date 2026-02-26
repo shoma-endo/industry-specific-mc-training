@@ -519,7 +519,7 @@ erDiagram
         numeric last_seen_position
         text status
         timestamptz created_at
-        timestamptz updated_at
+        updated_at updated_at
     }
 
     gsc_article_evaluation_history {
@@ -554,6 +554,50 @@ erDiagram
         timestamptz updated_at
     }
 
+    ga4_daily_metrics {
+        uuid id PK
+        uuid user_id FK
+        date date
+        integer active_users
+        integer total_users
+        integer sessions
+        numeric engagement_rate
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    ga4_page_metrics_daily {
+        uuid id PK
+        uuid user_id FK
+        date date
+        text page_path
+        integer screen_page_views
+        integer active_users
+        integer sessions
+        integer search_clicks
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    heading_flow_sessions {
+        uuid id PK
+        uuid user_id FK
+        text status
+        jsonb metadata
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    heading_flow_stages {
+        uuid id PK
+        uuid session_id FK
+        text stage_key
+        text status
+        jsonb result_data
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     users ||--o{ chat_sessions : owns
     chat_sessions ||--o{ chat_messages : contains
     users ||--|| briefs : "stores one brief"
@@ -564,6 +608,10 @@ erDiagram
     users ||--o{ gsc_page_metrics : owns
     users ||--o{ gsc_query_metrics : owns
     users ||--o{ gsc_article_evaluation_history : owns
+    users ||--o{ ga4_daily_metrics : owns
+    users ||--o{ ga4_page_metrics_daily : owns
+    users ||--o{ heading_flow_sessions : owns
+    heading_flow_sessions ||--o{ heading_flow_stages : "contains stages"
     users ||--o{ prompt_templates : creates
     users ||--o{ prompt_versions : creates
     prompt_templates ||--o{ prompt_versions : "has versions"
