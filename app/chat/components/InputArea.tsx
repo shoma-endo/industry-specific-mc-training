@@ -70,6 +70,7 @@ interface InputAreaProps {
   hasDetectedBlogStep?: boolean;
   onSaveClick?: () => void;
   annotationLoading?: boolean;
+  isSavingHeading?: boolean;
   hasStep7Content?: boolean;
   onGenerateTitleMeta?: () => void;
   isGenerateTitleMetaLoading?: boolean;
@@ -77,6 +78,20 @@ interface InputAreaProps {
   onNextStepChange?: (nextStep: BlogStepId | null) => void;
   onLoadBlogArticle?: (() => Promise<void>) | undefined;
   onManualStepChange?: (step: BlogStepId) => void;
+  /** Step5で入力内容をそのまま構成案として保存（AI経由なし） */
+  onSaveManualStep5?: (
+    content: string
+  ) => Promise<{ success: true } | { success: false; error: string }>;
+  onBeforeManualStepChange?: (params: {
+    direction: 'forward' | 'backward';
+    currentStep: BlogStepId;
+    targetStep: BlogStepId;
+  }) => boolean;
+  isHeadingInitInFlight?: boolean;
+  hasAttemptedHeadingInit?: boolean;
+  headingIndex?: number;
+  totalHeadings?: number;
+  currentHeadingText?: string;
   searchQuery: string;
   searchError: string | null;
   isSearching: boolean;
@@ -116,6 +131,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   hasDetectedBlogStep,
   onSaveClick,
   annotationLoading,
+  isSavingHeading,
   hasStep7Content,
   onGenerateTitleMeta,
   isGenerateTitleMetaLoading,
@@ -123,6 +139,13 @@ const InputArea: React.FC<InputAreaProps> = ({
   onNextStepChange,
   onLoadBlogArticle,
   onManualStepChange,
+  onSaveManualStep5,
+  onBeforeManualStepChange,
+  isHeadingInitInFlight,
+  hasAttemptedHeadingInit,
+  headingIndex,
+  totalHeadings,
+  currentHeadingText,
   searchQuery,
   searchError,
   isSearching,
@@ -143,6 +166,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   const effectiveDraftTitle = draftSessionTitle ?? currentSessionTitle ?? '';
   const [isLoadingBlogArticle, setIsLoadingBlogArticle] = useState(false);
   const [blogArticleError, setBlogArticleError] = useState<string | null>(null);
+  const [isSavingManualStep5, setIsSavingManualStep5] = useState(false);
 
   const isModelSelected = Boolean(selectedModel);
   const isInputDisabled = disabled || !isModelSelected || isReadOnly;
@@ -158,6 +182,11 @@ const InputArea: React.FC<InputAreaProps> = ({
       // ブログ作成を開始していない場合（hasDetectedBlogStep === false）はstep1を表示
       if (!hasDetectedBlogStep) {
         return BLOG_PLACEHOLDERS.blog_creation_step1;
+      }
+
+      // 見出し単位生成中（step6）は現在ステップのプレースホルダーを表示（次ステップでなく）
+      if (initialBlogStep === 'step6') {
+        return BLOG_PLACEHOLDERS.blog_creation_step6;
       }
 
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
@@ -499,20 +528,29 @@ const InputArea: React.FC<InputAreaProps> = ({
           <div className="px-3 py-3 border-b border-gray-200 bg-white shadow-sm">
             <StepActionBar
               ref={stepActionBarRef}
-              step={displayStep}
-              hasDetectedBlogStep={hasDetectedBlogStep}
+              {...(displayStep !== undefined && { step: displayStep })}
+              {...(hasDetectedBlogStep !== undefined && { hasDetectedBlogStep })}
               className="flex-wrap gap-3"
               disabled={isStepActionBarDisabled}
-              onSaveClick={onSaveClick}
-              annotationLoading={annotationLoading}
-              hasStep7Content={hasStep7Content}
-              onGenerateTitleMeta={onGenerateTitleMeta}
-              isGenerateTitleMetaLoading={isGenerateTitleMetaLoading}
-              onNextStepChange={onNextStepChange}
-              flowStatus={blogFlowStatus}
+              {...(onSaveClick !== undefined && { onSaveClick })}
+              {...(annotationLoading !== undefined && { annotationLoading })}
+              {...(isSavingHeading !== undefined && { isSavingHeading })}
+              {...(hasStep7Content !== undefined && { hasStep7Content })}
+              {...(onGenerateTitleMeta !== undefined && { onGenerateTitleMeta })}
+              {...(isGenerateTitleMetaLoading !== undefined && {
+                isGenerateTitleMetaLoading,
+              })}
+              {...(onNextStepChange !== undefined && { onNextStepChange })}
+              {...(blogFlowStatus !== undefined && { flowStatus: blogFlowStatus })}
               onLoadBlogArticle={handleLoadBlogArticle}
               isLoadBlogArticleLoading={isLoadingBlogArticle}
-              onManualStepChange={onManualStepChange}
+              {...(onManualStepChange !== undefined && { onManualStepChange })}
+              {...(onBeforeManualStepChange !== undefined && { onBeforeManualStepChange })}
+              {...(isHeadingInitInFlight !== undefined && { isHeadingInitInFlight })}
+              {...(hasAttemptedHeadingInit !== undefined && { hasAttemptedHeadingInit })}
+              {...(headingIndex !== undefined && { headingIndex })}
+              {...(totalHeadings !== undefined && { totalHeadings })}
+              {...(currentHeadingText !== undefined && { currentHeadingText })}
             />
             {blogArticleError && (
               <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>
@@ -536,7 +574,43 @@ const InputArea: React.FC<InputAreaProps> = ({
                   )}
                   rows={1}
                 />
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
+                  {(initialBlogStep === 'step5' ||
+                      displayStep === 'step5' ||
+                      nextStepForPlaceholder === 'step5') &&
+                    onSaveManualStep5 &&
+                    currentSessionId &&
+                    input.trim() &&
+                    !isReadOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isSavingManualStep5 || isInputDisabled}
+                        className="text-xs shrink-0"
+                        onClick={async () => {
+                          const content = input.trim();
+                          if (!content || !onSaveManualStep5) return;
+                          setIsSavingManualStep5(true);
+                          try {
+                            const result = await onSaveManualStep5(content);
+                            if (result.success) {
+                              setInput('');
+                            } else {
+                              setBlogArticleError(result.error ?? '保存に失敗しました');
+                            }
+                          } finally {
+                            setIsSavingManualStep5(false);
+                          }
+                        }}
+                      >
+                        {isSavingManualStep5 ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          'この内容で保存'
+                        )}
+                      </Button>
+                    )}
                   <Button
                     type="submit"
                     size="icon"
