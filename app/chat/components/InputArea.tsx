@@ -89,6 +89,7 @@ interface InputAreaProps {
   }) => boolean;
   isHeadingInitInFlight?: boolean;
   hasAttemptedHeadingInit?: boolean;
+  onRetryHeadingInit?: () => void;
   headingIndex?: number;
   totalHeadings?: number;
   currentHeadingText?: string;
@@ -143,6 +144,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onBeforeManualStepChange,
   isHeadingInitInFlight,
   hasAttemptedHeadingInit,
+  onRetryHeadingInit,
   headingIndex,
   totalHeadings,
   currentHeadingText,
@@ -548,6 +550,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               {...(onBeforeManualStepChange !== undefined && { onBeforeManualStepChange })}
               {...(isHeadingInitInFlight !== undefined && { isHeadingInitInFlight })}
               {...(hasAttemptedHeadingInit !== undefined && { hasAttemptedHeadingInit })}
+              {...(onRetryHeadingInit !== undefined && { onRetryHeadingInit })}
               {...(headingIndex !== undefined && { headingIndex })}
               {...(totalHeadings !== undefined && { totalHeadings })}
               {...(currentHeadingText !== undefined && { currentHeadingText })}

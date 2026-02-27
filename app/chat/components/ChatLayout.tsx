@@ -283,6 +283,7 @@ interface ChatLayoutCtx {
   ) => Promise<{ success: true } | { success: false; error: string }>;
   isHeadingInitInFlight: boolean;
   hasAttemptedHeadingInit: boolean;
+  onRetryHeadingInit?: () => void;
   isSavingHeading: boolean;
   headingIndex?: number;
   totalHeadings: number;
@@ -330,6 +331,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onSaveManualStep5: ctxOnSaveManualStep5,
     isHeadingInitInFlight,
     hasAttemptedHeadingInit,
+    onRetryHeadingInit,
     isSavingHeading,
     headingIndex,
     totalHeadings,
@@ -544,6 +546,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onBeforeManualStepChange={onBeforeManualStepChange}
           isHeadingInitInFlight={isHeadingInitInFlight}
           hasAttemptedHeadingInit={hasAttemptedHeadingInit}
+          onRetryHeadingInit={onRetryHeadingInit}
           totalHeadings={totalHeadings}
           {...(headingIndex !== undefined && { headingIndex })}
           {...(currentHeadingText !== undefined && { currentHeadingText })}
@@ -1931,6 +1934,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           onSaveManualStep5: handleSaveManualStep5,
           isHeadingInitInFlight,
           hasAttemptedHeadingInit,
+          onRetryHeadingInit: handleRetryHeadingInit,
           isSavingHeading,
           headingSections,
           totalHeadings: headingSections.length,
