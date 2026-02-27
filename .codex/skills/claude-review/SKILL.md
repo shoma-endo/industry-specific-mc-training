@@ -82,7 +82,7 @@ Claudeはレビュー後、必ず以下のJSONを生成し、自身の思考の�
 `ok: false` 時、Claudeは以下のようなコマンドを構築してCodexを実行させる。
 
 ```bash
-codex exec --full-auto --cd /Users/shoma.endo/private/GrowMate "以下のレビュー結果に基づき、コードを修正してください。修正が完了するまで再試行してください。[レビューレポートのJSONを添付]"
+codex exec --full-auto --cd . "以下のレビュー結果に基づき、コードを修正してください。修正が完了するまで再試行してください。[レビューレポートのJSONを添付]"
 ```
 
 ## 終了レポート

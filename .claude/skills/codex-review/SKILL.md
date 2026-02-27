@@ -115,6 +115,6 @@ diff_range: {diff_range}, 対象: {target_files}, 観点: {review_focus}
 ## 実行手順
 
 1. `git diff` で変更範囲と規模を確認。
-2. 上記戦略に基づき、`/Users/shoma.endo/private/GrowMate` を作業ディレクトリとして `codex exec` を実行。
+2. 上記戦略に基づき、プロジェクトルートを作業ディレクトリとして `codex exec` を実行。
 3. 結果をパースし、修正ループを開始。
 4. 最終的に「規模」「反復回数」「修正履歴」「Advisory（参考）」「未解決事項」をまとめた完了レポートを提示。
