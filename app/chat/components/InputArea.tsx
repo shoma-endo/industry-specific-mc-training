@@ -191,6 +191,11 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS.blog_creation_step6;
       }
 
+      // Step5 では「この内容で保存」が構成案として保存するため、プレースホルダーは構成案用に統一
+      if (initialBlogStep === 'step5') {
+        return BLOG_PLACEHOLDERS.blog_creation_step5;
+      }
+
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
       // ブログ作成進行中（hasDetectedBlogStep === true）の場合のみ適用
       if (nextStepForPlaceholder) {

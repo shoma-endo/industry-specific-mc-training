@@ -174,7 +174,10 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             )}
             {nextStepLabel && (displayStep !== 'step6' || headingIndex === undefined) && (
               <span className="ml-1 opacity-80">
-                ／ 次の{nextStepLabel}に進むにはメッセージを送信してください
+                ／
+                {displayStep === 'step5'
+                  ? '構成案を入力し「この内容で保存」で確定するか、送信して次へ'
+                  : `次の${nextStepLabel}に進むにはメッセージを送信してください`}
               </span>
             )}
           </span>
