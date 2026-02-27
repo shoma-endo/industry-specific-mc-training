@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
+import { extractHeadingsFromMarkdown } from '@/lib/heading-extractor';
 import * as headingActions from '@/server/actions/heading-flow.actions';
 import type { SessionHeadingSection } from '@/types/heading-flow';
 import type { BlogStepId } from '@/lib/constants';
@@ -81,6 +82,8 @@ export function useHeadingFlow({
 
   // step5Content が null のまま init した場合、後から content が入ったら再試行を許可する
   const didInitWithStep5ContentRef = useRef(false);
+  /** 最後に init を試行した step5Content。更新検知による無限ループ防止用 */
+  const lastInitStep5ContentRef = useRef<string | null>(null);
 
   const activeHeadingIndex = useMemo(() => {
     if (headingSections.length === 0) return undefined;
@@ -148,6 +151,7 @@ export function useHeadingFlow({
     setSelectedCombinedVersionId(null);
     setHasAttemptedHeadingInit(false);
     didInitWithStep5ContentRef.current = false;
+    lastInitStep5ContentRef.current = null;
     setIsHeadingInitInFlight(false);
     setHeadingInitError(null);
     setHeadingSaveError(null);
@@ -202,6 +206,7 @@ export function useHeadingFlow({
       try {
         if (step5Content) {
           didInitWithStep5ContentRef.current = true;
+          lastInitStep5ContentRef.current = step5Content;
           const liffAccessToken = await getAccessToken();
           const res = await headingActions.initializeHeadingSections({
             sessionId,
@@ -253,21 +258,31 @@ export function useHeadingFlow({
     hasFetchCompleted,
   ]);
 
-  // step5Content が null のまま init をスキップした後、loadSession 等で content が遅れて
-  // 取得された場合に再試行を許可する（保存直後すぐスキップしたときの競合対策）
+  // hasAttemptedHeadingInit をリセットして再初期化を許可する。
+  // (a) step5Content が null のまま init した後、後から content が入った場合
+  // (b) step5Content が後から ###/#### 形式で保存し直された場合（更新検知でリセットすると
+  //     fetch 一時失敗時の無限ループになるため、前回 init 時と「異なる」ときのみ）
   useEffect(() => {
-    if (
+    const baseGuard =
       resolvedCanvasStep !== 'step6' ||
       !sessionId ||
       hasExistingHeadingSections ||
-      !step5Content ||
       !hasAttemptedHeadingInit ||
-      headingSections.length > 0 ||
-      didInitWithStep5ContentRef.current
-    ) {
-      return;
+      headingSections.length > 0;
+    if (baseGuard) return;
+
+    const shouldResetForDelayedContent =
+      !didInitWithStep5ContentRef.current && step5Content;
+
+    const shouldResetForUpdatedContent =
+      step5Content &&
+      !isHeadingInitInFlight &&
+      step5Content !== lastInitStep5ContentRef.current &&
+      extractHeadingsFromMarkdown(step5Content).length > 0;
+
+    if (shouldResetForDelayedContent || shouldResetForUpdatedContent) {
+      setHasAttemptedHeadingInit(false);
     }
-    setHasAttemptedHeadingInit(false);
   }, [
     resolvedCanvasStep,
     sessionId,
@@ -275,6 +290,7 @@ export function useHeadingFlow({
     step5Content,
     hasAttemptedHeadingInit,
     headingSections.length,
+    isHeadingInitInFlight,
   ]);
 
   const handleSaveHeadingSection = useCallback(
