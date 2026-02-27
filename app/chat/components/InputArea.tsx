@@ -575,9 +575,9 @@ const InputArea: React.FC<InputAreaProps> = ({
                   rows={1}
                 />
                 <div className="flex gap-1 items-center">
-                  {(initialBlogStep === 'step5' ||
-                      displayStep === 'step5' ||
-                      nextStepForPlaceholder === 'step5') &&
+                  {/* Step5 表示時のみ表示。nextStepForPlaceholder を含めると Step4 でも表示され
+                     Step5 をスキップして Step6 へ飛ぶバグの原因となるため、Step5 のみに限定 */}
+                  {(displayStep === 'step5' || initialBlogStep === 'step5') &&
                     onSaveManualStep5 &&
                     currentSessionId &&
                     input.trim() &&
