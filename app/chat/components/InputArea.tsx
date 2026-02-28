@@ -101,6 +101,7 @@ interface InputAreaProps {
   onServiceChange?: (serviceId: string) => void;
   onResetHeadingConfiguration?: () => Promise<void>;
   services?: Service[];
+  legacyHeadingMode?: boolean;
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -155,6 +156,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   selectedServiceId,
   onServiceChange,
   onResetHeadingConfiguration,
+  legacyHeadingMode,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -556,6 +558,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               {...(headingIndex !== undefined && { headingIndex })}
               {...(totalHeadings !== undefined && { totalHeadings })}
               {...(onResetHeadingConfiguration !== undefined && { onResetHeadingConfiguration })}
+              legacyHeadingMode={legacyHeadingMode}
             />
             {blogArticleError && <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>}
           </div>

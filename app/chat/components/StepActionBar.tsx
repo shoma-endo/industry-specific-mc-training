@@ -45,6 +45,8 @@ interface StepActionBarProps {
   currentHeadingText?: string;
   /** 見出し構成をリセットしてStep5に戻る */
   onResetHeadingConfiguration?: () => Promise<void>;
+  /** レガシーな Step 6 見出しフローモード（リセット時に Step 7 移行を案内） */
+  legacyHeadingMode?: boolean | undefined;
 }
 
 export interface StepActionBarRef {
@@ -77,6 +79,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       totalHeadings,
       currentHeadingText,
       onResetHeadingConfiguration,
+      legacyHeadingMode,
     },
     ref
   ) => {
@@ -259,11 +262,10 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
         {(isStep6 || isStep7) && onResetHeadingConfiguration && (
           <Button
             onClick={() => {
-              if (
-                window.confirm(
-                  '見出し構成と生成済みの本文（各見出しの中身）をすべてリセットします。※チャット履歴や書き出し案は保持されます。\n\n構成案（ステップ5）の内容から見出しの抽出・生成を最初からやり直しますか？'
-                )
-              ) {
+              const confirmMessage = legacyHeadingMode
+                ? '現在のセッションは古い形式（ステップ6）で見出し生成されています。リセットすると最新の形式（ステップ7）に移行し、構成案（ステップ5）の内容から見出し抽出をやり直します。よろしいですか？'
+                : '見出し構成と生成済みの本文（各見出しの中身）をすべてリセットします。※チャット履歴や書き出し案は保持されます。\n\n構成案（ステップ5）の内容から見出しの抽出・生成を最初からやり直しますか？';
+              if (window.confirm(confirmMessage)) {
                 void onResetHeadingConfiguration();
               }
             }}

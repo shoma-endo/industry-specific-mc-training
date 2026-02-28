@@ -103,11 +103,11 @@ export function useHeadingCanvasState({
     ]
   );
 
-  const handleResetHeadingConfiguration = useCallback(async () => {
+  const handleResetHeadingConfiguration = useCallback(async (): Promise<boolean> => {
     const token = await getAccessToken();
     if (!token) {
       toast.error('認証情報が取得できません。再起動して試行してください。');
-      return;
+      return false;
     }
 
     try {
@@ -120,12 +120,15 @@ export function useHeadingCanvasState({
         toast.success('見出し構成をリセットしました');
         setViewingHeadingIndex(null);
         await onResetComplete();
+        return true;
       } else {
         toast.error(res.error || 'リセットに失敗しました');
+        return false;
       }
     } catch (err) {
       console.error('Failed to reset heading configuration:', err);
       toast.error('通信エラーが発生しました');
+      return false;
     }
   }, [sessionId, getAccessToken, onResetComplete]);
 

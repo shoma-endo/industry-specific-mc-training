@@ -299,7 +299,9 @@ interface ChatLayoutCtx {
   onServiceChange: (serviceId: string) => void;
   servicesError: string | null;
   onDismissServicesError: () => void;
-  onResetHeadingConfiguration: () => Promise<void>;
+  onResetHeadingConfiguration: () => Promise<boolean>;
+  resolvedCanvasStep: BlogStepId | null;
+  setCanvasStep: (step: BlogStepId | null) => void;
 }
 
 const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
@@ -347,7 +349,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onServiceChange,
     servicesError,
     onDismissServicesError,
-    onResetHeadingConfiguration,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
@@ -407,6 +408,21 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
   const shouldShowStepActionBar = blogFlowActive && !chatSession.state.isLoading;
 
   const isReadOnly = isOwnerViewMode;
+
+  // レガシーな Step 6 見出しフロー（新規仕様では Step 7 のみだが、過去データがある場合）
+  const isLegacyStep6Heading = useMemo(
+    () => ctx.resolvedCanvasStep === 'step6' && headingSections.length > 0,
+    [ctx.resolvedCanvasStep, headingSections.length]
+  );
+
+  const handleResetHeadingConfiguration = useCallback(async () => {
+    // レガシーな Step 6 からのリセット時は Step 7（標準の見出しフロー）へ遷移・移行させる
+    const wasLegacy = isLegacyStep6Heading;
+    const success = await ctx.onResetHeadingConfiguration();
+    if (success && wasLegacy) {
+      ctx.setCanvasStep('step7');
+    }
+  }, [ctx, isLegacyStep6Heading]);
 
   return (
     <>
@@ -552,12 +568,13 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           isHeadingInitInFlight={isHeadingInitInFlight}
           hasAttemptedHeadingInit={hasAttemptedHeadingInit}
           {...(onRetryHeadingInit !== undefined && { onRetryHeadingInit })}
-          onResetHeadingConfiguration={onResetHeadingConfiguration}
+          onResetHeadingConfiguration={handleResetHeadingConfiguration}
           totalHeadings={totalHeadings}
           {...(headingIndex !== undefined && { headingIndex })}
           services={services}
           selectedServiceId={selectedServiceId}
           onServiceChange={onServiceChange}
+          legacyHeadingMode={isLegacyStep6Heading}
         />
       </div>
 
@@ -1985,6 +2002,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           servicesError,
           onDismissServicesError: dismissServicesError,
           onResetHeadingConfiguration: handleResetHeadingConfiguration,
+          resolvedCanvasStep,
+          setCanvasStep,
         }}
       />
       {canvasPanelOpen && (

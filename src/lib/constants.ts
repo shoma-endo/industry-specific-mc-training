@@ -110,6 +110,8 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
 
 /** 見出し単位生成フローが紐づくステップID */
 export const HEADING_FLOW_STEP_ID: BlogStepId = 'step7';
+/** 旧方式で見出し単位生成を行っていたステップID（後方互換用） */
+export const LEGACY_HEADING_FLOW_STEP_ID: BlogStepId = 'step6';
 
 export type BlogStepId = 'step1' | 'step2' | 'step3' | 'step4' | 'step5' | 'step6' | 'step7';
 

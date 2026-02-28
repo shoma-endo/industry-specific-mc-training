@@ -5,7 +5,11 @@ import { toast } from 'sonner';
 import { extractHeadingsFromMarkdown } from '@/lib/heading-extractor';
 import * as headingActions from '@/server/actions/heading-flow.actions';
 import type { SessionHeadingSection } from '@/types/heading-flow';
-import { type BlogStepId, HEADING_FLOW_STEP_ID } from '@/lib/constants';
+import {
+  type BlogStepId,
+  HEADING_FLOW_STEP_ID,
+  LEGACY_HEADING_FLOW_STEP_ID,
+} from '@/lib/constants';
 
 interface UseHeadingFlowParams {
   sessionId: string | null;
@@ -75,6 +79,18 @@ export function useHeadingFlow({
   // セッション切り替え直後の fetch 完了を待つフラグ。
   // false の間は初期化 effect が走らないようにブロックする。
   const [hasFetchCompleted, setHasFetchCompleted] = useState(false);
+
+  /** 指定されたステップが見出し単位生成フロー（レガシー含む）の対象かどうか */
+  const isHeadingFlowActive = useCallback(
+    (step: BlogStepId | null): boolean => {
+      // Step 7 は常にアクティブ
+      if (step === HEADING_FLOW_STEP_ID) return true;
+      // Step 6 は既存見出しデータがある場合のみアクティブ（後方互換）
+      if (step === LEGACY_HEADING_FLOW_STEP_ID) return hasExistingHeadingSections;
+      return false;
+    },
+    [hasExistingHeadingSections]
+  );
 
   // セッション切り替え時の競合防止用 ref
   const currentSessionIdRef = useRef(sessionId);
@@ -186,10 +202,10 @@ export function useHeadingFlow({
     }
   }, [resolvedCanvasStep]);
 
-  // Step 7 入場時の初期化（現在表示中のステップが step7 のとき発火）
+  // Step 7 入場時の自動初期化（構成案からの見出し抽出）
   useEffect(() => {
-    // hasExistingHeadingSections / hasFetchCompleted を介して、
-    // セッション切り替え後の fetch 完了と初期化判定を同期する。
+    // 1. Step 7 以外では自動初期化は行わない（Step 6 は見出し既存時のみ Flow になるが、新規抽出は行わない）
+    // 2. 既存データがある場合や、ローディング中などはスキップ
     if (
       !sessionId ||
       resolvedCanvasStep !== HEADING_FLOW_STEP_ID ||
@@ -258,6 +274,7 @@ export function useHeadingFlow({
     hasAttemptedHeadingInit,
     headingInitError,
     hasFetchCompleted,
+    isHeadingFlowActive,
   ]);
 
   // hasAttemptedHeadingInit をリセットして再初期化を許可する。
@@ -266,7 +283,7 @@ export function useHeadingFlow({
   //     fetch 一時失敗時の無限ループになるため、前回 init 時と「異なる」ときのみ）
   useEffect(() => {
     const baseGuard =
-      resolvedCanvasStep !== HEADING_FLOW_STEP_ID ||
+      !isHeadingFlowActive(resolvedCanvasStep) ||
       !sessionId ||
       hasExistingHeadingSections ||
       !hasAttemptedHeadingInit ||
@@ -292,12 +309,13 @@ export function useHeadingFlow({
     hasAttemptedHeadingInit,
     headingSections.length,
     isHeadingInitInFlight,
+    isHeadingFlowActive,
   ]);
 
   const handleSaveHeadingSection = useCallback(
     async (content: string, overrideHeadingKey?: string): Promise<boolean> => {
       const headingKey = overrideHeadingKey ?? activeHeading?.headingKey;
-      if (!sessionId || !headingKey || resolvedCanvasStep !== HEADING_FLOW_STEP_ID) {
+      if (!sessionId || !headingKey || !isHeadingFlowActive(resolvedCanvasStep)) {
         return false;
       }
       if (!overrideHeadingKey && (activeHeadingIndex === undefined || !activeHeading)) {
@@ -363,6 +381,7 @@ export function useHeadingFlow({
       fetchLatestCombinedContent,
       fetchCombinedContentVersions,
       getAccessToken,
+      isHeadingFlowActive,
     ]
   );
 
