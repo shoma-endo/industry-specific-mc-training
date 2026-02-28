@@ -1,5 +1,5 @@
 'use client';
-import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect, useState } from 'react';
 import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import {
@@ -83,6 +83,12 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const displayStep = BLOG_STEP_IDS[displayIndex] ?? actualStep ?? BLOG_STEP_IDS[0];
     const nextStep = BLOG_STEP_IDS[displayIndex + 1] ?? null;
 
+    // 再試行クリック時のみローディング表示。初回初期化中は警告を出さない。
+    const [isRetrying, setIsRetrying] = useState(false);
+    useEffect(() => {
+      if (!isHeadingInitInFlight) setIsRetrying(false);
+    }, [isHeadingInitInFlight]);
+
     useImperativeHandle(ref, () => ({
       getCurrentStepInfo: () => ({
         currentStep: displayStep,
@@ -147,17 +153,24 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
                 見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
               </span>
             )}
-            {isStep6 && totalHeadings === 0 && hasAttemptedHeadingInit && !isHeadingInitInFlight && (
+            {isStep6 &&
+              totalHeadings === 0 &&
+              (hasAttemptedHeadingInit || (isRetrying && isHeadingInitInFlight)) && (
               <span className="ml-2 inline-flex items-center gap-1.5">
-                <span className="font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                  見出しが見つかりません。ステップ5を見直してください
-                </span>
+                {hasAttemptedHeadingInit && !isHeadingInitInFlight && (
+                  <span className="font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                    見出しが見つかりません。ステップ5を見直してください
+                  </span>
+                )}
                 {onRetryHeadingInit && (
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={onRetryHeadingInit}
+                    onClick={() => {
+                      setIsRetrying(true);
+                      onRetryHeadingInit();
+                    }}
                     disabled={isHeadingInitInFlight}
                     className="h-6 px-2 text-[10px] border-amber-300 text-amber-800 hover:bg-amber-50"
                     title="Step5を###形式で保存した後、ここで再試行"
