@@ -546,7 +546,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           onBeforeManualStepChange={onBeforeManualStepChange}
           isHeadingInitInFlight={isHeadingInitInFlight}
           hasAttemptedHeadingInit={hasAttemptedHeadingInit}
-          onRetryHeadingInit={onRetryHeadingInit}
+          {...(onRetryHeadingInit !== undefined && { onRetryHeadingInit })}
           totalHeadings={totalHeadings}
           {...(headingIndex !== undefined && { headingIndex })}
           {...(currentHeadingText !== undefined && { currentHeadingText })}
