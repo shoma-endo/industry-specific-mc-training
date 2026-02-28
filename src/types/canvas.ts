@@ -79,6 +79,8 @@ export interface CanvasPanelProps {
   canGoNextHeading?: boolean;
   /** true のときアウトラインを非表示（見出し単位編集時のみ） */
   hideOutline?: boolean;
+  isHeadingUnitMode?: boolean;
+  onSaveHeading?: () => Promise<void>;
 }
 
 export interface CanvasSelectionState {

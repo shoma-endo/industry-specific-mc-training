@@ -34,6 +34,11 @@ const getCombinedContentVersionsSchema = z.object({
   liffAccessToken: z.string().min(1),
 });
 
+const resetHeadingSectionsSchema = z.object({
+  sessionId: z.string().min(1),
+  liffAccessToken: z.string().min(1),
+});
+
 /**
  * セッションへの読み取り権限を確認する。
  */
@@ -229,4 +234,36 @@ export async function getCombinedContentVersions(
       isLatest: v.is_latest,
     })),
   };
+}
+
+/**
+ * 見出し構成データを初期化（全削除）する。
+ */
+export async function resetHeadingSections(data: z.infer<typeof resetHeadingSectionsSchema>) {
+  const parseResult = resetHeadingSectionsSchema.safeParse(data);
+  if (!parseResult.success) {
+    return { success: false, error: '入力データが不正です' };
+  }
+  const parsed = parseResult.data;
+  const auth = await authMiddleware(parsed.liffAccessToken);
+
+  if (auth.error || !auth.userId) {
+    return { success: false, error: auth.error ?? ERROR_MESSAGES.AUTH.USER_AUTH_FAILED };
+  }
+
+  // 認カチェック
+  if (!(await verifySessionReadAccess(parsed.sessionId, auth.userId))) {
+    return { success: false, error: 'セッションへのアクセス権がありません' };
+  }
+
+  if (auth.viewMode || hasOwnerRole(auth.userDetails?.role ?? null)) {
+    return { success: false, error: '閲覧モードでは初期化できません' };
+  }
+
+  const result = await headingFlowService.resetHeadingSections(parsed.sessionId);
+  if (!result.success) {
+    return { success: false, error: result.error.userMessage };
+  }
+
+  return { success: true };
 }

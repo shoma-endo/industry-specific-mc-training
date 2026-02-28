@@ -38,8 +38,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { BLOG_STEP_LABELS, isStep7 as isBlogStep7 } from '@/lib/constants';
-import { isStep6HeadingUnitMode } from '@/lib/heading-extractor';
+import { HEADING_FLOW_STEP_ID, BLOG_STEP_LABELS, isStep7 as isBlogStep7 } from '@/lib/constants';
+import { isHeadingUnitMode } from '@/lib/heading-extractor';
 import type { BlogStepId } from '@/lib/constants';
 import type {
   CanvasSelectionEditPayload,
@@ -235,7 +235,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
 
   // Step6見出し単位編集時はバージョン管理UIを非表示。完成形表示時は表示する（仕様: 見出し単位のみバージョン管理しない）
-  const isStep6HeadingFlow = isStep6HeadingUnitMode(
+  const isStep6HeadingFlow = isHeadingUnitMode(
     activeStepId,
     (totalHeadings ?? 0) > 0,
     headingIndex !== undefined
@@ -1044,13 +1044,13 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <h3 className="text-lg font-semibold text-gray-800">
-              {activeStepId === 'step6'
+              {activeStepId === HEADING_FLOW_STEP_ID
                 ? headingIndex === undefined && (totalHeadings ?? 0) > 0
                   ? '完成形'
                   : '見出し単位生成'
                 : 'Canvas'}
             </h3>
-            {activeStepId === 'step6' && (
+            {activeStepId === HEADING_FLOW_STEP_ID && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1061,41 +1061,49 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   <TooltipContent className="max-w-[270px] text-xs space-y-2">
                     <p>ステップ5 の構成案から以下を抽出します。</p>
                     <ul className="list-disc pl-3 space-y-0.5">
-                      <li><code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">###</code>　中見出し</li>
-                      <li><code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">####</code>　小見出し</li>
+                      <li>
+                        <code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">
+                          ###
+                        </code>
+                        　中見出し
+                      </li>
+                      <li>
+                        <code className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-900 rounded font-mono">
+                          ####
+                        </code>
+                        　小見出し
+                      </li>
                     </ul>
-                    <p>
-                      ステップ6 開始後にステップ5を再保存しても、見出しは自動更新されません。
-                    </p>
+                    <p>ステップ6/7 開始後にステップ5を再保存しても、見出しは自動更新されません。</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}
           </div>
-          {activeStepId === 'step6' &&
+          {activeStepId === HEADING_FLOW_STEP_ID &&
             headingIndex !== undefined &&
             totalHeadings !== undefined && (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[11px] font-medium text-blue-700">
-              <span>
-                進捗: {headingIndex + 1} / {totalHeadings}
-              </span>
-              {currentHeadingText && (
-                <>
-                  <span className="text-blue-300">|</span>
-                  <span className="truncate max-w-[120px]" title={currentHeadingText}>
-                    {currentHeadingText}
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-          {activeStepId === 'step6' &&
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[11px] font-medium text-blue-700">
+                <span>
+                  進捗: {headingIndex + 1} / {totalHeadings}
+                </span>
+                {currentHeadingText && (
+                  <>
+                    <span className="text-blue-300">|</span>
+                    <span className="truncate max-w-[120px]" title={currentHeadingText}>
+                      {currentHeadingText}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+          {activeStepId === HEADING_FLOW_STEP_ID &&
             headingIndex === undefined &&
             (totalHeadings ?? 0) > 0 && (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
-              <span>全見出し結合を表示中</span>
-            </div>
-          )}
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
+                <span>全見出し結合を表示中</span>
+              </div>
+            )}
           {headings.length > 0 && !hideOutline && (
             <Button
               variant="ghost"
@@ -1111,97 +1119,105 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               <List size={16} />
             </Button>
           )}
-          {activeStepId === 'step6' && totalHeadings !== undefined && totalHeadings > 1 && (
-            <>
-              {canGoPrevHeading && onPrevHeading && (() => {
-                // 完成形から見出しに戻る場合のみ文言を変える
-                const fromCombinedForm =
-                  activeHeadingIndexForFlow === undefined && headingIndex === undefined;
-                const label = fromCombinedForm ? '見出しを確認' : '戻る';
-                const title = fromCombinedForm ? '見出し一覧に戻る' : '前の見出しに戻る';
-                return (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={onPrevHeading}
-                    disabled={isSavingHeading || isStreaming}
-                    className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                    title={title}
-                  >
-                    <ChevronLeft size={14} />
-                    {label}
-                  </Button>
-                );
-              })()}
-              {canGoNextHeading && onNextHeading && (() => {
-                // 全確定済みの最後の見出しから完成形へ進む場合のみ文言を変える
-                const isAtLastConfirmedHeading =
-                  activeHeadingIndexForFlow === undefined &&
-                  headingIndex !== undefined &&
-                  headingIndex === (totalHeadings ?? 0) - 1;
-                const label = isAtLastConfirmedHeading ? '完成形を確認' : '進む';
-                const title = isAtLastConfirmedHeading ? '完成形を確認する' : '次の見出しに進む';
-                return (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={onNextHeading}
-                    disabled={isSavingHeading || isStreaming}
-                    className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                    title={title}
-                  >
-                    {label}
-                    <ChevronRight size={14} />
-                  </Button>
-                );
-              })()}
-            </>
-          )}
-          {activeStepId === 'step6' &&
+          {activeStepId === HEADING_FLOW_STEP_ID &&
+            totalHeadings !== undefined &&
+            totalHeadings > 1 && (
+              <>
+                {canGoPrevHeading &&
+                  onPrevHeading &&
+                  (() => {
+                    // 完成形から見出しに戻る場合のみ文言を変える
+                    const fromCombinedForm =
+                      activeHeadingIndexForFlow === undefined && headingIndex === undefined;
+                    const label = fromCombinedForm ? '見出しを確認' : '戻る';
+                    const title = fromCombinedForm ? '見出し一覧に戻る' : '前の見出しに戻る';
+                    return (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={onPrevHeading}
+                        disabled={isSavingHeading || isStreaming}
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                        title={title}
+                      >
+                        <ChevronLeft size={14} />
+                        {label}
+                      </Button>
+                    );
+                  })()}
+                {canGoNextHeading &&
+                  onNextHeading &&
+                  (() => {
+                    // 全確定済みの最後の見出しから完成形へ進む場合のみ文言を変える
+                    const isAtLastConfirmedHeading =
+                      activeHeadingIndexForFlow === undefined &&
+                      headingIndex !== undefined &&
+                      headingIndex === (totalHeadings ?? 0) - 1;
+                    const label = isAtLastConfirmedHeading ? '完成形を確認' : '進む';
+                    const title = isAtLastConfirmedHeading
+                      ? '完成形を確認する'
+                      : '次の見出しに進む';
+                    return (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={onNextHeading}
+                        disabled={isSavingHeading || isStreaming}
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                        title={title}
+                      >
+                        {label}
+                        <ChevronRight size={14} />
+                      </Button>
+                    );
+                  })()}
+              </>
+            )}
+          {activeStepId === HEADING_FLOW_STEP_ID &&
             headingIndex !== undefined &&
             headingIndex === activeHeadingIndexForFlow &&
             onStartHeadingGeneration &&
             isStep6SaveDisabled && (
-            <Button
-              size="sm"
-              onClick={onStartHeadingGeneration}
-              disabled={isStreaming || isChatLoading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white transition-colors px-3 py-1 text-xs font-bold shadow-sm"
-            >
-              {(isStreaming || isChatLoading) ? (
-                <Loader2 size={14} className="mr-1 animate-spin" />
-              ) : (
-                <Play size={14} className="mr-1" />
-              )}
-              {headingIndex === 0 ? '1件目の生成をスタート' : 'この見出しを生成'}
-            </Button>
-          )}
-          {activeStepId === 'step6' &&
+              <Button
+                size="sm"
+                onClick={onStartHeadingGeneration}
+                disabled={isStreaming || isChatLoading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white transition-colors px-3 py-1 text-xs font-bold shadow-sm"
+              >
+                {isStreaming || isChatLoading ? (
+                  <Loader2 size={14} className="mr-1 animate-spin" />
+                ) : (
+                  <Play size={14} className="mr-1" />
+                )}
+                {headingIndex === 0 ? '1件目の生成をスタート' : 'この見出しを生成'}
+              </Button>
+            )}
+          {activeStepId === HEADING_FLOW_STEP_ID &&
             onSaveHeadingSection &&
             headingIndex !== undefined &&
             !isStep6SaveDisabled && (
-            <Button
-              size="sm"
-              onClick={onSaveHeadingSection}
-              disabled={isSavingHeading || isStreaming}
-              className="bg-blue-600 hover:bg-blue-700 text-white transition-colors px-3 py-1 text-xs font-bold shadow-sm"
-            >
-              {isSavingHeading ? (
-                <Loader2 size={14} className="mr-1 animate-spin" />
-              ) : (
-                <ClipboardCheck size={14} className="mr-1" />
-              )}
-              {headingIndex === activeHeadingIndexForFlow &&
-              totalHeadings !== undefined &&
-              headingIndex + 1 === totalHeadings
-                ? '保存して全構成を確認'
-                : headingIndex === activeHeadingIndexForFlow
-                  ? '保存して次の見出しへ'
-                  : '保存'}
-            </Button>
-          )}
+              <Button
+                size="sm"
+                onClick={onSaveHeadingSection}
+                disabled={isSavingHeading || isStreaming}
+                className="bg-blue-600 hover:bg-blue-700 text-white transition-colors px-3 py-1 text-xs font-bold shadow-sm"
+              >
+                {isSavingHeading ? (
+                  <Loader2 size={14} className="mr-1 animate-spin" />
+                ) : (
+                  <ClipboardCheck size={14} className="mr-1" />
+                )}
+                {headingIndex === activeHeadingIndexForFlow &&
+                totalHeadings !== undefined &&
+                headingIndex + 1 === totalHeadings
+                  ? '保存して全構成を確認'
+                  : headingIndex === activeHeadingIndexForFlow
+                    ? '保存して次の見出しへ'
+                    : '保存'}
+              </Button>
+            )}
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1267,7 +1283,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </SelectContent>
             </Select>
           )}
-          {activeStepId !== 'step6' && (
+          {activeStepId !== HEADING_FLOW_STEP_ID && (
             <Button
               ref={markdownBtnRef}
               size="sm"
@@ -1280,7 +1296,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               コピー
             </Button>
           )}
-          {activeStepId === 'step6' && headingSaveError && (
+          {activeStepId === HEADING_FLOW_STEP_ID && headingSaveError && (
             <span
               className="text-[10px] text-red-600 max-w-[180px] truncate"
               title={headingSaveError}
@@ -1288,7 +1304,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               {headingSaveError}
             </span>
           )}
-          {activeStepId === 'step6' && headingInitError && onRetryHeadingInit && (
+          {activeStepId === HEADING_FLOW_STEP_ID && headingInitError && onRetryHeadingInit && (
             <div className="flex shrink-0 items-center gap-2">
               <span
                 className="text-[10px] text-red-500 max-w-[120px] truncate sm:max-w-[150px]"

@@ -92,16 +92,15 @@ interface InputAreaProps {
   onRetryHeadingInit?: () => void;
   headingIndex?: number;
   totalHeadings?: number;
-  currentHeadingText?: string;
   searchQuery: string;
   searchError: string | null;
   isSearching: boolean;
   onSearch: (query: string) => void;
   onClearSearch: () => void;
-  // Service selector props
-  services?: Service[];
   selectedServiceId?: string | null;
   onServiceChange?: (serviceId: string) => void;
+  onResetHeadingConfiguration?: () => Promise<void>;
+  services?: Service[];
 }
 
 const InputArea: React.FC<InputAreaProps> = ({
@@ -147,7 +146,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   onRetryHeadingInit,
   headingIndex,
   totalHeadings,
-  currentHeadingText,
   searchQuery,
   searchError,
   isSearching,
@@ -156,6 +154,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   services,
   selectedServiceId,
   onServiceChange,
+  onResetHeadingConfiguration,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -260,8 +259,7 @@ const InputArea: React.FC<InputAreaProps> = ({
     try {
       await onLoadBlogArticle();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'ブログ記事の取得に失敗しました';
+      const message = error instanceof Error ? error.message : 'ブログ記事の取得に失敗しました';
       setBlogArticleError(message);
     } finally {
       setIsLoadingBlogArticle(false);
@@ -324,8 +322,7 @@ const InputArea: React.FC<InputAreaProps> = ({
         onModelChange?.('blog_creation', fallbackStep);
       } else {
         const shouldAdvance =
-          blogFlowStatus === 'waitingAction' ||
-          (blogFlowStatus === 'idle' && hasDetectedBlogStep);
+          blogFlowStatus === 'waitingAction' || (blogFlowStatus === 'idle' && hasDetectedBlogStep);
 
         // 次のステップのインデックスを計算（現在のステップまたは次のステップ）
         const nextIdx = shouldAdvance ? currentIdx + 1 : currentIdx;
@@ -558,11 +555,9 @@ const InputArea: React.FC<InputAreaProps> = ({
               {...(onRetryHeadingInit !== undefined && { onRetryHeadingInit })}
               {...(headingIndex !== undefined && { headingIndex })}
               {...(totalHeadings !== undefined && { totalHeadings })}
-              {...(currentHeadingText !== undefined && { currentHeadingText })}
+              {...(onResetHeadingConfiguration !== undefined && { onResetHeadingConfiguration })}
             />
-            {blogArticleError && (
-              <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>
-            )}
+            {blogArticleError && <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>}
           </div>
         )}
         <div className="px-3 py-2">
@@ -622,10 +617,7 @@ const InputArea: React.FC<InputAreaProps> = ({
                   <Button
                     type="submit"
                     size="icon"
-                    disabled={
-                      isInputDisabled ||
-                      !input.trim()
-                    }
+                    disabled={isInputDisabled || !input.trim()}
                     className="rounded-full size-10 bg-[#06c755] hover:bg-[#05b64b] mt-1"
                   >
                     <Send size={18} className="text-white" />

@@ -43,6 +43,8 @@ interface StepActionBarProps {
   totalHeadings?: number;
   /** Step6/Step7 本文生成時: 現在の見出しテキスト */
   currentHeadingText?: string;
+  /** 見出し構成をリセットしてStep5に戻る */
+  onResetHeadingConfiguration?: () => Promise<void>;
 }
 
 export interface StepActionBarRef {
@@ -74,6 +76,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       headingIndex,
       totalHeadings,
       currentHeadingText,
+      onResetHeadingConfiguration,
     },
     ref
   ) => {
@@ -97,7 +100,8 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     }));
 
     // UI制御
-    const isStepReady = flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
+    const isStepReady =
+      flowStatus === 'waitingAction' || (hasDetectedBlogStep && flowStatus === 'idle');
     const isDisabled = disabled || !isStepReady;
     const isStep6 = displayStep === 'step6';
     const isStep7 = displayStep === 'step7';
@@ -107,8 +111,8 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
     const showSkipButton = !isStep7;
     const showBackButton = !isStep1;
-    const isHeadingFlowStep = isStep6;
-    const isStep6Busy = isStep6 && (isSavingHeading || isHeadingInitInFlight);
+    const isHeadingFlowStep = isStep7;
+    const isHeadingFlowBusy = (isStep6 || isStep7) && (isSavingHeading || isHeadingInitInFlight);
     const headingLabel =
       currentHeadingText && currentHeadingText.trim().length > 0
         ? currentHeadingText
@@ -149,51 +153,53 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
               headingIndex !== undefined &&
               totalHeadings !== undefined &&
               totalHeadings > 0 && (
-              <span className="ml-2 font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded border border-blue-300 animate-in fade-in slide-in-from-left-2 duration-300">
-                見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
-              </span>
-            )}
-            {isStep6 &&
+                <span className="ml-2 font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded border border-blue-300 animate-in fade-in slide-in-from-left-2 duration-300">
+                  見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
+                </span>
+              )}
+            {(isStep6 || isStep7) &&
               totalHeadings === 0 &&
               (hasAttemptedHeadingInit || (isRetrying && isHeadingInitInFlight)) && (
-              <span className="ml-2 inline-flex items-center gap-1.5">
-                {hasAttemptedHeadingInit && !isHeadingInitInFlight && (
-                  <span className="font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                    見出しが見つかりません。ステップ5を見直してください
-                  </span>
-                )}
-                {onRetryHeadingInit && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (isRetrying || isHeadingInitInFlight) return;
-                      setIsRetrying(true);
-                      onRetryHeadingInit();
-                    }}
-                    disabled={isHeadingInitInFlight}
-                    className="h-6 px-2 text-[10px] border-amber-300 text-amber-800 hover:bg-amber-50"
-                    title="Step5を###形式で保存した後、ここで再試行"
-                  >
-                    {isHeadingInitInFlight ? (
-                      <Loader2 size={10} className="animate-spin" />
-                    ) : (
-                      <RotateCw size={10} className="mr-0.5" />
-                    )}
-                    再試行
-                  </Button>
-                )}
-              </span>
-            )}
-            {nextStepLabel && (displayStep !== 'step6' || headingIndex === undefined) && (
-              <span className="ml-1 opacity-80">
-                ／
-                {displayStep === 'step5'
-                  ? '構成案を入力し「この内容で保存」で確定するか、送信して次へ'
-                  : `次の${nextStepLabel}に進むにはメッセージを送信してください`}
-              </span>
-            )}
+                <span className="ml-2 inline-flex items-center gap-1.5">
+                  {hasAttemptedHeadingInit && !isHeadingInitInFlight && (
+                    <span className="font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                      見出しが見つかりません。ステップ5を見直してください
+                    </span>
+                  )}
+                  {onRetryHeadingInit && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (isRetrying || isHeadingInitInFlight) return;
+                        setIsRetrying(true);
+                        onRetryHeadingInit();
+                      }}
+                      disabled={isHeadingInitInFlight}
+                      className="h-6 px-2 text-[10px] border-amber-300 text-amber-800 hover:bg-amber-50"
+                      title="Step5を###形式で保存した後、ここで再試行"
+                    >
+                      {isHeadingInitInFlight ? (
+                        <Loader2 size={10} className="animate-spin" />
+                      ) : (
+                        <RotateCw size={10} className="mr-0.5" />
+                      )}
+                      再試行
+                    </Button>
+                  )}
+                </span>
+              )}
+            {nextStepLabel &&
+              ((displayStep !== 'step6' && displayStep !== 'step7') ||
+                headingIndex === undefined) && (
+                <span className="ml-1 opacity-80">
+                  ／
+                  {displayStep === 'step5'
+                    ? '構成案を入力し「この内容で保存」で確定するか、送信して次へ'
+                    : `次の${nextStepLabel}に進むにはメッセージを送信してください`}
+                </span>
+              )}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -201,7 +207,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             <Button
               type="button"
               onClick={() => handleManualStepShift('backward')}
-              disabled={isDisabled || isStep6Busy || !onManualStepChange}
+              disabled={isDisabled || isHeadingFlowBusy || !onManualStepChange}
               size="sm"
               className="flex items-center gap-1 bg-slate-600 text-white hover:bg-slate-700 disabled:bg-slate-400"
             >
@@ -213,7 +219,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             <Button
               type="button"
               onClick={() => handleManualStepShift('forward')}
-              disabled={isDisabled || isStep6Busy || !onManualStepChange}
+              disabled={isDisabled || isHeadingFlowBusy || !onManualStepChange}
               size="sm"
               className="flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-emerald-300"
             >
@@ -243,13 +249,33 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
         )}
         <Button
           onClick={() => onSaveClick?.()}
-          disabled={isDisabled || isStep6Busy || !onSaveClick || annotationLoading}
+          disabled={isDisabled || isHeadingFlowBusy || !onSaveClick || annotationLoading}
           size="sm"
           className="flex items-center gap-1 bg-black text-white hover:bg-black/90"
         >
           <BookMarked size={14} />
           <span>{annotationLoading ? '読み込み中...' : 'ブログ保存'}</span>
         </Button>
+        {(isStep6 || isStep7) && onResetHeadingConfiguration && (
+          <Button
+            onClick={() => {
+              if (
+                window.confirm(
+                  '見出し構成と生成済みの本文をすべてリセットして、構成案の作成（ステップ5）に戻りますか？'
+                )
+              ) {
+                void onResetHeadingConfiguration();
+              }
+            }}
+            disabled={isDisabled || isHeadingFlowBusy}
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+          >
+            <RotateCw size={14} />
+            <span>構成リセット</span>
+          </Button>
+        )}
         {showTitleMetaButton && (
           <Button
             onClick={() => onGenerateTitleMeta?.()}

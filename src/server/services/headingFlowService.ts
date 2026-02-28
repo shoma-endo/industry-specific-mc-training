@@ -41,7 +41,7 @@ export class HeadingFlowService extends SupabaseService {
 
     const { error: insertError } = await this.supabase
       .from('session_heading_sections')
-      .upsert(sections, { onConflict: 'session_id,heading_key', ignoreDuplicates: true });
+      .upsert(sections, { onConflict: 'session_id,heading_key' });
 
     if (insertError) {
       return this.failure('見出しの同期に失敗しました', {
@@ -122,12 +122,16 @@ export class HeadingFlowService extends SupabaseService {
       return this.success(undefined);
     }
 
-    const combinedContent = confirmedSections
+    const sectionContents = confirmedSections
       .map(s => {
         const hashes = '#'.repeat(s.heading_level);
         return `${hashes} ${s.heading_text}\n\n${s.content}`;
       })
       .join('\n\n');
+
+    // Step6 の書き出し案（リード）を取得して先頭に結合
+    const step6Lead = await this.getStep6Lead(sessionId);
+    const combinedContent = step6Lead ? `${step6Lead}\n\n${sectionContents}` : sectionContents;
 
     // 原子性を確保するため RPC (Database Function) を使用
     const { error: rpcError } = await this.supabase.rpc('save_atomic_combined_content', {
@@ -188,7 +192,9 @@ export class HeadingFlowService extends SupabaseService {
    */
   async getCombinedContentVersions(
     sessionId: string
-  ): Promise<SupabaseResult<Array<{ id: string; version_no: number; content: string; is_latest: boolean }>>> {
+  ): Promise<
+    SupabaseResult<Array<{ id: string; version_no: number; content: string; is_latest: boolean }>>
+  > {
     const { data, error } = await this.supabase
       .from('session_combined_contents')
       .select('id, version_no, content, is_latest')
@@ -199,6 +205,50 @@ export class HeadingFlowService extends SupabaseService {
       return this.failure('完成形バージョン一覧の取得に失敗しました', { error });
     }
     return this.success(data ?? []);
+  }
+  /**
+   * Step6 の最新書き出し案を取得する。
+   */
+  private async getStep6Lead(sessionId: string): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from('chat_messages')
+      .select('content')
+      .eq('session_id', sessionId)
+      .eq('role', 'assistant')
+      .like('model', 'blog_creation_step6%')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return data.content || null;
+  }
+
+  /**
+   * セッションに紐づく見出し構成データを初期化（全削除）する。
+   */
+  async resetHeadingSections(sessionId: string): Promise<SupabaseResult<void>> {
+    // 見出しセクションを削除
+    const { error: deleteSectionsError } = await this.supabase
+      .from('session_heading_sections')
+      .delete()
+      .eq('session_id', sessionId);
+
+    if (deleteSectionsError) {
+      return this.failure('見出し構成の削除に失敗しました', { error: deleteSectionsError });
+    }
+
+    // 完成形データも削除
+    const { error: deleteCombinedError } = await this.supabase
+      .from('session_combined_contents')
+      .delete()
+      .eq('session_id', sessionId);
+
+    if (deleteCombinedError) {
+      return this.failure('完成形データの削除に失敗しました', { error: deleteCombinedError });
+    }
+
+    return this.success(undefined);
   }
 }
 

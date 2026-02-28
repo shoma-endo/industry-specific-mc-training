@@ -9,6 +9,7 @@ import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/canvas-con
 import { checkTrialDailyLimit } from '@/server/services/chatLimitService';
 import type { UserRole } from '@/types/user';
 import { VIEW_MODE_ERROR_MESSAGE } from '@/server/lib/view-mode';
+import { HEADING_FLOW_STEP_ID } from '@/lib/constants';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
@@ -26,8 +27,8 @@ interface CanvasStreamRequest {
   targetStep: string;
   enableWebSearch?: boolean;
   freeFormUserPrompt?: string;
-  /** Step6見出し単位生成中の場合 true。1見出し分のみ編集するようプロンプトを制約する */
-  isStep6HeadingUnit?: boolean;
+  /** Step7見出し単位生成中の場合 true。1見出し分のみ編集するようプロンプトを制約する */
+  isHeadingUnit?: boolean;
   webSearchConfig?: {
     maxUses?: number;
     allowedDomains?: string[];
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
       targetStep,
       enableWebSearch = false,
       freeFormUserPrompt,
-      isStep6HeadingUnit = false,
+      isHeadingUnit = false,
       webSearchConfig = {},
     }: CanvasStreamRequest = await req.json();
     const normalizedFreeFormPrompt =
@@ -207,9 +208,9 @@ export async function POST(req: NextRequest) {
 
     const { maxTokens, temperature, actualModel } = modelConfig;
 
-    // Step6見出し単位モード時の前置制約（全文生成を防ぎ、1見出し分のみ編集させる）
-    const step6HeadingUnitPrefix =
-      targetStep === 'step6' && isStep6HeadingUnit
+    // Step7見出し単位モード時の前置制約（全文生成を防ぎ、1見出し分のみ編集させる）
+    const headingUnitPrefix =
+      targetStep === HEADING_FLOW_STEP_ID && isHeadingUnit
         ? [
             '## 【重要】見出し単位編集モード',
             '',
@@ -227,7 +228,7 @@ export async function POST(req: NextRequest) {
 
     // システムプロンプト（Claude 4ベストプラクティス準拠）
     const systemPrompt = [
-      ...step6HeadingUnitPrefix,
+      ...headingUnitPrefix,
       '# Canvas編集専用モード',
       '',
       '## あなたの役割',
@@ -505,8 +506,7 @@ export async function POST(req: NextRequest) {
                   html?: string;
                 };
 
-                const markdownCandidate =
-                  toolInput.full_markdown ?? toolInput.markdown ?? '';
+                const markdownCandidate = toolInput.full_markdown ?? toolInput.markdown ?? '';
                 finalMarkdown = markdownCandidate.trim();
 
                 if (!finalMarkdown) {
@@ -709,9 +709,9 @@ export async function POST(req: NextRequest) {
                 return;
               }
 
-              // Step6完了後の全文Canvas修正は session_combined_contents にも新バージョンとして保存する
+              // Step7(見出しフロー)完了後の全文Canvas修正は session_combined_contents にも新バージョンとして保存する
               // 副次処理のため、失敗してもチャット履歴保存は継続する
-              if (targetStep === 'step6') {
+              if (targetStep === HEADING_FLOW_STEP_ID) {
                 try {
                   const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
                   if (!sectionsResult.success) {
@@ -732,11 +732,12 @@ export async function POST(req: NextRequest) {
                       sections.length > 0 &&
                       sections.every(s => s.is_confirmed);
                     if (isStep6Completed) {
-                      const saveCombinedResult = await headingFlowService.saveCombinedContentSnapshot(
-                        sessionId,
-                        finalMarkdown,
-                        userId!
-                      );
+                      const saveCombinedResult =
+                        await headingFlowService.saveCombinedContentSnapshot(
+                          sessionId,
+                          finalMarkdown,
+                          userId!
+                        );
                       if (!saveCombinedResult.success) {
                         console.warn('[Canvas Stream] Failed to save combined content snapshot:', {
                           sessionId,
@@ -781,7 +782,9 @@ export async function POST(req: NextRequest) {
                 await supabaseService.createChatMessage(assistantAnalysisMessage);
               }
 
-              controller.enqueue(sendSSE('done', { fullMarkdown: finalMarkdown, analysis: analysisResult }));
+              controller.enqueue(
+                sendSSE('done', { fullMarkdown: finalMarkdown, analysis: analysisResult })
+              );
             }
           }
 
