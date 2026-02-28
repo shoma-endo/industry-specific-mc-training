@@ -89,6 +89,7 @@ interface InputAreaProps {
   }) => boolean;
   isHeadingInitInFlight?: boolean;
   hasAttemptedHeadingInit?: boolean;
+  onRetryHeadingInit?: () => void;
   headingIndex?: number;
   totalHeadings?: number;
   currentHeadingText?: string;
@@ -143,6 +144,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   onBeforeManualStepChange,
   isHeadingInitInFlight,
   hasAttemptedHeadingInit,
+  onRetryHeadingInit,
   headingIndex,
   totalHeadings,
   currentHeadingText,
@@ -187,6 +189,11 @@ const InputArea: React.FC<InputAreaProps> = ({
       // 見出し単位生成中（step6）は現在ステップのプレースホルダーを表示（次ステップでなく）
       if (initialBlogStep === 'step6') {
         return BLOG_PLACEHOLDERS.blog_creation_step6;
+      }
+
+      // Step5 では「この内容で保存」が構成案として保存するため、プレースホルダーは構成案用に統一
+      if (initialBlogStep === 'step5') {
+        return BLOG_PLACEHOLDERS.blog_creation_step5;
       }
 
       // nextStepForPlaceholderが設定されている場合はそれを使用（StepActionBarのnextStepと連動）
@@ -548,6 +555,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               {...(onBeforeManualStepChange !== undefined && { onBeforeManualStepChange })}
               {...(isHeadingInitInFlight !== undefined && { isHeadingInitInFlight })}
               {...(hasAttemptedHeadingInit !== undefined && { hasAttemptedHeadingInit })}
+              {...(onRetryHeadingInit !== undefined && { onRetryHeadingInit })}
               {...(headingIndex !== undefined && { headingIndex })}
               {...(totalHeadings !== undefined && { totalHeadings })}
               {...(currentHeadingText !== undefined && { currentHeadingText })}
@@ -575,9 +583,9 @@ const InputArea: React.FC<InputAreaProps> = ({
                   rows={1}
                 />
                 <div className="flex gap-1 items-center">
-                  {(initialBlogStep === 'step5' ||
-                      displayStep === 'step5' ||
-                      nextStepForPlaceholder === 'step5') &&
+                  {/* Step5 表示時のみ表示。nextStepForPlaceholder を含めると Step4 でも表示され
+                     Step5 をスキップして Step6 へ飛ぶバグの原因となるため、Step5 のみに限定 */}
+                  {(displayStep === 'step5' || initialBlogStep === 'step5') &&
                     onSaveManualStep5 &&
                     currentSessionId &&
                     input.trim() &&

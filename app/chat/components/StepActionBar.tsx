@@ -1,8 +1,16 @@
 'use client';
-import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect, useState } from 'react';
 import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
-import { BookMarked, BookOpen, FilePenLine, Loader2, SkipBack, SkipForward } from 'lucide-react';
+import {
+  BookMarked,
+  BookOpen,
+  FilePenLine,
+  Loader2,
+  RotateCw,
+  SkipBack,
+  SkipForward,
+} from 'lucide-react';
 
 interface StepActionBarProps {
   step?: BlogStepId;
@@ -27,6 +35,8 @@ interface StepActionBarProps {
   }) => boolean;
   isHeadingInitInFlight?: boolean;
   hasAttemptedHeadingInit?: boolean;
+  /** 見出し0件時に再初期化を試行（Step5保存後に手動復旧用） */
+  onRetryHeadingInit?: () => void;
   /** Step6/Step7 本文生成時: 現在の見出しインデックス（0-based） */
   headingIndex?: number;
   /** Step6/Step7 本文生成時: 見出しの総数 */
@@ -60,6 +70,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       onBeforeManualStepChange,
       isHeadingInitInFlight = false,
       hasAttemptedHeadingInit = false,
+      onRetryHeadingInit,
       headingIndex,
       totalHeadings,
       currentHeadingText,
@@ -71,6 +82,12 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const displayIndex = actualIndex >= 0 ? actualIndex : 0;
     const displayStep = BLOG_STEP_IDS[displayIndex] ?? actualStep ?? BLOG_STEP_IDS[0];
     const nextStep = BLOG_STEP_IDS[displayIndex + 1] ?? null;
+
+    // 再試行クリック時のみローディング表示。初回初期化中は警告を出さない。
+    const [isRetrying, setIsRetrying] = useState(false);
+    useEffect(() => {
+      if (!isHeadingInitInFlight) setIsRetrying(false);
+    }, [isHeadingInitInFlight]);
 
     useImperativeHandle(ref, () => ({
       getCurrentStepInfo: () => ({
@@ -136,14 +153,45 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
                 見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
               </span>
             )}
-            {isStep6 && totalHeadings === 0 && hasAttemptedHeadingInit && !isHeadingInitInFlight && (
-              <span className="ml-2 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                見出しが見つかりません。ステップ5を見直してください
+            {isStep6 &&
+              totalHeadings === 0 &&
+              (hasAttemptedHeadingInit || (isRetrying && isHeadingInitInFlight)) && (
+              <span className="ml-2 inline-flex items-center gap-1.5">
+                {hasAttemptedHeadingInit && !isHeadingInitInFlight && (
+                  <span className="font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                    見出しが見つかりません。ステップ5を見直してください
+                  </span>
+                )}
+                {onRetryHeadingInit && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (isRetrying || isHeadingInitInFlight) return;
+                      setIsRetrying(true);
+                      onRetryHeadingInit();
+                    }}
+                    disabled={isHeadingInitInFlight}
+                    className="h-6 px-2 text-[10px] border-amber-300 text-amber-800 hover:bg-amber-50"
+                    title="Step5を###形式で保存した後、ここで再試行"
+                  >
+                    {isHeadingInitInFlight ? (
+                      <Loader2 size={10} className="animate-spin" />
+                    ) : (
+                      <RotateCw size={10} className="mr-0.5" />
+                    )}
+                    再試行
+                  </Button>
+                )}
               </span>
             )}
             {nextStepLabel && (displayStep !== 'step6' || headingIndex === undefined) && (
               <span className="ml-1 opacity-80">
-                ／ 次の{nextStepLabel}に進むにはメッセージを送信してください
+                ／
+                {displayStep === 'step5'
+                  ? '構成案を入力し「この内容で保存」で確定するか、送信して次へ'
+                  : `次の${nextStepLabel}に進むにはメッセージを送信してください`}
               </span>
             )}
           </span>
