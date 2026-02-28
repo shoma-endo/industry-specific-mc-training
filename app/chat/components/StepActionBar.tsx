@@ -168,6 +168,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
                     size="sm"
                     variant="outline"
                     onClick={() => {
+                      if (isRetrying || isHeadingInitInFlight) return;
                       setIsRetrying(true);
                       onRetryHeadingInit();
                     }}
