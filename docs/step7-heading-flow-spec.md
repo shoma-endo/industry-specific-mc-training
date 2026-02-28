@@ -81,6 +81,7 @@ Step5 の構成案テキストから、以下のルールで見出しを認識�
 - Step7 開始後に Step5 を再保存した場合:
   - 既存の `session_heading_sections` を正本として優先し、自動再同期は行わない
   - 見出し構成を更新したい場合は、ユーザー明示操作で Step7 データを初期化して再開始する（UI仕様は 8.6 を参照）
+  - Step5 再保存直後、`session_heading_sections` が存在する場合は案内を表示し、ユーザーの混乱を防ぐ（詳細は 8.5.5 を参照）
 - 理由:
   - 途中保存済みの見出し本文との不整合を防ぐため
 
@@ -167,6 +168,17 @@ Step5 の構成案テキストから、以下のルールで見出しを認識�
 - 再試行導線:
   - 同一画面で `保存して次へ` を再押下して再試行できること
 
+### 8.5.5 Step5 再保存直後の案内表示
+
+Step7 開始後に Step5 を再保存した場合、自動再同期を行わないため「Step5 を更新したのに Step7 の見出しが古いまま」とユーザーが混乱する可能性がある。このため、案内を表示して導線を明確にする。
+
+| 項目 | 仕様 |
+|------|------|
+| 表示条件 | Step5 保存成功時 かつ `session_heading_sections` が1件以上存在する場合 |
+| 表示タイミング | Step5 保存成功のトーストまたはインライン表示と同時、または直後に案内を出す |
+| 案内文言例 | 「見出し構成を更新する場合は、Step7 で『見出し構成を初期化』を実行してください。」 |
+| 表示形式 | トースト（info）、または Step5 保存完了エリア内の補足テキスト。目立ちすぎず、必要なユーザーに届く程度とする。 |
+
 ### 8.6 Step7 データ初期化（見出し構成の再抽出）
 
 Step5 を再保存した後、見出し構成を Step5 最新に合わせて更新したい場合に使用する破壊的操作。
@@ -183,7 +195,7 @@ Step5 を再保存した後、見出し構成を Step5 最新に合わせて更�
 
 - ボタンクリック時、**必ず**確認ダイアログを表示する。ワンクリックでの実行は禁止。
 - 文言例:
-  ```
+  ```text
   保存済みの見出し本文がすべて削除されます。
   この操作は取り消せません。
   実行しますか？
@@ -229,7 +241,9 @@ Step5 を再保存した後、見出し構成を Step5 最新に合わせて更�
 | 2 | `canvasStreamingContent` | AI 生成中のストリーミング内容。ストリーミング直後にユーザーが編集せず保存した場合に使用。 |
 | 3 | `canvasContent` | 表示中の確定内容（session_heading_sections の確定本文 or 完成形）。フォールバック。 |
 
-判定式: `保存する内容 = contentRef.current || canvasStreamingContent || canvasContent`
+判定式: `保存する内容 = contentRef.current ?? canvasStreamingContent ?? canvasContent`
+
+（`??` を使用すること。`||` だと `contentRef.current` が空文字列のときに誤って次候補にフォールバックし、ユーザーが意図的に全削除して保存した内容が失われる）
 
 #### 優先順位の根拠
 
@@ -394,8 +408,8 @@ RLS（方針）:
 
 ### 9.4 更新フロー対応
 
-- Step5 確定時:
-  - 見出し抽出結果を `session_heading_sections` に初期投入（`content=''`, `is_confirmed=false`）
+- Step7 初回入場時（`session_heading_sections` が未作成の場合）:
+  - Step5 最新テキストから見出しを抽出し、`session_heading_sections` に初期投入（`content=''`, `is_confirmed=false`）。5.2 および 5.5 を参照。
 - Step7「保存して次へ」時:
   - 対象 `heading_key` の `content` / `is_confirmed` / `updated_at` を更新
   - 保存後に **Step6 書き出し案**＋**`order_index` 順**で再結合し、トランザクション内で新しい `session_combined_contents` レコードを追加
@@ -440,7 +454,7 @@ RLS（方針）:
 - Supabase 実装時は `supabase/migrations/` に SQL を追加し、ロールバック案をコメントで併記する。
 - `heading_key` の short_hash: `src/lib/heading-extractor.ts` の `simpleHash` を SHA-256 先頭8文字（16進）に置き換える。`initializeHeadingSections` の upsert は、UNIQUE 制約違反時にエラーを返すようにする（`ignoreDuplicates` による静黙スキップをやめる）。
 - `version_no` 採番: `save_atomic_combined_content` RPC または呼び出し元で、9.3.1 のリトライ仕様（最大3回、指数バックオフ 200/400/800ms）を実装する。
-- Canvas 保存時の内容取得: 8.7 に従い、`contentRef.current || canvasStreamingContent || canvasContent` の順で決定する。CanvasPanel は onChange 毎に contentRef を更新すること。
+- Canvas 保存時の内容取得: 8.7 に従い、`contentRef.current ?? canvasStreamingContent ?? canvasContent` の順で決定する（空文字列は有効な編集結果のため `??` を使用すること）。CanvasPanel は onChange 毎に contentRef を更新すること。
 
 ## 13. ChatLayout 簡素化方針
 
@@ -576,7 +590,7 @@ Step7 移行時に触る想定ファイルを一覧化する。実装漏れ防�
 | `app/api/chat/canvas/stream/route.ts` | `isStep7HeadingUnit`、targetStep 条件、saveCombined の step7 対応 |
 | `src/hooks/useHeadingFlow.ts` | step7 条件、トースト文言 |
 | `src/hooks/useHeadingCanvasState.ts` | **新規**。見出し Canvas 状態の集約 |
-| `app/chat/components/ChatLayout.tsx` | フック利用、step7 分岐集約、タイルクリック、既存セッション後方互換（canvasStepOptions に step7 を session_heading_sections 存在時追加、step6 タイルを step7 扱い） |
+| `app/chat/components/ChatLayout.tsx` | フック利用、step7 分岐集約、タイルクリック、既存セッション後方互換（canvasStepOptions、step6→step7 タイル）、Step5 再保存成功時の案内表示（8.5.5） |
 | `app/chat/components/CanvasPanel.tsx` | `activeStepId === 'step7'`、「見出し構成を初期化」ボタン、contentRef を onChange 毎に更新（8.7） |
 | `app/chat/components/StepActionBar.tsx` | 見出し表示条件 step7 |
 | `src/server/actions/heading-flow.actions.ts` | `resetHeadingSections` アクション追加 |
