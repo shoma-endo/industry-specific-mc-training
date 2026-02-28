@@ -261,7 +261,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             onClick={() => {
               if (
                 window.confirm(
-                  '見出し構成と生成済みの本文をすべてリセットして、構成案の作成（ステップ5）に戻りますか？'
+                  '見出し構成と生成済みの本文（各見出しの中身）をすべてリセットします。※チャット履歴や書き出し案は保持されます。\n\n構成案（ステップ5）の内容から見出しの抽出・生成を最初からやり直しますか？'
                 )
               ) {
                 void onResetHeadingConfiguration();
