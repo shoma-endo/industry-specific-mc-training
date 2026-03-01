@@ -1019,7 +1019,11 @@ export async function getSystemPrompt(
     }
 
     if (model.startsWith('blog_creation_')) {
-      const step = model.substring('blog_creation_'.length) as BlogStepId;
+      const stepMatch = model.match(/^blog_creation_(step[1-7])(?:_|$)/);
+      if (!stepMatch?.[1]) {
+        return STATIC_PROMPTS[model] ?? SYSTEM_PROMPT;
+      }
+      const step = stepMatch[1] as BlogStepId;
 
       // 見出し構成・本文作成ステップ (Step 7): 見出し単位生成モードの判定
       // 該当時は固有の生成プロンプトのみを返し、DBテンプレートの取得等を回避する
