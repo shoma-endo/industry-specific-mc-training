@@ -7,7 +7,11 @@ import { cn, normalizeForHeadingMatch } from '@/lib/utils';
 import BlogPreviewTile from './common/BlogPreviewTile';
 import { BLOG_STEP_LABELS } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
-import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/canvas-content';
+import {
+  extractBlogStepFromModel,
+  extractStep7HeadingIndexFromModel,
+  normalizeCanvasContent,
+} from '@/lib/canvas-content';
 import { MARKDOWN_HEADING_REGEX } from '@/lib/heading-extractor';
 import type { SessionHeadingSection } from '@/types/heading-flow';
 
@@ -46,6 +50,13 @@ const getStep7HeadingLabel = (
   step7MessageIndex: number
 ): string | null => {
   if (!sections.length) return null;
+  // 新方式: model に埋め込まれた見出しインデックスを最優先で使用
+  const indexedHeading = extractStep7HeadingIndexFromModel(message.model);
+  if (indexedHeading !== null && indexedHeading >= 0 && indexedHeading < sections.length) {
+    const section = sections[indexedHeading]!;
+    return `見出し ${section.orderIndex + 1}/${sections.length}：「${section.headingText}」`;
+  }
+  // 旧データ互換: 本文中の見出し行から推測
   const normalized = normalizeCanvasContent(message.content ?? '').trim();
   for (const line of normalized.split('\n')) {
     const match = line.trim().match(MARKDOWN_HEADING_REGEX);
@@ -69,6 +80,11 @@ const getStep7HeadingLabel = (
         return `見出し ${best.orderIndex + 1}/${sections.length}：「${best.headingText}」`;
       }
     }
+  }
+  // 旧/通常経路互換: model や本文から特定できない場合は step7 メッセージ順で補完
+  if (step7MessageIndex >= 0 && step7MessageIndex < sections.length) {
+    const section = sections[step7MessageIndex]!;
+    return `見出し ${section.orderIndex + 1}/${sections.length}：「${section.headingText}」`;
   }
   return null;
 };

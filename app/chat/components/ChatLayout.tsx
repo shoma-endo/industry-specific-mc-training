@@ -1703,6 +1703,18 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
         const instruction = payload.instruction.trim();
         const selectedText = payload.selectedText.trim();
+        const headingContextIndex =
+          targetStep === HEADING_FLOW_STEP_ID && isHeadingUnitMode(
+            targetStep,
+            headingSections.length > 0,
+            viewingHeadingIndex !== null || activeHeadingIndex !== undefined
+          )
+            ? (viewingHeadingIndex ?? activeHeadingIndex ?? null)
+            : null;
+        const canvasModel =
+          targetStep === HEADING_FLOW_STEP_ID && headingContextIndex !== null
+            ? `blog_creation_${targetStep}_h${headingContextIndex}`
+            : `blog_creation_${targetStep}`;
 
         // canvasContentの検証
         if (!payload.canvasContent || payload.canvasContent.trim() === '') {
@@ -1730,7 +1742,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           role: 'user',
           content: instruction,
           timestamp: new Date(),
-          model: `blog_creation_${targetStep}`,
+          model: canvasModel,
         };
 
         const assistantCanvasMessage: ChatMessage = {
@@ -1738,7 +1750,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           role: 'assistant',
           content: '', // ストリーミング中は空
           timestamp: new Date(),
-          model: `blog_creation_${targetStep}`,
+          model: canvasModel,
         };
 
         const assistantAnalysisMessage: ChatMessage = {
@@ -1793,6 +1805,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             targetStep,
             enableWebSearch: shouldEnableWebSearch,
             ...(isHeadingUnit && { isHeadingUnit: true }),
+            ...(headingContextIndex !== null && { step7HeadingIndex: headingContextIndex }),
             webSearchConfig: {
               maxUses: 3,
             },

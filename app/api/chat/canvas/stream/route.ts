@@ -29,6 +29,8 @@ interface CanvasStreamRequest {
   freeFormUserPrompt?: string;
   /** Step7見出し単位生成中の場合 true。1見出し分のみ編集するようプロンプトを制約する */
   isHeadingUnit?: boolean;
+  /** Step7見出し単位生成時の見出しインデックス。BlogPreviewTile の見出し表示に利用 */
+  step7HeadingIndex?: number;
   webSearchConfig?: {
     maxUses?: number;
     allowedDomains?: string[];
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest) {
       enableWebSearch = false,
       freeFormUserPrompt,
       isHeadingUnit = false,
+      step7HeadingIndex,
       webSearchConfig = {},
     }: CanvasStreamRequest = await req.json();
     const normalizedFreeFormPrompt =
@@ -697,7 +700,18 @@ export async function POST(req: NextRequest) {
               // 1回だけ呼び出してユーザーメッセージを保存し、2つのアシスタントメッセージは別々に保存する
 
               // 1つ目: Canvas編集結果（blog_creation_${targetStep}）
-              const canvasModel = `blog_creation_${targetStep}`;
+              const resolvedStep7HeadingIndex =
+                targetStep === HEADING_FLOW_STEP_ID &&
+                isHeadingUnit &&
+                typeof step7HeadingIndex === 'number' &&
+                Number.isInteger(step7HeadingIndex) &&
+                step7HeadingIndex >= 0
+                  ? step7HeadingIndex
+                  : null;
+              const canvasModel =
+                targetStep === HEADING_FLOW_STEP_ID && resolvedStep7HeadingIndex !== null
+                  ? `blog_creation_${targetStep}_h${resolvedStep7HeadingIndex}`
+                  : `blog_creation_${targetStep}`;
               const postStreamLimitError = await checkTrialDailyLimit(userRole, userId);
               if (postStreamLimitError) {
                 controller.enqueue(
