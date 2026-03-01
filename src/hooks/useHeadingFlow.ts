@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { extractHeadingsFromMarkdown } from '@/lib/heading-extractor';
 import * as headingActions from '@/server/actions/heading-flow.actions';
 import type { SessionHeadingSection } from '@/types/heading-flow';
-import type { BlogStepId } from '@/lib/constants';
+import { type BlogStepId, HEADING_FLOW_STEP_ID } from '@/lib/constants';
 
 interface UseHeadingFlowParams {
   sessionId: string | null;
@@ -41,7 +41,7 @@ interface UseHeadingFlowReturn {
   selectedCombinedContent: string | null;
   handleCombinedVersionSelect: (versionId: string) => void;
   /** 完成形のバージョン一覧と最新を再取得（Canvas編集完了後など） */
-  refetchCombinedContentVersions: () => void;
+  refetchCombinedContentVersions: (targetSections?: SessionHeadingSection[]) => void;
   /**
    * 見出しセクションを保存する。
    * @param content 保存するコンテンツ（canvasStreamingContent || canvasContent）
@@ -49,6 +49,11 @@ interface UseHeadingFlowReturn {
    */
   handleSaveHeadingSection: (content: string, overrideHeadingKey?: string) => Promise<boolean>;
   handleRetryHeadingInit: () => void;
+  /** 見出し確定内容から完成形を再生成して新バージョン保存する */
+  handleRebuildCombinedContent: () => Promise<boolean>;
+  isRebuildingCombinedContent: boolean;
+  /** 見出しセクションの状態を強制的に再取得する（保存・確定後の同期用） */
+  refetchHeadings: () => Promise<SessionHeadingSection[]>;
 }
 
 export function useHeadingFlow({
@@ -69,10 +74,18 @@ export function useHeadingFlow({
     Array<{ id: string; versionNo: number; content: string; isLatest: boolean }>
   >([]);
   const [selectedCombinedVersionId, setSelectedCombinedVersionId] = useState<string | null>(null);
-  const [hasExistingHeadingSections, setHasExistingHeadingSections] = useState(false);
+  const [isRebuildingCombinedContent, setIsRebuildingCombinedContent] = useState(false);
   // セッション切り替え直後の fetch 完了を待つフラグ。
   // false の間は初期化 effect が走らないようにブロックする。
   const [hasFetchCompleted, setHasFetchCompleted] = useState(false);
+
+  /** 指定されたステップが見出し単位生成フロー（step7）の対象かどうか */
+  const isHeadingFlowActive = useCallback(
+    (step: BlogStepId | null): boolean => {
+      return step === HEADING_FLOW_STEP_ID;
+    },
+    []
+  );
 
   // セッション切り替え時の競合防止用 ref
   const currentSessionIdRef = useRef(sessionId);
@@ -102,7 +115,6 @@ export function useHeadingFlow({
       // セッション切り替え時の競合防止
       if (res.success && res.data && sid === currentSessionIdRef.current) {
         setHeadingSections(res.data);
-        setHasExistingHeadingSections(res.data.length > 0);
         return res.data;
       }
       return [];
@@ -145,7 +157,6 @@ export function useHeadingFlow({
     prevSessionIdRef.current = sessionId;
 
     setHeadingSections([]);
-    setHasExistingHeadingSections(false);
     setLatestCombinedContent(null);
     setCombinedContentVersions([]);
     setSelectedCombinedVersionId(null);
@@ -179,19 +190,18 @@ export function useHeadingFlow({
   }, [sessionId, fetchHeadingSections, fetchLatestCombinedContent, fetchCombinedContentVersions]);
 
   useEffect(() => {
-    if (resolvedCanvasStep !== 'step6') {
+    if (resolvedCanvasStep !== HEADING_FLOW_STEP_ID) {
       setHeadingSaveError(null);
     }
   }, [resolvedCanvasStep]);
 
-  // Step 6 入場時の初期化（現在表示中のステップが step6 のとき発火）
+  // Step 7 入場時の自動初期化（構成案からの見出し抽出）
   useEffect(() => {
-    // hasExistingHeadingSections / hasFetchCompleted を介して、
-    // セッション切り替え後の fetch 完了と初期化判定を同期する。
+    // 1. Step 7 以外では自動初期化は行わない（Step 6 は見出し既存時のみ Flow になるが、新規抽出は行わない）
+    // 2. 既存データがある場合や、ローディング中などはスキップ
     if (
       !sessionId ||
-      resolvedCanvasStep !== 'step6' ||
-      hasExistingHeadingSections ||
+      resolvedCanvasStep !== HEADING_FLOW_STEP_ID ||
       isHeadingInitInFlight ||
       hasAttemptedHeadingInit ||
       isSessionLoading ||
@@ -247,7 +257,6 @@ export function useHeadingFlow({
   }, [
     sessionId,
     resolvedCanvasStep,
-    hasExistingHeadingSections,
     isHeadingInitInFlight,
     step5Content,
     isSessionLoading,
@@ -256,6 +265,7 @@ export function useHeadingFlow({
     hasAttemptedHeadingInit,
     headingInitError,
     hasFetchCompleted,
+    isHeadingFlowActive,
   ]);
 
   // hasAttemptedHeadingInit をリセットして再初期化を許可する。
@@ -264,15 +274,13 @@ export function useHeadingFlow({
   //     fetch 一時失敗時の無限ループになるため、前回 init 時と「異なる」ときのみ）
   useEffect(() => {
     const baseGuard =
-      resolvedCanvasStep !== 'step6' ||
+      !isHeadingFlowActive(resolvedCanvasStep) ||
       !sessionId ||
-      hasExistingHeadingSections ||
       !hasAttemptedHeadingInit ||
       headingSections.length > 0;
     if (baseGuard) return;
 
-    const shouldResetForDelayedContent =
-      !didInitWithStep5ContentRef.current && step5Content;
+    const shouldResetForDelayedContent = !didInitWithStep5ContentRef.current && step5Content;
 
     const shouldResetForUpdatedContent =
       step5Content &&
@@ -286,21 +294,17 @@ export function useHeadingFlow({
   }, [
     resolvedCanvasStep,
     sessionId,
-    hasExistingHeadingSections,
     step5Content,
     hasAttemptedHeadingInit,
     headingSections.length,
     isHeadingInitInFlight,
+    isHeadingFlowActive,
   ]);
 
   const handleSaveHeadingSection = useCallback(
     async (content: string, overrideHeadingKey?: string): Promise<boolean> => {
       const headingKey = overrideHeadingKey ?? activeHeading?.headingKey;
-      if (
-        !sessionId ||
-        !headingKey ||
-        resolvedCanvasStep !== 'step6'
-      ) {
+      if (!sessionId || !headingKey || !isHeadingFlowActive(resolvedCanvasStep)) {
         return false;
       }
       if (!overrideHeadingKey && (activeHeadingIndex === undefined || !activeHeading)) {
@@ -333,10 +337,8 @@ export function useHeadingFlow({
           const allDone = updatedSections.every(s => s.isConfirmed);
 
           if (allDone) {
-            void fetchLatestCombinedContent(sessionId);
-            void fetchCombinedContentVersions(sessionId);
             toast.success(
-              '全見出しの保存が完了しました。全体の構成を確認して本文作成（ステップ7）に進んでください。'
+              '全見出しの保存が完了しました。完成形はCanvasの全文編集時に保存されます。'
             );
           }
           return true;
@@ -348,7 +350,8 @@ export function useHeadingFlow({
         }
       } catch (e) {
         console.error('Failed to save heading section:', e);
-        const errorMessage = e instanceof Error ? e.message : '保存に失敗しました。再試行してください。';
+        const errorMessage =
+          e instanceof Error ? e.message : '保存に失敗しました。再試行してください。';
         setHeadingSaveError(errorMessage);
         toast.error(errorMessage);
         return false;
@@ -362,17 +365,55 @@ export function useHeadingFlow({
       activeHeading,
       resolvedCanvasStep,
       fetchHeadingSections,
-      fetchLatestCombinedContent,
-      fetchCombinedContentVersions,
       getAccessToken,
+      isHeadingFlowActive,
     ]
   );
 
   const handleRetryHeadingInit = useCallback(() => {
+    // 明示リトライ時は初回化トラッカーも戻し、Step5 再読込後に自動初期化できるようにする。
+    didInitWithStep5ContentRef.current = false;
+    lastInitStep5ContentRef.current = null;
     setHeadingInitError(null);
     setHeadingSaveError(null);
     setHasAttemptedHeadingInit(false);
   }, []);
+
+  const handleRebuildCombinedContent = useCallback(async (): Promise<boolean> => {
+    if (!sessionId || isRebuildingCombinedContent) return false;
+
+    setIsRebuildingCombinedContent(true);
+    try {
+      const liffAccessToken = await getAccessToken();
+      const res = await headingActions.rebuildCombinedContentFromHeadings({
+        sessionId,
+        liffAccessToken,
+      });
+
+      if (!res.success) {
+        const message = res.error || '完成形の再生成に失敗しました';
+        toast.error(message);
+        return false;
+      }
+
+      await Promise.all([fetchLatestCombinedContent(sessionId), fetchCombinedContentVersions(sessionId)]);
+      setSelectedCombinedVersionId(null);
+      toast.success('最新の見出し内容から完成形を作成しました');
+      return true;
+    } catch (error) {
+      console.error('Failed to rebuild combined content:', error);
+      toast.error('完成形の再生成に失敗しました');
+      return false;
+    } finally {
+      setIsRebuildingCombinedContent(false);
+    }
+  }, [
+    sessionId,
+    isRebuildingCombinedContent,
+    getAccessToken,
+    fetchLatestCombinedContent,
+    fetchCombinedContentVersions,
+  ]);
 
   const selectedCombinedContent = useMemo(() => {
     if (selectedCombinedVersionId) {
@@ -386,13 +427,25 @@ export function useHeadingFlow({
     setSelectedCombinedVersionId(versionId);
   }, []);
 
-  /** 完成形のバージョン一覧と最新を再取得（Canvas編集完了後など） */
-  const refetchCombinedContentVersions = useCallback(() => {
-    if (sessionId && headingSections.length > 0 && headingSections.every(s => s.isConfirmed)) {
-      void fetchLatestCombinedContent(sessionId);
-      void fetchCombinedContentVersions(sessionId);
+  /** 見出しセクションの状態を強制的に再取得する（保存・確定後の同期用） */
+  const refetchHeadings = useCallback(async () => {
+    if (sessionId) {
+      return await fetchHeadingSections(sessionId);
     }
-  }, [sessionId, headingSections, fetchLatestCombinedContent, fetchCombinedContentVersions]);
+    return [];
+  }, [sessionId, fetchHeadingSections]);
+
+  /** 完成形のバージョン一覧と最新を再取得（Canvas編集完了後など） */
+  const refetchCombinedContentVersions = useCallback(
+    (targetSections?: SessionHeadingSection[]) => {
+      const sectionsToCheck = targetSections || headingSections;
+      if (sessionId && sectionsToCheck.length > 0 && sectionsToCheck.every(s => s.isConfirmed)) {
+        void fetchLatestCombinedContent(sessionId);
+        void fetchCombinedContentVersions(sessionId);
+      }
+    },
+    [sessionId, headingSections, fetchLatestCombinedContent, fetchCombinedContentVersions]
+  );
 
   return {
     headingSections,
@@ -411,5 +464,8 @@ export function useHeadingFlow({
     refetchCombinedContentVersions,
     handleSaveHeadingSection,
     handleRetryHeadingInit,
+    handleRebuildCombinedContent,
+    isRebuildingCombinedContent,
+    refetchHeadings,
   };
 }
