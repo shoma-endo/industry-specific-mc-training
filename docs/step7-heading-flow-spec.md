@@ -162,7 +162,6 @@ Step5 の構成案テキストから、以下のルールで見出しを認識�
   - Step7 の操作ボタン近傍（`保存して次へ` の近く）にインライン表示する
 - 対象:
   - 見出し本文の保存失敗
-  - 完成形再結合の保存失敗
 - 文言方針:
   - 原因を短く明示し、次アクションを示す（例: `保存に失敗しました。再試行してください。`）
 - 再試行導線:
@@ -378,11 +377,8 @@ RLS（方針）:
 更新時は以下の順序で扱う:
 
 1. Step7 見出し保存時:
-   - `session_heading_sections` を `order_index` 順で連結
-   - **Step6 書き出し案**を先頭に結合
-   - `version_no` 採番は同一トランザクション内で `COALESCE(MAX(version_no), 0) + 1` を `FOR UPDATE` 付きで実行して決定。競合時は 9.3.1 のリトライ仕様に従う。
-   - 旧最新レコード（`is_latest=true`）を `false` に更新
-   - 新しい完成形を採番済み `version_no` で INSERT（`is_latest=true`、`UNIQUE(session_id, version_no)` 前提）
+   - `session_heading_sections` の対象見出しのみ更新する
+   - `session_combined_contents` には保存しない（見出し保存時の完成形バージョン作成は行わない）
 
 2. Step7 完了後の全文 Canvas 修正時:
    - `version_no` 採番は同一トランザクション内で `COALESCE(MAX(version_no), 0) + 1` を `FOR UPDATE` 付きで実行。同時更新時の競合は 9.3.1 のリトライ仕様に従う。
