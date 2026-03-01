@@ -1077,7 +1077,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                         　小見出し
                       </li>
                     </ul>
-                    <p>ステップ6/7 開始後にステップ5を再保存しても、見出しは自動更新されません。</p>
+                    <p>ステップ7 開始後にステップ5を再保存しても、見出しは自動更新されません。</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

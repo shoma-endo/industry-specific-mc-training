@@ -81,7 +81,6 @@ Step5 の構成案テキストから、以下のルールで見出しを認識�
 - Step7 開始後に Step5 を再保存した場合:
   - 既存の `session_heading_sections` を正本として優先し、自動再同期は行わない
   - 見出し構成を更新したい場合は、ユーザー明示操作で Step7 データを初期化して再開始する（UI仕様は 8.6 を参照）
-  - Step5 再保存直後、`session_heading_sections` が存在する場合は案内を表示し、ユーザーの混乱を防ぐ（詳細は 8.5.5 を参照）
 - 理由:
   - 途中保存済みの見出し本文との不整合を防ぐため
 
@@ -166,17 +165,6 @@ Step5 の構成案テキストから、以下のルールで見出しを認識�
   - 原因を短く明示し、次アクションを示す（例: `保存に失敗しました。再試行してください。`）
 - 再試行導線:
   - 同一画面で `保存して次へ` を再押下して再試行できること
-
-### 8.5.5 Step5 再保存直後の案内表示
-
-Step7 開始後に Step5 を再保存した場合、自動再同期を行わないため「Step5 を更新したのに Step7 の見出しが古いまま」とユーザーが混乱する可能性がある。このため、案内を表示して導線を明確にする。
-
-| 項目 | 仕様 |
-|------|------|
-| 表示条件 | Step5 保存成功時 かつ `session_heading_sections` が1件以上存在する場合 |
-| 表示タイミング | Step5 保存成功のトーストまたはインライン表示と同時、または直後に案内を出す |
-| 案内文言例 | 「見出し構成を更新する場合は、Step7 で『見出し構成を初期化』を実行してください。」 |
-| 表示形式 | トースト（info）、または Step5 保存完了エリア内の補足テキスト。目立ちすぎず、必要なユーザーに届く程度とする。 |
 
 ### 8.6 Step7 データ初期化（見出し構成の再抽出）
 
@@ -589,7 +577,7 @@ Step7 移行時に触る想定ファイルを一覧化する。実装漏れ防�
 | `app/api/chat/canvas/stream/route.ts` | `isStep7HeadingUnit`、targetStep 条件、saveCombined の step7 対応 |
 | `src/hooks/useHeadingFlow.ts` | step7 条件、トースト文言 |
 | `src/hooks/useHeadingCanvasState.ts` | **新規**。見出し Canvas 状態の集約 |
-| `app/chat/components/ChatLayout.tsx` | フック利用、step7 分岐集約、タイルクリック、Step5 再保存成功時の案内表示（8.5.5） |
+| `app/chat/components/ChatLayout.tsx` | フック利用、step7 分岐集約、タイルクリック |
 | `app/chat/components/CanvasPanel.tsx` | `activeStepId === 'step7'`、「見出し構成を初期化」ボタン、contentRef を onChange 毎に更新（8.7） |
 | `app/chat/components/StepActionBar.tsx` | 見出し表示条件 step7 |
 | `src/server/actions/heading-flow.actions.ts` | `resetHeadingSections` アクション追加 |
