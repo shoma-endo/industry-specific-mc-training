@@ -915,8 +915,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const freshSections = await refetchHeadings();
         // 2. 次にセッション全体を同期
         await chatSession.actions.loadSession(chatSession.state.currentSessionId);
-        // 3. 最新のデータ（freshSections）を直接渡して、完成形同期をトリガー
-        // これにより React の状態更新を待たずに最新の確定判定ができる
+        // 3. 全見出し確定時は、見出し + Step6 から完成形を自動再生成して最新化する
+        if (freshSections.length > 0 && freshSections.every(s => s.isConfirmed)) {
+          await handleRebuildCombinedContent();
+          return;
+        }
+        // 4. 途中状態では既存の完成形バージョン同期のみ行う
         (refetchCombinedContentVersions as (sections: SessionHeadingSection[]) => void)(
           freshSections as unknown as SessionHeadingSection[]
         );
@@ -1050,9 +1054,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     if (isHeadingFlowCanvasStep) {
       // 全見出し確定済み かつ 完成形表示モード（viewingHeadingIndex === null）→ 結合コンテンツを表示
       // 「戻る」で特定見出しを表示中（viewingHeadingIndex !== null）の場合は見出し単位コンテンツを返す
-      // 取得遅延/失敗時は activeCanvasVersion にフォールバック（空表示を防ぐ）
       if (!activeHeading && headingSections.length > 0 && viewingHeadingIndex === null) {
-        return selectedCombinedContent ?? activeCanvasVersion?.content ?? '';
+        return selectedCombinedContent ?? '';
       }
       // 見出し遷移直後は前見出し本文を表示しない（誤保存防止）。表示中がアクティブでなければ stale を無視
       if (
@@ -1133,6 +1136,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       ),
     [blogCanvasVersionsByStep, nextStepForPlaceholder]
   );
+  // Step7見出し単体: バージョン選択無効 / Step7完成形: 結合版バージョン / 通常: キャンバス版バージョン
+  const effectiveActiveVersionId = isHeadingUnitStep7View
+    ? null
+    : isCombinedFormViewWithVersions
+      ? (selectedCombinedVersionId ?? combinedContentVersions.find(v => v.isLatest)?.id ?? null)
+      : (activeCanvasVersion?.id ?? null);
+  const effectiveOnVersionSelect = isHeadingUnitStep7View
+    ? undefined
+    : isCombinedFormViewWithVersions
+      ? handleCombinedVersionSelect
+      : handleCanvasVersionSelect;
 
   // handleSaveHeadingSection はフック側のシグネチャが (content: string, overrideHeadingKey?: string) のため、ここでラップする。
   // CanvasPanel が contentRef に表示中の内容を随時更新するため、保存時は ref を優先して
@@ -2023,22 +2037,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           isVisible={canvasPanelOpen}
           {...(isOwnerViewMode ? {} : { onSelectionEdit: handleCanvasSelectionEdit })}
           versions={canvasVersionsWithMeta}
-          activeVersionId={
-            isHeadingUnitStep7View
-              ? null
-              : isCombinedFormViewWithVersions
-              ? (selectedCombinedVersionId ??
-                combinedContentVersions.find(v => v.isLatest)?.id ??
-                null)
-              : (activeCanvasVersion?.id ?? null)
-          }
-          onVersionSelect={
-            isHeadingUnitStep7View
-              ? undefined
-              : isCombinedFormViewWithVersions
-                ? handleCombinedVersionSelect
-                : handleCanvasVersionSelect
-          }
+          activeVersionId={effectiveActiveVersionId}
+          onVersionSelect={effectiveOnVersionSelect}
           stepOptions={canvasStepOptions}
           activeStepId={resolvedCanvasStep ?? null}
           onStepSelect={handleCanvasStepSelect}
