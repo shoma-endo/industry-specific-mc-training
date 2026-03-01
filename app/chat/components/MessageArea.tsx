@@ -7,7 +7,11 @@ import { cn, normalizeForHeadingMatch } from '@/lib/utils';
 import BlogPreviewTile from './common/BlogPreviewTile';
 import { BLOG_STEP_LABELS } from '@/lib/constants';
 import type { BlogStepId } from '@/lib/constants';
-import { extractBlogStepFromModel, normalizeCanvasContent } from '@/lib/canvas-content';
+import {
+  extractBlogStepFromModel,
+  extractStep7HeadingIndexFromModel,
+  normalizeCanvasContent,
+} from '@/lib/canvas-content';
 import { MARKDOWN_HEADING_REGEX } from '@/lib/heading-extractor';
 import type { SessionHeadingSection } from '@/types/heading-flow';
 
@@ -40,12 +44,19 @@ interface MessageAreaProps {
 }
 
 // 末尾句読点・全角コロン等を除去して照合用に正規化
-const getStep6HeadingLabel = (
+const getStep7HeadingLabel = (
   message: ChatMessage,
   sections: SessionHeadingSection[],
-  step6MessageIndex: number
+  step7MessageIndex: number
 ): string | null => {
   if (!sections.length) return null;
+  // 新方式: model に埋め込まれた見出しインデックスを最優先で使用
+  const indexedHeading = extractStep7HeadingIndexFromModel(message.model);
+  if (indexedHeading !== null && indexedHeading >= 0 && indexedHeading < sections.length) {
+    const section = sections[indexedHeading]!;
+    return `見出し ${section.orderIndex + 1}/${sections.length}：「${section.headingText}」`;
+  }
+  // 旧データ互換: 本文中の見出し行から推測
   const normalized = normalizeCanvasContent(message.content ?? '').trim();
   for (const line of normalized.split('\n')) {
     const match = line.trim().match(MARKDOWN_HEADING_REGEX);
@@ -59,16 +70,21 @@ const getStep6HeadingLabel = (
         return `見出し ${section.orderIndex + 1}/${sections.length}：「${section.headingText}」`;
       }
       if (matched.length > 1) {
-        // 重複見出しは step6 メッセージ順に最も近い orderIndex を選ぶ
+        // 重複見出しは step7 メッセージ順に最も近い orderIndex を選ぶ
         const best = matched.reduce((prev, curr) =>
-          Math.abs(curr.orderIndex - step6MessageIndex) <
-          Math.abs(prev.orderIndex - step6MessageIndex)
+          Math.abs(curr.orderIndex - step7MessageIndex) <
+          Math.abs(prev.orderIndex - step7MessageIndex)
             ? curr
             : prev
         );
         return `見出し ${best.orderIndex + 1}/${sections.length}：「${best.headingText}」`;
       }
     }
+  }
+  // 旧/通常経路互換: model や本文から特定できない場合は step7 メッセージ順で補完
+  if (step7MessageIndex >= 0 && step7MessageIndex < sections.length) {
+    const section = sections[step7MessageIndex]!;
+    return `見出し ${section.orderIndex + 1}/${sections.length}：「${section.headingText}」`;
   }
   return null;
 };
@@ -378,9 +394,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     );
   };
 
-  // step6 アシスタントメッセージの ID 一覧（時系列順）。重複見出し照合に使用
-  const step6MessageIds = messages
-    .filter(m => m.role === 'assistant' && extractBlogStepFromModel(m.model) === 'step6')
+  // step7 アシスタントメッセージの ID 一覧（時系列順）。重複見出し照合に使用
+  const step7MessageIds = messages
+    .filter(m => m.role === 'assistant' && extractBlogStepFromModel(m.model) === 'step7')
     .map(m => m.id);
 
   return (
@@ -395,10 +411,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             const blogPreviewMeta = isBlogMessage(message) ? derivePreviewMeta(message) : null;
             const openHandler =
               blogPreviewMeta && onOpenCanvas ? () => onOpenCanvas(message) : null;
-            const step6Index = step6MessageIds.indexOf(message.id);
+            const step7Index = step7MessageIds.indexOf(message.id);
             const headingLabel =
-              blogPreviewMeta?.step === 'step6' && headingSections?.length && step6Index >= 0
-                ? getStep6HeadingLabel(message, headingSections, step6Index)
+              blogPreviewMeta?.step === 'step7' && headingSections?.length && step7Index >= 0
+                ? getStep7HeadingLabel(message, headingSections, step7Index)
                 : null;
 
             return (
