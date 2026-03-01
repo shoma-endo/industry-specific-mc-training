@@ -211,9 +211,11 @@ export async function POST(req: NextRequest) {
 
     const { maxTokens, temperature, actualModel } = modelConfig;
 
+    const isHeadingUnitRequest = targetStep === HEADING_FLOW_STEP_ID && isHeadingUnit;
+
     // Step7 見出し単位モード時の前置制約（全文生成を防ぎ、1見出し分のみ編集させる）
     const headingUnitPrefix =
-      targetStep === HEADING_FLOW_STEP_ID && isHeadingUnit
+      isHeadingUnitRequest
         ? [
             '## 【重要】見出し単位編集モード',
             '',
@@ -228,6 +230,34 @@ export async function POST(req: NextRequest) {
             '',
           ]
         : [];
+    const outputRules = isHeadingUnitRequest
+      ? [
+          '1. **必ず apply_full_text_replacement ツールを使用する**',
+          '2. **full_markdown には、この1見出し分の本文のみを含める**',
+          '3. **見出し行（###/####）は含めない**',
+          '4. **他セクション・タイトル・リード文を追加しない**',
+        ]
+      : [
+          '1. **必ず apply_full_text_replacement ツールを使用する**',
+          '2. **full_markdown パラメータには、編集後の文章全体を最初から最後まで完全に含める**',
+          '3. **絶対に省略しない：** 「...（省略）...」「※以下同様」「（中略）」などの表現は厳禁',
+          '4. **選択範囲以外の部分も必ず全て含める：** タイトル、見出し、本文、すべてのセクションを出力',
+          '5. **文章の一部だけを返すことは厳禁：** 必ず冒頭から末尾まで完全で高品質な文章を返す',
+        ];
+    const roleInstruction = isHeadingUnitRequest
+      ? 'あなたは文章編集の専門エディターです。ユーザーが選択した部分の改善指示を受けて、**表示中の1見出し分本文だけを編集して出力**します。'
+      : 'あなたは文章編集の専門エディターです。ユーザーが選択した部分の改善指示を受けて、**高品質で一貫性のある文章全体を編集して完全な全文を出力**します。';
+    const finalCheckRules = isHeadingUnitRequest
+      ? [
+          '- 編集後の本文を読み直す',
+          '- 他セクション・タイトル・リード文が混入していないか確認する',
+          '- 見出し行（###/####）を含めていないか確認する',
+        ]
+      : [
+          '- 編集後の文章全体を読み直す',
+          '- 矛盾や違和感がないか確認する',
+          '- 冒頭から末尾まで完全に含まれているか確認する',
+        ];
 
     // システムプロンプト（Claude 4ベストプラクティス準拠）
     const systemPrompt = [
@@ -235,14 +265,10 @@ export async function POST(req: NextRequest) {
       '# Canvas編集専用モード',
       '',
       '## あなたの役割',
-      'あなたは文章編集の専門エディターです。ユーザーが選択した部分の改善指示を受けて、**高品質で一貫性のある文章全体を編集して完全な全文を出力**します。',
+      roleInstruction,
       '',
       '## 【最重要】出力形式の絶対ルール',
-      '1. **必ず apply_full_text_replacement ツールを使用する**',
-      '2. **full_markdown パラメータには、編集後の文章全体を最初から最後まで完全に含める**',
-      '3. **絶対に省略しない：** 「...（省略）...」「※以下同様」「（中略）」などの表現は厳禁',
-      '4. **選択範囲以外の部分も必ず全て含める：** タイトル、見出し、本文、すべてのセクションを出力',
-      '5. **文章の一部だけを返すことは厳禁：** 必ず冒頭から末尾まで完全で高品質な文章を返す',
+      ...outputRules,
       '',
       '## 編集の進め方（各ステップで慎重に検討してください）',
       '**ステップ1：全体把握**',
@@ -267,9 +293,7 @@ export async function POST(req: NextRequest) {
       '- 重複表現を削除し、自然な流れを保つ',
       '',
       '**ステップ5：最終検証**',
-      '- 編集後の文章全体を読み直す',
-      '- 矛盾や違和感がないか確認する',
-      '- 冒頭から末尾まで完全に含まれているか確認する',
+      ...finalCheckRules,
       '- 確認が完了したら apply_full_text_replacement を実行する',
       '',
       '## 重要な品質基準',
@@ -447,8 +471,7 @@ export async function POST(req: NextRequest) {
 
           // Anthropic Streaming API 呼び出し
           // Step7 の見出し単位編集時は上限を抑え、それ以外はモデル設定値を使う。
-          const isHeadingUnitRequest = targetStep === HEADING_FLOW_STEP_ID && isHeadingUnit;
-          const canvasMaxTokens = isHeadingUnitRequest ? 5000 : maxTokens;
+          const canvasMaxTokens = isHeadingUnitRequest ? Math.min(5000, maxTokens) : maxTokens;
           const apiStream = await anthropic.messages.stream({
             model: actualModel,
             max_tokens: canvasMaxTokens,
