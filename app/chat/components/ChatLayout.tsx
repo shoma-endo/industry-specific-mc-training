@@ -2129,7 +2129,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
             viewingHeadingIndex !== null &&
             totalHeadings > 0
           }
-          isHeadingUnitMode={step7CanvasViewMode.isHeadingUnit}
           onSaveHeadingSection={handleSaveHeadingClick}
           onStartHeadingGeneration={handleStartHeadingGeneration}
           isChatLoading={chatSession.state.isLoading}
