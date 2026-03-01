@@ -1148,11 +1148,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 {canGoPrevHeading &&
                   onPrevHeading &&
                   (() => {
-                    // 完成形から見出しに戻る場合のみ文言を変える
-                    const fromCombinedForm =
-                      activeHeadingIndexForFlow === undefined && headingIndex === undefined;
-                    const label = fromCombinedForm ? '見出しを確認' : '戻る';
-                    const title = fromCombinedForm ? '見出し一覧に戻る' : '前の見出しに戻る';
+                    const label = '戻る';
+                    const title = '前の見出しに戻る';
                     return (
                       <Button
                         type="button"
