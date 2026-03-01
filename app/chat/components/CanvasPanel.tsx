@@ -237,7 +237,10 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
 
   const isHeadingFlowCanvas = activeStepId === HEADING_FLOW_STEP_ID;
-  const shouldShowHeadingUnitActions = isHeadingFlowCanvas && showHeadingUnitActions;
+  const hasHeadingFlowActions = isHeadingFlowCanvas && showHeadingUnitActions;
+  const isHeadingUnitView = hasHeadingFlowActions && headingIndex !== undefined;
+  const isCombinedView = isHeadingFlowCanvas && !isHeadingUnitView && (totalHeadings ?? 0) > 0;
+  const shouldShowHeadingUnitActions = isHeadingUnitView;
 
   const hasStepOptions = stepOptions.length > 0;
 
@@ -1043,9 +1046,11 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <h3 className="text-lg font-semibold text-gray-800">
               {isHeadingFlowCanvas
-                ? headingIndex === undefined && (totalHeadings ?? 0) > 0
+                ? isCombinedView
                   ? '完成形'
-                  : '見出し単位生成'
+                  : isHeadingUnitView
+                    ? '見出し単位生成'
+                    : 'Canvas'
                 : 'Canvas'}
             </h3>
             {isHeadingFlowCanvas && (
@@ -1078,8 +1083,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </TooltipProvider>
             )}
           </div>
-          {isHeadingFlowCanvas &&
-            headingIndex !== undefined &&
+          {isHeadingUnitView &&
             totalHeadings !== undefined && (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[11px] font-medium text-blue-700">
                 <span>
@@ -1095,9 +1099,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 )}
               </div>
             )}
-          {isHeadingFlowCanvas &&
-            headingIndex === undefined &&
-            (totalHeadings ?? 0) > 0 && (
+          {isCombinedView && (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
                   <span>全見出し結合を表示中</span>
