@@ -1083,49 +1083,48 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </TooltipProvider>
             )}
           </div>
-          {isHeadingUnitView &&
-            totalHeadings !== undefined && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[11px] font-medium text-blue-700">
-                <span>
-                  進捗: {headingIndex + 1} / {totalHeadings}
-                </span>
-                {currentHeadingText && (
-                  <>
-                    <span className="text-blue-300">|</span>
-                    <span className="truncate max-w-[120px]" title={currentHeadingText}>
-                      {currentHeadingText}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
+          {isHeadingUnitView && totalHeadings !== undefined && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[11px] font-medium text-blue-700">
+              <span>
+                進捗: {headingIndex + 1} / {totalHeadings}
+              </span>
+              {currentHeadingText && (
+                <>
+                  <span className="text-blue-300">|</span>
+                  <span className="truncate max-w-[120px]" title={currentHeadingText}>
+                    {currentHeadingText}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
           {isCombinedView && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
-                  <span>全見出し結合を表示中</span>
-                </div>
-                {onRebuildCombinedContent && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      void onRebuildCombinedContent();
-                    }}
-                    disabled={isRebuildingCombinedContent || isSavingHeading || isStreaming}
-                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                    title="最新の見出し確定内容から完成形を再作成し、新しいバージョンとして保存します"
-                  >
-                    {isRebuildingCombinedContent ? (
-                      <Loader2 size={14} className="mr-1 animate-spin" />
-                    ) : (
-                      <RotateCw size={14} className="mr-1" />
-                    )}
-                    完成形を更新
-                  </Button>
-                )}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
+                <span>全見出し結合を表示中</span>
               </div>
-            )}
+              {onRebuildCombinedContent && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    void onRebuildCombinedContent();
+                  }}
+                  disabled={isRebuildingCombinedContent || isSavingHeading || isStreaming}
+                  className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  title="最新の見出し確定内容から完成形を再作成し、新しいバージョンとして保存します"
+                >
+                  {isRebuildingCombinedContent ? (
+                    <Loader2 size={14} className="mr-1 animate-spin" />
+                  ) : (
+                    <RotateCw size={14} className="mr-1" />
+                  )}
+                  完成形を更新
+                </Button>
+              )}
+            </div>
+          )}
           {headings.length > 0 && !hideOutline && (
             <Button
               variant="ghost"
@@ -1141,59 +1140,48 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               <List size={16} />
             </Button>
           )}
-          {shouldShowHeadingUnitActions &&
-            totalHeadings !== undefined &&
-            totalHeadings > 1 && (
-              <>
-                {canGoPrevHeading &&
-                  onPrevHeading &&
-                  (() => {
-                    const label = '戻る';
-                    const title = '前の見出しに戻る';
-                    return (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={onPrevHeading}
-                        disabled={isSavingHeading || isStreaming}
-                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                        title={title}
-                      >
-                        <ChevronLeft size={14} />
-                        {label}
-                      </Button>
-                    );
-                  })()}
-                {canGoNextHeading &&
-                  onNextHeading &&
-                  (() => {
-                    // 全確定済みの最後の見出しから完成形へ進む場合のみ文言を変える
-                    const isAtLastConfirmedHeading =
-                      activeHeadingIndexForFlow === undefined &&
-                      headingIndex !== undefined &&
-                      headingIndex === (totalHeadings ?? 0) - 1;
-                    const label = isAtLastConfirmedHeading ? '完成形を確認' : '進む';
-                    const title = isAtLastConfirmedHeading
+          {hasHeadingFlowActions && totalHeadings !== undefined && totalHeadings > 1 && (
+            <>
+              {canGoPrevHeading && onPrevHeading && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onPrevHeading}
+                  disabled={isSavingHeading || isStreaming}
+                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                  title="前の見出しに戻る"
+                >
+                  <ChevronLeft size={14} />
+                  戻る
+                </Button>
+              )}
+              {canGoNextHeading && onNextHeading && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onNextHeading}
+                  disabled={isSavingHeading || isStreaming}
+                  className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                  title={
+                    activeHeadingIndexForFlow === undefined &&
+                    headingIndex !== undefined &&
+                    headingIndex === (totalHeadings ?? 0) - 1
                       ? '完成形を確認する'
-                      : '次の見出しに進む';
-                    return (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={onNextHeading}
-                        disabled={isSavingHeading || isStreaming}
-                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                        title={title}
-                      >
-                        {label}
-                        <ChevronRight size={14} />
-                      </Button>
-                    );
-                  })()}
-              </>
-            )}
+                      : '次の見出しに進む'
+                  }
+                >
+                  {activeHeadingIndexForFlow === undefined &&
+                  headingIndex !== undefined &&
+                  headingIndex === (totalHeadings ?? 0) - 1
+                    ? '完成形を確認'
+                    : '進む'}
+                  <ChevronRight size={14} />
+                </Button>
+              )}
+            </>
+          )}
           {shouldShowHeadingUnitActions &&
             headingIndex !== undefined &&
             headingIndex === activeHeadingIndexForFlow &&
