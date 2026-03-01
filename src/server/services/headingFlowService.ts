@@ -2,7 +2,6 @@ import { SupabaseService, type SupabaseResult } from './supabaseService';
 import {
   extractHeadingsFromMarkdown,
   generateHeadingKey,
-  MARKDOWN_HEADING_REGEX,
 } from '@/lib/heading-extractor';
 import type { DbHeadingSection, DbSessionHeadingSectionInsert } from '@/types/heading-flow';
 
@@ -220,7 +219,7 @@ export class HeadingFlowService extends SupabaseService {
 
     const firstLine = candidate.split('\n')[0]?.trim() ?? '';
     // 互換対応: 旧 step6 見出しフロー本文（###/#### 始まり）はリード文として結合しない。
-    if (MARKDOWN_HEADING_REGEX.test(firstLine)) {
+    if (/^#{3,4}\s+.+$/.test(firstLine)) {
       return null;
     }
 
