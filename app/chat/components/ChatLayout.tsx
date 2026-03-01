@@ -1136,17 +1136,6 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       ),
     [blogCanvasVersionsByStep, nextStepForPlaceholder]
   );
-  // Step7見出し単体: バージョン選択無効 / Step7完成形: 結合版バージョン / 通常: キャンバス版バージョン
-  const effectiveActiveVersionId = isHeadingUnitStep7View
-    ? null
-    : isCombinedFormViewWithVersions
-      ? (selectedCombinedVersionId ?? combinedContentVersions.find(v => v.isLatest)?.id ?? null)
-      : (activeCanvasVersion?.id ?? null);
-  const effectiveOnVersionSelect = isHeadingUnitStep7View
-    ? undefined
-    : isCombinedFormViewWithVersions
-      ? handleCombinedVersionSelect
-      : handleCanvasVersionSelect;
 
   // handleSaveHeadingSection はフック側のシグネチャが (content: string, overrideHeadingKey?: string) のため、ここでラップする。
   // CanvasPanel が contentRef に表示中の内容を随時更新するため、保存時は ref を優先して
@@ -1632,6 +1621,17 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     },
     [blogCanvasVersionsByStep, resolvedCanvasStep]
   );
+  // Step7見出し単体: バージョン選択無効 / Step7完成形: 結合版バージョン / 通常: キャンバス版バージョン
+  const effectiveActiveVersionId = isHeadingUnitStep7View
+    ? null
+    : isCombinedFormViewWithVersions
+      ? (selectedCombinedVersionId ?? combinedContentVersions.find(v => v.isLatest)?.id ?? null)
+      : (activeCanvasVersion?.id ?? null);
+  const effectiveOnVersionSelect = isHeadingUnitStep7View
+    ? undefined
+    : isCombinedFormViewWithVersions
+      ? handleCombinedVersionSelect
+      : handleCanvasVersionSelect;
 
   const handleCanvasStepChange = useCallback(
     (step: BlogStepId) => {
@@ -2038,7 +2038,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           {...(isOwnerViewMode ? {} : { onSelectionEdit: handleCanvasSelectionEdit })}
           versions={canvasVersionsWithMeta}
           activeVersionId={effectiveActiveVersionId}
-          onVersionSelect={effectiveOnVersionSelect}
+          {...(effectiveOnVersionSelect !== undefined && {
+            onVersionSelect: effectiveOnVersionSelect,
+          })}
           stepOptions={canvasStepOptions}
           activeStepId={resolvedCanvasStep ?? null}
           onStepSelect={handleCanvasStepSelect}
