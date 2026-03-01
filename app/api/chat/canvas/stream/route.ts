@@ -258,6 +258,9 @@ export async function POST(req: NextRequest) {
           '- 矛盾や違和感がないか確認する',
           '- 冒頭から末尾まで完全に含まれているか確認する',
         ];
+    const finalOutputInstruction = isHeadingUnitRequest
+      ? '改善を適用した上で、**この1見出し分の本文のみを省略なく出力してください。**'
+      : '改善を適用した上で、**文章全体を省略なく完全に出力してください。**';
 
     // システムプロンプト（Claude 4ベストプラクティス準拠）
     const systemPrompt = [
@@ -317,7 +320,7 @@ export async function POST(req: NextRequest) {
       '```',
       '',
       '上記の「選択した範囲」に対する改善指示がユーザーメッセージで送られます。',
-      '改善を適用した上で、**文章全体を省略なく完全に出力してください。**',
+      finalOutputInstruction,
       '各ステップを慎重に実行し、高品質で一貫性のある編集結果を提供してください。',
     ]
       .filter(Boolean)
