@@ -49,6 +49,9 @@ interface UseHeadingFlowReturn {
    */
   handleSaveHeadingSection: (content: string, overrideHeadingKey?: string) => Promise<boolean>;
   handleRetryHeadingInit: () => void;
+  /** 見出し確定内容から完成形を再生成して新バージョン保存する */
+  handleRebuildCombinedContent: () => Promise<boolean>;
+  isRebuildingCombinedContent: boolean;
   /** 見出しセクションの状態を強制的に再取得する（保存・確定後の同期用） */
   refetchHeadings: () => Promise<SessionHeadingSection[]>;
 }
@@ -71,6 +74,7 @@ export function useHeadingFlow({
     Array<{ id: string; versionNo: number; content: string; isLatest: boolean }>
   >([]);
   const [selectedCombinedVersionId, setSelectedCombinedVersionId] = useState<string | null>(null);
+  const [isRebuildingCombinedContent, setIsRebuildingCombinedContent] = useState(false);
   // セッション切り替え直後の fetch 完了を待つフラグ。
   // false の間は初期化 effect が走らないようにブロックする。
   const [hasFetchCompleted, setHasFetchCompleted] = useState(false);
@@ -333,10 +337,8 @@ export function useHeadingFlow({
           const allDone = updatedSections.every(s => s.isConfirmed);
 
           if (allDone) {
-            void fetchLatestCombinedContent(sessionId);
-            void fetchCombinedContentVersions(sessionId);
             toast.success(
-              '全見出しの保存が完了しました。全体の完成形を確認して、公開準備（ステップ8）に進んでください。'
+              '全見出しの保存が完了しました。完成形はCanvasの全文編集時に保存されます。'
             );
           }
           return true;
@@ -363,8 +365,6 @@ export function useHeadingFlow({
       activeHeading,
       resolvedCanvasStep,
       fetchHeadingSections,
-      fetchLatestCombinedContent,
-      fetchCombinedContentVersions,
       getAccessToken,
       isHeadingFlowActive,
     ]
@@ -378,6 +378,42 @@ export function useHeadingFlow({
     setHeadingSaveError(null);
     setHasAttemptedHeadingInit(false);
   }, []);
+
+  const handleRebuildCombinedContent = useCallback(async (): Promise<boolean> => {
+    if (!sessionId || isRebuildingCombinedContent) return false;
+
+    setIsRebuildingCombinedContent(true);
+    try {
+      const liffAccessToken = await getAccessToken();
+      const res = await headingActions.rebuildCombinedContentFromHeadings({
+        sessionId,
+        liffAccessToken,
+      });
+
+      if (!res.success) {
+        const message = res.error || '完成形の再生成に失敗しました';
+        toast.error(message);
+        return false;
+      }
+
+      await Promise.all([fetchLatestCombinedContent(sessionId), fetchCombinedContentVersions(sessionId)]);
+      setSelectedCombinedVersionId(null);
+      toast.success('最新の見出し内容から完成形を作成しました');
+      return true;
+    } catch (error) {
+      console.error('Failed to rebuild combined content:', error);
+      toast.error('完成形の再生成に失敗しました');
+      return false;
+    } finally {
+      setIsRebuildingCombinedContent(false);
+    }
+  }, [
+    sessionId,
+    isRebuildingCombinedContent,
+    getAccessToken,
+    fetchLatestCombinedContent,
+    fetchCombinedContentVersions,
+  ]);
 
   const selectedCombinedContent = useMemo(() => {
     if (selectedCombinedVersionId) {
@@ -430,6 +466,8 @@ export function useHeadingFlow({
     refetchCombinedContentVersions,
     handleSaveHeadingSection,
     handleRetryHeadingInit,
+    handleRebuildCombinedContent,
+    isRebuildingCombinedContent,
     refetchHeadings,
   };
 }

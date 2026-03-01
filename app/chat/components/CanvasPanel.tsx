@@ -166,6 +166,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   streamingContent = '',
   canvasContentRef,
   headingIndex,
+  showHeadingUnitActions = false,
   activeHeadingIndex: activeHeadingIndexForFlow,
   totalHeadings,
   currentHeadingText,
@@ -178,6 +179,8 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   headingInitError,
   onRetryHeadingInit,
   isRetryingHeadingInit,
+  onRebuildCombinedContent,
+  isRebuildingCombinedContent = false,
   isStreaming,
   onPrevHeading,
   onNextHeading,
@@ -234,6 +237,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
   const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
 
   const isHeadingFlowCanvas = activeStepId === HEADING_FLOW_STEP_ID;
+  const shouldShowHeadingUnitActions = isHeadingFlowCanvas && showHeadingUnitActions;
 
   const hasStepOptions = stepOptions.length > 0;
 
@@ -1094,8 +1098,30 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           {isHeadingFlowCanvas &&
             headingIndex === undefined &&
             (totalHeadings ?? 0) > 0 && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
-                <span>全見出し結合を表示中</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
+                  <span>全見出し結合を表示中</span>
+                </div>
+                {onRebuildCombinedContent && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      void onRebuildCombinedContent();
+                    }}
+                    disabled={isRebuildingCombinedContent || isSavingHeading || isStreaming}
+                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    title="最新の見出し確定内容から完成形を再作成し、新しいバージョンとして保存します"
+                  >
+                    {isRebuildingCombinedContent ? (
+                      <Loader2 size={14} className="mr-1 animate-spin" />
+                    ) : (
+                      <RotateCw size={14} className="mr-1" />
+                    )}
+                    完成形を更新
+                  </Button>
+                )}
               </div>
             )}
           {headings.length > 0 && !hideOutline && (
@@ -1113,7 +1139,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               <List size={16} />
             </Button>
           )}
-          {isHeadingFlowCanvas &&
+          {shouldShowHeadingUnitActions &&
             totalHeadings !== undefined &&
             totalHeadings > 1 && (
               <>
@@ -1169,7 +1195,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   })()}
               </>
             )}
-          {isHeadingFlowCanvas &&
+          {shouldShowHeadingUnitActions &&
             headingIndex !== undefined &&
             headingIndex === activeHeadingIndexForFlow &&
             onStartHeadingGeneration &&
@@ -1188,7 +1214,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 {headingIndex === 0 ? '1件目の生成をスタート' : 'この見出しを生成'}
               </Button>
             )}
-          {isHeadingFlowCanvas &&
+          {shouldShowHeadingUnitActions &&
             onSaveHeadingSection &&
             headingIndex !== undefined &&
             !isStep6SaveDisabled && (

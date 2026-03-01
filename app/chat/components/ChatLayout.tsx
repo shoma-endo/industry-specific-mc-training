@@ -304,6 +304,7 @@ interface ChatLayoutCtx {
   servicesError: string | null;
   onDismissServicesError: () => void;
   onResetHeadingConfiguration: () => Promise<boolean>;
+  isLegacyStep6ResetEligible: boolean;
   resolvedCanvasStep: BlogStepId | null;
   setCanvasStep: (step: BlogStepId | null) => void;
 }
@@ -353,6 +354,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
     onServiceChange,
     servicesError,
     onDismissServicesError,
+    isLegacyStep6ResetEligible,
   } = ctx;
   const { isOwnerViewMode } = useLiffContext();
   const [manualBlogStep, setManualBlogStep] = useState<BlogStepId | null>(null);
@@ -563,6 +565,7 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           hasAttemptedHeadingInit={hasAttemptedHeadingInit}
           {...(onRetryHeadingInit !== undefined && { onRetryHeadingInit })}
           onResetHeadingConfiguration={handleResetHeadingConfiguration}
+          isLegacyStep6ResetEligible={isLegacyStep6ResetEligible}
           totalHeadings={totalHeadings}
           {...(headingIndex !== undefined && { headingIndex })}
           services={services}
@@ -881,6 +884,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     handleCombinedVersionSelect,
     refetchCombinedContentVersions,
     handleRetryHeadingInit,
+    handleRebuildCombinedContent,
+    isRebuildingCombinedContent,
     refetchHeadings,
   } = useHeadingFlow({
     sessionId: chatSession.state.currentSessionId ?? null,
@@ -942,6 +947,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // 表示中の見出しインデックス（0..n-1）。null = 全確定時の結合表示 は useHeadingCanvasState が管理
   const totalHeadings = headingSections.length;
+  const isLegacyStep6ResetEligible = latestBlogStep === 'step6' && totalHeadings > 0;
   const isHeadingFlowCanvasStep = resolvedCanvasStep === HEADING_FLOW_STEP_ID;
   const maxViewableIndex =
     activeHeadingIndex !== undefined ? activeHeadingIndex : Math.max(0, totalHeadings - 1);
@@ -1085,10 +1091,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     !activeHeading &&
     headingSections.length > 0 &&
     viewingHeadingIndex === null;
+  const isHeadingUnitStep7View =
+    isHeadingFlowCanvasStep && headingSections.length > 0 && viewingHeadingIndex !== null;
   // 完成形かつバージョン取得完了時のみ combined 由来に切り替え（過渡期のブリンク防止）
   const isCombinedFormViewWithVersions = isCombinedFormView && combinedContentVersions.length > 0;
 
   const canvasVersionsWithMeta = useMemo(() => {
+    // Step7 の見出し単体表示ではバージョン管理しない
+    if (isHeadingUnitStep7View) {
+      return [];
+    }
     if (isCombinedFormViewWithVersions) {
       return combinedContentVersions.map(v => ({
         id: v.id,
@@ -1107,6 +1119,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       isLatest: index === canvasVersionsForStep.length - 1,
     }));
   }, [
+    isHeadingUnitStep7View,
     isCombinedFormViewWithVersions,
     isCombinedFormView,
     combinedContentVersions,
@@ -1996,6 +2009,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           servicesError,
           onDismissServicesError: dismissServicesError,
           onResetHeadingConfiguration: handleResetHeadingConfiguration,
+          isLegacyStep6ResetEligible,
           resolvedCanvasStep,
           setCanvasStep,
         }}
@@ -2010,22 +2024,28 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           {...(isOwnerViewMode ? {} : { onSelectionEdit: handleCanvasSelectionEdit })}
           versions={canvasVersionsWithMeta}
           activeVersionId={
-            isCombinedFormViewWithVersions
+            isHeadingUnitStep7View
+              ? null
+              : isCombinedFormViewWithVersions
               ? (selectedCombinedVersionId ??
                 combinedContentVersions.find(v => v.isLatest)?.id ??
                 null)
               : (activeCanvasVersion?.id ?? null)
           }
           onVersionSelect={
-            isCombinedFormViewWithVersions ? handleCombinedVersionSelect : handleCanvasVersionSelect
+            isHeadingUnitStep7View
+              ? undefined
+              : isCombinedFormViewWithVersions
+                ? handleCombinedVersionSelect
+                : handleCanvasVersionSelect
           }
           stepOptions={canvasStepOptions}
           activeStepId={resolvedCanvasStep ?? null}
           onStepSelect={handleCanvasStepSelect}
           streamingContent={canvasStreamingContent}
           canvasContentRef={canvasContentRef}
-          // 見出し単位生成フロー用（exactOptionalPropertyTypes のため undefined 時は渡さない）
-          // 完成形表示（viewingHeadingIndex === null）の場合は渡さず、CanvasPanel 側で完成形バッジを表示する
+          showHeadingUnitActions={isHeadingFlowCanvasStep && totalHeadings > 0}
+          // 完成形表示（viewingHeadingIndex === null）時は渡さず、CanvasPanel 側で完成形モードを表示する
           {...(viewingHeadingIndex !== null && {
             headingIndex:
               viewingHeadingIndex ??
@@ -2068,6 +2088,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           headingInitError={headingInitError}
           onRetryHeadingInit={handleRetryHeadingInit}
           isRetryingHeadingInit={isHeadingInitInFlight}
+          onRebuildCombinedContent={handleRebuildCombinedContent}
+          isRebuildingCombinedContent={isRebuildingCombinedContent}
           isStreaming={isCanvasStreaming}
         />
       )}

@@ -73,13 +73,11 @@ export class HeadingFlowService extends SupabaseService {
 
   /**
    * 見出しセクションの本文を保存し、確定状態にする。
-   * 保存後、自動的に完成形の再結合を行う。
    */
   async saveHeadingSection(
     sessionId: string,
     headingKey: string,
-    content: string,
-    userId: string
+    content: string
   ): Promise<SupabaseResult<void>> {
     const { error: updateError, count } = await this.supabase
       .from('session_heading_sections')
@@ -98,15 +96,6 @@ export class HeadingFlowService extends SupabaseService {
     if (count === 0) {
       return this.failure(
         '保存対象の見出しが見つかりませんでした。構成が更新された可能性があります。'
-      );
-    }
-
-    // 完成形の再結合（失敗時はセクションは保存済みのため、リカバリ可能である旨を伝える）
-    const combineResult = await this.combineSections(sessionId, userId);
-    if (!combineResult.success) {
-      return this.failure(
-        'セクションは保存されましたが、完成形の更新に失敗しました。次の見出しを保存すると自動的に反映されます。',
-        { context: { combineError: combineResult.error } }
       );
     }
     return this.success(undefined);

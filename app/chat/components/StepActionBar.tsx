@@ -45,6 +45,8 @@ interface StepActionBarProps {
   currentHeadingText?: string;
   /** 見出し構成をリセットしてStep5に戻る */
   onResetHeadingConfiguration?: () => Promise<void>;
+  /** 旧step6データ（step7移行対象）かどうか */
+  isLegacyStep6ResetEligible?: boolean;
 }
 
 export interface StepActionBarRef {
@@ -77,6 +79,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
       totalHeadings,
       currentHeadingText,
       onResetHeadingConfiguration,
+      isLegacyStep6ResetEligible = false,
     },
     ref
   ) => {
@@ -255,7 +258,10 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
           <BookMarked size={14} />
           <span>{annotationLoading ? '読み込み中...' : 'ブログ保存'}</span>
         </Button>
-        {(isStep6 || isStep7) && onResetHeadingConfiguration && (
+        {(isStep7 || (isStep6 && isLegacyStep6ResetEligible)) &&
+          onResetHeadingConfiguration &&
+          totalHeadings !== undefined &&
+          totalHeadings > 0 && (
           <Button
             onClick={() => {
               const confirmMessage =
@@ -267,6 +273,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
             disabled={isDisabled || isHeadingFlowBusy}
             size="sm"
             variant="outline"
+            title="step5の構成案からstep7見出し構成を再抽出します"
             className="flex items-center gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
           >
             <RotateCw size={14} />

@@ -100,6 +100,7 @@ interface InputAreaProps {
   selectedServiceId?: string | null;
   onServiceChange?: (serviceId: string) => void;
   onResetHeadingConfiguration?: () => Promise<void>;
+  isLegacyStep6ResetEligible?: boolean;
   services?: Service[];
 }
 
@@ -155,6 +156,7 @@ const InputArea: React.FC<InputAreaProps> = ({
   selectedServiceId,
   onServiceChange,
   onResetHeadingConfiguration,
+  isLegacyStep6ResetEligible = false,
 }) => {
   const { isOwnerViewMode } = useLiffContext();
   const [input, setInput] = useState('');
@@ -207,6 +209,7 @@ const InputArea: React.FC<InputAreaProps> = ({
     // 通常モデル
     return MODEL_PLACEHOLDERS[selectedModel] ?? 'チャットモデルを選択してください';
   })();
+  const isStep5Visible = (displayStep ?? initialBlogStep) === 'step5';
 
   useEffect(() => {
     if (!isModelSelected) {
@@ -521,6 +524,7 @@ const InputArea: React.FC<InputAreaProps> = ({
               {...(headingIndex !== undefined && { headingIndex })}
               {...(totalHeadings !== undefined && { totalHeadings })}
               {...(onResetHeadingConfiguration !== undefined && { onResetHeadingConfiguration })}
+              isLegacyStep6ResetEligible={isLegacyStep6ResetEligible}
             />
             {blogArticleError && <p className="mt-2 text-xs text-red-500">{blogArticleError}</p>}
           </div>
@@ -543,9 +547,8 @@ const InputArea: React.FC<InputAreaProps> = ({
                   rows={1}
                 />
                 <div className="flex gap-1 items-center">
-                  {/* Step5 表示時のみ表示。nextStepForPlaceholder を含めると Step4 でも表示され
-                     Step5 をスキップして Step6 へ飛ぶバグの原因となるため、Step5 のみに限定 */}
-                  {(displayStep === 'step5' || initialBlogStep === 'step5') &&
+                  {/* Step5表示中は手動保存導線を常に表示する */}
+                  {isStep5Visible &&
                     onSaveManualStep5 &&
                     currentSessionId &&
                     input.trim() &&
