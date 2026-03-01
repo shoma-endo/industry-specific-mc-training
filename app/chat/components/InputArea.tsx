@@ -180,7 +180,7 @@ const InputArea: React.FC<InputAreaProps> = ({
    * プレースホルダー表示と API/DB 送信モデルで同じ値を使い、表示と保存先の不整合を防ぐ。
    */
   const targetBlogStep = useMemo<BlogStepId>(() => {
-    if (!hasDetectedBlogStep) return 'step1';
+    if (hasDetectedBlogStep === false) return 'step1';
 
     const currentStep = displayStep ?? initialBlogStep ?? 'step1';
     const currentIdx = BLOG_STEP_IDS.indexOf(currentStep);
