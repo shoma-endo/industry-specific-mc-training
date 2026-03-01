@@ -208,9 +208,9 @@ export async function POST(req: NextRequest) {
 
     const { maxTokens, temperature, actualModel } = modelConfig;
 
-    // Step7見出し単位モード時の前置制約（全文生成を防ぎ、1見出し分のみ編集させる）
+    // Step7 (またはレガシーStep6) 見出し単位モード時の前置制約（全文生成を防ぎ、1見出し分のみ編集させる）
     const headingUnitPrefix =
-      targetStep === HEADING_FLOW_STEP_ID && isHeadingUnit
+      (targetStep === HEADING_FLOW_STEP_ID || targetStep === 'step6') && isHeadingUnit
         ? [
             '## 【重要】見出し単位編集モード',
             '',
