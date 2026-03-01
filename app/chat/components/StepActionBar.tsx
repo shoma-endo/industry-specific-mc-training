@@ -111,7 +111,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const isStep1 = displayStep === 'step1';
     const isHeadingFlowStep = isStep7;
     const isHeadingFlowBusy = (isStep6 || isStep7) && (isSavingHeading || isHeadingInitInFlight);
-    const isHeadingWarningStep = isStep6 || isStep7;
+    const isHeadingWarningStep = isStep7;
     const headingLabel =
       currentHeadingText && currentHeadingText.trim().length > 0
         ? currentHeadingText

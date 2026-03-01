@@ -725,7 +725,7 @@ export async function POST(req: NextRequest) {
 
               // Step7(見出しフロー)完了後の全文Canvas修正は session_combined_contents にも新バージョンとして保存する
               // 副次処理のため、失敗してもチャット履歴保存は継続する
-              if (targetStep === HEADING_FLOW_STEP_ID) {
+              if (targetStep === HEADING_FLOW_STEP_ID && !isHeadingUnit) {
                 try {
                   const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
                   if (!sectionsResult.success) {
