@@ -42,7 +42,10 @@
 | 用語 | 定義 |
 |------|------|
 | Magic Link | メールアドレスに送信される一回限りの認証リンク。クリックでログインが完了する |
+| Supabase Auth | Supabase が提供する認証基盤。メール送信・トークン管理・セッション管理を一括で担う |
 | 認証プロバイダ (`auth_provider`) | ユーザーの認証手段を示す識別子。`line` または `email` |
+| `auth.users` | Supabase Auth が内部管理するユーザーテーブル。メールログイン時に自動作成される |
+| `public.users` | アプリ独自のユーザーテーブル。LINE / メール両方のユーザー情報を格納する |
 | 移行元アカウント | LINE 認証で作成された既存ユーザーレコード |
 | 移行先アカウント | Magic Link で作成された新規メールユーザーレコード |
 | アカウント統合 | 移行元の全データを移行先に紐付け直し、移行元を無効化する操作 |
@@ -62,7 +65,15 @@ LINE アプリ
   → UserService.getUserFromLiffToken() でユーザー取得/作成
 ```
 
-### 4.2 現行 users テーブル
+### 4.2 現行 Supabase 利用状況
+
+- `@supabase/supabase-js` v2.75.0 を使用
+- Supabase Auth 機能は **未使用**（`autoRefreshToken: false`, `persistSession: false`）
+- `@supabase/ssr` は **未インストール**
+- `auth.users` テーブルは空（LINE 認証は独自実装）
+- Supabase はデータベース（PostgreSQL）+ RLS のみ活用
+
+### 4.3 現行 users テーブル
 
 ```sql
 CREATE TABLE users (
@@ -84,7 +95,7 @@ CREATE TABLE users (
 );
 ```
 
-### 4.3 user_id を保持する全テーブル一覧（19テーブル）
+### 4.4 user_id を保持する全テーブル一覧（19テーブル）
 
 | # | テーブル名 | カラム名 | 型 | FK | CASCADE |
 |---|-----------|----------|-----|-----|---------|
@@ -115,7 +126,32 @@ CREATE TABLE users (
 
 ## 5. Phase 1: Magic Link 認証
 
-### 5.1 DB変更: users テーブル拡張
+### 5.1 設計方針: Supabase Auth の活用
+
+Magic Link のメール送信・トークン管理・セッション管理は **Supabase Auth に委譲** する。
+
+```
+独自実装しないもの（Supabase Auth が担当）:
+  ✗ magic_link_tokens テーブル → Supabase Auth が内部管理
+  ✗ app_sessions テーブル      → Supabase Auth セッションを使用
+  ✗ emailService.ts            → Supabase がメール送信
+  ✗ sessionService.ts          → Supabase Auth がセッション管理
+  ✗ Resend / SendGrid 等の外部メールサービス連携
+
+独自実装するもの（アプリ層で管理）:
+  ✓ auth.users → public.users の同期（DB trigger）
+  ✓ authMiddleware の LINE/Email 二重対応
+  ✓ ログイン UI
+```
+
+**理由:**
+- Supabase Auth は Magic Link に必要な機能（メール送信、トークン生成・検証、セッション管理、レート制限）を標準提供している
+- 独自実装は車輪の再発明であり、セキュリティリスクと工数を増大させる
+- `auth.users` と `public.users` の同期は DB trigger で自動化でき、二重管理の懸念は最小限
+
+### 5.2 DB変更
+
+#### 5.2.1 users テーブル拡張
 
 ```sql
 -- マイグレーション: add_email_auth_to_users.sql
@@ -127,25 +163,86 @@ ALTER TABLE users ADD COLUMN email TEXT UNIQUE;
 ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'line'
   CHECK (auth_provider IN ('line', 'email'));
 
--- 3. line_user_id の NOT NULL 制約を解除（メールユーザーは LINE ID を持たない）
+-- 3. Supabase Auth ユーザー ID（auth.users.id との紐付け）
+ALTER TABLE users ADD COLUMN supabase_auth_id UUID UNIQUE;
+
+-- 4. line_user_id の NOT NULL 制約を解除（メールユーザーは LINE ID を持たない）
 ALTER TABLE users ALTER COLUMN line_user_id DROP NOT NULL;
 
--- 4. line_display_name の NOT NULL 制約を解除
+-- 5. line_display_name の NOT NULL 制約を解除
 ALTER TABLE users ALTER COLUMN line_display_name DROP NOT NULL;
 
--- 5. 排他制約: line ユーザーは line_user_id 必須、email ユーザーは email 必須
+-- 6. 排他制約: line ユーザーは line_user_id 必須、email ユーザーは email 必須
 ALTER TABLE users ADD CONSTRAINT users_auth_provider_check
   CHECK (
     (auth_provider = 'line' AND line_user_id IS NOT NULL) OR
-    (auth_provider = 'email' AND email IS NOT NULL)
+    (auth_provider = 'email' AND email IS NOT NULL AND supabase_auth_id IS NOT NULL)
   );
 
--- 6. ロールバック
+-- ロールバック
 -- ALTER TABLE users DROP CONSTRAINT users_auth_provider_check;
 -- ALTER TABLE users ALTER COLUMN line_display_name SET NOT NULL;
 -- ALTER TABLE users ALTER COLUMN line_user_id SET NOT NULL;
+-- ALTER TABLE users DROP COLUMN supabase_auth_id;
 -- ALTER TABLE users DROP COLUMN auth_provider;
 -- ALTER TABLE users DROP COLUMN email;
+```
+
+#### 5.2.2 auth.users → public.users 同期トリガー
+
+Supabase Auth で新規メールユーザーが作成された際、`public.users` に自動でレコードを作成する。
+
+```sql
+-- マイグレーション: add_auth_user_sync_trigger.sql
+
+-- メールユーザー作成時に public.users へ同期
+CREATE OR REPLACE FUNCTION handle_new_auth_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- メール認証ユーザーのみ対象（LINE ユーザーは別経路で作成済み）
+  IF NEW.email IS NOT NULL THEN
+    INSERT INTO public.users (
+      id,
+      email,
+      auth_provider,
+      supabase_auth_id,
+      role,
+      full_name,
+      last_login_at,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      NEW.email,
+      'email',
+      NEW.id,
+      'trial',
+      COALESCE(NEW.raw_user_meta_data->>'full_name', NULL),
+      now(),
+      now(),
+      now()
+    )
+    ON CONFLICT (email) DO UPDATE SET
+      supabase_auth_id = NEW.id,
+      last_login_at = now(),
+      updated_at = now();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_auth_user();
+
+-- ロールバック
+-- DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- DROP FUNCTION IF EXISTS handle_new_auth_user();
 ```
 
 **変更後の users テーブル（主要カラム）:**
@@ -155,6 +252,7 @@ users
 ├── id                    UUID PK
 ├── email                 TEXT UNIQUE (NULL: LINE ユーザー)
 ├── auth_provider         TEXT NOT NULL ('line' | 'email')
+├── supabase_auth_id      UUID UNIQUE (NULL: LINE ユーザー)
 ├── line_user_id          TEXT UNIQUE (NULL: メールユーザー)
 ├── line_display_name     TEXT (NULL: メールユーザー)
 ├── line_picture_url      TEXT
@@ -169,97 +267,123 @@ users
 └── updated_at            TIMESTAMPTZ
 ```
 
-### 5.2 Magic Link 認証フロー
+### 5.3 Magic Link 認証フロー
 
-#### 5.2.1 ログイン（メール送信）
+#### 5.3.1 ログイン（メール送信）
 
 ```
 ユーザー: メールアドレスを入力して「ログインリンクを送信」をクリック
 
-POST /api/auth/magic-link/send
-  Body: { email: string }
-
-サーバー処理:
+クライアント処理:
   1. email バリデーション（Zod）
-  2. 認証トークン生成（crypto.randomUUID()）
-  3. magic_link_tokens テーブルに保存
-     - token: TEXT UNIQUE
-     - email: TEXT NOT NULL
-     - expires_at: TIMESTAMPTZ (15分後)
-     - used_at: TIMESTAMPTZ (NULL)
-     - created_at: TIMESTAMPTZ
-  4. Magic Link メール送信
-     - URL: {SITE_URL}/api/auth/magic-link/verify?token={token}
-  5. レスポンス: { success: true }
+  2. Supabase Auth API を呼び出し:
+     supabase.auth.signInWithOtp({
+       email,
+       options: {
+         emailRedirectTo: '{SITE_URL}/api/auth/callback'
+       }
+     })
+  3. Supabase が自動的に Magic Link メールを送信
+  4. 送信完了画面を表示
+
+※ Supabase Auth がメール送信・トークン生成・有効期限管理を一括で処理
+※ 送信レート制限も Supabase Auth 側で適用される
 ```
 
-#### 5.2.2 トークン検証・ログイン完了
+#### 5.3.2 コールバック・ログイン完了
 
 ```
 ユーザー: メール内のリンクをクリック
 
-GET /api/auth/magic-link/verify?token={token}
+GET /api/auth/callback?code={code}
 
 サーバー処理:
-  1. magic_link_tokens からトークン取得
-  2. バリデーション:
-     - トークンが存在する
-     - used_at が NULL（未使用）
-     - expires_at > now()（有効期限内）
-  3. トークンを使用済みに更新（used_at = now()）
-  4. users テーブルから email でユーザー検索
-     a. 存在しない場合:
-        - 新規ユーザー作成（auth_provider='email', role='trial'）
-     b. 存在する場合:
-        - last_login_at を更新
-  5. セッショントークン生成・Cookie 設定
-     - app_session_token: httpOnly Cookie (3日)
-     - app_refresh_token: httpOnly Cookie (90日)
-  6. リダイレクト: / (トップページ)
+  1. Supabase Auth がリダイレクト URL にコードを付与
+  2. サーバー側で code → session に交換:
+     supabase.auth.exchangeCodeForSession(code)
+  3. Supabase Auth セッション確立（Cookie 自動設定）
+  4. auth.users にユーザーが存在 → trigger で public.users に同期済み
+  5. リダイレクト: / (トップページ)
 ```
 
-#### 5.2.3 セッション管理
+#### 5.3.3 セッション管理
+
+Supabase Auth のセッション管理を利用する。`@supabase/ssr` パッケージを導入し、
+サーバーサイドでの Cookie ベースセッション管理を行う。
 
 ```
-新規テーブル: app_sessions
+パッケージ追加:
+  npm install @supabase/ssr
 
-CREATE TABLE app_sessions (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  session_token  TEXT NOT NULL UNIQUE,
-  refresh_token  TEXT NOT NULL UNIQUE,
-  expires_at     TIMESTAMPTZ NOT NULL,
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_active_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_app_sessions_user_id ON app_sessions(user_id);
-CREATE INDEX idx_app_sessions_session_token ON app_sessions(session_token);
-CREATE INDEX idx_app_sessions_expires_at ON app_sessions(expires_at);
+セッション構成:
+  - Supabase Auth が access_token / refresh_token を Cookie で管理
+  - サーバーサイドでは createServerClient() で Cookie を読み書き
+  - トークンリフレッシュは Supabase Auth が自動で処理
 ```
 
-**セッション有効期間:**
+**Supabase クライアント構成（メール認証用）:**
 
-| トークン種別 | 有効期間 | Cookie 属性 |
-|-------------|---------|------------|
-| session_token | 3日 | httpOnly, Secure, SameSite=Lax |
-| refresh_token | 90日 | httpOnly, Secure, SameSite=Lax |
+```typescript
+// src/lib/supabase/server.ts（新規）
 
-**リフレッシュフロー:**
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+}
 ```
-GET /api/auth/refresh
 
-サーバー処理:
-  1. Cookie から refresh_token を取得
-  2. app_sessions から検索
-  3. 有効期限チェック
-  4. 新しい session_token / refresh_token を生成
-  5. app_sessions を更新
-  6. 新しい Cookie を設定
+```typescript
+// src/lib/supabase/middleware.ts（新規）
+
+import { createServerClient } from '@supabase/ssr';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function updateSupabaseSession(request: NextRequest) {
+  const response = NextResponse.next({ request });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  // セッションリフレッシュ（Supabase Auth が自動処理）
+  await supabase.auth.getUser();
+
+  return response;
+}
 ```
 
-### 5.3 authMiddleware の二重対応
+### 5.4 authMiddleware の二重対応
 
 現行の `authMiddleware` は LINE トークンのみ対応。メール認証との共存のため以下を変更する。
 
@@ -267,13 +391,15 @@ GET /api/auth/refresh
 // 認証フロー分岐の擬似コード
 
 export async function ensureAuthenticated(
-  request: NextRequest
+  request?: NextRequest
 ): Promise<AuthenticatedUser> {
 
-  // 1. メール認証セッションをチェック（優先）
-  const appSessionToken = getCookie('app_session_token');
-  if (appSessionToken) {
-    return authenticateBySession(appSessionToken);
+  // 1. Supabase Auth セッションをチェック（メール認証）
+  const supabase = await createSupabaseServerClient();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  if (authUser) {
+    return authenticateBySupabaseAuth(authUser);
   }
 
   // 2. LINE トークンをチェック（後方互換）
@@ -287,13 +413,18 @@ export async function ensureAuthenticated(
   return { error: '認証が必要です' };
 }
 
-async function authenticateBySession(
-  sessionToken: string
+async function authenticateBySupabaseAuth(
+  authUser: SupabaseAuthUser
 ): Promise<AuthenticatedUser> {
-  // app_sessions テーブルからユーザー取得
-  // セッション有効期限チェック
-  // ユーザー情報・ロール・サブスク状態を返却
-  // 既存の viewMode / スタッフ関連ロジックはそのまま適用
+  // 1. supabase_auth_id で public.users を検索
+  const user = await userService.getUserBySupabaseAuthId(authUser.id);
+  if (!user) {
+    return { error: 'ユーザーが見つかりません' };
+  }
+
+  // 2. ロール・サブスク状態チェック（既存ロジックを共通化）
+  // 3. viewMode / スタッフ関連ロジック（既存と同一）
+  // 4. AuthenticatedUser を返却
 }
 
 async function authenticateByLine(
@@ -305,22 +436,21 @@ async function authenticateByLine(
 ```
 
 **重要**: `AuthenticatedUser` の `lineUserId` フィールドはメールユーザーの場合 `null` となる。
-下流で `lineUserId` を参照している箇所を洗い出し、`null` 安全にする必要がある。
 
-#### 5.3.1 lineUserId 参照箇所の影響範囲
+#### 5.4.1 lineUserId 参照箇所の影響範囲
 
 | ファイル | 用途 | 対応方針 |
 |---------|------|---------|
 | `auth.middleware.ts` | LINE プロフィール取得 | メールユーザーはスキップ |
-| `userService.ts` | `getUserFromLiffToken()` | メール用の `getUserByEmail()` を新設 |
+| `userService.ts` | `getUserFromLiffToken()` | メール用の `getUserBySupabaseAuthId()` を新設 |
 | `userService.ts` | `updateStripeCustomerId()` | `lineUserId` → `userId` ベースに変更 |
 | `userService.ts` | `updateStripeSubscriptionId()` | 同上 |
-| `supabaseService.ts` | `getUserByLineId()` | メールユーザーは `getUserByEmail()` を使用 |
+| `supabaseService.ts` | `getUserByLineId()` | メールユーザーは `getUserBySupabaseAuthId()` を使用 |
 | `login.actions.ts` | LINE プロフィール取得 | メールユーザーは別経路 |
 
-### 5.4 ログイン UI
+### 5.5 ログイン UI
 
-#### 5.4.1 画面構成
+#### 5.5.1 画面構成
 
 ```
 ┌─────────────────────────────────────────┐
@@ -334,27 +464,27 @@ async function authenticateByLine(
 │  │  └─────────────────────────────┘  │  │
 │  │                                   │  │
 │  │  ┌─────────────────────────────┐  │  │
-│  │  │   ログインリンクを送信 ✉️    │  │  │
+│  │  │   ログインリンクを送信       │  │  │
 │  │  └─────────────────────────────┘  │  │
 │  │                                   │  │
 │  │  ─────── または ───────           │  │
 │  │                                   │  │
 │  │  ┌─────────────────────────────┐  │  │
-│  │  │   LINEでログイン 💬          │  │  │
+│  │  │   LINEでログイン             │  │  │
 │  │  └─────────────────────────────┘  │  │
 │  └───────────────────────────────────┘  │
 │                                         │
 └─────────────────────────────────────────┘
 ```
 
-#### 5.4.2 メール送信完了画面
+#### 5.5.2 メール送信完了画面
 
 ```
 ┌─────────────────────────────────────────┐
 │                GrowMate                 │
 │                                         │
 │  ┌───────────────────────────────────┐  │
-│  │  ✉️ メールを送信しました          │  │
+│  │  メールを送信しました             │  │
 │  │                                   │  │
 │  │  user@example.com に              │  │
 │  │  ログインリンクを送信しました。    │  │
@@ -362,7 +492,7 @@ async function authenticateByLine(
 │  │  メール内のリンクをクリックして    │  │
 │  │  ログインを完了してください。      │  │
 │  │                                   │  │
-│  │  ※ 15分以内に届かない場合は       │  │
+│  │  ※ 届かない場合は                 │  │
 │  │    再送信してください。            │  │
 │  │                                   │  │
 │  │  ┌─────────────────────────────┐  │  │
@@ -373,62 +503,55 @@ async function authenticateByLine(
 └─────────────────────────────────────────┘
 ```
 
-#### 5.4.3 UI 遷移フロー
+#### 5.5.3 UI 遷移フロー
 
 ```
 /login
-  ├── メールアドレス入力 → POST /api/auth/magic-link/send → 送信完了画面
-  │                                                          └── 再送信ボタン
+  ├── メールアドレス入力
+  │     → supabase.auth.signInWithOtp({ email })
+  │     → 送信完了画面（再送信ボタン付き）
+  │     → ユーザーがメールのリンクをクリック
+  │     → /api/auth/callback（code → session 交換）
+  │     → / (トップページ)
   │
   └── LINE でログイン → /api/auth/line-oauth-init → LINE OAuth → /api/line/callback → /
 ```
 
-### 5.5 メール送信基盤
+### 5.6 Supabase Auth 設定
 
-#### 5.5.1 送信方法の選択
+Supabase ダッシュボードで以下を設定する。
 
-Supabase の組み込みメール機能（`supabase.auth.signInWithOtp`）は使用せず、独自にトークン管理とメール送信を行う。
+| 設定項目 | 値 |
+|---------|-----|
+| Site URL | `{NEXT_PUBLIC_SITE_URL}` |
+| Redirect URLs | `{NEXT_PUBLIC_SITE_URL}/api/auth/callback` |
+| Email Auth | 有効 |
+| Magic Link | 有効（OTP は無効） |
+| Email template | カスタム（日本語テンプレート） |
+| Rate limit (email) | Supabase デフォルト（3600秒あたり30件） |
 
-理由:
-- 既存の独自ユーザーテーブル（`public.users`）との整合性を維持するため
-- Supabase Auth の `auth.users` との二重管理を避けるため
-- LINE 認証との統合制御をアプリ層で一元管理するため
+**環境変数**: 新規追加は不要。既存の `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` をそのまま使用。
 
-#### 5.5.2 メール送信サービス
-
-外部メール送信サービスとして **Resend** を採用する（候補）。
-
-```typescript
-// src/server/services/emailService.ts
-
-interface EmailService {
-  sendMagicLink(email: string, token: string): Promise<void>;
-}
-```
-
-### 5.6 環境変数追加
-
-```env
-# メール認証
-EMAIL_PROVIDER=resend              # メール送信プロバイダ
-RESEND_API_KEY=re_xxxxx            # Resend API キー
-EMAIL_FROM=noreply@growmate.jp     # 送信元アドレス
-```
-
-`src/env.ts` にバリデーションを追加する。メール認証を無効化する場合は `EMAIL_PROVIDER` を未設定にする。
-
-### 5.7 新規ファイル一覧
+### 5.7 新規・変更ファイル一覧
 
 ```
-app/api/auth/magic-link/send/route.ts       # Magic Link 送信 API
-app/api/auth/magic-link/verify/route.ts     # トークン検証・ログイン API
-app/api/auth/refresh/route.ts               # セッションリフレッシュ（既存拡張）
-app/login/page.tsx                          # ログインページ（既存改修）
-src/server/services/emailService.ts         # メール送信サービス
-src/server/services/sessionService.ts       # セッション管理サービス
-supabase/migrations/XXXXXX_add_email_auth.sql
-supabase/migrations/XXXXXX_create_magic_link_tokens.sql
-supabase/migrations/XXXXXX_create_app_sessions.sql
+新規:
+  src/lib/supabase/server.ts              # Supabase サーバークライアント（Cookie対応）
+  src/lib/supabase/middleware.ts           # Supabase セッションリフレッシュ
+  app/api/auth/callback/route.ts          # Supabase Auth コールバック
+  app/login/page.tsx                      # ログインページ（既存改修）
+
+変更:
+  src/server/middleware/auth.middleware.ts  # LINE/Email 二重対応
+  src/server/services/userService.ts       # getUserBySupabaseAuthId() 追加
+  src/server/services/supabaseService.ts   # getUserBySupabaseAuthId() 追加
+  src/types/user.ts                        # User 型に email, auth_provider, supabase_auth_id 追加
+  middleware.ts                            # Next.js ミドルウェアに Supabase セッション更新を追加
+  package.json                             # @supabase/ssr 追加
+
+マイグレーション:
+  supabase/migrations/XXXXXX_add_email_auth_to_users.sql
+  supabase/migrations/XXXXXX_add_auth_user_sync_trigger.sql
 ```
 
 ---
@@ -449,12 +572,12 @@ supabase/migrations/XXXXXX_create_app_sessions.sql
 
 1. LINE ユーザー（UUID-A）が設定画面で「メールアカウントに切り替え」を選択
 2. メールアドレスを入力
-3. そのメールアドレスに Magic Link を送信（所有権確認）
-4. Magic Link クリックで検証完了
-5. 新規メールユーザー（UUID-B）を作成（auth_provider='email'）
+3. Supabase Auth の signInWithOtp() でメール送信（所有権確認）
+4. Magic Link クリック → /api/auth/account-migration/callback で検証完了
+5. auth.users にメールユーザーが作成される → trigger で public.users (UUID-B) が作成
 6. UUID-A の全データを UUID-B に移行（migrate_user_data RPC）
 7. UUID-A を無効化（role='unavailable', auth_provider そのまま）
-8. UUID-B のセッションで自動ログイン
+8. UUID-B の Supabase Auth セッションで自動ログイン
 ```
 
 #### パターン B: 既存メールアカウントへの統合
@@ -467,10 +590,11 @@ supabase/migrations/XXXXXX_create_app_sessions.sql
 3. 入力されたメールが既存ユーザー（UUID-B）に紐付いている場合
 4. 確認ダイアログ: 「このメールアドレスには既にアカウントがあります。データを統合しますか？」
    ※ UUID-B 側に既存データがある場合、両者のデータが統合される
-5. Magic Link で所有権確認
-6. UUID-A の全データを UUID-B に移行（既存データとマージ）
-7. UUID-A を無効化
-8. UUID-B のセッションで自動ログイン
+5. Supabase Auth の signInWithOtp() でメール送信（所有権確認）
+6. Magic Link クリック → 移行確認画面
+7. UUID-A の全データを UUID-B に移行（既存データとマージ）
+8. UUID-A を無効化
+9. UUID-B の Supabase Auth セッションで自動ログイン
 ```
 
 ### 6.3 移行フロー詳細
@@ -485,7 +609,7 @@ supabase/migrations/XXXXXX_create_app_sessions.sql
 表示場所: /settings または /account（新規ページ）
 ```
 
-#### 6.3.2 ステップ 2: メールアドレス入力・検証
+#### 6.3.2 ステップ 2: メールアドレス入力・検証開始
 
 ```
 POST /api/auth/account-migration/initiate
@@ -495,19 +619,24 @@ POST /api/auth/account-migration/initiate
 サーバー処理:
   1. authMiddleware で LINE ユーザーを認証
   2. email バリデーション（Zod: メール形式 + 空文字チェック）
-  3. 同一メールで既存ユーザーが存在するかチェック
-     a. 存在する場合: パターン B フラグを立てる
-     b. 存在しない場合: パターン A
+  3. 同一メールで public.users に既存ユーザーが存在するかチェック
+     a. 存在する場合: パターン B（merge）
+     b. 存在しない場合: パターン A（new）
   4. migration_tokens テーブルにレコード作成
      - token: crypto.randomUUID()
-     - source_user_id: UUID-A (LINE ユーザー)
+     - source_user_id: UUID-A（LINE ユーザー）
      - target_email: 入力されたメールアドレス
-     - target_user_id: UUID-B (既存メールユーザー) or NULL
+     - target_user_id: UUID-B（既存メールユーザー）or NULL
      - migration_type: 'new' | 'merge'
      - expires_at: now() + 30分
      - status: 'pending'
-  5. Magic Link メール送信
-     - URL: {SITE_URL}/api/auth/account-migration/verify?token={token}
+  5. Supabase Auth でメール送信:
+     supabase.auth.signInWithOtp({
+       email,
+       options: {
+         emailRedirectTo: '{SITE_URL}/api/auth/account-migration/callback?migration_token={token}'
+       }
+     })
   6. レスポンス:
      { success: true, migrationType: 'new' | 'merge' }
 ```
@@ -515,12 +644,16 @@ POST /api/auth/account-migration/initiate
 #### 6.3.3 ステップ 3: メール検証・移行確認
 
 ```
-GET /api/auth/account-migration/verify?token={token}
+GET /api/auth/account-migration/callback?code={code}&migration_token={token}
 
 サーバー処理:
-  1. migration_tokens からトークン取得・検証
-     - 存在確認、未使用確認、有効期限確認
-  2. 確認画面にリダイレクト: /account-migration/confirm?token={token}
+  1. Supabase Auth で code → session 交換（メール所有権確認完了）
+  2. migration_tokens からトークン取得・検証
+     - 存在確認、status='pending'確認、有効期限確認
+  3. パターン A の場合:
+     - auth.users への INSERT は Supabase Auth が処理済み
+     - trigger により public.users にレコードが作成済み
+  4. 確認画面にリダイレクト: /account-migration/confirm?migration_token={token}
 ```
 
 #### 6.3.4 ステップ 4: 移行実行
@@ -529,20 +662,18 @@ GET /api/auth/account-migration/verify?token={token}
 確認画面で「移行を実行」ボタンをクリック
 
 POST /api/auth/account-migration/execute
-  Body: { token: string }
+  Body: { migrationToken: string }
 
 サーバー処理:
-  1. migration_tokens からトークン取得・再検証
-  2. status を 'processing' に更新（二重実行防止）
-  3. パターン A の場合:
-     a. 新規メールユーザー（UUID-B）を作成
-  4. migrate_user_data RPC を実行（後述 6.4）
-  5. 移行元ユーザー（UUID-A）を無効化:
-     - role = 'unavailable'
-     - updated_at = now()
+  1. Supabase Auth セッションでメールユーザーを認証（所有権の二重確認）
+  2. migration_tokens からトークン取得・再検証
+  3. status を 'processing' に更新（二重実行防止）
+  4. 移行先ユーザー（UUID-B）を特定:
+     - パターン A: trigger で作成済みの public.users を supabase_auth_id で検索
+     - パターン B: 既存の public.users を email で検索
+  5. migrate_user_data RPC を実行（後述 6.4）
   6. migration_tokens.status を 'completed' に更新
-  7. UUID-B のセッションを作成・Cookie 設定
-  8. レスポンス: { success: true, redirectTo: '/' }
+  7. レスポンス: { success: true, redirectTo: '/' }
 
 エラー時:
   - migration_tokens.status を 'failed' に更新
@@ -613,9 +744,8 @@ BEGIN
   RETURN NEXT;
 
   -- 3. briefs（UNIQUE 制約あり: user_id）
-  --    移行先に既にデータがある場合はマージ不可 → 移行元を優先
+  --    移行先に既にデータがある場合は移行先を優先（移行元を削除）
   IF EXISTS (SELECT 1 FROM briefs WHERE user_id = p_target_user_id::TEXT) THEN
-    -- 移行先に既存データがある場合: 移行元データを削除（移行先を優先）
     DELETE FROM briefs WHERE user_id = p_source_user_id::TEXT;
     GET DIAGNOSTICS v_row_count = ROW_COUNT;
     migrated_tables := 'briefs (skipped: target exists)';
@@ -634,8 +764,8 @@ BEGIN
   --    移行先に同一 wp_post_id のデータが存在する場合は移行元を削除
   DELETE FROM content_annotations
     WHERE user_id = p_source_user_id::TEXT
-      AND (user_id, wp_post_id) IN (
-        SELECT p_source_user_id::TEXT, wp_post_id
+      AND wp_post_id IN (
+        SELECT wp_post_id
         FROM content_annotations
         WHERE user_id = p_target_user_id::TEXT
       );
@@ -849,15 +979,15 @@ CREATE INDEX idx_migration_tokens_source ON migration_tokens(source_user_id);
 │  LINE ID: @user_display_name               │
 │                                             │
 │  ┌─────────────────────────────────────┐    │
-│  │  📧 メールアカウントに切り替える     │    │
+│  │  メールアカウントに切り替える        │    │
 │  │                                     │    │
 │  │  メールアドレスでログインできるように │    │
 │  │  アカウントを移行します。            │    │
 │  │  すべてのデータは自動的に引き継がれ  │    │
 │  │  ます。                             │    │
 │  │                                     │    │
-│  │  ⚠️ 移行後は LINE ログインは         │    │
-│  │     使用できなくなります             │    │
+│  │  ※ 移行後は LINE ログインは          │    │
+│  │    使用できなくなります              │    │
 │  │                                     │    │
 │  │  ┌───────────────────────────────┐  │    │
 │  │  │ メールアドレスを入力          │  │    │
@@ -875,7 +1005,7 @@ CREATE INDEX idx_migration_tokens_source ON migration_tokens(source_user_id);
 ┌─────────────────────────────────────────────┐
 │  アカウント移行                              │
 │                                             │
-│  ✉️ 確認メールを送信しました                 │
+│  確認メールを送信しました                    │
 │                                             │
 │  user@example.com に確認メールを             │
 │  送信しました。                              │
@@ -899,14 +1029,14 @@ CREATE INDEX idx_migration_tokens_source ON migration_tokens(source_user_id);
 │  移行先: user@example.com                   │
 │                                             │
 │  移行されるデータ:                           │
-│  ✓ チャット履歴                              │
-│  ✓ 事業者情報                                │
-│  ✓ WordPress 設定                            │
-│  ✓ GSC/GA4 データ                            │
-│  ✓ サブスクリプション情報                     │
-│  ✓ スタッフ管理情報                           │
+│  ・チャット履歴                              │
+│  ・事業者情報                                │
+│  ・WordPress 設定                            │
+│  ・GSC/GA4 データ                            │
+│  ・サブスクリプション情報                     │
+│  ・スタッフ管理情報                           │
 │                                             │
-│  ⚠️ この操作は取り消せません。                │
+│  ※ この操作は取り消せません。                │
 │  移行後は LINE ログインが無効になります。      │
 │                                             │
 │  [キャンセル]        [移行を実行する]         │
@@ -918,7 +1048,7 @@ CREATE INDEX idx_migration_tokens_source ON migration_tokens(source_user_id);
 
 ```
 ┌─────────────────────────────────────────────┐
-│  アカウント移行完了 ✅                       │
+│  アカウント移行完了                          │
 │                                             │
 │  アカウントの移行が完了しました。             │
 │                                             │
@@ -1010,8 +1140,8 @@ CREATE INDEX idx_migration_tokens_source ON migration_tokens(source_user_id);
 
 | メソッド | エンドポイント | 用途 |
 |---------|---------------|------|
-| POST | `/api/auth/account-migration/initiate` | 移行開始・確認メール送信 |
-| GET | `/api/auth/account-migration/verify` | メールトークン検証 |
+| POST | `/api/auth/account-migration/initiate` | 移行開始・Supabase Auth でメール送信 |
+| GET | `/api/auth/account-migration/callback` | Supabase Auth コールバック・メール検証 |
 | POST | `/api/auth/account-migration/execute` | 移行実行 |
 | GET | `/api/auth/account-migration/status` | 移行ステータス確認 |
 
@@ -1019,7 +1149,7 @@ CREATE INDEX idx_migration_tokens_source ON migration_tokens(source_user_id);
 
 ```
 app/api/auth/account-migration/initiate/route.ts
-app/api/auth/account-migration/verify/route.ts
+app/api/auth/account-migration/callback/route.ts
 app/api/auth/account-migration/execute/route.ts
 app/api/auth/account-migration/status/route.ts
 app/account-migration/confirm/page.tsx
@@ -1037,57 +1167,56 @@ supabase/migrations/XXXXXX_add_migrate_user_data_rpc.sql
 
 | 脅威 | 対策 |
 |------|------|
-| Magic Link の盗聴 | HTTPS 必須。トークンは1回限り使用。有効期限15分 |
-| ブルートフォース | トークンは UUID v4（128bit エントロピー）。レート制限を実装 |
-| メール列挙攻撃 | 存在/非存在に関わらず同一レスポンスを返す |
-| セッションハイジャック | httpOnly + Secure + SameSite Cookie |
-| CSRF | SameSite=Lax Cookie + Origin チェック |
+| Magic Link の盗聴 | HTTPS 必須。Supabase Auth がトークンを1回限り使用 + 有効期限管理 |
+| ブルートフォース | Supabase Auth 側のレート制限が適用される |
+| メール列挙攻撃 | Supabase Auth はデフォルトで存在/非存在に関わらず同一レスポンスを返す |
+| セッションハイジャック | Supabase Auth が httpOnly Cookie でセッション管理 |
+| CSRF | SameSite Cookie + Supabase Auth の PKCE フロー |
 
 ### 7.2 アカウント移行
 
 | 脅威 | 対策 |
 |------|------|
-| 他人のアカウントへの不正移行 | Magic Link でメール所有権を検証 |
+| 他人のアカウントへの不正移行 | Supabase Auth の Magic Link でメール所有権を検証 |
 | 二重移行 | migration_tokens.status による排他制御 |
 | 移行中のデータ不整合 | 単一トランザクション + FOR UPDATE ロック |
 | 移行後の旧アカウント悪用 | role='unavailable' に設定。LINE トークンでのログイン時にエラー表示 |
-| 移行トークンの再利用 | used_at チェック + status 管理 |
 
 ### 7.3 レート制限
 
-| エンドポイント | 制限 |
-|---------------|------|
-| Magic Link 送信 | 同一メール: 3回/15分 |
-| 移行開始 | 同一ユーザー: 3回/1時間 |
-| トークン検証 | 同一IP: 10回/15分 |
+| 対象 | 制限 |
+|------|------|
+| Magic Link 送信 | Supabase Auth デフォルト（3600秒あたり30件） |
+| 移行開始 | アプリ層で制御: 同一ユーザー 3回/1時間 |
 
 ---
 
 ## 8. 工数見積もり
 
-### Phase 1: Magic Link 認証 — 7-13日
+### Phase 1: Magic Link 認証 — 5-9日
 
 | タスク | 工数 |
 |--------|------|
-| DB マイグレーション（users 拡張 + magic_link_tokens + app_sessions） | 1-2日 |
-| メール送信サービス（Resend 連携） | 1-2日 |
-| Magic Link 送信/検証 API | 1-2日 |
-| セッション管理サービス | 1-2日 |
-| authMiddleware の LINE/Email 二重対応 | 2-3日 |
+| DB マイグレーション（users 拡張 + auth.users 同期 trigger） | 1-2日 |
+| `@supabase/ssr` 導入 + Supabase サーバークライアント構築 | 1日 |
+| Auth コールバック API + Next.js ミドルウェア | 1-2日 |
+| authMiddleware の LINE/Email 二重対応 | 1-2日 |
 | ログイン UI 改修 | 1-2日 |
 
-### Phase 1.5: LINE→Email 移行 — 9-15日
+### Phase 1.5: LINE→Email 移行 — 8-13日
 
 | タスク | 工数 |
 |--------|------|
 | DB マイグレーション（migration_tokens + migrate_user_data RPC） | 2-3日 |
-| アカウント紐付け検証フロー（API 4本） | 2-3日 |
+| 移行 API（initiate / callback / execute / status） | 2-3日 |
 | 移行 UI（ステップウィザード 4画面） | 2-3日 |
 | migrationService 実装 | 1-2日 |
 | エッジケース対応（スタッフ・Stripe 等） | 1-2日 |
-| 検証（全テーブルのデータ移行確認 + RLS 動作確認） | 1-2日 |
 
-### 合計: 16-28日
+### 合計: 13-22日
+
+前回の独自実装案（16-28日）から **約3-6日の短縮**。
+Supabase Auth への委譲により、メール送信・トークン管理・セッション管理の実装が不要となった。
 
 ---
 
@@ -1096,21 +1225,18 @@ supabase/migrations/XXXXXX_add_migrate_user_data_rpc.sql
 ```
 Phase 1 (Magic Link 認証)
   │
-  ├── 1. DB マイグレーション（users 拡張）
-  ├── 2. magic_link_tokens / app_sessions テーブル作成
-  ├── 3. emailService 実装
-  ├── 4. sessionService 実装
-  ├── 5. Magic Link 送信/検証 API
-  ├── 6. authMiddleware 二重対応
-  └── 7. ログイン UI
+  ├── 1. DB マイグレーション（users 拡張 + auth.users 同期 trigger）
+  ├── 2. @supabase/ssr 導入 + サーバークライアント構築
+  ├── 3. /api/auth/callback + Next.js ミドルウェア
+  ├── 4. authMiddleware 二重対応
+  └── 5. ログイン UI
   │
 Phase 1.5 (LINE→Email 移行)
   │
-  ├── 8. migration_tokens テーブル作成
-  ├── 9. migrate_user_data RPC 実装
-  ├── 10. migrationService 実装
-  ├── 11. 移行 API（initiate / verify / execute / status）
-  ├── 12. 移行 UI（4画面）
-  ├── 13. エッジケース対応
-  └── 14. 統合検証
+  ├── 6. migration_tokens テーブル作成
+  ├── 7. migrate_user_data RPC 実装
+  ├── 8. migrationService 実装
+  ├── 9. 移行 API（initiate / callback / execute / status）
+  ├── 10. 移行 UI（4画面）
+  └── 11. エッジケース対応 + 統合検証
 ```
