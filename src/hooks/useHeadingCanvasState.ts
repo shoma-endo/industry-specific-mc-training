@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { saveHeadingSection, resetHeadingSections } from '@/server/actions/heading-flow.actions';
 import { toast } from 'sonner';
+import { ERROR_MESSAGES } from '@/domain/errors/error-messages';
 
 import { SessionHeadingSection } from '@/types/heading-flow';
 
@@ -53,15 +54,16 @@ export function useHeadingCanvasState({
 
   const handleSaveHeadingSection = useCallback(
     async (content: string) => {
-      const token = await getAccessToken();
-      if (!sessionId || !token) {
-        toast.error('認証情報が取得できません。再起動して試行してください。');
-        return;
-      }
       if (viewingHeadingIndex === null || !currentHeading) return;
 
       setIsSaving(true);
       try {
+        const token = await getAccessToken();
+        if (!sessionId || !token) {
+          toast.error(ERROR_MESSAGES.AUTH.REAUTHENTICATION_REQUIRED);
+          return;
+        }
+
         const res = await saveHeadingSection({
           sessionId,
           headingKey: currentHeading.headingKey,
@@ -84,11 +86,11 @@ export function useHeadingCanvasState({
             }
           }
         } else {
-          toast.error(res.error || '保存に失敗しました');
+          toast.error(res.error || ERROR_MESSAGES.COMMON.SAVE_FAILED);
         }
       } catch (err) {
         console.error('Failed to save heading section:', err);
-        toast.error('通信エラーが発生しました');
+        toast.error(ERROR_MESSAGES.COMMON.NETWORK_ERROR);
       } finally {
         setIsSaving(false);
       }
@@ -104,13 +106,13 @@ export function useHeadingCanvasState({
   );
 
   const handleResetHeadingConfiguration = useCallback(async (): Promise<boolean> => {
-    const token = await getAccessToken();
-    if (!token) {
-      toast.error('認証情報が取得できません。再起動して試行してください。');
-      return false;
-    }
-
     try {
+      const token = await getAccessToken();
+      if (!token) {
+        toast.error(ERROR_MESSAGES.AUTH.REAUTHENTICATION_REQUIRED);
+        return false;
+      }
+
       const res = await resetHeadingSections({
         sessionId,
         liffAccessToken: token,
@@ -122,12 +124,12 @@ export function useHeadingCanvasState({
         await onResetComplete();
         return true;
       } else {
-        toast.error(res.error || 'リセットに失敗しました');
+        toast.error(res.error || ERROR_MESSAGES.COMMON.UPDATE_FAILED);
         return false;
       }
     } catch (err) {
       console.error('Failed to reset heading configuration:', err);
-      toast.error('通信エラーが発生しました');
+      toast.error(ERROR_MESSAGES.COMMON.NETWORK_ERROR);
       return false;
     }
   }, [sessionId, getAccessToken, onResetComplete]);
