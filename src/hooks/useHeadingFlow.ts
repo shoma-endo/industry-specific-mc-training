@@ -430,9 +430,7 @@ export function useHeadingFlow({
   /** 見出しセクションの状態を強制的に再取得する（保存・確定後の同期用） */
   const refetchHeadings = useCallback(async () => {
     if (sessionId) {
-      const sections = await fetchHeadingSections(sessionId);
-      setHeadingSections(sections);
-      return sections;
+      return await fetchHeadingSections(sessionId);
     }
     return [];
   }, [sessionId, fetchHeadingSections]);
