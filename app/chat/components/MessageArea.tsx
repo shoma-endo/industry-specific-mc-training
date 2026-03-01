@@ -40,10 +40,10 @@ interface MessageAreaProps {
 }
 
 // 末尾句読点・全角コロン等を除去して照合用に正規化
-const getStep6HeadingLabel = (
+const getStep7HeadingLabel = (
   message: ChatMessage,
   sections: SessionHeadingSection[],
-  step6MessageIndex: number
+  step7MessageIndex: number
 ): string | null => {
   if (!sections.length) return null;
   const normalized = normalizeCanvasContent(message.content ?? '').trim();
@@ -59,10 +59,10 @@ const getStep6HeadingLabel = (
         return `見出し ${section.orderIndex + 1}/${sections.length}：「${section.headingText}」`;
       }
       if (matched.length > 1) {
-        // 重複見出しは step6 メッセージ順に最も近い orderIndex を選ぶ
+        // 重複見出しは step7 メッセージ順に最も近い orderIndex を選ぶ
         const best = matched.reduce((prev, curr) =>
-          Math.abs(curr.orderIndex - step6MessageIndex) <
-          Math.abs(prev.orderIndex - step6MessageIndex)
+          Math.abs(curr.orderIndex - step7MessageIndex) <
+          Math.abs(prev.orderIndex - step7MessageIndex)
             ? curr
             : prev
         );
@@ -378,9 +378,9 @@ const MessageArea: React.FC<MessageAreaProps> = ({
     );
   };
 
-  // step6 アシスタントメッセージの ID 一覧（時系列順）。重複見出し照合に使用
-  const step6MessageIds = messages
-    .filter(m => m.role === 'assistant' && extractBlogStepFromModel(m.model) === 'step6')
+  // step7 アシスタントメッセージの ID 一覧（時系列順）。重複見出し照合に使用
+  const step7MessageIds = messages
+    .filter(m => m.role === 'assistant' && extractBlogStepFromModel(m.model) === 'step7')
     .map(m => m.id);
 
   return (
@@ -395,10 +395,10 @@ const MessageArea: React.FC<MessageAreaProps> = ({
             const blogPreviewMeta = isBlogMessage(message) ? derivePreviewMeta(message) : null;
             const openHandler =
               blogPreviewMeta && onOpenCanvas ? () => onOpenCanvas(message) : null;
-            const step6Index = step6MessageIds.indexOf(message.id);
+            const step7Index = step7MessageIds.indexOf(message.id);
             const headingLabel =
-              blogPreviewMeta?.step === 'step6' && headingSections?.length && step6Index >= 0
-                ? getStep6HeadingLabel(message, headingSections, step6Index)
+              blogPreviewMeta?.step === 'step7' && headingSections?.length && step7Index >= 0
+                ? getStep7HeadingLabel(message, headingSections, step7Index)
                 : null;
 
             return (
