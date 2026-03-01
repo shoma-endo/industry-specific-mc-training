@@ -5,11 +5,7 @@ import { toast } from 'sonner';
 import { extractHeadingsFromMarkdown } from '@/lib/heading-extractor';
 import * as headingActions from '@/server/actions/heading-flow.actions';
 import type { SessionHeadingSection } from '@/types/heading-flow';
-import {
-  type BlogStepId,
-  HEADING_FLOW_STEP_ID,
-  LEGACY_HEADING_FLOW_STEP_ID,
-} from '@/lib/constants';
+import { type BlogStepId, HEADING_FLOW_STEP_ID } from '@/lib/constants';
 
 interface UseHeadingFlowParams {
   sessionId: string | null;
@@ -75,21 +71,16 @@ export function useHeadingFlow({
     Array<{ id: string; versionNo: number; content: string; isLatest: boolean }>
   >([]);
   const [selectedCombinedVersionId, setSelectedCombinedVersionId] = useState<string | null>(null);
-  const [hasExistingHeadingSections, setHasExistingHeadingSections] = useState(false);
   // セッション切り替え直後の fetch 完了を待つフラグ。
   // false の間は初期化 effect が走らないようにブロックする。
   const [hasFetchCompleted, setHasFetchCompleted] = useState(false);
 
-  /** 指定されたステップが見出し単位生成フロー（レガシー含む）の対象かどうか */
+  /** 指定されたステップが見出し単位生成フロー（step7）の対象かどうか */
   const isHeadingFlowActive = useCallback(
     (step: BlogStepId | null): boolean => {
-      // Step 7 は常にアクティブ
-      if (step === HEADING_FLOW_STEP_ID) return true;
-      // Step 6 は既存見出しデータがある場合のみアクティブ（後方互換）
-      if (step === LEGACY_HEADING_FLOW_STEP_ID) return hasExistingHeadingSections;
-      return false;
+      return step === HEADING_FLOW_STEP_ID;
     },
-    [hasExistingHeadingSections]
+    []
   );
 
   // セッション切り替え時の競合防止用 ref
@@ -120,7 +111,6 @@ export function useHeadingFlow({
       // セッション切り替え時の競合防止
       if (res.success && res.data && sid === currentSessionIdRef.current) {
         setHeadingSections(res.data);
-        setHasExistingHeadingSections(res.data.length > 0);
         return res.data;
       }
       return [];
@@ -163,7 +153,6 @@ export function useHeadingFlow({
     prevSessionIdRef.current = sessionId;
 
     setHeadingSections([]);
-    setHasExistingHeadingSections(false);
     setLatestCombinedContent(null);
     setCombinedContentVersions([]);
     setSelectedCombinedVersionId(null);
@@ -265,7 +254,6 @@ export function useHeadingFlow({
   }, [
     sessionId,
     resolvedCanvasStep,
-    hasExistingHeadingSections,
     isHeadingInitInFlight,
     step5Content,
     isSessionLoading,
@@ -285,7 +273,6 @@ export function useHeadingFlow({
     const baseGuard =
       !isHeadingFlowActive(resolvedCanvasStep) ||
       !sessionId ||
-      hasExistingHeadingSections ||
       !hasAttemptedHeadingInit ||
       headingSections.length > 0;
     if (baseGuard) return;
@@ -304,7 +291,6 @@ export function useHeadingFlow({
   }, [
     resolvedCanvasStep,
     sessionId,
-    hasExistingHeadingSections,
     step5Content,
     hasAttemptedHeadingInit,
     headingSections.length,

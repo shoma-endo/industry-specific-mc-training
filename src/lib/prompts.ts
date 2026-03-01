@@ -1021,9 +1021,9 @@ export async function getSystemPrompt(
     if (model.startsWith('blog_creation_')) {
       const step = model.substring('blog_creation_'.length) as BlogStepId;
 
-      // 見出し構成・本文作成ステップ (Step 6/7): 見出し単位生成モードの判定
+      // 見出し構成・本文作成ステップ (Step 7): 見出し単位生成モードの判定
       // 該当時は固有の生成プロンプトのみを返し、DBテンプレートの取得等を回避する
-      if ((step === 'step6' || step === 'step7') && sessionId && authUserId) {
+      if (isBlogStep7(step) && sessionId && authUserId) {
         const sessionRes = await supabaseService.getChatSessionById(sessionId, authUserId);
         if (sessionRes.success && sessionRes.data) {
           const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
