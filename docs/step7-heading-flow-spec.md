@@ -447,7 +447,7 @@ RLS（方針）:
 11. Step7 保存失敗時に、操作ボタン近傍へエラー表示され再試行できる
 12. Step7 の生成対象見出しが `###`（H3）と `####`（H4）である
 13. Step7 中に「見出し構成を初期化」を実行すると、確認ダイアログ後に `session_heading_sections` と `session_combined_contents` が削除され、Step5 最新から見出しを再抽出して先頭見出しから再開できる
-14. 既存の step6 見出し生成済みセッションは、step7 移行後も表示・編集が可能である（後方互換）
+14. 既存の step6 見出し生成済みデータは通常 step6 として扱い、ユーザーが任意で「構成リセット」を実行した場合のみ step7 に移行できる
 
 ## 12. 実装メモ
 
@@ -593,69 +593,53 @@ Step7 移行時に触る想定ファイルを一覧化する。実装漏れ防�
 | `app/api/chat/canvas/stream/route.ts` | `isStep7HeadingUnit`、targetStep 条件、saveCombined の step7 対応 |
 | `src/hooks/useHeadingFlow.ts` | step7 条件、トースト文言 |
 | `src/hooks/useHeadingCanvasState.ts` | **新規**。見出し Canvas 状態の集約 |
-| `app/chat/components/ChatLayout.tsx` | フック利用、step7 分岐集約、タイルクリック、既存セッション後方互換（canvasStepOptions、step6→step7 タイル）、Step5 再保存成功時の案内表示（8.5.5） |
+| `app/chat/components/ChatLayout.tsx` | フック利用、step7 分岐集約、タイルクリック、Step5 再保存成功時の案内表示（8.5.5） |
 | `app/chat/components/CanvasPanel.tsx` | `activeStepId === 'step7'`、「見出し構成を初期化」ボタン、contentRef を onChange 毎に更新（8.7） |
 | `app/chat/components/StepActionBar.tsx` | 見出し表示条件 step7 |
 | `src/server/actions/heading-flow.actions.ts` | `resetHeadingSections` アクション追加 |
-| `app/chat/components/MessageArea.tsx` | step7 メッセージ照合、タイルラベル、既存セッションは step6 メッセージを step7 扱いでラベル表示 |
+| `app/chat/components/MessageArea.tsx` | step7 メッセージ照合、タイルラベル |
 | `app/chat/components/InputArea.tsx` | step7 プレースホルダー |
 | `src/lib/prompts.ts` | 見出し生成プロンプトの step7 前提（該当箇所のみ） |
 
 ### 14.4 既存データ（Step6 見出し生成済みセッション）の扱い
 
-#### 方針: 従来どおり表示・編集可能（後方互換を維持）
+#### 方針: Step6 は常に通常フロー。Step7 へは「構成リセット」で任意移行
 
-既に step6 で見出し単位生成済みのセッションは、**従来どおり表示・編集可能**とする。データマイグレーションは行わない。
+既に step6 で見出し単位生成済みのセッションであっても、**step6 は通常の書き出し案フローとして扱う**。  
+見出しフロー（1見出し+本文）は **step7 のみ**とする。
 
 #### 既存セッションのデータ構造
 
-- `session_heading_sections`: 既に存在し、見出し確定本文を保持。形式は新仕様と同一。
-- `session_combined_contents`: 既に存在。現在は見出し本文のみ連結（Step6 書き出し案なし）。新仕様の「Step6 未作成時」と同形式のため、そのまま利用可能。
-- チャットメッセージ: `blog_creation_step6` として保存済み。見出し単位の AI 生成結果が step6 メッセージに含まれる。
+- `session_heading_sections`: 既存レコードは保持する（自動利用しない）。
+- `session_combined_contents`: 既存レコードは保持する。
+- チャットメッセージ: `blog_creation_step6` はそのまま保持し、step6 の履歴として扱う。
 
 #### 表示・編集の可否
 
 | 観点 | 方針 |
 |------|------|
-| 表示 | **許可**。session_heading_sections が1件以上あるセッションは、step7 の見出しフローとして表示する。 |
-| 編集 | **許可**。見出し単位の再編集、完成形の全文 Canvas 編集、保存して次へ、戻る、すべて従来どおり動作させる。 |
-| タイル→Canvas 紐づけ | 既存の `blog_creation_step6` メッセージを、session_heading_sections があるセッションでは **step7 タイルとしても扱う**。タイルクリック時に step7 の該当見出しへ遷移する。 |
+| Step6 表示 | **通常 Canvas 表示**。見出し単位UI（進捗/保存して次へ/戻る）は表示しない。 |
+| Step6 編集 | **通常の全文編集**のみ許可。 |
+| Step7 への移行 | ユーザーが任意で `構成リセット` を実行した場合のみ、Step5 最新から再抽出して step7 を開始する。 |
+| タイル→Canvas 紐づけ | `blog_creation_step6` は常に step6 タイルとして扱う。step7 として解釈しない。 |
 
-#### 実装上の後方互換ロジック
+#### 構成リセット時の動作（旧step6データからの移行）
 
-1. **step7 を Canvas ステップ選択に含める条件**
-   - 従来: `(blogCanvasVersionsByStep[step7] ?? []).length > 0`
-   - 追加: **`session_heading_sections` が1件以上ある場合も step7 をオプションに含める**（step7 メッセージがなくても）。
-
-2. **タイルクリック時の step 判別**
-   - メッセージの `model` から `extractBlogStepFromModel` で step を取得。
-   - 既存メッセージは `blog_creation_step6`。session_heading_sections が存在する場合、見出し単位内容を持つ step6 メッセージを **step7 タイルとして解釈**し、該当見出しに紐づけて Canvas を開く。
-
-3. **combineSections / 完成形**
-   - 既存の `session_combined_contents` は見出し本文のみ。新仕様の Step6 未作成時と同じ形式。
-   - combineSections は Step6 取得結果が空なら空文字列を先頭に付与。既存データの再結合結果は現状と同等。
-
-#### 整合性チェック（データ不整合時の動作）
-
-以下の不整合ケースでは、動作を予測可能にしデバッグを容易にするため、以下の扱いとする。
-
-| ケース | 動作 |
-|--------|------|
-| `session_heading_sections` が存在するが、関連する `blog_creation_step6` メッセージが見つからない | コンソールに警告ログを出力。step7 は `session_heading_sections` を正本として表示・編集可能。タイルからの見出し紐づけは行わない（メッセージが存在しないため）。 |
-| `blog_creation_step6` メッセージが存在するが、`session_heading_sections` が空 | 通常の step6 タイルとして扱う（見出しフローではない）。step7 タブは表示しない。ユーザーが step7 へ進むには、見出し単位生成を新規開始する必要がある。 |
+1. ユーザーが `構成リセット` を明示実行する。
+2. `session_heading_sections` と `session_combined_contents` を削除する。
+3. Step5 最新テキストから `###`/`####` を再抽出する。
+4. step7 の先頭見出しから見出しフローを再開する。
 
 #### データ移行
 
-- **行わない**。`session_heading_sections` / `session_combined_contents` の既存データはそのまま利用する。
-- チャットメッセージの `model` を `blog_creation_step6` → `blog_creation_step7` に書き換えるような移行も **行わない**（履歴の整合性を保つため）。
+- 自動移行は行わない。
+- `blog_creation_step6` を `blog_creation_step7` に書き換える移行も行わない。
 
 #### 受け入れテスト
 
-- **既存データでの動作確認は必須**。step6 見出し生成済みのセッションを作成し、step7 移行後に以下を確認する:
-  - step7 タブが表示され、見出しフローが表示・編集できること
-  - 完成形の表示・全文 Canvas 修正・保存ができること
-  - タイルクリックで該当見出しに遷移できること
-- マイグレーションスクリプトは不要（データ移行を行わないため）。
+- 既存の step6 見出し生成済みセッションで、step6 を開いたときに見出し単位UIが表示されないこと。
+- `blog_creation_step6` タイルをクリックしても step7 へ自動解釈されないこと。
+- `構成リセット` 実行後にのみ step7 見出しフローが開始されること。
 
 ### 14.5 コメント規約
 

@@ -1,6 +1,7 @@
 /**
  * Extract H3 and H4 headings from markdown text.
  */
+import { HEADING_FLOW_STEP_ID } from '@/lib/constants';
 
 /** 任意レベルの markdown 見出し行にマッチ（例: `### 見出し` → capture group 1 が見出しテキスト） */
 export const MARKDOWN_HEADING_REGEX = /^#+\s+(.+)$/;
@@ -14,7 +15,7 @@ export function isHeadingUnitMode(
   hasHeadings: boolean,
   isViewingSpecificHeading: boolean
 ): boolean {
-  return (step === 'step6' || step === 'step7') && hasHeadings && isViewingSpecificHeading;
+  return step === HEADING_FLOW_STEP_ID && hasHeadings && isViewingSpecificHeading;
 }
 
 export interface ExtractedHeading {

@@ -386,6 +386,9 @@ export function useHeadingFlow({
   );
 
   const handleRetryHeadingInit = useCallback(() => {
+    // 明示リトライ時は初回化トラッカーも戻し、Step5 再読込後に自動初期化できるようにする。
+    didInitWithStep5ContentRef.current = false;
+    lastInitStep5ContentRef.current = null;
     setHeadingInitError(null);
     setHeadingSaveError(null);
     setHasAttemptedHeadingInit(false);

@@ -208,9 +208,9 @@ export async function POST(req: NextRequest) {
 
     const { maxTokens, temperature, actualModel } = modelConfig;
 
-    // Step7 (またはレガシーStep6) 見出し単位モード時の前置制約（全文生成を防ぎ、1見出し分のみ編集させる）
+    // Step7 見出し単位モード時の前置制約（全文生成を防ぎ、1見出し分のみ編集させる）
     const headingUnitPrefix =
-      (targetStep === HEADING_FLOW_STEP_ID || targetStep === 'step6') && isHeadingUnit
+      targetStep === HEADING_FLOW_STEP_ID && isHeadingUnit
         ? [
             '## 【重要】見出し単位編集モード',
             '',
@@ -443,9 +443,9 @@ export async function POST(req: NextRequest) {
           ].join('\n');
 
           // Anthropic Streaming API 呼び出し
-          // Canvas編集ではTool Useで全文を返すため、最低30000トークンを保証
-          // （step7の本文編集で15000では不足するケースがあるため）
-          const canvasMaxTokens = Math.max(maxTokens, 30000);
+          // Step7 の見出し単位編集時は上限を抑え、それ以外はモデル設定値を使う。
+          const isHeadingUnitRequest = targetStep === HEADING_FLOW_STEP_ID && isHeadingUnit;
+          const canvasMaxTokens = isHeadingUnitRequest ? 5000 : maxTokens;
           const apiStream = await anthropic.messages.stream({
             model: actualModel,
             max_tokens: canvasMaxTokens,

@@ -37,7 +37,11 @@ import {
   isHeadingUnitMode,
 } from '@/lib/heading-extractor';
 import { Service } from '@/server/schemas/brief.schema';
-import { BlogStepId, BLOG_STEP_IDS, HEADING_FLOW_STEP_ID } from '@/lib/constants';
+import {
+  BlogStepId,
+  BLOG_STEP_IDS,
+  HEADING_FLOW_STEP_ID,
+} from '@/lib/constants';
 import { validateTitle as validateTitleFromCommon } from '@/lib/validators/common';
 import type { AnnotationRecord } from '@/types/annotation';
 import { ViewModeBanner } from '@/components/ViewModeBanner';
@@ -409,20 +413,10 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
 
   const isReadOnly = isOwnerViewMode;
 
-  // レガシーな Step 6 見出しフロー（新規仕様では Step 7 のみだが、過去データがある場合）
-  const isLegacyStep6Heading = useMemo(
-    () => ctx.resolvedCanvasStep === 'step6' && headingSections.length > 0,
-    [ctx.resolvedCanvasStep, headingSections.length]
-  );
-
   const handleResetHeadingConfiguration = useCallback(async () => {
-    // レガシーな Step 6 からのリセット時は Step 7（標準の見出しフロー）へ遷移・移行させる
-    const wasLegacy = isLegacyStep6Heading;
     const success = await ctx.onResetHeadingConfiguration();
-    if (success && wasLegacy) {
-      ctx.setCanvasStep('step7');
-    }
-  }, [ctx, isLegacyStep6Heading]);
+    if (!success) return;
+  }, [ctx]);
 
   return (
     <>
@@ -574,7 +568,6 @@ const ChatLayoutContent: React.FC<{ ctx: ChatLayoutCtx }> = ({ ctx }) => {
           services={services}
           selectedServiceId={selectedServiceId}
           onServiceChange={onServiceChange}
-          legacyHeadingMode={isLegacyStep6Heading}
         />
       </div>
 
@@ -926,10 +919,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     },
     onResetComplete: async () => {
       if (chatSession.state.currentSessionId) {
+        // 明示リセット後は初期化ガードを解除し、Step5 からの再抽出を再実行できる状態に戻す
         await Promise.all([
           chatSession.actions.loadSession(chatSession.state.currentSessionId),
           refetchHeadings(),
         ]);
+        handleRetryHeadingInit();
       }
     },
   });
@@ -947,10 +942,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
   // 表示中の見出しインデックス（0..n-1）。null = 全確定時の結合表示 は useHeadingCanvasState が管理
   const totalHeadings = headingSections.length;
+  const isHeadingFlowCanvasStep = resolvedCanvasStep === HEADING_FLOW_STEP_ID;
   const maxViewableIndex =
     activeHeadingIndex !== undefined ? activeHeadingIndex : Math.max(0, totalHeadings - 1);
   useEffect(() => {
-    if (resolvedCanvasStep !== HEADING_FLOW_STEP_ID || totalHeadings === 0) {
+    if (!isHeadingFlowCanvasStep || totalHeadings === 0) {
       setViewingHeadingIndex(null);
       return;
     }
@@ -968,7 +964,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       return Math.min(Math.max(prev, 0), maxViewableIndex);
     });
   }, [
-    resolvedCanvasStep,
+    isHeadingFlowCanvasStep,
     totalHeadings,
     activeHeadingIndex,
     maxViewableIndex,
@@ -979,8 +975,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // この状態で再保存すると誤保存になるため、新規生成が入るまで内容を空表示・保存無効化する。
   const [isStep6ContentStale, setIsStep6ContentStale] = useState(false);
   const prevStep6SessionIdRef = useRef<string | null>(null);
-  const step6Versions = blogCanvasVersionsByStep[HEADING_FLOW_STEP_ID] ?? [];
-  const latestStep6Version = step6Versions[step6Versions.length - 1] ?? null;
+  const versionsForHeadingStep = blogCanvasVersionsByStep[HEADING_FLOW_STEP_ID] ?? [];
+  const latestStep6Version = versionsForHeadingStep[versionsForHeadingStep.length - 1] ?? null;
   // 表示中見出し向けコンテンツがあるか。確定見出しは常にあり、アクティブ（未確定）はバージョン/ストリーミングで判定
   const hasContentForViewingHeading = useMemo(() => {
     const idx = viewingHeadingIndex;
@@ -1011,7 +1007,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   useEffect(() => {
     const currentSessionId = chatSession.state.currentSessionId ?? null;
 
-    if (resolvedCanvasStep !== HEADING_FLOW_STEP_ID) {
+    if (!isHeadingFlowCanvasStep) {
       setIsStep6ContentStale(false);
       prevStep6SessionIdRef.current = currentSessionId;
       return;
@@ -1038,14 +1034,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     setIsStep6ContentStale(true);
   }, [
     chatSession.state.currentSessionId,
-    resolvedCanvasStep,
+    isHeadingFlowCanvasStep,
     activeHeadingIndex,
     hasContentForCurrentHeading,
     canvasStreamingContent,
   ]);
 
   const canvasContent = useMemo(() => {
-    if (resolvedCanvasStep === HEADING_FLOW_STEP_ID) {
+    if (isHeadingFlowCanvasStep) {
       // 全見出し確定済み かつ 完成形表示モード（viewingHeadingIndex === null）→ 結合コンテンツを表示
       // 「戻る」で特定見出しを表示中（viewingHeadingIndex !== null）の場合は見出し単位コンテンツを返す
       // 取得遅延/失敗時は activeCanvasVersion にフォールバック（空表示を防ぐ）
@@ -1072,7 +1068,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     // 未確定の場合は最新のバージョン（生成中の内容含む）を表示
     return activeCanvasVersion?.content ?? '';
   }, [
-    resolvedCanvasStep,
+    isHeadingFlowCanvasStep,
     activeHeading,
     headingSections,
     selectedCombinedContent,
@@ -1085,7 +1081,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   // 完成形表示モード（全見出し確定済み かつ viewingHeadingIndex === null で結合コンテンツを表示中）
   // 「戻る」で特定見出しを表示中（viewingHeadingIndex !== null）の場合は false
   const isCombinedFormView =
-    resolvedCanvasStep === HEADING_FLOW_STEP_ID &&
+    isHeadingFlowCanvasStep &&
     !activeHeading &&
     headingSections.length > 0 &&
     viewingHeadingIndex === null;
@@ -1155,7 +1151,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   ]);
 
   const handleBeforeHeadingChange = useCallback((): boolean => {
-    if (resolvedCanvasStep !== HEADING_FLOW_STEP_ID) return true;
+    if (!isHeadingFlowCanvasStep) return true;
     const currentContent = (
       canvasContentRef.current ??
       canvasStreamingContent ??
@@ -1165,7 +1161,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     const hasEditedDiff = currentContent !== baselineContent;
     if (!hasEditedDiff) return true;
     return window.confirm('現在の見出しの未保存変更が破棄されます。移動しますか？');
-  }, [resolvedCanvasStep, canvasStreamingContent, canvasContent]);
+  }, [isHeadingFlowCanvasStep, canvasStreamingContent, canvasContent]);
 
   const handlePrevHeadingLocal = useCallback(() => {
     const current = viewingHeadingIndex ?? totalHeadings;
@@ -1203,8 +1199,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
     }): boolean => {
       if (
         direction !== 'backward' ||
-        currentStep !== HEADING_FLOW_STEP_ID ||
-        resolvedCanvasStep !== HEADING_FLOW_STEP_ID
+        !isHeadingFlowCanvasStep ||
+        currentStep !== HEADING_FLOW_STEP_ID
       ) {
         return true;
       }
@@ -1223,7 +1219,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
       return window.confirm('現在の見出しの未保存変更が破棄されます。前の見出しに戻りますか？');
     },
-    [resolvedCanvasStep, canvasStreamingContent, canvasContent]
+    [isHeadingFlowCanvasStep, canvasStreamingContent, canvasContent]
   );
 
   // スキップ/バック時に resolvedCanvasStep を同期（見出しフロー・Canvas コンテンツの表示に必要）
@@ -1457,16 +1453,13 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         return next;
       });
 
-      // step6/7 タイルクリック時は該当見出しのインデックスを設定
-      if (
-        (detectedStep === 'step6' || detectedStep === HEADING_FLOW_STEP_ID) &&
-        headingSections.length > 0
-      ) {
+      // Step7 タイルクリック時は該当見出しのインデックスを設定
+      if (detectedStep === HEADING_FLOW_STEP_ID && headingSections.length > 0) {
         const normalizedContent = normalizeCanvasContent(message.content ?? '').trim();
         // 見出しフローメッセージ中の順序（重複見出し解決に使用）
         const flowMessages = (chatSession.state.messages ?? []).filter(m => {
           const step = extractBlogStepFromModel(m.model);
-          return m.role === 'assistant' && (step === 'step6' || step === HEADING_FLOW_STEP_ID);
+          return m.role === 'assistant' && step === HEADING_FLOW_STEP_ID;
         });
         // 楽観的メッセージは chatSession.state.messages に存在しないため -1 になりうる。
         // その場合は「確定メッセージ数」を使い、最後尾の見出しに最も近いものを選ぶ
@@ -1496,9 +1489,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
           }
         }
         if (targetIdx !== null) {
-          // step6 以外から遷移する場合のみ ref を設定（effect が resolvedCanvasStep 変化で再走するため）
-          // すでに step6 表示中は effect が走らないので direct setState のみで十分。stale ref を残さない
-          if (resolvedCanvasStep !== HEADING_FLOW_STEP_ID) {
+          // step7 以外から遷移する場合のみ ref を設定（effect が resolvedCanvasStep 変化で再走するため）
+          // すでに step7 表示中は effect が走らないので direct setState のみで十分。stale ref を残さない
+          if (!isHeadingFlowCanvasStep) {
             pendingViewingIndexRef.current = targetIdx;
           }
           setViewingHeadingIndex(targetIdx);
@@ -1517,7 +1510,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
       chatSession.state.messages,
       headingSections,
       latestBlogStep,
-      resolvedCanvasStep,
+      isHeadingFlowCanvasStep,
       setCanvasStreamingContent,
       setViewingHeadingIndex,
     ]
@@ -1755,7 +1748,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         const isHeadingUnit = isHeadingUnitMode(
           targetStep,
           headingSections.length > 0,
-          viewingHeadingIndex !== null || activeHeadingIndex !== undefined
+          viewingHeadingIndex !== null ||
+            (targetStep === HEADING_FLOW_STEP_ID && activeHeadingIndex !== undefined)
         );
 
         const response = await fetch('/api/chat/canvas/stream', {
@@ -2056,7 +2050,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
               (activeHeadingIndex === undefined && headingSections.length > 0))
           }
           hideOutline={
-            resolvedCanvasStep === HEADING_FLOW_STEP_ID &&
+            isHeadingFlowCanvasStep &&
             viewingHeadingIndex !== null &&
             totalHeadings > 0
           }

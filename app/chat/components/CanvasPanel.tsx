@@ -39,7 +39,6 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HEADING_FLOW_STEP_ID, BLOG_STEP_LABELS, isStep7 as isBlogStep7 } from '@/lib/constants';
-import { isHeadingUnitMode } from '@/lib/heading-extractor';
 import type { BlogStepId } from '@/lib/constants';
 import type {
   CanvasSelectionEditPayload,
@@ -234,12 +233,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
 
   const versionTriggerLabel = currentVersion ? `Ver.${currentVersion.versionNumber}` : 'Ver.-';
 
-  // Step6見出し単位編集時はバージョン管理UIを非表示。完成形表示時は表示する（仕様: 見出し単位のみバージョン管理しない）
-  const isStep6HeadingFlow = isHeadingUnitMode(
-    activeStepId,
-    (totalHeadings ?? 0) > 0,
-    headingIndex !== undefined
-  );
+  const isHeadingFlowCanvas = activeStepId === HEADING_FLOW_STEP_ID;
 
   const hasStepOptions = stepOptions.length > 0;
 
@@ -1044,13 +1038,13 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <h3 className="text-lg font-semibold text-gray-800">
-              {activeStepId === HEADING_FLOW_STEP_ID
+              {isHeadingFlowCanvas
                 ? headingIndex === undefined && (totalHeadings ?? 0) > 0
                   ? '完成形'
                   : '見出し単位生成'
                 : 'Canvas'}
             </h3>
-            {activeStepId === HEADING_FLOW_STEP_ID && (
+            {isHeadingFlowCanvas && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1080,7 +1074,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </TooltipProvider>
             )}
           </div>
-          {activeStepId === HEADING_FLOW_STEP_ID &&
+          {isHeadingFlowCanvas &&
             headingIndex !== undefined &&
             totalHeadings !== undefined && (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[11px] font-medium text-blue-700">
@@ -1097,7 +1091,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 )}
               </div>
             )}
-          {activeStepId === HEADING_FLOW_STEP_ID &&
+          {isHeadingFlowCanvas &&
             headingIndex === undefined &&
             (totalHeadings ?? 0) > 0 && (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded text-[11px] font-medium text-green-700">
@@ -1119,7 +1113,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               <List size={16} />
             </Button>
           )}
-          {activeStepId === HEADING_FLOW_STEP_ID &&
+          {isHeadingFlowCanvas &&
             totalHeadings !== undefined &&
             totalHeadings > 1 && (
               <>
@@ -1175,7 +1169,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                   })()}
               </>
             )}
-          {activeStepId === HEADING_FLOW_STEP_ID &&
+          {isHeadingFlowCanvas &&
             headingIndex !== undefined &&
             headingIndex === activeHeadingIndexForFlow &&
             onStartHeadingGeneration &&
@@ -1194,7 +1188,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
                 {headingIndex === 0 ? '1件目の生成をスタート' : 'この見出しを生成'}
               </Button>
             )}
-          {activeStepId === HEADING_FLOW_STEP_ID &&
+          {isHeadingFlowCanvas &&
             onSaveHeadingSection &&
             headingIndex !== undefined &&
             !isStep6SaveDisabled && (
@@ -1221,7 +1215,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {orderedVersions.length > 0 && !(isStep6HeadingFlow && hideOutline) && (
+          {orderedVersions.length > 0 && !(isHeadingFlowCanvas && hideOutline) && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1237,7 +1231,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </Tooltip>
             </TooltipProvider>
           )}
-          {hasStepOptions && !(isStep6HeadingFlow && hideOutline) && (
+          {hasStepOptions && !(isHeadingFlowCanvas && hideOutline) && (
             <Select
               value={activeStepId ?? stepOptions[stepOptions.length - 1] ?? ''}
               onValueChange={value => onStepSelect?.(value as BlogStepId)}
@@ -1261,7 +1255,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </SelectContent>
             </Select>
           )}
-          {orderedVersions.length > 0 && !(isStep6HeadingFlow && hideOutline) && (
+          {orderedVersions.length > 0 && !(isHeadingFlowCanvas && hideOutline) && (
             <Select
               value={activeVersionId ?? orderedVersions[orderedVersions.length - 1]?.id ?? ''}
               onValueChange={value => onVersionSelect?.(value)}
@@ -1283,7 +1277,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               </SelectContent>
             </Select>
           )}
-          {activeStepId !== HEADING_FLOW_STEP_ID && (
+          {!isHeadingFlowCanvas && (
             <Button
               ref={markdownBtnRef}
               size="sm"
@@ -1296,7 +1290,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               コピー
             </Button>
           )}
-          {activeStepId === HEADING_FLOW_STEP_ID && headingSaveError && (
+          {isHeadingFlowCanvas && headingSaveError && (
             <span
               className="text-[10px] text-red-600 max-w-[180px] truncate"
               title={headingSaveError}
@@ -1304,7 +1298,7 @@ const CanvasPanel: React.FC<CanvasPanelProps> = ({
               {headingSaveError}
             </span>
           )}
-          {activeStepId === HEADING_FLOW_STEP_ID && headingInitError && onRetryHeadingInit && (
+          {isHeadingFlowCanvas && headingInitError && onRetryHeadingInit && (
             <div className="flex shrink-0 items-center gap-2">
               <span
                 className="text-[10px] text-red-500 max-w-[120px] truncate sm:max-w-[150px]"

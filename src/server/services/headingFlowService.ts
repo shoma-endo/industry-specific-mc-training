@@ -1,5 +1,9 @@
 import { SupabaseService, type SupabaseResult } from './supabaseService';
-import { extractHeadingsFromMarkdown, generateHeadingKey } from '@/lib/heading-extractor';
+import {
+  extractHeadingsFromMarkdown,
+  generateHeadingKey,
+  MARKDOWN_HEADING_REGEX,
+} from '@/lib/heading-extractor';
 import type { DbHeadingSection, DbSessionHeadingSectionInsert } from '@/types/heading-flow';
 
 export class HeadingFlowService extends SupabaseService {
@@ -220,8 +224,18 @@ export class HeadingFlowService extends SupabaseService {
       .limit(1)
       .maybeSingle();
 
-    if (error || !data) return null;
-    return data.content || null;
+    if (error || !data?.content) return null;
+
+    const candidate = data.content.trim();
+    if (!candidate) return null;
+
+    const firstLine = candidate.split('\n')[0]?.trim() ?? '';
+    // 互換対応: 旧 step6 見出しフロー本文（###/#### 始まり）はリード文として結合しない。
+    if (MARKDOWN_HEADING_REGEX.test(firstLine)) {
+      return null;
+    }
+
+    return candidate;
   }
 
   /**
