@@ -152,7 +152,7 @@ export const toTemplateName = (step: BlogStepId) => `blog_creation_${step}`;
 
 /** ステップバーに表示するヒントテキスト。null = デフォルト（次ステップ名を使った汎用テキスト） */
 export const BLOG_STEP_HINTS: Partial<Record<BlogStepId, string>> = {
-  step5: '構成案を入力し「この内容で保存」で確定するか、送信して次へ',
+  step5: '構成案を「この内容で保存」で確定するか、メッセージを送信して次の「書き出し案」へ',
 };
 
 export const ANALYTICS_COLUMNS = [
