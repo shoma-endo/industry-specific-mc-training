@@ -3,6 +3,7 @@ import { Anthropic } from '@anthropic-ai/sdk';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { chatService } from '@/server/services/chatService';
 import { headingFlowService } from '@/server/services/headingFlowService';
+import { SupabaseService } from '@/server/services/supabaseService';
 import { env } from '@/env';
 import { MODEL_CONFIGS } from '@/lib/constants';
 import { htmlToMarkdownForCanvas, sanitizeHtmlForCanvas } from '@/lib/canvas-content';
@@ -41,6 +42,7 @@ interface CanvasStreamRequest {
 const anthropic = new Anthropic({
   apiKey: env.ANTHROPIC_API_KEY,
 });
+const supabaseService = new SupabaseService();
 
 const URL_REGEX = /(https?:\/\/[^\s)'"<>]+)(?![^[]*])/gi;
 const DISALLOWED_HOST_NAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0']);
@@ -753,36 +755,47 @@ export async function POST(req: NextRequest) {
               // 副次処理のため、失敗してもチャット履歴保存は継続する
               if (targetStep === HEADING_FLOW_STEP_ID && !isHeadingUnit) {
                 try {
-                  const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
-                  if (!sectionsResult.success) {
-                    console.warn('[Canvas Stream] Failed to check heading sections:', {
-                      sessionId,
-                      error: sectionsResult.error,
-                    });
-                  } else {
-                    const sections = sectionsResult.data;
-                    if (!Array.isArray(sections)) {
-                      console.warn('[Canvas Stream] Invalid heading sections payload:', {
+                  const sessionCheck = await supabaseService.getChatSessionById(sessionId, userId!);
+                  if (!sessionCheck.success || !sessionCheck.data) {
+                    console.warn(
+                      '[Canvas Stream] Skip combined-content side effect: no session access',
+                      {
                         sessionId,
-                        sections,
+                        userId,
+                      }
+                    );
+                  } else {
+                    const sectionsResult = await headingFlowService.getHeadingSections(sessionId);
+                    if (!sectionsResult.success) {
+                      console.warn('[Canvas Stream] Failed to check heading sections:', {
+                        sessionId,
+                        error: sectionsResult.error,
                       });
-                    }
-                    const isStep6Completed =
-                      Array.isArray(sections) &&
-                      sections.length > 0 &&
-                      sections.every(s => s.is_confirmed);
-                    if (isStep6Completed) {
-                      const saveCombinedResult =
-                        await headingFlowService.saveCombinedContentSnapshot(
+                    } else {
+                      const sections = sectionsResult.data;
+                      if (!Array.isArray(sections)) {
+                        console.warn('[Canvas Stream] Invalid heading sections payload:', {
                           sessionId,
-                          finalMarkdown,
-                          userId!
-                        );
-                      if (!saveCombinedResult.success) {
-                        console.warn('[Canvas Stream] Failed to save combined content snapshot:', {
-                          sessionId,
-                          error: saveCombinedResult.error,
+                          sections,
                         });
+                      }
+                      const isStep6Completed =
+                        Array.isArray(sections) &&
+                        sections.length > 0 &&
+                        sections.every(s => s.is_confirmed);
+                      if (isStep6Completed) {
+                        const saveCombinedResult =
+                          await headingFlowService.saveCombinedContentSnapshot(
+                            sessionId,
+                            finalMarkdown,
+                            userId!
+                          );
+                        if (!saveCombinedResult.success) {
+                          console.warn('[Canvas Stream] Failed to save combined content snapshot:', {
+                            sessionId,
+                            error: saveCombinedResult.error,
+                          });
+                        }
                       }
                     }
                   }

@@ -108,7 +108,7 @@ export function useHeadingCanvasState({
   const handleResetHeadingConfiguration = useCallback(async (): Promise<boolean> => {
     try {
       const token = await getAccessToken();
-      if (!token) {
+      if (!sessionId || !token) {
         toast.error(ERROR_MESSAGES.AUTH.REAUTHENTICATION_REQUIRED);
         return false;
       }

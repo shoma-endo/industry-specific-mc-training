@@ -276,7 +276,7 @@ import { getBrief } from '@/server/actions/brief.actions';
 import type { BriefInput } from '@/server/schemas/brief.schema';
 import { PromptService } from '@/server/services/promptService';
 import { SupabaseService } from '@/server/services/supabaseService';
-import { BlogStepId, isStep7 as isBlogStep7, toTemplateName } from '@/lib/constants';
+import { BLOG_STEP_IDS, BlogStepId, isStep7 as isBlogStep7, toTemplateName } from '@/lib/constants';
 import { authMiddleware } from '@/server/middleware/auth.middleware';
 import { headingFlowService } from '@/server/services/headingFlowService';
 
@@ -993,6 +993,7 @@ const STATIC_PROMPTS: Record<string, string> = {
   ad_copy_finishing: AD_COPY_FINISHING_PROMPT,
   lp_draft_creation: LP_DRAFT_PROMPT,
 };
+const BLOG_STEP_PATTERN = new RegExp(`^blog_creation_(${BLOG_STEP_IDS.join('|')})(?:_|$)`);
 
 /**
  * モデルに応じたシステムプロンプトを取得する（LIFFトークンがあれば動的生成、なければ静的）
@@ -1019,7 +1020,7 @@ export async function getSystemPrompt(
     }
 
     if (model.startsWith('blog_creation_')) {
-      const stepMatch = model.match(/^blog_creation_(step[1-7])(?:_|$)/);
+      const stepMatch = model.match(BLOG_STEP_PATTERN);
       if (!stepMatch?.[1]) {
         return STATIC_PROMPTS[model] ?? SYSTEM_PROMPT;
       }
