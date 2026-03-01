@@ -800,7 +800,7 @@ export async function POST(req: NextRequest) {
                     }
                   }
                 } catch (step6SideEffectError) {
-                  console.error('[Canvas Stream] Step6 side effect failed:', {
+                  console.error('[Canvas Stream] Step7 side effect failed:', {
                     sessionId,
                     error: step6SideEffectError,
                   });
@@ -830,8 +830,6 @@ export async function POST(req: NextRequest) {
                 };
 
                 // Supabaseに直接保存
-                const { SupabaseService } = await import('@/server/services/supabaseService');
-                const supabaseService = new SupabaseService();
                 await supabaseService.createChatMessage(assistantAnalysisMessage);
               }
 
