@@ -198,7 +198,6 @@ export function useHeadingFlow({
     if (
       !sessionId ||
       resolvedCanvasStep !== HEADING_FLOW_STEP_ID ||
-      hasExistingHeadingSections ||
       isHeadingInitInFlight ||
       hasAttemptedHeadingInit ||
       isSessionLoading ||
