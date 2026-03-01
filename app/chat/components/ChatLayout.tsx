@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn, normalizeForHeadingMatch } from '@/lib/utils';
 import {
   extractBlogStepFromModel,
+  extractStep7HeadingIndexFromModel,
   findLatestAssistantBlogStep,
   normalizeCanvasContent,
   isBlogStepId,
@@ -1509,39 +1510,50 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
 
       // Step7 タイルクリック時は該当見出しのインデックスを設定
       if (detectedStep === HEADING_FLOW_STEP_ID && headingSections.length > 0) {
+        let targetIdx = extractStep7HeadingIndexFromModel(message.model);
+
+        if (targetIdx !== null && (targetIdx < 0 || targetIdx >= headingSections.length)) {
+          targetIdx = null;
+        }
+
+        // model から特定できない旧メッセージのみ本文見出し一致でフォールバック
         const normalizedContent = normalizeCanvasContent(message.content ?? '').trim();
-        // 見出しフローメッセージ中の順序（重複見出し解決に使用）
-        const flowMessages = (chatSession.state.messages ?? []).filter(m => {
-          const step = extractBlogStepFromModel(m.model);
-          return m.role === 'assistant' && step === HEADING_FLOW_STEP_ID;
-        });
-        // 楽観的メッセージは chatSession.state.messages に存在しないため -1 になりうる。
-        // その場合は「確定メッセージ数」を使い、最後尾の見出しに最も近いものを選ぶ
-        const rawFlowMsgIndex = flowMessages.findIndex(m => m.id === message.id);
-        const flowMsgIndex = rawFlowMsgIndex >= 0 ? rawFlowMsgIndex : flowMessages.length;
-        let targetIdx: number | null = null;
-        for (const line of normalizedContent.split('\n')) {
-          const match = line.trim().match(MARKDOWN_HEADING_REGEX);
-          if (match?.[1]) {
-            const headingText = normalizeForHeadingMatch(match[1]);
-            const matched = headingSections.filter(
-              s => normalizeForHeadingMatch(s.headingText) === headingText
-            );
-            if (matched.length === 1) {
-              targetIdx = matched[0]!.orderIndex;
-              break;
-            }
-            if (matched.length > 1) {
-              const best = matched.reduce((prev, curr) =>
-                Math.abs(curr.orderIndex - flowMsgIndex) < Math.abs(prev.orderIndex - flowMsgIndex)
-                  ? curr
-                  : prev
+        if (targetIdx === null) {
+          // 見出しフローメッセージ中の順序（重複見出し解決に使用）
+          const flowMessages = (chatSession.state.messages ?? []).filter(m => {
+            const step = extractBlogStepFromModel(m.model);
+            return m.role === 'assistant' && step === HEADING_FLOW_STEP_ID;
+          });
+          // 楽観的メッセージは chatSession.state.messages に存在しないため -1 になりうる。
+          // その場合は「確定メッセージ数」を使い、最後尾の見出しに最も近いものを選ぶ
+          const rawFlowMsgIndex = flowMessages.findIndex(m => m.id === message.id);
+          const flowMsgIndex = rawFlowMsgIndex >= 0 ? rawFlowMsgIndex : flowMessages.length;
+
+          for (const line of normalizedContent.split('\n')) {
+            const match = line.trim().match(MARKDOWN_HEADING_REGEX);
+            if (match?.[1]) {
+              const headingText = normalizeForHeadingMatch(match[1]);
+              const matched = headingSections.filter(
+                s => normalizeForHeadingMatch(s.headingText) === headingText
               );
-              targetIdx = best.orderIndex;
-              break;
+              if (matched.length === 1) {
+                targetIdx = matched[0]!.orderIndex;
+                break;
+              }
+              if (matched.length > 1) {
+                const best = matched.reduce((prev, curr) =>
+                  Math.abs(curr.orderIndex - flowMsgIndex) <
+                  Math.abs(prev.orderIndex - flowMsgIndex)
+                    ? curr
+                    : prev
+                );
+                targetIdx = best.orderIndex;
+                break;
+              }
             }
           }
         }
+
         if (targetIdx !== null) {
           // step7 以外から遷移する場合のみ ref を設定（effect が resolvedCanvasStep 変化で再走するため）
           // すでに step7 表示中は effect が走らないので direct setState のみで十分。stale ref を残さない
