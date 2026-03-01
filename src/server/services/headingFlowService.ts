@@ -241,16 +241,6 @@ export class HeadingFlowService extends SupabaseService {
       return this.failure('見出し構成の削除に失敗しました', { error: deleteSectionsError });
     }
 
-    // 完成形データも削除
-    const { error: deleteCombinedError } = await this.supabase
-      .from('session_combined_contents')
-      .delete()
-      .eq('session_id', sessionId);
-
-    if (deleteCombinedError) {
-      return this.failure('完成形データの削除に失敗しました', { error: deleteCombinedError });
-    }
-
     return this.success(undefined);
   }
 }

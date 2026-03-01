@@ -205,12 +205,12 @@ Step5 を再保存した後、見出し構成を Step5 最新に合わせて更�
 
 - **Step7 の先頭見出し（order_index 0）**に遷移する。
 - Step5 の最新テキストから見出しを再抽出し、`session_heading_sections` を全削除後に新規投入する。
-- `session_combined_contents` は初期化時に削除する（完成形が無効になるため）。
+- `session_combined_contents` は保持する（構成リセット後も完成形履歴は参照可能）。
 - ユーザーは新しい見出しリストの1件目から再開する。Step5 に戻すことはしない（Step7 内で完結）。
 
 #### 可逆性
 
-- **元に戻せない（完全削除）**。`session_heading_sections` と `session_combined_contents` の該当レコードは物理削除する。
+- **元に戻せない（見出し構成のみ完全削除）**。`session_heading_sections` の該当レコードは物理削除する。
 - 確認ダイアログで「この操作は取り消せません」を必ず明示する。
 
 #### 非機能要件
@@ -442,7 +442,7 @@ RLS（方針）:
 10. Step7 の生成中/保存中に、ローディング表示と操作無効化が適用される
 11. Step7 保存失敗時に、操作ボタン近傍へエラー表示され再試行できる
 12. Step7 の生成対象見出しが `###`（H3）と `####`（H4）である
-13. Step7 中に「見出し構成を初期化」を実行すると、確認ダイアログ後に `session_heading_sections` と `session_combined_contents` が削除され、Step5 最新から見出しを再抽出して先頭見出しから再開できる
+13. Step7 中に「見出し構成を初期化」を実行すると、確認ダイアログ後に `session_heading_sections` が削除され、Step5 最新から見出しを再抽出して先頭見出しから再開できる（`session_combined_contents` は保持）
 14. 既存の step6 見出し生成済みデータは通常 step6 として扱い、ユーザーが任意で「構成リセット」を実行した場合のみ step7 に移行できる
 
 ## 12. 実装メモ
@@ -622,7 +622,7 @@ Step7 移行時に触る想定ファイルを一覧化する。実装漏れ防�
 #### 構成リセット時の動作（旧step6データからの移行）
 
 1. ユーザーが `構成リセット` を明示実行する。
-2. `session_heading_sections` と `session_combined_contents` を削除する。
+2. `session_heading_sections` を削除する（`session_combined_contents` は保持）。
 3. Step5 最新テキストから `###`/`####` を再抽出する。
 4. step7 の先頭見出しから見出しフローを再開する。
 
