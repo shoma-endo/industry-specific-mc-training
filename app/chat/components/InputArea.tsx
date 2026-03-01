@@ -187,11 +187,6 @@ const InputArea: React.FC<InputAreaProps> = ({
         return BLOG_PLACEHOLDERS.blog_creation_step1;
       }
 
-      // 見出し単位生成中（step6）は現在ステップのプレースホルダーを表示（次ステップでなく）
-      if (initialBlogStep === 'step6') {
-        return BLOG_PLACEHOLDERS.blog_creation_step6;
-      }
-
       // Step5 では「この内容で保存」が構成案として保存するため、プレースホルダーは構成案用に統一
       if (initialBlogStep === 'step5') {
         return BLOG_PLACEHOLDERS.blog_creation_step5;

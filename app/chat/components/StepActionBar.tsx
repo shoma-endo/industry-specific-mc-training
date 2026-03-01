@@ -1,6 +1,6 @@
 'use client';
 import React, { forwardRef, useImperativeHandle, useEffect, useState } from 'react';
-import { BlogStepId, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
+import { BlogStepId, BLOG_STEP_HINTS, BLOG_STEP_LABELS, BLOG_STEP_IDS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import {
   BookMarked,
@@ -109,21 +109,27 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
     const isStep6 = displayStep === 'step6';
     const isStep7 = displayStep === 'step7';
     const isStep1 = displayStep === 'step1';
-    const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
-    const showTitleMetaButton =
-      isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
-    const showSkipButton = !isStep7;
-    const showBackButton = !isStep1;
     const isHeadingFlowStep = isStep7;
     const isHeadingFlowBusy = (isStep6 || isStep7) && (isSavingHeading || isHeadingInitInFlight);
+    const isHeadingWarningStep = isStep6 || isStep7;
     const headingLabel =
       currentHeadingText && currentHeadingText.trim().length > 0
         ? currentHeadingText
         : '（見出し未設定）';
 
-    // ラベル
+    // ラベル・ヒント
     const currentLabel = BLOG_STEP_LABELS[displayStep] ?? '';
     const nextStepLabel = nextStep ? BLOG_STEP_LABELS[nextStep]?.replace(/^\d+\.\s*/, '') : '';
+    const hintText =
+      BLOG_STEP_HINTS[displayStep] ??
+      (nextStepLabel ? `次の${nextStepLabel}に進むにはメッセージを送信してください` : null);
+
+    // ボタン表示制御
+    const showLoadButton = isStep7 && typeof onLoadBlogArticle === 'function';
+    const showTitleMetaButton =
+      isStep7 && Boolean(hasStep7Content) && typeof onGenerateTitleMeta === 'function';
+    const showSkipButton = !isStep7;
+    const showBackButton = !isStep1;
 
     // nextStep の変更を親コンポーネントに通知
     useEffect(() => {
@@ -160,7 +166,7 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
                   見出し {headingIndex + 1}/{totalHeadings}: 「{headingLabel}」
                 </span>
               )}
-            {(isStep6 || isStep7) &&
+            {isHeadingWarningStep &&
               totalHeadings === 0 &&
               (hasAttemptedHeadingInit || (isRetrying && isHeadingInitInFlight)) && (
                 <span className="ml-2 inline-flex items-center gap-1.5">
@@ -193,16 +199,9 @@ const StepActionBar = forwardRef<StepActionBarRef, StepActionBarProps>(
                   )}
                 </span>
               )}
-            {nextStepLabel &&
-              ((displayStep !== 'step6' && displayStep !== 'step7') ||
-                headingIndex === undefined) && (
-                <span className="ml-1 opacity-80">
-                  ／
-                  {displayStep === 'step5'
-                    ? '構成案を入力し「この内容で保存」で確定するか、送信して次へ'
-                    : `次の${nextStepLabel}に進むにはメッセージを送信してください`}
-                </span>
-              )}
+            {hintText && (!isHeadingWarningStep || headingIndex === undefined) && (
+              <span className="ml-1 opacity-80">／{hintText}</span>
+            )}
           </span>
         </div>
         <div className="flex items-center gap-2">
